@@ -1,0 +1,15 @@
+# Binary containers or outputs
+*.mvba
+dist/
+
+# VBA forms binary companion files (keep if you need them tracked)
+# If you want FRX files tracked, remove the next line
+*.frx
+
+# Editor and OS clutter
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
