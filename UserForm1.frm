@@ -1,34 +1,3 @@
-VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} UserForm1 
-   Caption         =   "UserForm1"
-   ClientHeight    =   14700
-   ClientLeft      =   120
-   ClientTop       =   465
-   ClientWidth     =   21780
-   OleObjectBlob   =   "UserForm1.frx":0000
-   StartUpPosition =   1  'CenterOwner
-End
-Attribute VB_Name = "UserForm1"
-Attribute VB_GlobalNameSpace = False
-Attribute VB_Creatable = False
-Attribute VB_PredeclaredId = True
-Attribute VB_Exposed = False
-' ============================================================
-' NYSDOT 619 STANDARD SHEETS VIEWER - COMPLETE USERFORM CODE
-' WITH ACTUAL PDF URLS FROM NYSDOT WEBSITE
-' ============================================================
-'
-' UserForm Controls needed:
-' - WebBrowser1 (Microsoft Web Browser control)
-' - cboCategory (ComboBox) - for selecting sheet category
-' - cboSheet (ComboBox) - for selecting specific sheet
-' - lblStatus (Label) - status indicator
-' - btnDownload (CommandButton) - download button
-' - btnRefresh (CommandButton) - refresh button
-' - txtSearch (TextBox) - optional search
-'
-' ============================================================
-
 Option Explicit
 
 Private Const NYSDOT_BASE_URL As String = "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/"
@@ -46,7 +15,7 @@ Private Sub lblStatus_Click()
 End Sub
 
 Private Sub UserForm_Initialize()
-    Me.Caption = "NYSDOT 619 Work Zone Traffic Control Standard Sheets"
+    Me.Caption = "Reference MUTCD"
     Me.Width = 1200
     Me.Height = 850
     
@@ -301,67 +270,14 @@ Private Function GetAlternativeURL(sheetNumber As String, attempt As Integer) As
     End Select
 End Function
 
-Private Sub btnDownload_Click()
-    Dim savePath As String
-    Dim sheetNumber As String
-    Dim pdfURL As String
-    
-    If cboSheet.ListIndex < 0 Then
-        MsgBox "Please select a sheet first.", vbExclamation
-        Exit Sub
-    End If
-    
-    sheetNumber = GetSheetNumber(cboSheet.List(cboSheet.ListIndex))
-    pdfURL = NYSDOT_BASE_URL & sheetNumber & ".pdf"
-    
-    savePath = Application.GetSaveAsFilename( _
-        InitialFileName:=sheetNumber & ".pdf", _
-        FileFilter:="PDF Files (*.pdf), *.pdf", _
-        Title:="Save NYSDOT Sheet As")
-    
-    If savePath <> "False" Then
-        Call DownloadPDF(pdfURL, savePath)
-    End If
-End Sub
-
-Private Sub DownloadPDF(url As String, savePath As String)
-    On Error GoTo ErrorHandler
-    
-    Dim http As Object
-    Dim stream As Object
-    
-    On Error Resume Next
-    lblStatus.Caption = "Downloading..."
-    On Error GoTo 0
-    
-    Set http = CreateObject("MSXML2.XMLHTTP")
-    http.Open "GET", url, False
-    http.send
-    
-    If http.Status = 200 Then
-        Set stream = CreateObject("ADODB.Stream")
-        stream.Type = 1
-        stream.Open
-        stream.Write http.responseBody
-        stream.SaveToFile savePath, 2
-        stream.Close
-        
-        MsgBox "PDF downloaded successfully!", vbInformation
-        On Error Resume Next
-        lblStatus.Caption = "Download complete"
-        On Error GoTo 0
-    Else
-        MsgBox "Download failed. HTTP Status: " & http.Status, vbExclamation
-    End If
-    
-    Exit Sub
-    
-ErrorHandler:
-    MsgBox "Error: " & Err.Description, vbCritical
-End Sub
-
 Private Sub btnRefresh_Click()
     Call LoadSelectedSheet
+End Sub
+
+Private Sub btnWorkzoneDesigner_Click()
+    ' Return to Workzone Designer form
+    Me.Hide
+    WorkzoneDesigner.Show vbModeless
 End Sub
 
 
