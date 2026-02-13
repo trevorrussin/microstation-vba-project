@@ -76,7 +76,4 @@ Private Sub cmdDone_Click()
     CadInputQueue.SendReset
     CommandState.StartDefaultCommand
     Unload Me
-    On Error GoTo 0
-    ' Group alignment elements and launch perpendicular placement tool
-    GroupAndLaunchPlacement
 End Sub

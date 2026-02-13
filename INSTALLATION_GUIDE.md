@@ -23,7 +23,7 @@ In the **Properties window** (bottom-left), set these values:
 | Property | Value |
 |----------|-------|
 | **(Name)** | `frmWorkzoneDesigner` |
-| **Width** | `600` |
+| **Width** | `1220` |
 | **Height** | `730` |
 | **Caption** | `Workzone Design Tool` |
 | **StartUpPosition** | `1 - CenterOwner` |
@@ -70,6 +70,18 @@ In the **Properties window** (bottom-left), set these values:
 | **CommandButton** | `btnReference` | `Reference (MUTCD)` | 645 | 220 | 130 | 25 | — | View reference data |
 | **CommandButton** | `btnSubmit` | `Submit & Draw` | 645 | 440 | 130 | 25 | Font: Bold | Process and draw configuration |
 | **Label** | `lblStatus` | `Ready - Select options` | 680 | 20 | 550 | 20 | Status messages | Displays current state |
+
+### WZTC Order Section
+| Control Type | (Name) | Caption | Top | Left | Width | Height | Notes |
+|--------------|--------|---------|-----|------|-------|--------|-------|
+| **Frame** | `frameWZTCOrder` | `WZTC Order` | 195 | 855 | 305 | 315 | Visual border only — controls go directly on the form |
+| **ListBox** | `lstWZTCOrder` | (empty) | 215 | 865 | 220 | 255 | Place directly on form, NOT inside frameWZTCOrder |
+| **CommandButton** | `btnOrderUp` | `Up` | 225 | 1090 | 60 | 22 | Moves selected item up in order |
+| **CommandButton** | `btnOrderDown` | `Down` | 253 | 1090 | 60 | 22 | Moves selected item down in order |
+| **CommandButton** | `btnOrderDelete` | `X Del` | 285 | 1090 | 60 | 22 | Removes selected item from order list |
+| **CommandButton** | `btnRefreshOrder` | `Refresh Order` | 475 | 865 | 120 | 22 | Resyncs list with current sign table state |
+
+> **Note:** All 6 WZTC Order controls are placed **directly on the form** — do NOT nest them inside `frameWZTCOrder`. The frame is decorative only.
 
 **CRITICAL:** Control names (in parentheses) must match EXACTLY - they are case-sensitive!
 
@@ -138,6 +150,9 @@ In the **Properties window** (bottom-left), set these values:
   - Side selection dropdown ("One Side" or "Both Sides")
 - **Plus (+) button adds new rows**
 - **Minus (-) button removes the last row**
+- WZTC Order panel (right side) auto-populates with spacing labels and sign numbers on load
+- Up / Down / X Del buttons reorder or remove items in the WZTC Order list
+- Refresh Order button resyncs with the current sign table
 
 
 ## TROUBLESHOOTING
@@ -164,6 +179,7 @@ In the **Properties window** (bottom-left), set these values:
   - `lblLaneWidth` and `cboLaneWidth` for lane width
   - **`lblShoulderWidth` and `cboShoulderWidth` for shoulder width (new)**
   - `btnRemoveRow` for removing rows from sign table (new)
+  - `frameWZTCOrder`, `lstWZTCOrder`, `btnOrderUp`, `btnOrderDown`, `btnOrderDelete`, `btnRefreshOrder` for the WZTC Order panel (new)
 
 ### Compile Error: "Sub or Function Not Defined"
 - This was fixed in the latest version
@@ -212,6 +228,13 @@ Your workspace contains:
 - **Add rows** using the "**+**" button
 - **Remove rows** using the "**-**" button (new)
 - Sign number, spacing, and size inputs for each row
+
+### WZTC Order Panel
+- Displays all workzone elements in sequence: Downstream Taper, Roll Ahead Distance, Vehicle Space, Buffer Space, Merging/Shifting Taper, Shoulder Taper, sign numbers (non-empty rows only), and Work Area
+- **Reorder** items using the Up / Down buttons
+- **Delete** items using the X Del button
+- **Refresh Order** button resyncs the list after adding or removing sign rows
+- Located to the right of the Sign Selection table; form automatically widens to 1220 pts
 
 ### MUTCD Compliance
 - Pre-populated with MUTCD NY standard sheets

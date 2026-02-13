@@ -1,249 +1,271 @@
 Attribute VB_Name = "ModTest"
 Option Explicit
 
-Sub PlaceWorkZoneSign()
-    Dim startPoint As Point3d
-    Dim endPoint As Point3d
-    Dim point As Point3d, point2 As Point3d
-    Dim lngTemp As Long
-    Dim oMessage As CadInputMessage
-    
-    ' --- Force active view to be unrotated ---
+' ============================================================
+' PLACE WORKZONE SIGN
+' ------------------------------------------------------------
+' Called by ModuleSignPlacement.DrawCurrentSign with the
+' geometry of the perpendicular line where the sign goes.
+'
+' Parameters:
+'   signNum   - sign number string (e.g. "W6-3")
+'   signSize  - sign size string from sign table (may contain " chars)
+'   side      - "One Side" or "Both Sides"
+'   midX/Y/Z  - alignment point = midpoint of the perpendicular line
+'   perpX/Y   - unit perpendicular vector (perpendicular to alignment)
+'
+' Behaviour:
+'   One Side   - collects 1 click, projects onto perp line,
+'                draws: 20-ft post line + post cell + sign face cell + text.
+'                No arc.
+'   Both Sides - collects 2 clicks, projects each onto perp line,
+'                draws both signs and a connecting arc between the posts.
+' ============================================================
+Sub PlaceWorkZoneSign(signNum As String, signSize As String, side As String, _
+                       midX As Double, midY As Double, midZ As Double, _
+                       perpX As Double, perpY As Double)
+
+    Const HALF_LEN As Double = 20   ' matches PERP_HALF_LEN in ModuleAlignmentPlacement
+
+    ' Setup view
     Dim v As View
     Set v = ActiveDesignFile.Views(1)
     v.Rotation = Matrix3dIdentity
     v.Redraw
-
-    '   --- FIX: force world coordinates ---
     CadInputQueue.SendKeyin "ACS SET WORLD"
     CadInputQueue.SendKeyin "ACTIVE ANGLE 0"
     CadInputQueue.SendKeyin "LOCK ROTATION OFF"
-    
-    ' Prompt user to select first sign post location
-    CadInputQueue.SendKeyin "ECHO Select location for FIRST sign post"
+
+    Dim bothSides As Boolean
+    bothSides = (Trim(side) = "Both Sides")
+
+    Dim oMsg As CadInputMessage
+    Dim pt1 As Point3d
+
+    ' ---- Collect first click ----
+    CadInputQueue.SendKeyin "ECHO Click post location on perpendicular line for sign " & signNum
     CadInputQueue.SendCommand "NULL"
-    
-    ' Get first data point from user
-    Set oMessage = CadInputQueue.GetInput
-    
-    Do While oMessage.InputType <> msdCadInputTypeDataPoint
-        Set oMessage = CadInputQueue.GetInput
-        If oMessage.InputType = msdCadInputTypeReset Then
-            CadInputQueue.SendKeyin "ECHO Operation cancelled"
+    Set oMsg = CadInputQueue.GetInput
+    Do While oMsg.InputType <> msdCadInputTypeDataPoint
+        If oMsg.InputType = msdCadInputTypeReset Then
+            CadInputQueue.SendKeyin "ECHO Sign placement cancelled"
             CommandState.StartDefaultCommand
             Exit Sub
         End If
+        Set oMsg = CadInputQueue.GetInput
     Loop
-    
-    startPoint = oMessage.point
-    
-    ' Start a line command to show dynamic feedback
-    CadInputQueue.SendCommand "PLACE LINE"
-    point.X = startPoint.X
-    point.Y = startPoint.Y
-    point.Z = startPoint.Z
-    CadInputQueue.SendDataPoint point, 1
-    
-    ' Prompt user to select second sign post location
-    CadInputQueue.SendKeyin "ECHO Select location for SECOND sign post"
-    
-    ' Get second data point from user (with dynamic line feedback)
-    Set oMessage = CadInputQueue.GetInput
-    
-    Do While oMessage.InputType <> msdCadInputTypeDataPoint
-        Set oMessage = CadInputQueue.GetInput
-        If oMessage.InputType = msdCadInputTypeReset Then
-            CadInputQueue.SendKeyin "ECHO Operation cancelled"
-            CadInputQueue.SendReset
-            CommandState.StartDefaultCommand
-            Exit Sub
+
+    ' Project clicked point onto the perpendicular line segment
+    pt1 = ProjectOntoPerp(oMsg.Point, midX, midY, midZ, perpX, perpY, HALF_LEN)
+
+    If Not bothSides Then
+        ' =====================================================
+        ' ONE SIDE
+        ' =====================================================
+        CadInputQueue.SendReset
+        CommandState.StartDefaultCommand
+
+        ' Outward direction = away from alignment midpoint along perp vector
+        Dim t1 As Double
+        t1 = (pt1.X - midX) * perpX + (pt1.Y - midY) * perpY
+        Dim d1X As Double, d1Y As Double
+        If t1 >= 0 Then
+            d1X = perpX:  d1Y = perpY
+        Else
+            d1X = -perpX: d1Y = -perpY
         End If
-    Loop
-    
-    endPoint = oMessage.point
-    
-    ' Cancel the line command and clear it
-    CadInputQueue.SendReset
-    CommandState.StartDefaultCommand
-    
-'   Determine which point has higher Y coordinate
-    Dim upperPoint As Point3d
-    Dim lowerPoint As Point3d
-    
-    If startPoint.Y > endPoint.Y Then
-        upperPoint = startPoint
-        lowerPoint = endPoint
+
+        Call DrawSignPost(pt1, d1X, d1Y)
+        Call PlaceSignFaceAndText(pt1, signNum, signSize, d1X, d1Y)
+
     Else
-        upperPoint = endPoint
-        lowerPoint = startPoint
+        ' =====================================================
+        ' BOTH SIDES
+        ' =====================================================
+        ' Show dynamic line feedback while waiting for second click
+        Dim p As Point3d
+        p.X = pt1.X: p.Y = pt1.Y: p.Z = pt1.Z
+        CadInputQueue.SendCommand "PLACE LINE"
+        CadInputQueue.SendDataPoint p, 1
+
+        CadInputQueue.SendKeyin "ECHO Click SECOND post location on perpendicular line"
+        Set oMsg = CadInputQueue.GetInput
+        Do While oMsg.InputType <> msdCadInputTypeDataPoint
+            If oMsg.InputType = msdCadInputTypeReset Then
+                CadInputQueue.SendKeyin "ECHO Sign placement cancelled"
+                CadInputQueue.SendReset
+                CommandState.StartDefaultCommand
+                Exit Sub
+            End If
+            Set oMsg = CadInputQueue.GetInput
+        Loop
+
+        Dim pt2 As Point3d
+        pt2 = ProjectOntoPerp(oMsg.Point, midX, midY, midZ, perpX, perpY, HALF_LEN)
+
+        CadInputQueue.SendReset
+        CommandState.StartDefaultCommand
+
+        ' Outward direction for each point = away from alignment midpoint
+        Dim tA As Double, tB As Double
+        tA = (pt1.X - midX) * perpX + (pt1.Y - midY) * perpY
+        tB = (pt2.X - midX) * perpX + (pt2.Y - midY) * perpY
+
+        Dim dAX As Double, dAY As Double
+        Dim dBX As Double, dBY As Double
+        If tA >= 0 Then
+            dAX = perpX:  dAY = perpY
+        Else
+            dAX = -perpX: dAY = -perpY
+        End If
+        If tB >= 0 Then
+            dBX = perpX:  dBY = perpY
+        Else
+            dBX = -perpX: dBY = -perpY
+        End If
+
+        Call DrawSignPost(pt1, dAX, dAY)
+        Call PlaceSignFaceAndText(pt1, signNum, signSize, dAX, dAY)
+
+        Call DrawSignPost(pt2, dBX, dBY)
+        Call PlaceSignFaceAndText(pt2, signNum, signSize, dBX, dBY)
+
+        Call DrawConnectingArc(pt1, pt2)
     End If
-    
-'   Start placing signs and posts
-    CadInputQueue.SendCommand "PLACE CELL ICON"
-    CadInputQueue.SendCommand "ATTACH LIBRARY c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel"
-    
-'   ===== SIGN AT UPPER POINT (higher Y) =====
-'   This sign face will be placed 20 feet ABOVE the clicked point
-'   Place text label above the sign
-    CadInputQueue.SendCommand "TEXTEDITOR PLACE"
-    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT ""NYR09-11"""
-    CadInputQueue.SendCommand "TEXTEDITOR PLAYCOMMAND KEY_DOWN KEY_CODE 0x06 CONTROL_KEY_STATE UP SHIFT_KEY_STATE UP ALT_KEY_STATE UP"
-    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT ""48"""" x 48"""""
-    point.X = upperPoint.X
-    point.Y = upperPoint.Y + 70#
-    point.Z = upperPoint.Z
-    CadInputQueue.SendDataPoint point, 1
-    CadInputQueue.SendReset
-'   Place sign face (bottom center of sign will be 20 feet above the post)
-    SetCExpressionValue "tcb->activeCellUtf16", "R02-10sNY", ""
-    CadInputQueue.SendCommand "PLACE CELL ICON"
-    point.X = upperPoint.X
-    point.Y = upperPoint.Y + 20#
-    point.Z = upperPoint.Z
-    CadInputQueue.SendDataPoint point, 1
-    CadInputQueue.SendReset
-    
-'   ===== SIGN AT LOWER POINT (lower Y) =====
-'   This sign face will be placed 20 feet BELOW the clicked point
-'   Place text label below the sign
-    CadInputQueue.SendCommand "TEXTEDITOR PLACE"
-    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT ""NYR09-11"""
-    CadInputQueue.SendCommand "TEXTEDITOR PLAYCOMMAND KEY_DOWN KEY_CODE 0x06 CONTROL_KEY_STATE UP SHIFT_KEY_STATE UP ALT_KEY_STATE UP"
-    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT ""48"""" x 48"""""
-    point.X = lowerPoint.X
-    point.Y = lowerPoint.Y - 70#
-    point.Z = lowerPoint.Z
-    CadInputQueue.SendDataPoint point, 1
-    CadInputQueue.SendReset
-'   Place sign face (bottom center of sign will be 20 feet below the post)
-    SetCExpressionValue "tcb->activeCellUtf16", "R02-10sNY", ""
-    CadInputQueue.SendCommand "PLACE CELL ICON"
-    point.X = lowerPoint.X
-    point.Y = lowerPoint.Y - 20#
-    point.Z = lowerPoint.Z
-    CadInputQueue.SendDataPoint point, 1
-    CadInputQueue.SendReset
-    
-'   ===== DRAW SIGN POSTS AND CONNECTING LINES =====
-'   Upper point: post at clicked point, line goes UP 20 feet to bottom of sign
-    Call DrawSignPost(upperPoint.X, upperPoint.Y, upperPoint.Z, "UP")
-'   Lower point: post at clicked point, line goes DOWN 20 feet to bottom of sign
-    Call DrawSignPost(lowerPoint.X, lowerPoint.Y, lowerPoint.Z, "DOWN")
-    
-'   ===== DRAW ARC CONNECTING THE TWO SIGN POSTS =====
-    Call DrawConnectingArc(upperPoint, lowerPoint)
-    
+
     CommandState.StartDefaultCommand
-    
-    CadInputQueue.SendKeyin "ECHO Sign posts and connecting arc placed successfully!"
-    
+    CadInputQueue.SendKeyin "ECHO Sign " & signNum & " placed."
+
 End Sub
 
-Sub DrawSignPost(xCoord As Double, yCoord As Double, zCoord As Double, direction As String)
+' ============================================================
+' PROJECT A CLICKED POINT ONTO THE PERPENDICULAR LINE SEGMENT
+' Returns the nearest point on the segment to the clicked point,
+' clamped to ±halfLen from the alignment midpoint.
+' ============================================================
+Private Function ProjectOntoPerp(clickPt As Point3d, _
+                                   midX As Double, midY As Double, midZ As Double, _
+                                   perpX As Double, perpY As Double, _
+                                   halfLen As Double) As Point3d
+    Dim t As Double
+    t = (clickPt.X - midX) * perpX + (clickPt.Y - midY) * perpY
+    If t < -halfLen Then t = -halfLen
+    If t > halfLen Then t = halfLen
+
+    Dim result As Point3d
+    result.X = midX + t * perpX
+    result.Y = midY + t * perpY
+    result.Z = midZ
+    ProjectOntoPerp = result
+End Function
+
+' ============================================================
+' DRAW SIGN POST CELL + 20-FT POST LINE
+' postPt = (projected) post base location
+' dirX/Y = unit vector pointing outward (toward sign face)
+' ============================================================
+Sub DrawSignPost(postPt As Point3d, dirX As Double, dirY As Double)
     Dim point As Point3d
-    
-'   Draw vertical line connecting post to sign face bottom
-'   The clicked point (xCoord, yCoord) is where the post is located
-'   Direction: "UP" means line goes from post UP (+Y) 20 feet to bottom of sign face
-'   Direction: "DOWN" means line goes from post DOWN (-Y) 20 feet to bottom of sign face
+
+    ' 20-ft line from post base to bottom of sign face
     CadInputQueue.SendCommand "PLACE LINE CONSTRAINED"
-    
-    If direction = "UP" Then
-        ' Post is at clicked point, line goes UP 20 feet to bottom of sign
-        point.X = xCoord
-        point.Y = yCoord
-        point.Z = zCoord
-        CadInputQueue.SendDataPoint point, 1
-        point.X = xCoord
-        point.Y = yCoord + 20#
-        point.Z = zCoord
-        CadInputQueue.SendDataPoint point, 1
-    Else ' direction = "DOWN"
-        ' Post is at clicked point, line goes DOWN 20 feet to bottom of sign
-        point.X = xCoord
-        point.Y = yCoord
-        point.Z = zCoord
-        CadInputQueue.SendDataPoint point, 1
-        point.X = xCoord
-        point.Y = yCoord - 20#
-        point.Z = zCoord
-        CadInputQueue.SendDataPoint point, 1
-    End If
-    
+    point.X = postPt.X: point.Y = postPt.Y: point.Z = postPt.Z
+    CadInputQueue.SendDataPoint point, 1
+    point.X = postPt.X + dirX * 20#
+    point.Y = postPt.Y + dirY * 20#
+    point.Z = postPt.Z
+    CadInputQueue.SendDataPoint point, 1
     CadInputQueue.SendReset
-    
-'   Attach sign post library
+
+    ' Post cell at base location
     CadInputQueue.SendCommand "ATTACH LIBRARY c:\pwworking\usny\d0119091\ny_plan_wztc.cel"
     SetCExpressionValue "tcb->activeCellUtf16", "TWZSGN_P", ""
-    
-'   Place post cell at the clicked location (where the post is)
     CadInputQueue.SendCommand "PLACE CELL ICON"
-    CadInputQueue.SendCommand "LOCK SNAP PERPENDICULAR"
-    point.X = xCoord
-    point.Y = yCoord
-    point.Z = zCoord
+    point.X = postPt.X: point.Y = postPt.Y: point.Z = postPt.Z
     CadInputQueue.SendDataPoint point, 1
     CadInputQueue.SendReset
-    
-'   Re-attach sign face library for next operations
+
+    ' Re-attach sign face library for subsequent operations
     CadInputQueue.SendCommand "ATTACH LIBRARY c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel"
-    
 End Sub
 
+' ============================================================
+' PLACE SIGN FACE CELL AND TWO-LINE TEXT LABEL
+' Sign face is placed 20 ft from post in dirX/Y direction.
+' Text (sign number + size) is placed 70 ft from post.
+' ============================================================
+Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As String, _
+                          dirX As Double, dirY As Double)
+    Dim point As Point3d
+
+    ' Sign face cell at 20 ft
+    SetCExpressionValue "tcb->activeCellUtf16", "R02-10sNY", ""
+    CadInputQueue.SendCommand "PLACE CELL ICON"
+    point.X = postPt.X + dirX * 20#
+    point.Y = postPt.Y + dirY * 20#
+    point.Z = postPt.Z
+    CadInputQueue.SendDataPoint point, 1
+    CadInputQueue.SendReset
+
+    ' Text label at 70 ft: sign number (line 1) + size (line 2)
+    ' Replace " (inch symbol) with ' to avoid TEXTEDITOR keyin quoting issues
+    Dim cleanSize As String
+    cleanSize = Replace(signSize, Chr(34), Chr(39))
+
+    CadInputQueue.SendCommand "TEXTEDITOR PLACE"
+    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & signNum & """"
+    If cleanSize <> "" Then
+        CadInputQueue.SendCommand "TEXTEDITOR PLAYCOMMAND KEY_DOWN KEY_CODE 0x06 CONTROL_KEY_STATE UP SHIFT_KEY_STATE UP ALT_KEY_STATE UP"
+        CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & cleanSize & """"
+    End If
+    point.X = postPt.X + dirX * 70#
+    point.Y = postPt.Y + dirY * 70#
+    point.Z = postPt.Z
+    CadInputQueue.SendDataPoint point, 1
+    CadInputQueue.SendReset
+End Sub
+
+' ============================================================
+' DRAW ARC CONNECTING TWO SIGN POSTS (Both Sides only)
+' ============================================================
 Sub DrawConnectingArc(startPt As Point3d, endPt As Point3d)
     Dim point As Point3d
     Dim midPoint As Point3d
     Dim dx As Double, dy As Double
     Dim distance As Double
-    Dim perpX As Double, perpY As Double
+    Dim pX As Double, pY As Double
     Dim arcDepth As Double
-    
-    ' Calculate vector between the two posts
+
     dx = endPt.X - startPt.X
     dy = endPt.Y - startPt.Y
     distance = Sqr(dx * dx + dy * dy)
-    
-    ' Calculate midpoint between the two posts
+
     midPoint.X = (startPt.X + endPt.X) / 2
     midPoint.Y = (startPt.Y + endPt.Y) / 2
     midPoint.Z = (startPt.Z + endPt.Z) / 2
-    
-    ' Offset for the arc (10% of distance for gentle curve)
+
     arcDepth = distance * 0.1
-    
-    ' Calculate perpendicular vector (rotate 90 degrees)
     If distance > 0 Then
-        perpX = -dy / distance
-        perpY = dx / distance
+        pX = -dy / distance
+        pY = dx / distance
     Else
-        perpX = 0
-        perpY = 0
+        pX = 0: pY = 0
     End If
-    
-'   Set up arc placement mode - use 3-point arc
+
     CadInputQueue.SendCommand "PLACE ARC ICON"
     SetCExpressionValue "tcb->msToolSettings.igen.placeArcModeEx", 3, "CONSGEOM"
     CadInputQueue.SendCommand "PLACE ARC ICON"
-    
-'   Place arc with three points connecting the two posts
-'   First point: upper post location (startPt has higher Y)
-    point.X = startPt.X
-    point.Y = startPt.Y
-    point.Z = startPt.Z
+
+    point.X = startPt.X: point.Y = startPt.Y: point.Z = startPt.Z
     CadInputQueue.SendDataPoint point, 1
-    
-'   Second point: lower post location (endPt has lower Y)
-    point.X = endPt.X
-    point.Y = endPt.Y
-    point.Z = endPt.Z
+
+    point.X = endPt.X: point.Y = endPt.Y: point.Z = endPt.Z
     CadInputQueue.SendDataPoint point, 1
-    
-'   Third point: offset perpendicular at midpoint to create curve
-    point.X = midPoint.X + (perpX * arcDepth)
-    point.Y = midPoint.Y + (perpY * arcDepth)
+
+    point.X = midPoint.X + (pX * arcDepth)
+    point.Y = midPoint.Y + (pY * arcDepth)
     point.Z = midPoint.Z
     CadInputQueue.SendDataPoint point, 1
-    
+
     CadInputQueue.SendReset
-    
 End Sub

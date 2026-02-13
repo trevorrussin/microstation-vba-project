@@ -9,14 +9,18 @@ Attribute VB_Name = "Module3"
 
 Option Explicit
 
-' Collection to store all signs
-Private signLibrary As Collection
+' Array storage for signs (avoids Variant/UDT coercion with Collection)
+Private signLibrary() As signData
+Private signLibraryCount As Long
+Private signLibraryInitialized As Boolean
 
 ' ============================================================
 ' INITIALIZATION
 ' ============================================================
 Public Sub InitializeSignLibrary()
-    Set signLibrary = New Collection
+    ReDim signLibrary(1 To 64)
+    signLibraryCount = 0
+    signLibraryInitialized = True
     Call LoadDefaultSigns
 End Sub
 
@@ -121,42 +125,45 @@ Private Sub AddSign(SignNumber As String, _
     sign.PostLibraryPath = PostLibPath
     sign.DefaultSpacing = spacing
     
-    ' Add to collection
-    On Error Resume Next
-    signLibrary.Add sign, sign.SignNumber
-    If Err.Number <> 0 Then
-        Debug.Print "Warning: Sign " & sign.SignNumber & " already exists in library"
-        Err.Clear
+    ' Add to array (check duplicate first)
+    Dim i As Long
+    For i = 1 To signLibraryCount
+        If signLibrary(i).SignNumber = sign.SignNumber Then
+            Debug.Print "Warning: Sign " & sign.SignNumber & " already exists in library"
+            Exit Sub
+        End If
+    Next i
+    signLibraryCount = signLibraryCount + 1
+    If signLibraryCount > UBound(signLibrary) Then
+        ReDim Preserve signLibrary(1 To UBound(signLibrary) + 64)
     End If
-    On Error GoTo 0
+    signLibrary(signLibraryCount) = sign
 End Sub
 
 ' ============================================================
 ' GET SIGN FROM LIBRARY
-' Returns sign data for a given sign number
+' Returns sign data for a given sign number (UDT-to-UDT, no Variant)
 ' ============================================================
 Public Function GetSignData(SignNumber As String) As signData
     Dim sign As signData
-    Dim found As Boolean
+    Dim i As Long
     
-    ' Initialize library if needed
-    If signLibrary Is Nothing Then
+    If Not signLibraryInitialized Then
         Call InitializeSignLibrary
     End If
     
-    On Error Resume Next
-    sign = signLibrary(SignNumber)
-    found = (Err.Number = 0)
-    Err.Clear
-    On Error GoTo 0
+    For i = 1 To signLibraryCount
+        If signLibrary(i).SignNumber = SignNumber Then
+            sign = signLibrary(i)
+            GetSignData = sign
+            Exit Function
+        End If
+    Next i
     
-    If Not found Then
-        ' Return empty sign data if not found
-        sign.SignNumber = ""
-        sign.Description = "Sign not found"
-        Debug.Print "Warning: Sign " & SignNumber & " not found in library"
-    End If
-    
+    ' Not found
+    sign.SignNumber = ""
+    sign.Description = "Sign not found"
+    Debug.Print "Warning: Sign " & SignNumber & " not found in library"
     GetSignData = sign
 End Function
 
@@ -164,18 +171,19 @@ End Function
 ' CHECK IF SIGN EXISTS
 ' ============================================================
 Public Function SignExists(SignNumber As String) As Boolean
-    Dim tempSign As signData
+    Dim i As Long
     
-    ' Initialize library if needed
-    If signLibrary Is Nothing Then
+    If Not signLibraryInitialized Then
         Call InitializeSignLibrary
     End If
     
-    On Error Resume Next
-    tempSign = signLibrary(SignNumber)
-    SignExists = (Err.Number = 0)
-    Err.Clear
-    On Error GoTo 0
+    For i = 1 To signLibraryCount
+        If signLibrary(i).SignNumber = SignNumber Then
+            SignExists = True
+            Exit Function
+        End If
+    Next i
+    SignExists = False
 End Function
 
 ' ============================================================
@@ -184,31 +192,23 @@ End Function
 ' ============================================================
 Public Function GetAllSignNumbers() As String()
     Dim signNumbers() As String
-    Dim i As Integer
-    Dim sign As Variant
+    Dim i As Long
     
-    ' Initialize library if needed
-    If signLibrary Is Nothing Then
+    If Not signLibraryInitialized Then
         Call InitializeSignLibrary
     End If
     
-    If signLibrary.Count = 0 Then
+    If signLibraryCount = 0 Then
         ReDim signNumbers(0)
         signNumbers(0) = ""
         GetAllSignNumbers = signNumbers
         Exit Function
     End If
     
-    ReDim signNumbers(1 To signLibrary.Count)
-    
-    i = 1
-    For Each sign In signLibrary
-        Dim tempSign As signData
-        tempSign = sign
-        signNumbers(i) = tempSign.SignNumber
-        i = i + 1
-    Next sign
-    
+    ReDim signNumbers(1 To signLibraryCount)
+    For i = 1 To signLibraryCount
+        signNumbers(i) = signLibrary(i).SignNumber
+    Next i
     GetAllSignNumbers = signNumbers
 End Function
 
@@ -216,12 +216,10 @@ End Function
 ' GET LIBRARY COUNT
 ' ============================================================
 Public Function GetSignCount() As Integer
-    ' Initialize library if needed
-    If signLibrary Is Nothing Then
+    If Not signLibraryInitialized Then
         Call InitializeSignLibrary
     End If
-    
-    GetSignCount = signLibrary.Count
+    GetSignCount = CInt(signLibraryCount)
 End Function
 
 ' ============================================================
@@ -239,9 +237,8 @@ Public Sub AddCustomSign(SignNumber As String, _
                         PostLibPath As String, _
                         spacing As Double)
     
-    ' Initialize library if needed
-    If signLibrary Is Nothing Then
-        Set signLibrary = New Collection
+    If Not signLibraryInitialized Then
+        Call InitializeSignLibrary
     End If
     
     ' Use the private AddSign method
@@ -255,11 +252,9 @@ End Sub
 ' ============================================================
 Public Sub ExportLibraryToFile(filePath As String)
     Dim fileNum As Integer
-    Dim sign As Variant
-    Dim tempSign As signData
+    Dim i As Long
     
-    ' Initialize library if needed
-    If signLibrary Is Nothing Then
+    If Not signLibraryInitialized Then
         Call InitializeSignLibrary
     End If
     
@@ -269,23 +264,24 @@ Public Sub ExportLibraryToFile(filePath As String)
     Print #fileNum, "SIGN LIBRARY EXPORT"
     Print #fileNum, "===================="
     Print #fileNum, ""
-    Print #fileNum, "Total Signs: " & signLibrary.Count
+    Print #fileNum, "Total Signs: " & signLibraryCount
     Print #fileNum, ""
     
-    For Each sign In signLibrary
-        tempSign = sign
-        Print #fileNum, "Sign Number: " & tempSign.SignNumber
-        Print #fileNum, "Description: " & tempSign.Description
-        Print #fileNum, "Cell Name: " & tempSign.CellName
-        Print #fileNum, "Cell Library: " & tempSign.CellLibraryPath
-        Print #fileNum, "Text Label: " & tempSign.TextLabel
-        Print #fileNum, "Text Line 2: " & tempSign.TextLine2
-        Print #fileNum, "Dimensions: " & tempSign.WidthInches & """W x " & tempSign.HeightInches & """H"
-        Print #fileNum, "Post Type: " & tempSign.PostType
-        Print #fileNum, "Post Library: " & tempSign.PostLibraryPath
-        Print #fileNum, "Default Spacing: " & tempSign.DefaultSpacing & " ft"
+    For i = 1 To signLibraryCount
+        With signLibrary(i)
+            Print #fileNum, "Sign Number: " & .SignNumber
+            Print #fileNum, "Description: " & .Description
+            Print #fileNum, "Cell Name: " & .CellName
+            Print #fileNum, "Cell Library: " & .CellLibraryPath
+            Print #fileNum, "Text Label: " & .TextLabel
+            Print #fileNum, "Text Line 2: " & .TextLine2
+            Print #fileNum, "Dimensions: " & .WidthInches & """W x " & .HeightInches & """H"
+            Print #fileNum, "Post Type: " & .PostType
+            Print #fileNum, "Post Library: " & .PostLibraryPath
+            Print #fileNum, "Default Spacing: " & .DefaultSpacing & " ft"
+        End With
         Print #fileNum, "--------------------"
-    Next sign
+    Next i
     
     Close #fileNum
     
@@ -296,6 +292,8 @@ End Sub
 ' CLEAR LIBRARY (for reinitialization)
 ' ============================================================
 Public Sub ClearLibrary()
-    Set signLibrary = New Collection
+    signLibraryCount = 0
+    signLibraryInitialized = True
+    ReDim signLibrary(1 To 1)
 End Sub
 

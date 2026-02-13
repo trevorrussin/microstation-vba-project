@@ -23,6 +23,13 @@ Private Const COL4_WIDTH As Integer = 120   ' Side selection
 Private Const ROW_HEIGHT As Integer = 30
 Private Const INITIAL_ROWS As Integer = 10
 
+' WZTC Order table
+Private wztcOrderTexts() As String
+Private wztcOrderCount As Integer
+
+' Handlers for sign number textbox Exit (auto-fill spacing/size from library)
+Private signNumberHandlers As Collection
+
 ' ============================================================
 ' INITIALIZE FORM
 ' ============================================================
@@ -31,8 +38,13 @@ Private Sub UserForm_Initialize()
 
     Debug.Print "Starting UserForm_Initialize..."
 
+    Set signNumberHandlers = New Collection
+
     Me.Caption = "Workzone Traffic Control Designer - MUTCD NY"
-    
+
+    ' Widen form to accommodate WZTC Order panel
+    If Me.Width < 1820 Then Me.Width = 1820
+
     ' ========== INPUT SECTION ==========
     ' Workzone Category Label & Dropdown
     If ControlExists("lblCategory") Then
@@ -159,6 +171,62 @@ Private Sub UserForm_Initialize()
         frameSignTable.KeepScrollBarsVisible = fmScrollBarsVertical
     End If
 
+    ' ========== WZTC ORDER SECTION ==========
+    ' Controls to add manually in IDE (directly on form, not inside a frame):
+    '   frameWZTCOrder  - Frame            "WZTC Order"
+    '   lstWZTCOrder    - ListBox
+    '   btnOrderUp      - CommandButton
+    '   btnOrderDown    - CommandButton
+    '   btnOrderDelete  - CommandButton
+    '   btnRefreshOrder - CommandButton
+    If ControlExists("frameWZTCOrder") Then
+        frameWZTCOrder.Caption = "WZTC Order"
+        frameWZTCOrder.Top = 195
+        frameWZTCOrder.Left = 855
+        frameWZTCOrder.Width = 305
+        frameWZTCOrder.Height = 315
+    End If
+
+    If ControlExists("lstWZTCOrder") Then
+        lstWZTCOrder.Top = 215
+        lstWZTCOrder.Left = 865
+        lstWZTCOrder.Width = 220
+        lstWZTCOrder.Height = 255
+    End If
+
+    If ControlExists("btnOrderUp") Then
+        btnOrderUp.Caption = "Up"
+        btnOrderUp.Top = 225
+        btnOrderUp.Left = 1290
+        btnOrderUp.Width = 60
+        btnOrderUp.Height = 22
+    End If
+
+    If ControlExists("btnOrderDown") Then
+        btnOrderDown.Caption = "Down"
+        btnOrderDown.Top = 253
+        btnOrderDown.Left = 1290
+        btnOrderDown.Width = 60
+        btnOrderDown.Height = 22
+    End If
+
+    If ControlExists("btnOrderDelete") Then
+        btnOrderDelete.Caption = "X Del"
+        btnOrderDelete.Top = 285
+        btnOrderDelete.Left = 1290
+        btnOrderDelete.Width = 60
+        btnOrderDelete.Height = 22
+    End If
+
+    If ControlExists("btnRefreshOrder") Then
+        btnRefreshOrder.Caption = "Refresh Order"
+        btnRefreshOrder.Top = 475
+        btnRefreshOrder.Left = 1290
+        btnRefreshOrder.Width = 120
+        btnRefreshOrder.Height = 22
+        btnRefreshOrder.Font.Size = 8
+    End If
+
     ' ========== ACTION BUTTONS ==========
     ' Add Row button (moved below tables)
     If ControlExists("btnAddRow") Then
@@ -224,6 +292,7 @@ Private Sub UserForm_Initialize()
     End If
 
     Debug.Print "UserForm_Initialize completed successfully"
+    Call BuildWZTCOrderTable
     Exit Sub
 InitError:
     MsgBox "Error initializing form at line: " & Erl & vbCrLf & "Error: " & Err.Description & vbCrLf & "Number: " & Err.Number, vbCritical, "Initialization Error"
@@ -1105,7 +1174,9 @@ Private Sub GenerateSpacingTable()
     frameSpacingValues.Controls("txtChannelizing").Value = Format(chanTotal, "0")
     frameSpacingValues.Controls("txtFlareBarrier").Value = flareBarrierStr
     frameSpacingValues.Controls("txtFlareBeam").Value = flareBeamStr
-    
+
+    Call BuildWZTCOrderTable
+
 End Sub
 
 ' ============================================================
@@ -1211,6 +1282,13 @@ Private Sub AddTableRow()
         .Text = ""
     End With
     Set signNumberBoxes(rowCount) = txtSignNum
+    ' Wire Exit event so typing a sign number auto-fills spacing and size from library
+    Dim handler As SignNumberBoxHandler
+    Set handler = New SignNumberBoxHandler
+    handler.RowIndex = rowCount
+    Set handler.Txt = txtSignNum
+    Set handler.ParentForm = Me
+    signNumberHandlers.Add handler, CStr(rowCount)
     Debug.Print "Sign number textbox created"
 
     ' Spacing textbox
@@ -1271,60 +1349,62 @@ RowError:
 End Sub
 
 ' ============================================================
-' POPULATE SIGN TABLE WITH RECOMMENDED SIGNS
+' POPULATE SIGN TABLE (CLEAR ONLY - USER TYPES SIGN NUMBERS)
+' User types sign number in each row; spacing and size auto-fill from library (Module3) on Exit.
 ' ============================================================
 Private Sub PopulateSignTable()
     Dim i As Integer
-
-    ' Clear existing data
+    ' Clear existing data only; user adds sign numbers and library fills spacing/size
     For i = 1 To rowCount
         signNumberBoxes(i).Value = ""
         signSpacingBoxes(i).Value = ""
         signSizeBoxes(i).Value = ""
         signSideComboBoxes(i).ListIndex = 0  ' Default to "One Side"
     Next i
+End Sub
 
-    Dim signIndex As Integer
-    signIndex = 1
-
-    ' Always add "Road Work Ahead" as first sign
-    If signIndex <= rowCount Then
-        signNumberBoxes(signIndex).Value = "R02-10sNY"
-        signSpacingBoxes(signIndex).Value = frameSpacingValues.Controls("txtAdvancedWarningSpacing").Value
-        signSizeBoxes(signIndex).Value = "48"" x 48"""
-        signSideComboBoxes(signIndex).ListIndex = 1  ' Both Sides
-        signIndex = signIndex + 1
-    End If
-
-    ' Add operation-specific signs
-    Select Case selectedOperationType
-        Case "101-109: Stop & Go Operations"
-            If signIndex <= rowCount Then
-                signNumberBoxes(signIndex).Value = "W3-4"
-                signSpacingBoxes(signIndex).Value = "500"
-                signSizeBoxes(signIndex).Value = "48"" x 30"""
-                signSideComboBoxes(signIndex).ListIndex = 1  ' Both Sides
-                signIndex = signIndex + 1
+' ============================================================
+' APPLY SIGN LIBRARY TO ROW (called when user leaves sign number field or presses Enter)
+' Looks up sign in Module3 library and auto-fills spacing and size for that row.
+' ============================================================
+Public Sub ApplySignLibraryToRow(rowIndex As Integer)
+    On Error GoTo ApplyLibError
+    If rowIndex < 1 Or rowIndex > rowCount Then Exit Sub
+    Dim s As String
+    Dim sd As signData
+    Dim allSigns() As String
+    Dim i As Long
+    Dim matchKey As String
+    s = Trim(signNumberBoxes(rowIndex).Value)
+    If s = "" Then Exit Sub
+    sd = GetSignData(s)
+    If sd.SignNumber = "" Then
+        ' Try case-insensitive match (library keys are case-sensitive)
+        allSigns = GetAllSignNumbers
+        matchKey = ""
+        For i = LBound(allSigns) To UBound(allSigns)
+            If allSigns(i) <> "" And StrComp(s, allSigns(i), vbTextCompare) = 0 Then
+                matchKey = allSigns(i)
+                Exit For
             End If
-
-        Case "201-300: Short Duration Operations"
-            If signIndex <= rowCount Then
-                signNumberBoxes(signIndex).Value = "W20-5"
-                signSpacingBoxes(signIndex).Value = "600"
-                signSizeBoxes(signIndex).Value = "36"" x 36"""
-                signSideComboBoxes(signIndex).ListIndex = 1  ' Both Sides
-                signIndex = signIndex + 1
-            End If
-    End Select
-
-    ' Add "End Road Work" as last sign
-    If signIndex <= rowCount Then
-        signNumberBoxes(signIndex).Value = "G20-2"
-        signSpacingBoxes(signIndex).Value = "0"
-        signSizeBoxes(signIndex).Value = "36"" x 24"""
-        signSideComboBoxes(signIndex).ListIndex = 0  ' One Side
+        Next i
+        If matchKey = "" Then Exit Sub
+        sd = GetSignData(matchKey)
+        If sd.SignNumber = "" Then Exit Sub
     End If
+    signSpacingBoxes(rowIndex).Value = CStr(sd.DefaultSpacing)
+    signSizeBoxes(rowIndex).Value = sd.TextLine2
+    Exit Sub
+ApplyLibError:
+    Debug.Print "ApplySignLibraryToRow error: " & Err.Description
+End Sub
 
+' Move focus to the spacing textbox for the given row (after Enter in sign number).
+Public Sub MoveFocusToSpacing(rowIndex As Integer)
+    On Error Resume Next
+    If rowIndex >= 1 And rowIndex <= rowCount Then
+        signSpacingBoxes(rowIndex).SetFocus
+    End If
 End Sub
 
 ' ============================================================
@@ -1359,6 +1439,11 @@ Private Sub RemoveTableRow()
     ' Remove the controls for the last row
     Debug.Print "Removing row " & lastRowNum
     
+    ' Remove event handler for this row's sign number box
+    On Error Resume Next
+    signNumberHandlers.Remove CStr(lastRowNum)
+    On Error GoTo 0
+
     ' Remove controls in reverse order
     On Error Resume Next  ' Continue if a control doesn't exist
     frameSignTable.Controls.Remove "cboSide" & lastRowNum
@@ -1445,15 +1530,55 @@ Private Sub btnSubmit_Click()
         Exit Sub
     End If
     
-    ' All validation passed
-    lblStatus.Caption = "Processing... Drawing signs in MicroStation"
-    
-    ' Call drawing routine
-    Call DrawWorkzoneTrafficControl
-    
-    ' Hide form after successful submission
-    Me.Hide
-    
+    ' Save spacing & clearances to public storage
+    wztcDownstreamTaper = frameSpacingValues.Controls("txtDownstreamTaper").Value
+    wztcRollAhead = frameSpacingValues.Controls("txtRollAhead").Value
+    wztcVehicleSpace = frameSpacingValues.Controls("txtVehicleSpace").Value
+    wztcBufferSpace = frameSpacingValues.Controls("txtBufferSpace").Value
+    wztcMergingTaper = frameSpacingValues.Controls("txtMergingTaper").Value
+    wztcShoulderTapers = frameSpacingValues.Controls("txtShoulderTapers").Value
+    wztcAdvancedWarningSpacing = frameSpacingValues.Controls("txtAdvancedWarningSpacing").Value
+    wztcSkipLines = frameSpacingValues.Controls("txtSkipLines").Value
+    wztcChannelizing = frameSpacingValues.Controls("txtChannelizing").Value
+    wztcFlareBarrier = frameSpacingValues.Controls("txtFlareBarrier").Value
+    wztcFlareBeam = frameSpacingValues.Controls("txtFlareBeam").Value
+
+    ' Save user selections to public storage
+    wztcCategory = cboCategory.Value
+    wztcSheet = cboSheet.Value
+    wztcSpeed = cboRoadSpeed.Value
+    wztcRoadType = cboRoadType.Value
+    wztcLaneWidth = cboLaneWidth.Value
+    wztcShoulderWidth = cboShoulderWidth.Value
+
+    ' Save sign table to public storage (sign number, spacing, size string, One Side/Both Sides)
+    wztcSignCount = rowCount
+    ReDim wztcSignNumbers(1 To rowCount)
+    ReDim wztcSignSpacings(1 To rowCount)
+    ReDim wztcSignSizes(1 To rowCount)
+    ReDim wztcSignSides(1 To rowCount)
+    For i = 1 To rowCount
+        wztcSignNumbers(i) = signNumberBoxes(i).Value
+        wztcSignSpacings(i) = signSpacingBoxes(i).Value
+        wztcSignSizes(i) = signSizeBoxes(i).Value      ' string e.g. "48"" x 48"""
+        wztcSignSides(i) = signSideComboBoxes(i).Value ' "One Side" or "Both Sides"
+    Next i
+
+    ' Store the WZTC Order table (all parameter labels and sign labels in current order)
+    wztcOrderLabelCount = wztcOrderCount
+    If wztcOrderCount > 0 Then
+        ReDim wztcOrderLabels(0 To wztcOrderCount - 1)
+        For i = 0 To wztcOrderCount - 1
+            wztcOrderLabels(i) = wztcOrderTexts(i)
+        Next i
+    Else
+        ReDim wztcOrderLabels(0 To -1)
+    End If
+
+    ' Close form and launch alignment drawing tool
+    Unload Me
+    StartWZTCDrawing
+
 End Sub
 
 ' ============================================================
@@ -1487,6 +1612,136 @@ NextSign:
     Next i
 
 End Sub
+
+' ============================================================
+' BUILD WZTC ORDER TABLE
+' Collects spacing labels + non-empty sign numbers + Work Area
+' ============================================================
+Private Sub BuildWZTCOrderTable()
+    If Not ControlExists("lstWZTCOrder") Then Exit Sub
+
+    Dim i As Integer
+    ReDim wztcOrderTexts(0 To 7 + rowCount)
+    wztcOrderCount = 0
+
+    ' Fixed spacing section labels (no values, just names)
+    wztcOrderTexts(wztcOrderCount) = "Downstream Taper"
+    wztcOrderCount = wztcOrderCount + 1
+    wztcOrderTexts(wztcOrderCount) = "Roll Ahead Distance"
+    wztcOrderCount = wztcOrderCount + 1
+    wztcOrderTexts(wztcOrderCount) = "Vehicle Space"
+    wztcOrderCount = wztcOrderCount + 1
+    wztcOrderTexts(wztcOrderCount) = "Buffer Space"
+    wztcOrderCount = wztcOrderCount + 1
+    wztcOrderTexts(wztcOrderCount) = "Merging/Shifting Taper"
+    wztcOrderCount = wztcOrderCount + 1
+    wztcOrderTexts(wztcOrderCount) = "Shoulder Taper"
+    wztcOrderCount = wztcOrderCount + 1
+
+    ' Non-empty sign rows from sign selection table
+    For i = 1 To rowCount
+        If signNumberBoxes(i).Value <> "" Then
+            wztcOrderTexts(wztcOrderCount) = signNumberBoxes(i).Value
+            wztcOrderCount = wztcOrderCount + 1
+        End If
+    Next i
+
+    ' Work Area (always present)
+    wztcOrderTexts(wztcOrderCount) = "Work Area"
+    wztcOrderCount = wztcOrderCount + 1
+
+    If wztcOrderCount > 0 Then
+        ReDim Preserve wztcOrderTexts(0 To wztcOrderCount - 1)
+    End If
+
+    Call RenderWZTCOrder
+End Sub
+
+' ============================================================
+' RENDER WZTC ORDER INTO LISTBOX
+' ============================================================
+Private Sub RenderWZTCOrder()
+    If Not ControlExists("lstWZTCOrder") Then Exit Sub
+    Dim savedIdx As Integer
+    savedIdx = lstWZTCOrder.ListIndex
+    lstWZTCOrder.Clear
+    Dim i As Integer
+    For i = 0 To wztcOrderCount - 1
+        lstWZTCOrder.AddItem wztcOrderTexts(i)
+    Next i
+    If savedIdx >= 0 And savedIdx < wztcOrderCount Then
+        lstWZTCOrder.ListIndex = savedIdx
+    End If
+End Sub
+
+' ============================================================
+' WZTC ORDER - MOVE SELECTED ITEM UP
+' ============================================================
+Private Sub btnOrderUp_Click()
+    If Not ControlExists("lstWZTCOrder") Then Exit Sub
+    Dim idx As Integer
+    idx = lstWZTCOrder.ListIndex
+    If idx <= 0 Then Exit Sub
+    Dim temp As String
+    temp = wztcOrderTexts(idx)
+    wztcOrderTexts(idx) = wztcOrderTexts(idx - 1)
+    wztcOrderTexts(idx - 1) = temp
+    Call RenderWZTCOrder
+    lstWZTCOrder.ListIndex = idx - 1
+End Sub
+
+' ============================================================
+' WZTC ORDER - MOVE SELECTED ITEM DOWN
+' ============================================================
+Private Sub btnOrderDown_Click()
+    If Not ControlExists("lstWZTCOrder") Then Exit Sub
+    Dim idx As Integer
+    idx = lstWZTCOrder.ListIndex
+    If idx < 0 Or idx >= wztcOrderCount - 1 Then Exit Sub
+    Dim temp As String
+    temp = wztcOrderTexts(idx)
+    wztcOrderTexts(idx) = wztcOrderTexts(idx + 1)
+    wztcOrderTexts(idx + 1) = temp
+    Call RenderWZTCOrder
+    lstWZTCOrder.ListIndex = idx + 1
+End Sub
+
+' ============================================================
+' WZTC ORDER - DELETE SELECTED ITEM
+' ============================================================
+Private Sub btnOrderDelete_Click()
+    If Not ControlExists("lstWZTCOrder") Then Exit Sub
+    Dim idx As Integer
+    idx = lstWZTCOrder.ListIndex
+    If idx < 0 Or wztcOrderCount = 0 Then Exit Sub
+    Dim i As Integer
+    For i = idx To wztcOrderCount - 2
+        wztcOrderTexts(i) = wztcOrderTexts(i + 1)
+    Next i
+    wztcOrderCount = wztcOrderCount - 1
+    If wztcOrderCount > 0 Then
+        ReDim Preserve wztcOrderTexts(0 To wztcOrderCount - 1)
+    End If
+    Call RenderWZTCOrder
+    If wztcOrderCount > 0 Then
+        If idx < wztcOrderCount Then
+            lstWZTCOrder.ListIndex = idx
+        Else
+            lstWZTCOrder.ListIndex = wztcOrderCount - 1
+        End If
+    End If
+End Sub
+
+' ============================================================
+' WZTC ORDER - REFRESH FROM CURRENT SIGN TABLE
+' ============================================================
+Private Sub btnRefreshOrder_Click()
+    Call BuildWZTCOrderTable
+End Sub
+
+
+
+
 
 
 
