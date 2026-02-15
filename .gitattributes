@@ -1,0 +1,7 @@
+# Treat VB/VBA source files as text (normalize to Windows CRLF for VBA tools)
+*.bas text eol=crlf
+*.cls text eol=crlf
+*.frm text eol=crlf
+
+# Treat UserForm resource files as binary (no diff/line-ending changes)
+*.frx binary
