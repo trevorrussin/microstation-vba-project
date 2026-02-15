@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(powershell -Command \"Get-Content ''c:\\\\Users\\\\RussinT\\\\OneDrive - AECOM\\\\Desktop\\\\microstation-vba-project\\\\AlignmentForm.frm'' | Select-Object -First 20\")"
-    ]
-  }
-}
