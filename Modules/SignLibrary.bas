@@ -1,4 +1,4 @@
-Attribute VB_Name = "Module3"
+
 ' ============================================================
 ' SIGN LIBRARY MANAGER - REVISED
 ' Stores and retrieves sign properties and associated text

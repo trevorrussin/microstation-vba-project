@@ -1,4 +1,4 @@
-Attribute VB_Name = "ModuleWZTCCells"
+
 Option Explicit
 
 ' ============================================================
@@ -17,10 +17,10 @@ Option Explicit
 Private Const WZTC_CELL_LIB As String = "c:\pwworking\usny\d0119091\ny_plan_wztc.cel"
 
 ' ============================================================
-' ENTRY POINT - called by frmWZTCElements btnGoCellLib_Click
+' ENTRY POINT - called by PlaceElements btnGoCellLib_Click
 ' ============================================================
 Public Sub StartWZTCCellPlacement()
-    frmWZTCCells.Show vbModeless
+    PlaceCells.Show vbModeless
 End Sub
 
 ' ============================================================

@@ -1,4 +1,4 @@
-# NYSDOT Workzone Traffic Control Designer
+﻿# NYSDOT Workzone Traffic Control Designer
 
 A MicroStation V8i VBA tool that automates the placement of NYSDOT workzone traffic control (WZTC) signs, elements, and cell symbols along a user-drawn alignment, in compliance with MUTCD New York State supplement standards.
 
@@ -37,47 +37,47 @@ The tool is structured as a 6-step sequential workflow, each step backed by a mo
 
 ```
 LaunchWZTC (Module1)
-    └─► frmWorkzoneDesigner
-            ├─► UserForm1 (NYSDOT 619 reference viewer, modeless)
+    └─► WZTCDesigner
+            ├─► SheetViewer (NYSDOT 619 reference viewer, modeless)
             └─► StartWZTCDrawing (Module6)
-                    └─► AlignmentForm  ← user draws lines/arcs
+                    └─► AlignDraw  ← user draws lines/arcs
                             └─► GroupAndLaunchPlacement (Module6)
                                     └─► StartAlignmentPlacement (ModuleAlignmentPlacement)
-                                            └─► frmAlignmentPlacement  ← user places perp lines
+                                            └─► PlacePerp  ← user places perp lines
                                                     └─► StartSignPlacement (ModuleSignPlacement)
-                                                            └─► frmSignPlacement  ← user draws signs
+                                                            └─► PlaceSign  ← user draws signs
                                                                     └─► StartWZTCElementsPlacement (ModuleWZTCElements)
-                                                                            └─► frmWZTCElements  ← user draws elements
+                                                                            └─► PlaceElements  ← user draws elements
                                                                                     └─► StartWZTCCellPlacement (ModuleWZTCCells)
-                                                                                            └─► frmWZTCCells  ← user places cells
+                                                                                            └─► PlaceCells  ← user places cells
 ```
 
 ### Module Roles
 
 | File | Role |
 |------|------|
-| `Module1.bas` | Entry points (`LaunchWZTC`, `LaunchNYSDOTViewer`) |
-| `Module3.bas` | Sign library: loads default signs, looks up spacing/size by sign number |
-| `Module4.bas` | `Public Type signData` definition (shared across all modules) |
-| `Module6.bas` | Alignment drawing: snapshot max element ID, show AlignmentForm, group elements |
-| `ModuleWZTCData.bas` | **All public persistent state** — survives form unload/reload |
-| `ModuleAlignmentPlacement.bas` | Path geometry engine: build arc/line chain, interpolate points, place perp lines |
-| `ModuleSignPlacement.bas` | Sign step state machine: index tracking, accessor functions for `frmSignPlacement` |
-| `ModTest.bas` | Low-level sign drawing: click collection, projection onto perp line, post + face + text |
-| `ModuleWZTCElements.bas` | WZTC element drawing: level/color/weight setup, shape + hatch, line elements |
-| `ModuleWZTCCells.bas` | Cell library: populate catalogue, attach library, interactive placement with count tracking |
-| `PlacementButtonHandler.cls` | `WithEvents` sink for dynamically created `Place Line` / `Skip` buttons |
-| `SignNumberBoxHandler.cls` | `WithEvents` sink for dynamically created sign number textboxes |
+| `Launcher.bas` | Entry points (`LaunchWZTC`, `LaunchNYSDOTViewer`) |
+| `SignLibrary.bas` | Sign library: loads default signs, looks up spacing/size by sign number |
+| `SignTypes.bas` | `Public Type signData` definition (shared across all modules) |
+| `AlignmentTool.bas` | Alignment drawing: snapshot max element ID, show AlignDraw, group elements |
+| `SharedState.bas` | **All public persistent state** — survives form unload/reload |
+| `PerpPlacement.bas` | Path geometry engine: build arc/line chain, interpolate points, place perp lines |
+| `SignPlacer.bas` | Sign step state machine: index tracking, accessor functions for `PlaceSign` |
+| `DrawSign.bas` | Low-level sign drawing: click collection, projection onto perp line, post + face + text |
+| `DrawElements.bas` | WZTC element drawing: level/color/weight setup, shape + hatch, line elements |
+| `CellPlacer.bas` | Cell library: populate catalogue, attach library, interactive placement with count tracking |
+| `PlaceButtons.cls` | `WithEvents` sink for dynamically created `Place Line` / `Skip` buttons |
+| `SignNumBox.cls` | `WithEvents` sink for dynamically created sign number textboxes |
 
 ### State Persistence Model
 
-Because MicroStation VBA resets all local variables when a form is unloaded, all designer configuration is stored in **public module-level variables** in `ModuleWZTCData.bas`. This allows:
+Because MicroStation VBA resets all local variables when a form is unloaded, all designer configuration is stored in **public module-level variables** in `SharedState.bas`. This allows:
 
 - Any form to read the configuration
-- `frmWorkzoneDesigner` to restore its previous state when reopened via **Return to Designer**
+- `WZTCDesigner` to restore its previous state when reopened via **Return to Designer**
 - Sign geometry (perpendicular line midpoints and normal vectors) to pass from the alignment placement step to the sign drawing step without form dependencies
 
-### Alignment Path Engine (`ModuleAlignmentPlacement.bas`)
+### Alignment Path Engine (`PerpPlacement.bas`)
 
 The path engine stores each drawn segment as a `PathSeg` UDT containing:
 - `IsArc` flag
@@ -125,7 +125,7 @@ For a 45 mph, 4-lane divided freeway workzone (Category F):
 ## Design Decisions & Tradeoffs
 
 ### Decision: Public module variables instead of a class or database
-**Why:** MicroStation VBA does not support persistent objects across form loads. Using public variables in a standard module (`ModuleWZTCData.bas`) is the only reliable way to pass state between the sequential form steps. A class module would be reset when unloaded; a file-based store would add I/O complexity and a dependency on a writable path.
+**Why:** MicroStation VBA does not support persistent objects across form loads. Using public variables in a standard module (`SharedState.bas`) is the only reliable way to pass state between the sequential form steps. A class module would be reset when unloaded; a file-based store would add I/O complexity and a dependency on a writable path.
 
 **Tradeoff:** State is lost when the VBA project is reset or MicroStation is closed. There is no save/load of a project file. For long multi-session projects, the user must redo the configuration step.
 
@@ -144,15 +144,15 @@ For a 45 mph, 4-lane divided freeway workzone (Category F):
 
 **Tradeoff:** For strongly non-convex shapes (e.g., an L-shape), the centroid may fall outside the boundary, causing hatch to fail silently. The typical workzone work-space area is approximately convex, so this is acceptable.
 
-### Decision: ModTest.bas name for the sign drawing module
+### Decision: DrawSign.bas name for the sign drawing module
 **Why:** This module evolved from a testing scaffold and retained its name (`ModTest`) through iterative development. The name does not reflect its current role.
 
 **Tradeoff:** Confusing name in a production codebase. Future refactoring should rename it to `ModuleSignDrawing` or similar. The module is fully functional; this is a cosmetic issue only.
 
 ### Decision: Form-based dynamic control creation instead of IDE-designed controls
-**Why:** The sign table in `frmWorkzoneDesigner` and the WZTC order rows in `frmAlignmentPlacement` are variable-length lists. Creating them dynamically in `UserForm_Initialize` allows any number of rows without requiring the IDE designer.
+**Why:** The sign table in `WZTCDesigner` and the WZTC order rows in `PlacePerp` are variable-length lists. Creating them dynamically in `UserForm_Initialize` allows any number of rows without requiring the IDE designer.
 
-**Tradeoff:** Dynamic controls require `WithEvents` class modules (`PlacementButtonHandler`, `SignNumberBoxHandler`) since standard VBA event syntax only works with named IDE-designed controls. This adds two class files to the project. Dynamic controls also require the `ControlExists()` guard before every access, since they may not exist if the form fails to initialize.
+**Tradeoff:** Dynamic controls require `WithEvents` class modules (`PlaceButtons`, `SignNumBox`) since standard VBA event syntax only works with named IDE-designed controls. This adds two class files to the project. Dynamic controls also require the `ControlExists()` guard before every access, since they may not exist if the form fails to initialize.
 
 ### Decision: Sign size quote normalization at save time
 **Why:** MUTCD sign sizes are always in inches (e.g., `48" x 48"`). Users sometimes type `'` (foot mark) instead of `"` (inch mark). The sign library stores correct `"` characters. Normalizing at `btnSubmit_Click` (`Replace(value, "'", Chr(34))`) converts user input silently without affecting library-filled values.
@@ -162,4 +162,4 @@ For a 45 mph, 4-lane divided freeway workzone (Category F):
 ### Decision: Cell library path hardcoded to `c:\pwworking\...`
 **Why:** NYSDOT ProjectWise WorkSpace maps all project files to a standard local path. Hardcoding avoids requiring the user to browse for libraries on every run.
 
-**Tradeoff:** Tool will not work if the ProjectWise WorkSpace is not mounted or if a different project path is used. The path constant (`WZTC_CELL_LIB` in `ModuleWZTCCells.bas`, sign library paths in `Module3.bas` and `ModTest.bas`) would need to be updated for different ProjectWise environments.
+**Tradeoff:** Tool will not work if the ProjectWise WorkSpace is not mounted or if a different project path is used. The path constant (`WZTC_CELL_LIB` in `CellPlacer.bas`, sign library paths in `SignLibrary.bas` and `DrawSign.bas`) would need to be updated for different ProjectWise environments.

@@ -1,4 +1,4 @@
-Attribute VB_Name = "ModuleWZTCElements"
+
 Option Explicit
 
 ' ============================================================
@@ -52,15 +52,15 @@ Private Function IsWorkSpace(idx As Integer) As Boolean
 End Function
 
 ' ============================================================
-' ENTRY POINT - called by frmSignPlacement btnWZTCElements_Click
+' ENTRY POINT - called by PlaceSign btnWZTCElements_Click
 ' ============================================================
 Public Sub StartWZTCElementsPlacement()
     currentElementIdx = 1
-    frmWZTCElements.Show vbModeless
+    PlaceElements.Show vbModeless
 End Sub
 
 ' ============================================================
-' STATE ACCESSORS (called by frmWZTCElements)
+' STATE ACCESSORS (called by PlaceElements)
 ' ============================================================
 Public Function GetCurrentElementDisplayName() As String
     GetCurrentElementDisplayName = GetElementName(currentElementIdx)

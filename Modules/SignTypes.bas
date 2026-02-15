@@ -1,4 +1,4 @@
-Attribute VB_Name = "Module4"
+
 ' ============================================================
 ' SIGN DATA TYPES MODULE
 ' This module must be a STANDARD MODULE (not a class module)

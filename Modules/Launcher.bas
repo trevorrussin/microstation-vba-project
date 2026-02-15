@@ -1,14 +1,14 @@
-Attribute VB_Name = "Module1"
+
 ' ============================================================
 ' MODULE - Launch NYSDOT Sheet Viewer & WZTC Designer
 ' ============================================================
 
 Sub LaunchNYSDOTViewer()
     ' Launch the NYSDOT 619 Standard Sheets viewer
-    UserForm1.Show
+    SheetViewer.Show
 End Sub
 
 Sub LaunchWZTC()
     ' Launch the Workzone Traffic Control Designer (modeless so sheet viewer can stay open too)
-    frmWorkzoneDesigner.Show vbModeless
+    WZTCDesigner.Show vbModeless
 End Sub
