@@ -9,6 +9,6 @@ Sub LaunchNYSDOTViewer()
 End Sub
 
 Sub LaunchWZTC()
-    ' Launch the Workzone Traffic Control Designer
-    Call LaunchWZTCDesigner
+    ' Launch the Workzone Traffic Control Designer (modeless so sheet viewer can stay open too)
+    frmWorkzoneDesigner.Show vbModeless
 End Sub

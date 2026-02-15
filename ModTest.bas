@@ -21,7 +21,7 @@ Option Explicit
 '   Both Sides - collects 2 clicks, projects each onto perp line,
 '                draws both signs and a connecting arc between the posts.
 ' ============================================================
-Sub PlaceWorkZoneSign(signNum As String, signSize As String, side As String, _
+Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
                        midX As Double, midY As Double, midZ As Double, _
                        perpX As Double, perpY As Double)
 
@@ -198,8 +198,8 @@ Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As Strin
                           dirX As Double, dirY As Double)
     Dim point As Point3d
 
-    ' Sign face cell at 20 ft
-    SetCExpressionValue "tcb->activeCellUtf16", "R02-10sNY", ""
+    ' Sign face cell at 20 ft — use the sign number as the cell name (matches ny_plan_nmutcd_signface.cel)
+    SetCExpressionValue "tcb->activeCellUtf16", signNum, ""
     CadInputQueue.SendCommand "PLACE CELL ICON"
     point.X = postPt.X + dirX * 20#
     point.Y = postPt.Y + dirY * 20#

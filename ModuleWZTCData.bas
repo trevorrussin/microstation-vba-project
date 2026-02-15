@@ -51,6 +51,9 @@ Public wztcPlacedSignSize() As String    ' size string from sign table
 Public wztcOrderLabelCount As Integer
 Public wztcOrderLabels() As String
 
+' WZTC Cell Library placement counts (1-based, indexed by GetCellCatalogue() position)
+Public wztcCellPlacementCounts(1 To 16) As Integer
+
 ' Alignment drawing tracking (set by Module6 before/during alignment drawing)
 ' wztcAlignmentStartMaxID: max element ID in model before user starts drawing
 ' wztcAlignmentFirstPoint*: first click point of the drawn alignment
