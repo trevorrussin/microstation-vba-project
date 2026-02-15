@@ -18,9 +18,14 @@ Private Sub UserForm_Initialize()
     Me.Caption = "Reference MUTCD"
     Me.Width = 1200
     Me.Height = 850
-    
+
+    ' Enable horizontal and vertical scroll bars
+    Me.ScrollBars = fmScrollBarsBoth
+    Me.ScrollWidth = 1600
+    Me.ScrollHeight = 1200
+
     Call PopulateCategories
-    
+
     On Error Resume Next
     lblStatus.Caption = "Ready - Select a category and sheet"
     On Error GoTo 0
@@ -277,7 +282,47 @@ End Sub
 Private Sub btnWorkzoneDesigner_Click()
     ' Return to Workzone Designer form
     Me.Hide
-    WorkzoneDesigner.Show vbModeless
+    frmWorkzoneDesigner.Show vbModeless
+End Sub
+
+' ============================================================
+' SHOW COMPACT WITH AUTO-SELECTED CATEGORY AND SHEET
+' Called by frmWorkzoneDesigner when ShoulderWidth is selected.
+' Opens this form at a compact size and pre-selects the sheet
+' matching the Workzone Category and Sheet Number chosen in
+' frmWorkzoneDesigner so the designer can reference both at once.
+' ============================================================
+Public Sub SelectAndShow(catText As String, sheetText As String)
+    ' Must hide topmost modal form (designer) before showing this form modeless.
+    frmWorkzoneDesigner.Hide
+    ' Compact dimensions - large enough for the WebBrowser to be useful
+    Me.Width  = 700
+    Me.Height = 520
+    Me.Show vbModeless
+    ' Bring designer back so both forms stay open
+    frmWorkzoneDesigner.Show vbModeless
+
+    ' Select the matching category (triggers cboCategory_Change
+    ' which populates the sheet dropdown automatically)
+    Dim i As Integer
+    On Error Resume Next
+    For i = 0 To cboCategory.ListCount - 1
+        If cboCategory.List(i) = catText Then
+            cboCategory.ListIndex = i
+            Exit For
+        End If
+    Next i
+    On Error GoTo 0
+
+    ' Now select the matching sheet (sheet list populated by above)
+    On Error Resume Next
+    For i = 0 To cboSheet.ListCount - 1
+        If cboSheet.List(i) = sheetText Then
+            cboSheet.ListIndex = i
+            Exit For
+        End If
+    Next i
+    On Error GoTo 0
 End Sub
 
 

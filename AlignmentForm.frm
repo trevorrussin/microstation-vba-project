@@ -20,6 +20,8 @@ End Function
 
 Private Sub UserForm_Initialize()
     Me.Caption = "Alignment Tool"
+    Me.Width  = 210
+    Me.Height = 290
 
     If ControlExists("optLine") Then
         optLine.Caption = "Line"
@@ -41,7 +43,7 @@ Private Sub UserForm_Initialize()
         cmdStartSegment.Caption = "Start Segment"
         cmdStartSegment.Top = 90
         cmdStartSegment.Left = 20
-        cmdStartSegment.Width = 120
+        cmdStartSegment.Width = 160
         cmdStartSegment.Height = 30
         cmdStartSegment.Font.Bold = True
     End If
@@ -50,8 +52,37 @@ Private Sub UserForm_Initialize()
         cmdDone.Caption = "Done"
         cmdDone.Top = 130
         cmdDone.Left = 20
-        cmdDone.Width = 120
+        cmdDone.Width = 160
         cmdDone.Height = 30
+    End If
+
+    ' ========== RIGHT-CLICK INSTRUCTION ==========
+    If ControlExists("lblRightClick") Then
+        lblRightClick.Caption   = "Tip: Right-click in MicroStation to finish a segment and return to this form."
+        lblRightClick.Top       = 172
+        lblRightClick.Left      = 10
+        lblRightClick.Width     = 185
+        lblRightClick.Height    = 36
+        lblRightClick.Font.Size = 8
+        lblRightClick.WordWrap  = True
+        lblRightClick.ForeColor = RGB(80, 80, 80)
+    End If
+
+    ' ========== NAVIGATION BUTTONS ==========
+    If ControlExists("btnBack") Then
+        btnBack.Caption   = "< Back to Designer"
+        btnBack.Top       = 218
+        btnBack.Left      = 10
+        btnBack.Width     = 175
+        btnBack.Height    = 23
+    End If
+
+    If ControlExists("btnReturnToDesigner") Then
+        btnReturnToDesigner.Caption = "Return to Designer"
+        btnReturnToDesigner.Top     = 250
+        btnReturnToDesigner.Left    = 10
+        btnReturnToDesigner.Width   = 175
+        btnReturnToDesigner.Height  = 23
     End If
 End Sub
 
@@ -76,4 +107,21 @@ Private Sub cmdDone_Click()
     CadInputQueue.SendReset
     CommandState.StartDefaultCommand
     Unload Me
+    On Error GoTo 0
+    ' Group alignment elements and launch perpendicular placement tool
+    GroupAndLaunchPlacement
+End Sub
+
+' ============================================================
+' NAVIGATION - BACK AND RETURN TO DESIGNER
+' Both go to WorkzoneDesigner since this is the first step
+' ============================================================
+Private Sub btnBack_Click()
+    Unload Me
+    frmWorkzoneDesigner.Show vbModeless
+End Sub
+
+Private Sub btnReturnToDesigner_Click()
+    Unload Me
+    frmWorkzoneDesigner.Show vbModeless
 End Sub

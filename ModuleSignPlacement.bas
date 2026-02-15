@@ -85,7 +85,7 @@ Public Sub DrawCurrentSign()
     Dim n As Integer
     n = currentSignIdx + 1
 
-    Call PlaceWorkZoneSign( _
+    Call DrawSignAtPerpLine( _
         wztcPlacedSignNums(n), _
         wztcPlacedSignSize(n), _
         wztcPlacedSignSide(n), _

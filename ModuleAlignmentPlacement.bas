@@ -1,4 +1,4 @@
-Attribute VB_Name = "ModuleAlignmentPlacement"
+
 Option Explicit
 
 ' ============================================================
@@ -159,8 +159,8 @@ Private Function BuildAlignmentPath() As Boolean
             Dim le As LineElement
             Set le = e
             Dim sp As Point3d, ep As Point3d
-            sp = le.StartPoint
-            ep = le.EndPoint
+            sp = le.startPoint
+            ep = le.endPoint
 
             ' Pick orientation so the start matches the current chain end
             Dim dSP As Double, dEP As Double
@@ -185,8 +185,8 @@ Private Function BuildAlignmentPath() As Boolean
         ElseIf e.Type = msdElementTypeArc Then
             Dim ae As ArcElement
             Set ae = e
-            Dim r As Double, sa As Double, sw As Double
-            r  = ae.PrimaryRadius
+            Dim R As Double, sa As Double, sw As Double
+            R = ae.PrimaryRadius
             sa = ae.StartAngle
             sw = ae.SweepAngle
 
@@ -195,23 +195,23 @@ Private Function BuildAlignmentPath() As Boolean
             ' angle sa from the centre:  chainPt = centre + r*(cos sa, sin sa)
             ' Therefore:                 centre  = chainPt - r*(cos sa, sin sa)
             Dim ctrX As Double, ctrY As Double
-            ctrX = chainX - r * Cos(sa)
-            ctrY = chainY - r * Sin(sa)
+            ctrX = chainX - R * Cos(sa)
+            ctrY = chainY - R * Sin(sa)
 
-            seg.IsArc      = True
+            seg.IsArc = True
             seg.CX = ctrX:  seg.CY = ctrY:  seg.CZ = chainZ
-            seg.Radius     = r
+            seg.Radius = R
             seg.StartAngle = sa
             seg.SweepAngle = sw
 
             seg.SX = chainX:  seg.SY = chainY:  seg.SZ = chainZ
             Dim ea As Double
             ea = sa + sw
-            seg.EX = ctrX + r * Cos(ea)
-            seg.EY = ctrY + r * Sin(ea)
+            seg.EX = ctrX + R * Cos(ea)
+            seg.EY = ctrY + R * Sin(ea)
             seg.EZ = chainZ
 
-            seg.SegLen = r * Abs(sw)
+            seg.SegLen = R * Abs(sw)
 
             chainX = seg.EX:  chainY = seg.EY:  chainZ = seg.EZ
         End If
@@ -236,7 +236,7 @@ End Function
 ' Returns False if path is empty.
 ' ============================================================
 Public Function GetPointAndTangent(dist As Double, _
-                                   ptX  As Double, ptY  As Double, ptZ  As Double, _
+                                   ptX As Double, ptY As Double, ptZ As Double, _
                                    tanX As Double, tanY As Double) As Boolean
     On Error GoTo InterpErr
 
@@ -283,7 +283,7 @@ Public Function GetPointAndTangent(dist As Double, _
                 Dim R   As Double
                 Dim sa  As Double
                 Dim sw  As Double
-                R  = pathSegs(i).Radius
+                R = pathSegs(i).Radius
                 sa = pathSegs(i).StartAngle
                 sw = pathSegs(i).SweepAngle
 
@@ -304,7 +304,7 @@ Public Function GetPointAndTangent(dist As Double, _
                 Dim swSign As Double
                 swSign = IIf(sw >= 0, 1, -1)
                 tanX = -Sin(theta) * swSign
-                tanY =  Cos(theta) * swSign
+                tanY = Cos(theta) * swSign
             End If
 
             ' Normalize tangent
@@ -339,7 +339,7 @@ End Function
 ' PLACE A PERPENDICULAR LINE AT THE GIVEN POINT/TANGENT
 ' The line extends halfLen master units on each side.
 ' ============================================================
-Public Sub PlacePerpendicularLine(ptX  As Double, ptY  As Double, ptZ  As Double, _
+Public Sub PlacePerpendicularLine(ptX As Double, ptY As Double, ptZ As Double, _
                                    tanX As Double, tanY As Double, _
                                    halfLen As Double)
     On Error GoTo PlaceErr
@@ -347,7 +347,7 @@ Public Sub PlacePerpendicularLine(ptX  As Double, ptY  As Double, ptZ  As Double
     ' Perpendicular = rotate tangent 90 degrees in XY plane
     Dim perpX As Double, perpY As Double
     perpX = -tanY
-    perpY =  tanX
+    perpY = tanX
 
     ' Ensure unit length (should already be normalised from GetPointAndTangent)
     Dim mag As Double
@@ -470,9 +470,9 @@ Public Sub PlaceLineForCurrentItem(spacing As Double)
     currentItemIdx = currentItemIdx + 1
 End Sub
 
-' Advance past the current item (no line placed) using the given spacing.
-Public Sub SkipCurrentItem(spacing As Double)
-    currentPathPos = currentPathPos + spacing
+' Advance past the current item without placing a line or advancing the path position.
+' The next item will be placed at the same cumulative position as this item would have used.
+Public Sub SkipCurrentItem()
     currentItemIdx = currentItemIdx + 1
 End Sub
 
@@ -510,3 +510,5 @@ Private Function IsSignLabel(lbl As String) As Boolean
             IsSignLabel = (Trim(lbl) <> "")
     End Select
 End Function
+
+

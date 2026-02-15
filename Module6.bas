@@ -198,8 +198,9 @@ Public Sub StartWZTCDrawing()
         If elID > maxID Then maxID = elID
     Loop
     wztcAlignmentStartMaxID = maxID
-
-    UserForm2.Show vbModeless
+    
+    frmWorkzoneDesigner.Hide
+    AlignmentForm.Show vbModeless
 End Sub
 
 ' ============================================================

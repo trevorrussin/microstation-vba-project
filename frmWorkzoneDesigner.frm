@@ -195,36 +195,37 @@ Private Sub UserForm_Initialize()
     End If
 
     If ControlExists("btnOrderUp") Then
-        btnOrderUp.Caption = "Up"
+        btnOrderUp.Caption = "MOVE UP"
         btnOrderUp.Top = 225
-        btnOrderUp.Left = 1290
+        btnOrderUp.Left = 1190
         btnOrderUp.Width = 60
         btnOrderUp.Height = 22
     End If
 
     If ControlExists("btnOrderDown") Then
-        btnOrderDown.Caption = "Down"
+        btnOrderDown.Caption = "MOVE DOWN"
         btnOrderDown.Top = 253
-        btnOrderDown.Left = 1290
+        btnOrderDown.Left = 1190
         btnOrderDown.Width = 60
         btnOrderDown.Height = 22
     End If
 
     If ControlExists("btnOrderDelete") Then
-        btnOrderDelete.Caption = "X Del"
+        btnOrderDelete.Caption = "DELETE"
         btnOrderDelete.Top = 285
-        btnOrderDelete.Left = 1290
+        btnOrderDelete.Left = 1190
         btnOrderDelete.Width = 60
         btnOrderDelete.Height = 22
     End If
 
     If ControlExists("btnRefreshOrder") Then
-        btnRefreshOrder.Caption = "Refresh Order"
-        btnRefreshOrder.Top = 475
-        btnRefreshOrder.Left = 1290
-        btnRefreshOrder.Width = 120
-        btnRefreshOrder.Height = 22
+        btnRefreshOrder.Caption = "Add to WZTC Order"
+        btnRefreshOrder.Top = 470
+        btnRefreshOrder.Left = 690
+        btnRefreshOrder.Width = 150
+        btnRefreshOrder.Height = 25
         btnRefreshOrder.Font.Size = 8
+        btnAddRow.Font.Bold = True
     End If
 
     ' ========== ACTION BUTTONS ==========
@@ -236,18 +237,18 @@ Private Sub UserForm_Initialize()
         btnAddRow.Width = 150
         btnAddRow.Height = 25
         btnAddRow.Font.Size = 8
-        btnAddRow.Font.Bold = True
+
     End If
 
     ' Remove Row button (moved below tables)
     If ControlExists("btnRemoveRow") Then
         btnRemoveRow.Caption = "Remove Row --"
         btnRemoveRow.Top = 470
-        btnRemoveRow.Left = 545
+        btnRemoveRow.Left = 495
         btnRemoveRow.Width = 150
         btnRemoveRow.Height = 25
         btnRemoveRow.Font.Size = 8
-        btnRemoveRow.Font.Bold = True
+        
     End If
 
     If ControlExists("btnReference") Then
@@ -272,7 +273,9 @@ Private Sub UserForm_Initialize()
         lblStatus.Top = 500
         lblStatus.Left = 20
         lblStatus.Width = 550
-        lblStatus.Height = 20
+        lblStatus.Height = 65
+        lblStatus.Font.Size = 10
+        lblStatus.WordWrap = True
     End If
     
     ' Initialize table
@@ -293,6 +296,7 @@ Private Sub UserForm_Initialize()
 
     Debug.Print "UserForm_Initialize completed successfully"
     Call BuildWZTCOrderTable
+    Call RestoreState
     Exit Sub
 InitError:
     MsgBox "Error initializing form at line: " & Erl & vbCrLf & "Error: " & Err.Description & vbCrLf & "Number: " & Err.Number, vbCritical, "Initialization Error"
@@ -544,6 +548,34 @@ Private Sub cboShoulderWidth_Change()
         End If
         lblStatus.Caption = "Shoulder Width selected - Checking all selections..."
         Call CheckAllSelectionsComplete
+    End If
+End Sub
+
+' ============================================================
+' OPEN REFERENCE VIEWER COMPACT ALONGSIDE THIS FORM
+' ============================================================
+Private Sub ShowReferenceViewerCompact()
+    Dim catText   As String
+    Dim sheetText As String
+
+    On Error Resume Next
+    catText   = cboCategory.Value
+    sheetText = cboSheet.Value
+    On Error GoTo 0
+
+    ' Position the reference viewer to the right of this form
+    On Error Resume Next
+    UserForm1.Left = Me.Left + Me.Width + 8
+    UserForm1.Top  = Me.Top
+    On Error GoTo 0
+
+    If catText <> "" Then
+        ' Open compact with matching category + sheet auto-selected
+        UserForm1.SelectAndShow catText, sheetText
+    Else
+        ' No selections yet - open normally so user can browse
+        Me.Hide
+        UserForm1.Show vbModeless
     End If
 End Sub
 
@@ -840,7 +872,8 @@ Private Sub CheckAllSelectionsComplete()
                   (cboShoulderWidth.ListIndex > 0)
     
     If allComplete Then
-        lblStatus.Caption = "Ready to configure signs for: " & cboSheet.List(cboSheet.ListIndex)
+        lblStatus.Caption = "Ready to configure signs for: " & cboSheet.List(cboSheet.ListIndex) & vbCrLf & _
+                            "Tip: Click 'Reference (MUTCD)' to view the NYS Standard Sheet and identify the sign numbers you will need for this workzone type."
     End If
 End Sub
 
@@ -1333,11 +1366,7 @@ Private Sub AddTableRow()
     Set signSideComboBoxes(rowCount) = cboSide
     Debug.Print "Side combobox created"
 
-    ' Adjust frame height if needed
-    If currentTop + 40 > frameSignTable.Height Then
-        frameSignTable.Height = currentTop + 40
-    End If
-
+    ' Note: frame stays at fixed height (set in Initialize); vertical scrollbar lets user scroll rows.
     Debug.Print "Row " & rowCount & " added successfully"
     Exit Sub
 
@@ -1485,7 +1514,7 @@ End Sub
 ' REFERENCE BUTTON CLICK EVENT - OPENS REFERENCE MUTCD FORM
 ' ============================================================
 Private Sub btnReference_Click()
-    UserForm1.Show vbModal
+    Call ShowReferenceViewerCompact
 End Sub
 
 ' ============================================================
@@ -1560,7 +1589,9 @@ Private Sub btnSubmit_Click()
     For i = 1 To rowCount
         wztcSignNumbers(i) = signNumberBoxes(i).Value
         wztcSignSpacings(i) = signSpacingBoxes(i).Value
-        wztcSignSizes(i) = signSizeBoxes(i).Value      ' string e.g. "48"" x 48"""
+        ' Normalize size: replace single-quote (foot mark) with double-quote (inch mark)
+        ' MUTCD sign sizes are always in inches; users sometimes type ' instead of "
+        wztcSignSizes(i) = Replace(signSizeBoxes(i).Value, "'", Chr(34))
         wztcSignSides(i) = signSideComboBoxes(i).Value ' "One Side" or "Both Sides"
     Next i
 
@@ -1574,6 +1605,13 @@ Private Sub btnSubmit_Click()
     Else
         ReDim wztcOrderLabels(0 To -1)
     End If
+
+    ' Confirm before entering drawing mode
+    Dim confirm As VbMsgBoxResult
+    confirm = MsgBox("Designer Mode will exit and you will now enter Drawing Mode." & vbCrLf & vbCrLf & _
+                     "Are you sure you are ready to submit?", _
+                     vbYesNo + vbQuestion, "Confirm Submit & Draw")
+    If confirm = vbNo Then Exit Sub
 
     ' Close form and launch alignment drawing tool
     Unload Me
@@ -1639,12 +1677,34 @@ Private Sub BuildWZTCOrderTable()
     wztcOrderCount = wztcOrderCount + 1
 
     ' Non-empty sign rows from sign selection table
+    ' Validate that each sign row has spacing and size filled in before adding.
+    Dim missingRows As String
+    missingRows = ""
     For i = 1 To rowCount
         If signNumberBoxes(i).Value <> "" Then
-            wztcOrderTexts(wztcOrderCount) = signNumberBoxes(i).Value
-            wztcOrderCount = wztcOrderCount + 1
+            Dim hasSpacing As Boolean, hasSize As Boolean
+            hasSpacing = (Trim(signSpacingBoxes(i).Value) <> "")
+            hasSize = (Trim(signSizeBoxes(i).Value) <> "")
+            If Not hasSpacing Or Not hasSize Then
+                If missingRows = "" Then
+                    missingRows = signNumberBoxes(i).Value
+                Else
+                    missingRows = missingRows & ", " & signNumberBoxes(i).Value
+                End If
+            Else
+                wztcOrderTexts(wztcOrderCount) = signNumberBoxes(i).Value
+                wztcOrderCount = wztcOrderCount + 1
+            End If
         End If
     Next i
+
+    If missingRows <> "" Then
+        MsgBox "The following sign(s) are missing spacing and/or size:" & vbCrLf & vbCrLf & _
+               missingRows & vbCrLf & vbCrLf & _
+               "Please fill in both the Spacing and Size columns for these signs" & vbCrLf & _
+               "before adding them to the WZTC Order.", _
+               vbExclamation, "Incomplete Sign Data"
+    End If
 
     ' Work Area (always present)
     wztcOrderTexts(wztcOrderCount) = "Work Area"
@@ -1688,6 +1748,9 @@ Private Sub btnOrderUp_Click()
     wztcOrderTexts(idx - 1) = temp
     Call RenderWZTCOrder
     lstWZTCOrder.ListIndex = idx - 1
+    If ControlExists("lblStatus") Then
+        lblStatus.Caption = "'" & wztcOrderTexts(idx - 1) & "' moved up in the WZTC Order."
+    End If
 End Sub
 
 ' ============================================================
@@ -1704,6 +1767,9 @@ Private Sub btnOrderDown_Click()
     wztcOrderTexts(idx + 1) = temp
     Call RenderWZTCOrder
     lstWZTCOrder.ListIndex = idx + 1
+    If ControlExists("lblStatus") Then
+        lblStatus.Caption = "'" & wztcOrderTexts(idx + 1) & "' moved down in the WZTC Order."
+    End If
 End Sub
 
 ' ============================================================
@@ -1714,6 +1780,8 @@ Private Sub btnOrderDelete_Click()
     Dim idx As Integer
     idx = lstWZTCOrder.ListIndex
     If idx < 0 Or wztcOrderCount = 0 Then Exit Sub
+    Dim deletedItem As String
+    deletedItem = wztcOrderTexts(idx)
     Dim i As Integer
     For i = idx To wztcOrderCount - 2
         wztcOrderTexts(i) = wztcOrderTexts(i + 1)
@@ -1730,6 +1798,9 @@ Private Sub btnOrderDelete_Click()
             lstWZTCOrder.ListIndex = wztcOrderCount - 1
         End If
     End If
+    If ControlExists("lblStatus") Then
+        lblStatus.Caption = "'" & deletedItem & "' removed from the WZTC Order."
+    End If
 End Sub
 
 ' ============================================================
@@ -1737,6 +1808,128 @@ End Sub
 ' ============================================================
 Private Sub btnRefreshOrder_Click()
     Call BuildWZTCOrderTable
+    If ControlExists("lblStatus") Then
+        lblStatus.Caption = "WZTC Order updated with current signs." & vbCrLf & _
+                            "Use MOVE UP / MOVE DOWN to change the order items will be placed along the alignment. Use DELETE to remove an item from the order."
+    End If
+End Sub
+
+' ============================================================
+' RESTORE PREVIOUS SUBMISSION STATE
+' Called from UserForm_Initialize when returning to designer.
+' Repopulates all dropdowns, sign table rows, and WZTC order
+' from the public vars saved in ModuleWZTCData on last submit.
+' ============================================================
+Private Sub RestoreState()
+    If wztcCategory = "" Then Exit Sub   ' no previous submission
+
+    On Error Resume Next
+
+    ' ---- Dropdowns ----
+    Dim i As Integer
+    For i = 0 To cboCategory.ListCount - 1
+        If cboCategory.List(i) = wztcCategory Then
+            cboCategory.ListIndex = i: Exit For
+        End If
+    Next i
+    ' cboCategory_Change fires -> PopulateSheets populates cboSheet list
+    For i = 0 To cboSheet.ListCount - 1
+        If cboSheet.List(i) = wztcSheet Then
+            cboSheet.ListIndex = i: Exit For
+        End If
+    Next i
+    For i = 0 To cboRoadSpeed.ListCount - 1
+        If cboRoadSpeed.List(i) = wztcSpeed Then
+            cboRoadSpeed.ListIndex = i: Exit For
+        End If
+    Next i
+    For i = 0 To cboRoadType.ListCount - 1
+        If cboRoadType.List(i) = wztcRoadType Then
+            cboRoadType.ListIndex = i: Exit For
+        End If
+    Next i
+    ' cboLaneWidth_Change fires -> sets selectedSpeed, calls GenerateSpacingTable
+    For i = 0 To cboLaneWidth.ListCount - 1
+        If cboLaneWidth.List(i) = wztcLaneWidth Then
+            cboLaneWidth.ListIndex = i: Exit For
+        End If
+    Next i
+    ' cboShoulderWidth_Change fires -> calls GenerateSpacingTable again
+    For i = 0 To cboShoulderWidth.ListCount - 1
+        If cboShoulderWidth.List(i) = wztcShoulderWidth Then
+            cboShoulderWidth.ListIndex = i: Exit For
+        End If
+    Next i
+
+    ' ---- Spacing table values (override auto-generated with saved values) ----
+    frameSpacingValues.Controls("txtDownstreamTaper").Value = wztcDownstreamTaper
+    frameSpacingValues.Controls("txtRollAhead").Value = wztcRollAhead
+    frameSpacingValues.Controls("txtVehicleSpace").Value = wztcVehicleSpace
+    frameSpacingValues.Controls("txtBufferSpace").Value = wztcBufferSpace
+    frameSpacingValues.Controls("txtMergingTaper").Value = wztcMergingTaper
+    frameSpacingValues.Controls("txtShoulderTapers").Value = wztcShoulderTapers
+    frameSpacingValues.Controls("txtAdvancedWarningSpacing").Value = wztcAdvancedWarningSpacing
+    frameSpacingValues.Controls("txtSkipLines").Value = wztcSkipLines
+    frameSpacingValues.Controls("txtChannelizing").Value = wztcChannelizing
+    frameSpacingValues.Controls("txtFlareBarrier").Value = wztcFlareBarrier
+    frameSpacingValues.Controls("txtFlareBeam").Value = wztcFlareBeam
+
+    ' ---- Sign table rows ----
+    If wztcSignCount > 0 Then
+        Dim j As Integer
+        For i = 1 To wztcSignCount
+            Call AddTableRow
+            signNumberBoxes(rowCount).Value = wztcSignNumbers(i)
+            signSpacingBoxes(rowCount).Value = wztcSignSpacings(i)
+            signSizeBoxes(rowCount).Value = wztcSignSizes(i)
+            ' Restore Side selection
+            For j = 0 To signSideComboBoxes(rowCount).ListCount - 1
+                If signSideComboBoxes(rowCount).List(j) = wztcSignSides(i) Then
+                    signSideComboBoxes(rowCount).ListIndex = j: Exit For
+                End If
+            Next j
+        Next i
+    End If
+
+    ' ---- WZTC Order ----
+    If wztcOrderLabelCount > 0 Then
+        wztcOrderCount = wztcOrderLabelCount
+        ReDim wztcOrderTexts(0 To wztcOrderCount - 1)
+        For i = 0 To wztcOrderCount - 1
+            wztcOrderTexts(i) = wztcOrderLabels(i)
+        Next i
+        Call RenderWZTCOrder
+    End If
+
+    On Error GoTo 0
+    If ControlExists("lblStatus") Then
+        lblStatus.Caption = "Previous session restored. Review your selections, then click 'Submit & Draw' when ready."
+    End If
+End Sub
+
+' ============================================================
+' CLEAR ALL SELECTIONS - resets all state and reopens fresh
+' Add a "btnClear" button manually in the VBA IDE form designer
+' ============================================================
+Private Sub btnClear_Click()
+    Dim ans As VbMsgBoxResult
+    ans = MsgBox("Clear all selections and start fresh?" & vbCrLf & _
+                 "All sign selections, WZTC order, and spacing values will be removed.", _
+                 vbYesNo + vbQuestion, "Clear All")
+    If ans = vbNo Then Exit Sub
+
+    ' Clear all public state vars
+    wztcCategory = "": wztcSheet = "": wztcSpeed = "": wztcRoadType = ""
+    wztcLaneWidth = "": wztcShoulderWidth = ""
+    wztcSignCount = 0: wztcOrderLabelCount = 0
+    wztcDownstreamTaper = "": wztcRollAhead = "": wztcVehicleSpace = ""
+    wztcBufferSpace = "": wztcMergingTaper = "": wztcShoulderTapers = ""
+    wztcAdvancedWarningSpacing = "": wztcSkipLines = ""
+    wztcChannelizing = "": wztcFlareBarrier = "": wztcFlareBeam = ""
+
+    ' Reopen the form clean
+    Unload Me
+    frmWorkzoneDesigner.Show vbModeless
 End Sub
 
 
