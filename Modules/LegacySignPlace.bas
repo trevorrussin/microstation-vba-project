@@ -1,4 +1,4 @@
-Attribute VB_Name = "Module2"
+
 '   - upperPoint: First placement point
 '   - lowerPoint: Second placement point
 '   - bothSides: True to place on both sides, False for one side

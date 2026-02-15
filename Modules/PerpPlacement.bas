@@ -11,7 +11,7 @@ Option Explicit
 ' Flow:
 '   1. StartAlignmentPlacement() builds the path from the
 '      elements drawn after the snapshot ID.
-'   2. frmAlignmentPlacement (modeless) calls
+'   2. PlacePerp (modeless) calls
 '      PlaceLineForCurrentItem() or SkipCurrentItem()
 '      for each item in sequence.
 '   3. Each perpendicular line is 40 ft long (20 ft each side).
@@ -35,7 +35,7 @@ Private pathSegs()     As PathSeg
 Private pathSegCount   As Integer
 Private totalPathLen   As Double
 
-' ---- Placement progress (read by frmAlignmentPlacement) ----
+' ---- Placement progress (read by PlacePerp) ----
 Public currentItemIdx  As Integer   ' 0-based index into wztcOrderLabels
 Public currentPathPos  As Double    ' cumulative distance from alignment start (ft)
 
@@ -66,7 +66,7 @@ Public Sub StartAlignmentPlacement()
     wztcPlacedSignCount = 0
 
     ' Show the placement form
-    frmAlignmentPlacement.Show vbModeless
+    PlacePerp.Show vbModeless
 End Sub
 
 ' ============================================================
@@ -402,7 +402,7 @@ Public Function GetSpacingForLabel(label As String) As Double
 End Function
 
 ' ============================================================
-' PUBLIC STATE ACCESSORS (called by frmAlignmentPlacement)
+' PUBLIC STATE ACCESSORS (called by PlacePerp)
 ' ============================================================
 
 Public Function GetCurrentItemLabel() As String

@@ -1,12 +1,12 @@
-Attribute VB_Name = "ModuleSignPlacement"
+
 Option Explicit
 
 ' ============================================================
 ' SIGN PLACEMENT MODULE
 ' ------------------------------------------------------------
 ' Manages the sign drawing step that follows alignment placement.
-' After the user clicks "Next: Draw Signs" in frmAlignmentPlacement,
-' this module shows frmSignPlacement and steps through each sign
+' After the user clicks "Next: Draw Signs" in PlacePerp,
+' this module shows PlaceSign and steps through each sign
 ' that had a perpendicular line placed during alignment placement.
 '
 ' State is stored in the wztcPlacedSign* public arrays
@@ -16,7 +16,7 @@ Option Explicit
 Public currentSignIdx As Integer   ' 0-based index into wztcPlacedSign* arrays
 
 ' ============================================================
-' ENTRY POINT - called by frmAlignmentPlacement btnNext_Click
+' ENTRY POINT - called by PlacePerp btnNext_Click
 ' ============================================================
 Public Sub StartSignPlacement()
     If wztcPlacedSignCount <= 0 Then
@@ -28,11 +28,11 @@ Public Sub StartSignPlacement()
     End If
 
     currentSignIdx = 0
-    frmSignPlacement.Show vbModeless
+    PlaceSign.Show vbModeless
 End Sub
 
 ' ============================================================
-' STATE ACCESSORS (called by frmSignPlacement)
+' STATE ACCESSORS (called by PlaceSign)
 ' ============================================================
 Public Function GetCurrentSignNum() As String
     If currentSignIdx >= 0 And currentSignIdx < wztcPlacedSignCount Then

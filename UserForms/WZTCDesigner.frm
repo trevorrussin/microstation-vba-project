@@ -565,17 +565,17 @@ Private Sub ShowReferenceViewerCompact()
 
     ' Position the reference viewer to the right of this form
     On Error Resume Next
-    UserForm1.Left = Me.Left + Me.Width + 8
-    UserForm1.Top  = Me.Top
+    SheetViewer.Left = Me.Left + Me.Width + 8
+    SheetViewer.Top  = Me.Top
     On Error GoTo 0
 
     If catText <> "" Then
         ' Open compact with matching category + sheet auto-selected
-        UserForm1.SelectAndShow catText, sheetText
+        SheetViewer.SelectAndShow catText, sheetText
     Else
         ' No selections yet - open normally so user can browse
         Me.Hide
-        UserForm1.Show vbModeless
+        SheetViewer.Show vbModeless
     End If
 End Sub
 
@@ -1316,8 +1316,8 @@ Private Sub AddTableRow()
     End With
     Set signNumberBoxes(rowCount) = txtSignNum
     ' Wire Exit event so typing a sign number auto-fills spacing and size from library
-    Dim handler As SignNumberBoxHandler
-    Set handler = New SignNumberBoxHandler
+    Dim handler As SignNumBox
+    Set handler = New SignNumBox
     handler.RowIndex = rowCount
     Set handler.Txt = txtSignNum
     Set handler.ParentForm = Me
@@ -1929,7 +1929,7 @@ Private Sub btnClear_Click()
 
     ' Reopen the form clean
     Unload Me
-    frmWorkzoneDesigner.Show vbModeless
+    WZTCDesigner.Show vbModeless
 End Sub
 
 

@@ -1,4 +1,4 @@
-Attribute VB_Name = "SignNumberBoxHandler"
+
 Option Explicit
 
 ' Sinks Exit and KeyDown for dynamically created sign number textboxes.

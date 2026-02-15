@@ -258,7 +258,7 @@ End Sub
 
 Private Sub btnReturnToDesigner_Click()
     Unload Me
-    frmWorkzoneDesigner.Show vbModeless
+    WZTCDesigner.Show vbModeless
 End Sub
 
 ' ============================================================

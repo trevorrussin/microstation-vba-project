@@ -3,7 +3,7 @@ Option Explicit
 ' ============================================================
 ' WZTC STORED DATA
 ' Public variables to persist workzone designer selections
-' after frmWorkzoneDesigner is unloaded
+' after WZTCDesigner is unloaded
 ' ============================================================
 
 ' Spacing & Clearances

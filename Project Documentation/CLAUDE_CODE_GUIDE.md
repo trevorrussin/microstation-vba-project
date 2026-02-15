@@ -1,4 +1,4 @@
-# Using Cursor and Claude Code for VBA Development
+﻿# Using Cursor and Claude Code for VBA Development
 
 A practical guide to using AI-assisted coding tools to develop, debug, and extend this MicroStation VBA project efficiently.
 
@@ -82,16 +82,16 @@ The `>` prompt means Claude Code is ready. It has access to all files in the cur
 ### Example Prompts That Work Well
 
 **Bug fix:**
-> "In frmAlignmentPlacement, when the user clicks Place Line for a sign item, the perpendicular line is drawing at the wrong location on arc segments. The issue is in ModuleAlignmentPlacement.bas. Read the arc handling code and fix it."
+> "In PlacePerp, when the user clicks Place Line for a sign item, the perpendicular line is drawing at the wrong location on arc segments. The issue is in PerpPlacement.bas. Read the arc handling code and fix it."
 
 **New feature:**
-> "Add a label next to each Place Line button in frmAlignmentPlacement that shows the cumulative distance from the start of the alignment to that item."
+> "Add a label next to each Place Line button in PlacePerp that shows the cumulative distance from the start of the alignment to that item."
 
 **Documentation:**
-> "Read ModuleAlignmentPlacement.bas and write inline comments explaining the math for the arc tangent calculation."
+> "Read PerpPlacement.bas and write inline comments explaining the math for the arc tangent calculation."
 
 **Refactoring:**
-> "The module ModTest.bas has a misleading name. Identify all places that reference it and tell me what I'd need to change to rename it to ModuleSignDrawing."
+> "The module DrawSign.bas has a misleading name. Identify all places that reference it and tell me what I'd need to change to rename it to ModuleSignDrawing."
 
 ---
 
@@ -126,7 +126,7 @@ Claude has a maximum context window (currently 200,000 tokens for Sonnet). As a 
 > "Look at all the VBA files and fix the arc bug."
 
 **Efficient:**
-> "Read ModuleAlignmentPlacement.bas lines 150-220 (the BuildAlignmentPath arc handling block) and fix the arc center derivation."
+> "Read PerpPlacement.bas lines 150-220 (the BuildAlignmentPath arc handling block) and fix the arc center derivation."
 
 Directing Claude to specific files and line ranges dramatically reduces input tokens.
 
@@ -141,14 +141,14 @@ Good time to compact:
 ### Strategy 3: Ask Claude to Read Targeted Sections
 Instead of having Claude read an entire 1500-line form file, tell it which section matters:
 
-> "Read only the `btnSubmit_Click` sub in frmWorkzoneDesigner.frm (around line 1526) and the `RestoreState` sub near the end of the file."
+> "Read only the `btnSubmit_Click` sub in WZTCDesigner.frm (around line 1526) and the `RestoreState` sub near the end of the file."
 
 ### Strategy 4: One Task Per Session for Complex Work
 For completely unrelated tasks, starting a new session (`/clear` or just restarting `claude`) avoids context from Task A polluting Task B and keeps context usage lower.
 
 ### Strategy 5: Use Background Agents for Parallel Reads
 Claude Code can launch sub-agents to read multiple files in parallel. If you're doing a refactor that touches many files, say:
-> "I need to understand how the five-module workflow connects — read Module6.bas, ModuleAlignmentPlacement.bas, ModuleSignPlacement.bas, ModuleWZTCElements.bas, and ModuleWZTCCells.bas in parallel and summarize their interfaces."
+> "I need to understand how the five-module workflow connects — read AlignmentTool.bas, PerpPlacement.bas, SignPlacer.bas, DrawElements.bas, and CellPlacer.bas in parallel and summarize their interfaces."
 
 ### Strategy 6: Keep Context Files Updated
 The `MEMORY.md` file in `.claude/projects/` is loaded automatically into every Claude Code session. Keep it accurate — it saves re-explaining the project architecture in every session. See [memory notes below](#memory-and-context-files).
@@ -192,7 +192,7 @@ Claude's Edit tool requires a recent Read of the file in the current session. If
 
 ### Pitfall: Large File Reads Eating Context
 Some `.frm` files are 1500+ lines. Reading an entire form file uses ~3,000–5,000 tokens. Instead, use targeted reads:
-> "Read frmWorkzoneDesigner.frm lines 1580-1640 (the btnSubmit_Click handler)."
+> "Read WZTCDesigner.frm lines 1580-1640 (the btnSubmit_Click handler)."
 
 ### Pitfall: Out-of-Sync VBA IDE
 After Claude edits a `.frm` or `.bas` file on disk, the MicroStation VBA IDE still has the old version loaded. You must **re-import** the file in the VBA IDE (delete the old module, then File → Import File) to pick up the changes.
@@ -222,9 +222,9 @@ If you modify code directly in the MicroStation VBA IDE (not via Cursor/Claude C
 
 ### Using Claude Code for Git
 Claude Code can run git commands directly:
-> "Commit the changes to ModuleAlignmentPlacement.bas with a message describing the arc fix."
+> "Commit the changes to PerpPlacement.bas with a message describing the arc fix."
 
-> "Show me what changed in frmWorkzoneDesigner.frm since the last commit."
+> "Show me what changed in WZTCDesigner.frm since the last commit."
 
 ---
 
@@ -232,7 +232,7 @@ Claude Code can run git commands directly:
 
 1. **Reference the architecture** — mention which step of the workflow you're in (alignment placement, sign drawing, etc.)
 2. **Describe what the user does** — Claude understands user actions (click, right-click, draw arc) and can reason about the MicroStation input model
-3. **Cite module names** — use exact module names (e.g., `ModuleAlignmentPlacement.bas`, not "the alignment module")
+3. **Cite module names** — use exact module names (e.g., `PerpPlacement.bas`, not "the alignment module")
 4. **Specify MicroStation constraints** — mention when something must work as a modeless form, or when you need `GetInput` loop behavior
 5. **Say "do not delete"** when you only want additions — Claude defaults to minimal changes but it's good to be explicit about preserved functionality
 

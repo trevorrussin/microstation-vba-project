@@ -25,7 +25,7 @@ Public Sub StartAlignmentTool()
     CadInputQueue.SendKeyin "ACTIVE ANGLE 0"
     CadInputQueue.SendKeyin "LOCK ROTATION OFF"
 
-    AlignmentForm.Show vbModeless
+    AlignDraw.Show vbModeless
 End Sub
 
 ' ============================================================
@@ -163,7 +163,7 @@ End Sub
 ' ============================================================
 ' START WZTC ALIGNMENT DRAWING TOOL
 ' ============================================================
-' Called after frmWorkzoneDesigner submits. Resets state,
+' Called after WZTCDesigner submits. Resets state,
 ' snapshots the current max element ID (so we can identify
 ' elements drawn as part of this alignment later), and
 ' launches UserForm2 for alignment drawing.
@@ -199,8 +199,8 @@ Public Sub StartWZTCDrawing()
     Loop
     wztcAlignmentStartMaxID = maxID
     
-    frmWorkzoneDesigner.Hide
-    AlignmentForm.Show vbModeless
+    WZTCDesigner.Hide
+    AlignDraw.Show vbModeless
 End Sub
 
 ' ============================================================

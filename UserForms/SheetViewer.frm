@@ -282,25 +282,25 @@ End Sub
 Private Sub btnWorkzoneDesigner_Click()
     ' Return to Workzone Designer form
     Me.Hide
-    frmWorkzoneDesigner.Show vbModeless
+    WZTCDesigner.Show vbModeless
 End Sub
 
 ' ============================================================
 ' SHOW COMPACT WITH AUTO-SELECTED CATEGORY AND SHEET
-' Called by frmWorkzoneDesigner when ShoulderWidth is selected.
+' Called by WZTCDesigner when ShoulderWidth is selected.
 ' Opens this form at a compact size and pre-selects the sheet
 ' matching the Workzone Category and Sheet Number chosen in
-' frmWorkzoneDesigner so the designer can reference both at once.
+' WZTCDesigner so the designer can reference both at once.
 ' ============================================================
 Public Sub SelectAndShow(catText As String, sheetText As String)
     ' Must hide topmost modal form (designer) before showing this form modeless.
-    frmWorkzoneDesigner.Hide
+    WZTCDesigner.Hide
     ' Compact dimensions - large enough for the WebBrowser to be useful
     Me.Width  = 700
     Me.Height = 520
     Me.Show vbModeless
     ' Bring designer back so both forms stay open
-    frmWorkzoneDesigner.Show vbModeless
+    WZTCDesigner.Show vbModeless
 
     ' Select the matching category (triggers cboCategory_Change
     ' which populates the sheet dropdown automatically)

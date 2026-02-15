@@ -1,4 +1,4 @@
-# Environment Requirements
+﻿# Environment Requirements
 
 ## MicroStation
 
@@ -40,7 +40,7 @@ These paths are provided by the **NYSDOT ProjectWise WorkSpace**. If your workst
 In MicroStation, open the **Cell Library dialog** (Element → Cells) and try:
 - **File → Attach** → navigate to `c:\pwworking\usny\d0119091\ny_plan_wztc.cel`
 
-If the path doesn't exist, contact your ProjectWise administrator to confirm the correct local workspace path, then update the constant `WZTC_CELL_LIB` in `ModuleWZTCCells.bas` and the library paths in `Module3.bas` and `ModTest.bas`.
+If the path doesn't exist, contact your ProjectWise administrator to confirm the correct local workspace path, then update the constant `WZTC_CELL_LIB` in `CellPlacer.bas` and the library paths in `SignLibrary.bas` and `DrawSign.bas`.
 
 ### ProjectWise Client
 - **Bentley ProjectWise Explorer** (any version compatible with your organization's PWE server)

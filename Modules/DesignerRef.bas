@@ -1283,8 +1283,8 @@ Private Sub AddTableRow()
     End With
     Set signNumberBoxes(rowCount) = txtSignNum
     ' Wire Exit event so typing a sign number auto-fills spacing and size from library
-    Dim handler As SignNumberBoxHandler
-    Set handler = New SignNumberBoxHandler
+    Dim handler As SignNumBox
+    Set handler = New SignNumBox
     handler.RowIndex = rowCount
     Set handler.Txt = txtSignNum
     Set handler.ParentForm = Me
@@ -1485,7 +1485,7 @@ End Sub
 ' REFERENCE BUTTON CLICK EVENT - OPENS REFERENCE MUTCD FORM
 ' ============================================================
 Private Sub btnReference_Click()
-    UserForm1.Show vbModal
+    SheetViewer.Show vbModal
 End Sub
 
 ' ============================================================
