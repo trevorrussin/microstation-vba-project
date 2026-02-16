@@ -166,7 +166,7 @@ End Sub
 ' Called after WZTCDesigner submits. Resets state,
 ' snapshots the current max element ID (so we can identify
 ' elements drawn as part of this alignment later), and
-' launches UserForm2 for alignment drawing.
+' launches AlignDraw for alignment drawing.
 Public Sub StartWZTCDrawing()
     Dim v As View
 
@@ -206,7 +206,7 @@ End Sub
 ' ============================================================
 ' GROUP ALIGNMENT ELEMENTS AND LAUNCH PLACEMENT TOOL
 ' ============================================================
-' Called by UserForm2.cmdDone_Click after the user finishes
+' Called by AlignDraw.cmdDone_Click after the user finishes
 ' drawing the alignment. Assigns all newly drawn elements
 ' (those with ID > wztcAlignmentStartMaxID) to a new
 ' MicroStation graphic group, then launches the perpendicular

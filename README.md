@@ -36,12 +36,12 @@ For a typical workzone, this process involves 30–100+ individual element place
 The tool is structured as a 6-step sequential workflow, each step backed by a module + form pair:
 
 ```
-LaunchWZTC (Module1)
+LaunchWZTC (Launcher)
     └─► WZTCDesigner
             ├─► SheetViewer (NYSDOT 619 reference viewer, modeless)
-            └─► StartWZTCDrawing (Module6)
+            └─► StartWZTCDrawing (AlignmentTool)
                     └─► AlignDraw  ← user draws lines/arcs
-                            └─► GroupAndLaunchPlacement (Module6)
+                            └─► GroupAndLaunchPlacement (AlignmentTool)
                                     └─► StartAlignmentPlacement (ModuleAlignmentPlacement)
                                             └─► PlacePerp  ← user places perp lines
                                                     └─► StartSignPlacement (ModuleSignPlacement)
@@ -145,9 +145,9 @@ For a 45 mph, 4-lane divided freeway workzone (Category F):
 **Tradeoff:** For strongly non-convex shapes (e.g., an L-shape), the centroid may fall outside the boundary, causing hatch to fail silently. The typical workzone work-space area is approximately convex, so this is acceptable.
 
 ### Decision: DrawSign.bas name for the sign drawing module
-**Why:** This module evolved from a testing scaffold and retained its name (`ModTest`) through iterative development. The name does not reflect its current role.
+**Why:** This module evolved from a testing scaffold and was renamed from `ModTest` to `DrawSign` during refactoring to accurately reflect its role as the sign drawing engine.
 
-**Tradeoff:** Confusing name in a production codebase. Future refactoring should rename it to `ModuleSignDrawing` or similar. The module is fully functional; this is a cosmetic issue only.
+**Tradeoff:** None remaining. The rename resolved the earlier naming confusion.
 
 ### Decision: Form-based dynamic control creation instead of IDE-designed controls
 **Why:** The sign table in `WZTCDesigner` and the WZTC order rows in `PlacePerp` are variable-length lists. Creating them dynamically in `UserForm_Initialize` allows any number of rows without requiring the IDE designer.

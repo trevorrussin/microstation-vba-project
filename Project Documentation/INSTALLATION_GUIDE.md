@@ -49,16 +49,16 @@ Import every `.bas`, `.frm`, and `.cls` file from the project folder into the VB
 ### Standard Modules (`.bas`) — in `Modules/` subfolder
 | File | Module Name | Purpose |
 |------|-------------|---------|
-| `Launcher.bas` | Module1 | Launch entry points |
-| `SignLibrary.bas` | Module3 | Sign library manager |
-| `SignTypes.bas` | Module4 | `signData` type definition |
-| `AlignmentTool.bas` | Module6 | Alignment drawing tool logic |
-| `SharedState.bas` | ModuleWZTCData | All public persistent state variables |
-| `PerpPlacement.bas` | ModuleAlignmentPlacement | Path geometry + perpendicular lines |
-| `SignPlacer.bas` | ModuleSignPlacement | Sign placement state machine |
-| `DrawElements.bas` | ModuleWZTCElements | WZTC elements drawing |
-| `CellPlacer.bas` | ModuleWZTCCells | Cell library placement |
-| `DrawSign.bas` | ModTest | Sign drawing at perpendicular lines |
+| `Launcher.bas` | Launcher | Launch entry points |
+| `SignLibrary.bas` | SignLibrary | Sign library manager |
+| `SignTypes.bas` | SignTypes | `signData` type definition |
+| `AlignmentTool.bas` | AlignmentTool | Alignment drawing tool logic |
+| `SharedState.bas` | SharedState | All public persistent state variables |
+| `PerpPlacement.bas` | PerpPlacement | Path geometry + perpendicular lines |
+| `SignPlacer.bas` | SignPlacer | Sign placement state machine |
+| `DrawElements.bas` | DrawElements | WZTC elements drawing |
+| `CellPlacer.bas` | CellPlacer | Cell library placement |
+| `DrawSign.bas` | DrawSign | Sign drawing at perpendicular lines |
 
 ### UserForms (`.frm`) — in `UserForms/` subfolder
 | File | Form Name | Purpose |

@@ -77,7 +77,7 @@ End Sub
 ' ============================================================
 ' DRAW THE CURRENT SIGN
 ' Passes the stored perpendicular line geometry to PlaceWorkZoneSign
-' (ModTest.bas) which handles click collection and drawing.
+' (DrawSign.bas) which handles click collection and drawing.
 ' ============================================================
 Public Sub DrawCurrentSign()
     If currentSignIdx < 0 Or currentSignIdx >= wztcPlacedSignCount Then Exit Sub

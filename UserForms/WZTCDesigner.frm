@@ -1379,7 +1379,7 @@ End Sub
 
 ' ============================================================
 ' POPULATE SIGN TABLE (CLEAR ONLY - USER TYPES SIGN NUMBERS)
-' User types sign number in each row; spacing and size auto-fill from library (Module3) on Exit.
+' User types sign number in each row; spacing and size auto-fill from library (SignLibrary) on Exit.
 ' ============================================================
 Private Sub PopulateSignTable()
     Dim i As Integer
@@ -1394,7 +1394,7 @@ End Sub
 
 ' ============================================================
 ' APPLY SIGN LIBRARY TO ROW (called when user leaves sign number field or presses Enter)
-' Looks up sign in Module3 library and auto-fills spacing and size for that row.
+' Looks up sign in SignLibrary and auto-fills spacing and size for that row.
 ' ============================================================
 Public Sub ApplySignLibraryToRow(rowIndex As Integer)
     On Error GoTo ApplyLibError
