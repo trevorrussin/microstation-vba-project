@@ -107,7 +107,7 @@ Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
                        midX As Double, midY As Double, midZ As Double, _
                        perpX As Double, perpY As Double)
 
-    Const HALF_LEN As Double = 20   ' matches PERP_HALF_LEN in ModuleAlignmentPlacement
+    Const HALF_LEN As Double = 40   ' matches PERP_HALF_LEN in PerpPlacement
 
     ' Setup view
     Dim v As View

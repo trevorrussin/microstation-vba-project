@@ -14,7 +14,7 @@ Option Explicit
 '   2. PlacePerp (modeless) calls
 '      PlaceLineForCurrentItem() or SkipCurrentItem()
 '      for each item in sequence.
-'   3. Each perpendicular line is 40 ft long (20 ft each side).
+'   3. Each perpendicular line is 80 ft long (40 ft each side).
 ' ============================================================
 
 ' ---- Internal path segment type ----
@@ -40,7 +40,8 @@ Public currentItemIdx  As Integer   ' 0-based index into wztcOrderLabels
 Public currentPathPos  As Double    ' cumulative distance from alignment start (ft)
 
 ' Default half-length of each perpendicular tick line (master units = ft)
-Private Const PERP_HALF_LEN As Double = 20
+' Total line length = 2 * PERP_HALF_LEN = 80 ft (40 ft each side of alignment)
+Private Const PERP_HALF_LEN As Double = 40
 
 ' ============================================================
 ' MAIN ENTRY POINT

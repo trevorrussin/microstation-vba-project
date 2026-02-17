@@ -484,9 +484,36 @@ End Sub
 Private Sub cboRoadType_Change()
     If cboRoadType.ListIndex > 0 Then
         selectedRoadType = cboRoadType.Value
+        ' Update sign sizes in all existing rows to match new road type
+        Call UpdateSignSizesForRoadType
         lblStatus.Caption = "Road Type selected - Please select Lane Width."
         Call CheckAllSelectionsComplete
     End If
+End Sub
+
+' ============================================================
+' UPDATE SIGN SIZES FOR CURRENT ROAD TYPE
+' When the user switches between Freeway and Non-Freeway,
+' re-lookup each sign in the library and update its size column.
+' ============================================================
+Private Sub UpdateSignSizesForRoadType()
+    Dim i As Integer
+    Dim signNum As String
+    Dim sd As signData
+    Dim roadType As String
+
+    If cboRoadType.ListIndex <= 0 Then Exit Sub
+    roadType = cboRoadType.Value
+
+    For i = 1 To rowCount
+        signNum = Trim(signNumberBoxes(i).Value)
+        If signNum <> "" Then
+            sd = GetSignData(signNum, roadType)
+            If sd.SignNumber <> "" Then
+                signSizeBoxes(i).Value = sd.TextLine2
+            End If
+        End If
+    Next i
 End Sub
 
 ' ============================================================

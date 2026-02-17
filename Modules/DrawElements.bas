@@ -85,7 +85,8 @@ End Sub
 Public Function GetCurrentElementInstructions() As String
     If IsWorkSpace(currentElementIdx) Then
         GetCurrentElementInstructions = _
-            "Click points to trace the work space boundary, then right-click to close the shape."
+            "Click points to trace the work space boundary, then right-click to close the shape." & vbCrLf & _
+            "After the shape closes, click inside the shape border to place the hatch pattern."
     Else
         GetCurrentElementInstructions = _
             "Click points to draw the " & GetElementName(currentElementIdx) & _
@@ -121,21 +122,14 @@ Public Sub DrawCurrentElementSegment()
     End If
 
     ' Route user clicks to the active command until right-click (Reset).
-    ' For WorkSpace, also track clicked points to compute centroid for auto-hatch.
     Dim oMsg As CadInputMessage
     Dim nPts As Integer
-    Dim sumX As Double, sumY As Double, sumZ As Double
-    nPts = 0: sumX = 0: sumY = 0: sumZ = 0
+    nPts = 0
     Set oMsg = CadInputQueue.GetInput
     Do While oMsg.InputType <> msdCadInputTypeReset
         If oMsg.InputType = msdCadInputTypeDataPoint Then
             CadInputQueue.SendDataPoint oMsg.Point, 1
-            If IsWorkSpace(currentElementIdx) Then
-                nPts = nPts + 1
-                sumX = sumX + oMsg.Point.X
-                sumY = sumY + oMsg.Point.Y
-                sumZ = sumZ + oMsg.Point.Z
-            End If
+            nPts = nPts + 1
         End If
         Set oMsg = CadInputQueue.GetInput
     Loop
@@ -143,16 +137,32 @@ Public Sub DrawCurrentElementSegment()
     CadInputQueue.SendReset
     CommandState.StartDefaultCommand
 
-    ' ---- WorkSpace: auto-hatch using centroid of clicked points ----
+    ' ---- WorkSpace: user-click hatch (matches LegacyElements.bas pattern) ----
+    ' After the shape closes, start HATCH ICON and let the user click inside
+    ' the shape boundary to place the hatch. This avoids centroid issues with
+    ' non-convex shapes and gives the user control over hatch placement.
     If IsWorkSpace(currentElementIdx) And nPts >= 3 Then
-        Dim hatchPt As Point3d
-        hatchPt.X = sumX / nPts
-        hatchPt.Y = sumY / nPts
-        hatchPt.Z = sumZ / nPts
         CadInputQueue.SendCommand "HATCH ICON"
-        CadInputQueue.SendDataPoint hatchPt, 1
-        CadInputQueue.SendDataPoint hatchPt, 1
+        CadInputQueue.SendKeyin "ECHO Click inside the work space shape to place the hatch pattern."
+
+        ' Wait for user to click inside the shape (data point)
+        Set oMsg = CadInputQueue.GetInput
+        Do While oMsg.InputType <> msdCadInputTypeDataPoint
+            If oMsg.InputType = msdCadInputTypeReset Then
+                ' User cancelled hatch
+                CadInputQueue.SendReset
+                CommandState.StartDefaultCommand
+                GoTo HatchDone
+            End If
+            Set oMsg = CadInputQueue.GetInput
+        Loop
+
+        ' Send the click point to HATCH ICON (first point identifies the shape)
+        CadInputQueue.SendDataPoint oMsg.Point, 1
+        ' Send same point again to confirm (matches Legacy pattern)
+        CadInputQueue.SendDataPoint oMsg.Point, 1
         CadInputQueue.SendReset
         CommandState.StartDefaultCommand
     End If
+HatchDone:
 End Sub

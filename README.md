@@ -1,122 +1,91 @@
 # NYSDOT Workzone Traffic Control Designer
 
-A MicroStation V8i VBA tool that automates the placement of NYSDOT workzone traffic control (WZTC) signs, elements, and cell symbols along a user-drawn alignment, in compliance with MUTCD New York State supplement standards.
+A MicroStation VBA tool that automates the layout of NYSDOT workzone traffic control plans. Instead of manually placing every sign, taper, and element by hand, this tool lets you configure the workzone once and then walks you through placing everything in the correct order with the correct MUTCD NY spacings.
 
 ---
 
-## Problem Statement
+## What This Tool Does
 
-NYSDOT traffic control designers must produce plan sheets showing workzone setups that comply with MUTCD NY spacing and sign requirements. Traditionally, this meant:
+Designing a workzone traffic control plan normally means:
 
-- Manually looking up spacing values from NYSDOT 619 standard sheets for the given road speed and category
-- Manually calculating distances along the alignment for each sign, taper, and element
-- Manually placing sign face cells, post cells, text labels, hatch areas, and device symbols one at a time
+- Looking up spacing values from the NYSDOT 619 standard sheets for the road speed, category, lane width, and shoulder width
+- Calculating cumulative distances along the alignment for each sign, taper, buffer, and element
+- Placing 30-100+ individual elements (sign faces, posts, text labels, hatched areas, channelizing devices) one at a time
 
-For a typical workzone, this process involves 30–100+ individual element placements, significant risk of arithmetic error, and no standard reference check during placement.
-
-**This tool eliminates that manual process** by letting the designer draw the alignment once, configure the workzone parameters once, and then step through automated placement of all required elements.
+This tool handles all of that automatically. You draw the alignment, fill in your workzone parameters, and the tool places everything at the right locations along the alignment with the correct levels, colors, and spacings.
 
 ---
 
-## Assumptions
+## Requirements
 
-- The design file is in **feet** (master units = feet)
-- The active MicroStation model is a 2D plan view
-- Cell libraries are located at standard NYSDOT ProjectWise paths:
-  - Sign faces: `c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel`
-  - WZTC symbols: `c:\pwworking\usny\d0119091\ny_plan_wztc.cel`
-- The alignment is drawn as a **continuous chain** — each segment starts at the endpoint of the previous one
-- Workzone areas are approximately convex (for centroid-based auto-hatch to land inside)
-- The user understands their workzone category and can identify the required sign numbers from the NYSDOT 619 standard sheets
+- MicroStation with VBA support (V8i, CONNECT, or 2023)
+- Design file units set to **feet**
+- NYSDOT ProjectWise WorkSpace mounted (for cell libraries):
+  - Sign faces: `ny_plan_nmutcd_signface.cel`
+  - WZTC symbols: `ny_plan_wztc.cel`
+- The alignment must be drawn as a **continuous chain** (each segment connects to the previous one)
 
 ---
 
-## Architecture
+## How It Works — Step by Step
 
-The tool is structured as a 6-step sequential workflow, each step backed by a module + form pair:
+The tool guides you through 6 steps in order:
 
-```
-LaunchWZTC (Launcher)
-    └─► WZTCDesigner
-            ├─► SheetViewer (NYSDOT 619 reference viewer, modeless)
-            └─► StartWZTCDrawing (AlignmentTool)
-                    └─► AlignDraw  ← user draws lines/arcs
-                            └─► GroupAndLaunchPlacement (AlignmentTool)
-                                    └─► StartAlignmentPlacement (ModuleAlignmentPlacement)
-                                            └─► PlacePerp  ← user places perp lines
-                                                    └─► StartSignPlacement (DrawSign)
-                                                            └─► PlaceSign  ← user draws signs
-                                                                    └─► StartWZTCElementsPlacement (ModuleWZTCElements)
-                                                                            └─► PlaceElements  ← user draws elements
-                                                                                    └─► StartWZTCCellPlacement (ModuleWZTCCells)
-                                                                                            └─► PlaceCells  ← user places cells
-```
+### Step 1: Configure the Workzone (WZTCDesigner form)
+Select the workzone category, 619 standard sheet number, road speed, road type (Freeway or Non-Freeway), lane width, and shoulder width. The form automatically calculates all MUTCD NY spacings (downstream taper, roll ahead, buffer space, merging taper, shoulder taper, etc.). Then add your required signs to the sign selection table — the built-in sign library auto-fills spacing and size when you type a sign number. You can view the 619 standard sheet for reference at any time. The WZTC Order panel shows the sequence items will be placed along the alignment, and you can reorder them.
 
-### Module Roles
+### Step 2: Draw the Alignment (AlignDraw form)
+Draw lines and arcs to trace the alignment path. Each segment connects automatically to the previous one. Click "Done" when finished — the tool groups all alignment elements together.
 
-| File | Role |
-|------|------|
-| `Launcher.bas` | Entry points (`LaunchWZTC`, `LaunchNYSDOTViewer`) |
-| `SignLibrary.bas` | Sign library: `signData` type, loads default signs, looks up by sign number (cell name/path) |
-| `AlignmentTool.bas` | Alignment drawing: snapshot max element ID, show AlignDraw, group elements |
-| `SharedState.bas` | **All public persistent state** — survives form unload/reload |
-| `PerpPlacement.bas` | Path geometry engine: build arc/line chain, interpolate points, place perp lines |
-| `DrawSign.bas` | Sign placement and drawing: state for PlaceSign, click collection, post + sign face + text (uses SignLibrary) |
-| `DrawElements.bas` | WZTC element drawing: level/color/weight setup, shape + hatch, line elements |
-| `CellPlacer.bas` | Cell library: populate catalogue, attach library, interactive placement with count tracking |
-| `PlaceButtons.cls` | `WithEvents` sink for dynamically created `Place Line` / `Skip` buttons |
-| `SignNumBox.cls` | `WithEvents` sink for dynamically created sign number textboxes |
+### Step 3: Place Perpendicular Lines (PlacePerp form)
+The tool walks along the alignment and places an 80-ft perpendicular tick line at each item location (tapers, signs, work area, etc.), spaced according to the values from Step 1. For each item you can accept the suggested spacing or adjust it, and you can skip items you don't need.
 
-### State Persistence Model
+### Step 4: Draw Signs (PlaceSign form)
+For each sign that had a perpendicular line placed, you click where on the tick line to place the sign post. The tool automatically places the sign face cell, post cell, post line, and text label (sign number and size) at that location. For "Both Sides" signs, you click two points.
 
-Because MicroStation VBA resets all local variables when a form is unloaded, all designer configuration is stored in **public module-level variables** in `SharedState.bas`. This allows:
+### Step 5: Draw WZTC Elements (PlaceElements form)
+Draw the remaining workzone elements in sequence: Work Space polygon (with hatch), channelizing device lines, removal striping, temporary barrier, and barrier with warning lights. Each element is placed on its correct NYSDOT level. For the Work Space, you trace the boundary shape, then click inside it to apply the hatch pattern.
 
-- Any form to read the configuration
-- `WZTCDesigner` to restore its previous state when reopened via **Return to Designer**
-- Sign geometry (perpendicular line midpoints and normal vectors) to pass from the alignment placement step to the sign drawing step without form dependencies
-
-### Alignment Path Engine (`PerpPlacement.bas`)
-
-The path engine stores each drawn segment as a `PathSeg` UDT containing:
-- `IsArc` flag
-- Start/end XYZ, center XYZ (arcs), radius, start angle, sweep angle
-- Segment length (chord length for lines, arc length for arcs)
-
-`BuildAlignmentPath` scans all elements newer than `wztcAlignmentStartMaxID`, sorts them into a connected chain by endpoint proximity, and resolves arc orientation by checking which of the arc's two geometric endpoints is closest to the current chain position.
-
-`GetPointAndTangent(dist)` walks the chain using cumulative arc-length to return the XY position and unit tangent at any distance along the alignment.
-
-`PlacePerpendicularLine` draws a tick-line of half-length 20 ft perpendicular to the tangent at each WZTC item location and stores the midpoint + normal vector for the sign drawing step.
+### Step 6: Place Cell Symbols (PlaceCells form)
+Place any additional WZTC cell symbols (arrow panels, flaggers, etc.) from the ny_plan_wztc.cel library.
 
 ---
 
-## Example Output
+## File Descriptions
 
-For a 45 mph, 4-lane divided freeway workzone (Category F):
+| File | What It Does |
+|------|-------------|
+| `Launcher.bas` | Starts the tool — run `LaunchWZTC` to begin |
+| `SignLibrary.bas` | Contains 150+ MUTCD sign definitions with cell names, sizes (Freeway and Non-Freeway), and default spacings. When you type a sign number in the designer, this is where the auto-fill data comes from. |
+| `AlignmentTool.bas` | Handles the alignment drawing step. Tracks what elements you draw so the tool knows which lines and arcs form your alignment. |
+| `SharedState.bas` | Stores all your workzone configuration (speeds, spacings, sign selections, etc.) so it persists between the different steps. If you go back to the designer form, your previous selections are still there. |
+| `PerpPlacement.bas` | The alignment geometry engine. It takes your drawn alignment, builds a connected path of lines and arcs, and calculates where each perpendicular tick line should go based on your configured spacings. |
+| `DrawSign.bas` | Places the sign face cell, post cell, post line, and text label at each sign location along the perpendicular lines. |
+| `DrawElements.bas` | Handles drawing the WZTC shape elements (work space, channelizing devices, barriers, etc.) on the correct NYSDOT levels. |
+| `CellPlacer.bas` | Lets you browse and place additional WZTC cell symbols from the ny_plan_wztc.cel library. |
+| `DesignerRef.bas` | Provides the WZTC order table logic and NYSDOT 619 standard sheet reference data. |
+| `PlaceButtons.cls` | Handles the "Place Line" and "Skip" button clicks in the perpendicular line placement step. |
+| `SignNumBox.cls` | Handles the sign number text box behavior — when you finish typing a sign number, it triggers the library lookup to auto-fill spacing and size. |
 
-1. **Designer configures:**
-   - Category: Freeway, Sheet 619-3, Speed: 45 mph, Freeway, Lane: 12 ft, Shoulder: 8 ft
-   - Signs: W20-1 (48" x 48", 1000 ft spacing), W20-5 (48" x 48", 500 ft), R2-1 (36" x 48", 250 ft)
-   - WZTC Order: Downstream Taper → Roll Ahead → W20-1 → Buffer → W20-5 → R2-1 → Work Area
+---
 
-2. **User draws alignment** (3 lines + 1 arc = ~2000 ft total)
+## Example
 
-3. **Perpendicular lines placed** at computed locations along the alignment:
-   - Downstream Taper tick at 0 ft
-   - Roll Ahead tick at 150 ft
-   - W20-1 sign location at 650 ft (150 + 500)
-   - Buffer Space tick at 900 ft
-   - W20-5 at 1150 ft
-   - R2-1 at 1400 ft
-   - Work Area at 1650 ft
+For a 45 mph freeway workzone (12 ft lanes, 8 ft shoulder):
 
-4. **Signs drawn:** User clicks post location on each tick — sign face cell, post cell (TWZSGN_P), text label (sign number + size) placed automatically at each location
+1. **Configure:** Select Freeway, 45 mph, 12 ft lane, 8 ft shoulder. The tool calculates: Downstream Taper = 100 ft, Roll Ahead = 160 ft, Buffer Space = 360 ft, Merging Taper = 560 ft, Shoulder Taper = 120 ft. Add signs W20-05, W20-03, R02-01 to the sign table.
 
-5. **WZTC elements drawn:** Work Space polygon + auto-hatch, channelizing device lines on correct levels
+2. **Draw alignment:** Trace your alignment with lines and arcs (~2000 ft total).
 
-6. **Cell symbols placed:** Arrow panels, flaggers, etc. from ny_plan_wztc.cel
+3. **Place perpendicular lines:** The tool places 80-ft tick lines at each calculated location along the alignment.
 
-**Result:** A complete NYSDOT-compliant WZTC plan layout drawn directly in the design file, with correct levels, colors, and element spacing.
+4. **Draw signs:** Click on each tick line to place signs. The sign face, post, and label appear automatically.
+
+5. **Draw elements:** Trace the work space boundary and click inside it to hatch. Draw channelizing device lines and barrier lines on the correct levels.
+
+6. **Place cells:** Add any remaining symbols (arrow panels, flaggers, etc.).
+
+**Result:** A complete NYSDOT-compliant WZTC plan layout in the design file, ready for review.
 
 ---
 
@@ -137,10 +106,10 @@ For a 45 mph, 4-lane divided freeway workzone (Category F):
 
 **Tradeoff:** The Range-based fallback adds a small amount of computation per arc segment. In practice this is negligible since alignment chains rarely have more than a few dozen segments.
 
-### Decision: Centroid-based auto-hatch for Work Space
-**Why:** The hatch command (`HATCH ICON`) requires a data point inside the closed shape. Computing the centroid of the user's clicked vertices gives a point near the center of the drawn area without requiring the user to make an extra click.
+### Decision: User-click hatch for Work Space
+**Why:** The hatch command (`HATCH ICON`) requires a data point inside the closed shape. Earlier code computed the centroid of the user's clicked vertices automatically, but this failed silently for non-convex shapes (e.g., L-shapes) where the centroid falls outside the boundary. The current approach asks the user to click inside the shape after drawing it, which works reliably for any shape.
 
-**Tradeoff:** For strongly non-convex shapes (e.g., an L-shape), the centroid may fall outside the boundary, causing hatch to fail silently. The typical workzone work-space area is approximately convex, so this is acceptable.
+**Tradeoff:** Requires one extra click from the user after drawing the work space boundary. In practice this is a minor step and gives the user full control over hatch placement.
 
 ### Decision: DrawSign.bas name for the sign drawing module
 **Why:** This module evolved from a testing scaffold and was renamed from `ModTest` to `DrawSign` during refactoring to accurately reflect its role as the sign drawing engine.
