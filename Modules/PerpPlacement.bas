@@ -133,15 +133,17 @@ Private Function BuildAlignmentPath() As Boolean
         Set elems(j + 1) = tmpEl
     Next i
 
-    ' --- build path in drawing order, bootstrapping arc centres from the chain ---
+    ' --- build path in drawing order ---
     '
     ' wztcAlignmentFirstPoint* is the first mouse-click when drawing started.
     ' It is exactly the path-direction start of the first element.
     '
-    ' Lines : le.StartPoint / EndPoint work fine.  Pick the end closest to chainPt.
-    ' Arcs  : chainPt IS the arc's path-start = center + r*(cos(sa), sin(sa))
-    '         so  center = chainPt - r*(cos(sa), sin(sa)).
-    '         No ae.Origin or ae.StartPoint needed.
+    ' Lines : le.StartPoint / EndPoint — pick the end closest to chainPt.
+    ' Arcs  : The center is obtained via ae.CenterPoint (MicroStation 2023).
+    '         If that property is not available, both possible centers are
+    '         computed and validated against ae.Range (works in all versions).
+    '         The chain direction is then determined by checking which
+    '         geometric endpoint (sa or sa+sw) is closer to chainPt.
     Dim chainX As Double, chainY As Double, chainZ As Double
     chainX = wztcAlignmentFirstPointX
     chainY = wztcAlignmentFirstPointY
@@ -190,26 +192,108 @@ Private Function BuildAlignmentPath() As Boolean
             sa = ae.StartAngle
             sw = ae.SweepAngle
 
-            ' Derive centre from the known chain start point.
-            ' chainX/Y is the arc's path-direction start point, which lies at
-            ' angle sa from the centre:  chainPt = centre + r*(cos sa, sin sa)
-            ' Therefore:                 centre  = chainPt - r*(cos sa, sin sa)
+            ' --- Determine arc center ---
+            ' Try ae.CenterPoint first (MicroStation 2023 / CONNECT edition).
+            ' If not available, derive mathematically with Range validation.
+            ' If angles appear to be in degrees, convert to radians and retry.
             Dim ctrX As Double, ctrY As Double
-            ctrX = chainX - R * Cos(sa)
-            ctrY = chainY - R * Sin(sa)
+            Dim gotCenter As Boolean
+            gotCenter = False
+
+            Debug.Print "Arc seg " & i & ": R=" & R & " sa=" & sa & " sw=" & sw
+            Debug.Print "  chainPt: " & chainX & ", " & chainY
+
+            On Error Resume Next
+            Dim ctrPt As Point3d
+            ctrPt = ae.CenterPoint
+            If Err.Number = 0 Then
+                ctrX = ctrPt.X
+                ctrY = ctrPt.Y
+                gotCenter = True
+                Debug.Print "  CenterPoint OK: " & ctrX & ", " & ctrY
+            End If
+            Err.Clear
+            On Error GoTo BuildErr
+
+            Dim rng As Range3d
+            rng = ae.Range
+            Dim tol As Double
+            tol = R * 0.01 + 1
+
+            If Not gotCenter Then
+                ' Fallback 1: try angles as radians
+                gotCenter = TryComputeCenter(chainX, chainY, R, sa, sw, rng, tol, ctrX, ctrY)
+                If gotCenter Then
+                    Debug.Print "  Center (radians): " & ctrX & ", " & ctrY
+                End If
+            End If
+
+            If Not gotCenter Then
+                ' Fallback 2: try angles as degrees (convert to radians)
+                Dim PI As Double
+                PI = 3.14159265358979
+                Dim saRad As Double, swRad As Double
+                saRad = sa * PI / 180#
+                swRad = sw * PI / 180#
+                gotCenter = TryComputeCenter(chainX, chainY, R, saRad, swRad, rng, tol, ctrX, ctrY)
+                If gotCenter Then
+                    ' Angles were in degrees — use converted values
+                    sa = saRad
+                    sw = swRad
+                    Debug.Print "  Center (degrees->rad): " & ctrX & ", " & ctrY
+                End If
+            End If
+
+            If Not gotCenter Then
+                ' Last resort: use bounding box center, adjusted to be R from chainPt
+                Dim bx As Double, by As Double
+                bx = (rng.Low.X + rng.High.X) / 2
+                by = (rng.Low.Y + rng.High.Y) / 2
+                ' Project to be exactly R from chainPt
+                Dim bd As Double
+                bd = Sqr((bx - chainX) ^ 2 + (by - chainY) ^ 2)
+                If bd > 0.001 Then
+                    ctrX = chainX + (bx - chainX) * R / bd
+                    ctrY = chainY + (by - chainY) * R / bd
+                Else
+                    ctrX = chainX + R
+                    ctrY = chainY
+                End If
+                gotCenter = True
+                Debug.Print "  Center (bbox fallback): " & ctrX & ", " & ctrY
+            End If
+
+            ' --- Determine path direction through the arc ---
+            ' Compute both geometric endpoints from the center.
+            Dim geoStartX As Double, geoStartY As Double
+            Dim geoEndX As Double, geoEndY As Double
+            geoStartX = ctrX + R * Cos(sa)
+            geoStartY = ctrY + R * Sin(sa)
+            geoEndX = ctrX + R * Cos(sa + sw)
+            geoEndY = ctrY + R * Sin(sa + sw)
+
+            ' Check which geometric endpoint is closer to the chain point
+            Dim dGeoStart As Double, dGeoEnd As Double
+            dGeoStart = (geoStartX - chainX) ^ 2 + (geoStartY - chainY) ^ 2
+            dGeoEnd = (geoEndX - chainX) ^ 2 + (geoEndY - chainY) ^ 2
 
             seg.IsArc = True
             seg.CX = ctrX:  seg.CY = ctrY:  seg.CZ = chainZ
             seg.Radius = R
-            seg.StartAngle = sa
-            seg.SweepAngle = sw
 
-            seg.SX = chainX:  seg.SY = chainY:  seg.SZ = chainZ
-            Dim ea As Double
-            ea = sa + sw
-            seg.EX = ctrX + R * Cos(ea)
-            seg.EY = ctrY + R * Sin(ea)
-            seg.EZ = chainZ
+            If dGeoStart <= dGeoEnd Then
+                ' Chain enters at geometric start — travel in sweep direction
+                seg.StartAngle = sa
+                seg.SweepAngle = sw
+                seg.SX = geoStartX:  seg.SY = geoStartY:  seg.SZ = chainZ
+                seg.EX = geoEndX:    seg.EY = geoEndY:    seg.EZ = chainZ
+            Else
+                ' Chain enters at geometric end — travel in reverse sweep direction
+                seg.StartAngle = sa + sw
+                seg.SweepAngle = -sw
+                seg.SX = geoEndX:    seg.SY = geoEndY:    seg.SZ = chainZ
+                seg.EX = geoStartX:  seg.EY = geoStartY:  seg.EZ = chainZ
+            End If
 
             seg.SegLen = R * Abs(sw)
 
@@ -367,6 +451,10 @@ Public Sub PlacePerpendicularLine(ptX As Double, ptY As Double, ptZ As Double, _
 
     Dim lineEl As LineElement
     Set lineEl = CreateLineElement2(Nothing, pt1, pt2)
+    ' Set element properties: Default level, color 0 (white), weight 0
+    lineEl.Color = 0
+    lineEl.LineWeight = 0
+    lineEl.Level = ActiveDesignFile.Levels("Default")
     ActiveModelReference.AddElement lineEl
     lineEl.Rewrite
 
@@ -509,6 +597,58 @@ Private Function IsSignLabel(lbl As String) As Boolean
         Case Else
             IsSignLabel = (Trim(lbl) <> "")
     End Select
+End Function
+
+' ============================================================
+' TRY TO COMPUTE ARC CENTER FROM CHAIN POINT AND ANGLES
+' Tests both candidate centers (chainPt at sa vs chainPt at sa+sw)
+' and validates the arc midpoint against the bounding box.
+' Returns True if a valid center was found.
+' ============================================================
+Private Function TryComputeCenter(chainX As Double, chainY As Double, _
+                                   R As Double, sa As Double, sw As Double, _
+                                   rng As Range3d, tol As Double, _
+                                   ctrX As Double, ctrY As Double) As Boolean
+    ' Candidate A: chainPt is at geometric start angle (sa)
+    Dim ctrXA As Double, ctrYA As Double
+    ctrXA = chainX - R * Cos(sa)
+    ctrYA = chainY - R * Sin(sa)
+
+    ' Candidate B: chainPt is at geometric end angle (sa + sw)
+    Dim ctrXB As Double, ctrYB As Double
+    ctrXB = chainX - R * Cos(sa + sw)
+    ctrYB = chainY - R * Sin(sa + sw)
+
+    ' Validate: the arc midpoint (at angle sa + sw/2) for the correct
+    ' candidate must fall inside the element's bounding box.
+    Dim midAngle As Double
+    midAngle = sa + sw / 2
+
+    ' Test candidate A
+    Dim midXA As Double, midYA As Double
+    midXA = ctrXA + R * Cos(midAngle)
+    midYA = ctrYA + R * Sin(midAngle)
+
+    If midXA >= rng.Low.X - tol And midXA <= rng.High.X + tol And _
+       midYA >= rng.Low.Y - tol And midYA <= rng.High.Y + tol Then
+        ctrX = ctrXA:  ctrY = ctrYA
+        TryComputeCenter = True
+        Exit Function
+    End If
+
+    ' Test candidate B
+    Dim midXB As Double, midYB As Double
+    midXB = ctrXB + R * Cos(midAngle)
+    midYB = ctrYB + R * Sin(midAngle)
+
+    If midXB >= rng.Low.X - tol And midXB <= rng.High.X + tol And _
+       midYB >= rng.Low.Y - tol And midYB <= rng.High.Y + tol Then
+        ctrX = ctrXB:  ctrY = ctrYB
+        TryComputeCenter = True
+        Exit Function
+    End If
+
+    TryComputeCenter = False
 End Function
 
 

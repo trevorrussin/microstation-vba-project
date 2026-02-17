@@ -161,18 +161,7 @@ Brief description of what this PR does and why.
 
 ## Screenshots
 (If UI changes are involved, include before/after screenshots)
-```
 
-### Review Checklist
-
-Reviewers should verify:
-- Code follows the naming conventions above
-- No hardcoded values that should be constants
-- `ControlExists()` guard used before accessing dynamic controls
-- Error handlers present in any Sub that interacts with MicroStation API
-- State that must persist across form loads is stored in `SharedState.bas`
-
----
 
 ## Questions?
 

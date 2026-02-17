@@ -1,14 +1,93 @@
-
 Option Explicit
+
+' Library path for current sign (set at start of DrawSignAtPerpLine; used when re-attaching after post)
+Private currentSignFaceLibraryPath As String
+
+' ============================================================
+' SIGN PLACEMENT STATE AND ENTRY
+' ------------------------------------------------------------
+' Manages the sign drawing step that follows alignment placement.
+' After the user clicks "Next: Draw Signs" in PlacePerp, StartSignPlacement
+' shows PlaceSign and steps through each sign that had a perpendicular
+' line placed. State is in wztcPlacedSign* (SharedState) and currentSignIdx.
+' ============================================================
+Public currentSignIdx As Integer   ' 0-based index into wztcPlacedSign* arrays
+
+Public Sub StartSignPlacement()
+    If wztcPlacedSignCount <= 0 Then
+        MsgBox "No signs were recorded during alignment placement." & vbCrLf & _
+               "Make sure sign numbers appear in the WZTC order and that you" & vbCrLf & _
+               "clicked 'Place Line' (not 'Skip') for those items.", _
+               vbExclamation, "Sign Placement"
+        Exit Sub
+    End If
+    currentSignIdx = 0
+    PlaceSign.Show vbModeless
+End Sub
+
+Public Function GetCurrentSignNum() As String
+    If currentSignIdx >= 0 And currentSignIdx < wztcPlacedSignCount Then
+        GetCurrentSignNum = wztcPlacedSignNums(currentSignIdx + 1)
+    Else
+        GetCurrentSignNum = ""
+    End If
+End Function
+
+Public Function GetCurrentSignSide() As String
+    If currentSignIdx >= 0 And currentSignIdx < wztcPlacedSignCount Then
+        GetCurrentSignSide = wztcPlacedSignSide(currentSignIdx + 1)
+    Else
+        GetCurrentSignSide = ""
+    End If
+End Function
+
+Public Function GetCurrentSignSize() As String
+    If currentSignIdx >= 0 And currentSignIdx < wztcPlacedSignCount Then
+        GetCurrentSignSize = wztcPlacedSignSize(currentSignIdx + 1)
+    Else
+        GetCurrentSignSize = ""
+    End If
+End Function
+
+Public Function GetCurrentSignNumber() As Integer
+    GetCurrentSignNumber = currentSignIdx + 1   ' 1-based for display
+End Function
+
+Public Function GetTotalSignCount() As Integer
+    GetTotalSignCount = wztcPlacedSignCount
+End Function
+
+Public Function IsAllSignsDone() As Boolean
+    IsAllSignsDone = (currentSignIdx >= wztcPlacedSignCount)
+End Function
+
+Public Sub AdvanceSign()
+    currentSignIdx = currentSignIdx + 1
+End Sub
+
+Public Sub DrawCurrentSign()
+    If currentSignIdx < 0 Or currentSignIdx >= wztcPlacedSignCount Then Exit Sub
+    Dim n As Integer
+    n = currentSignIdx + 1
+    Call DrawSignAtPerpLine( _
+        wztcPlacedSignNums(n), _
+        wztcPlacedSignSize(n), _
+        wztcPlacedSignSide(n), _
+        wztcPlacedSignPtX(n), _
+        wztcPlacedSignPtY(n), _
+        wztcPlacedSignPtZ(n), _
+        wztcPlacedSignPerpX(n), _
+        wztcPlacedSignPerpY(n))
+End Sub
 
 ' ============================================================
 ' PLACE WORKZONE SIGN
 ' ------------------------------------------------------------
-' Called by ModuleSignPlacement.DrawCurrentSign with the
-' geometry of the perpendicular line where the sign goes.
+' Called by DrawCurrentSign with the geometry of the perpendicular
+' line where the sign goes. Uses SignLibrary for cell name and path.
 '
 ' Parameters:
-'   signNum   - sign number string (e.g. "W6-3")
+'   signNum   - sign number string (e.g. "W20-05", zero-padded to match cell library)
 '   signSize  - sign size string from sign table (may contain " chars)
 '   side      - "One Side" or "Both Sides"
 '   midX/Y/Z  - alignment point = midpoint of the perpendicular line
@@ -16,10 +95,13 @@ Option Explicit
 '
 ' Behaviour:
 '   One Side   - collects 1 click, projects onto perp line,
-'                draws: 20-ft post line + post cell + sign face cell + text.
+'                draws: text label + sign face cell + post line + post cell.
 '                No arc.
 '   Both Sides - collects 2 clicks, projects each onto perp line,
 '                draws both signs and a connecting arc between the posts.
+'
+' Sign placement order matches Legacy pattern:
+'   1. Text label   2. Sign face cell   3. Post line + post cell
 ' ============================================================
 Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
                        midX As Double, midY As Double, midZ As Double, _
@@ -35,6 +117,18 @@ Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
     CadInputQueue.SendKeyin "ACS SET WORLD"
     CadInputQueue.SendKeyin "ACTIVE ANGLE 0"
     CadInputQueue.SendKeyin "LOCK ROTATION OFF"
+
+    ' Set element properties: Default level, color 0 (white), weight 0
+    CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
+    CadInputQueue.SendKeyin "ACTIVE COLOR 0"
+    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
+
+    ' Attach sign face library (use path from SignLibrary if sign is in library)
+    currentSignFaceLibraryPath = "c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel"
+    If SignLibrary.SignExists(signNum) Then
+        currentSignFaceLibraryPath = SignLibrary.GetSignData(signNum).CellLibraryPath
+    End If
+    CadInputQueue.SendCommand "ATTACH LIBRARY " & currentSignFaceLibraryPath
 
     Dim bothSides As Boolean
     bothSides = (Trim(side) = "Both Sides")
@@ -75,8 +169,9 @@ Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
             d1X = -perpX: d1Y = -perpY
         End If
 
-        Call DrawSignPost(pt1, d1X, d1Y)
+        ' Legacy order: text label → sign face cell → post
         Call PlaceSignFaceAndText(pt1, signNum, signSize, d1X, d1Y)
+        Call DrawSignPost(pt1, d1X, d1Y)
 
     Else
         ' =====================================================
@@ -124,11 +219,12 @@ Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
             dBX = -perpX: dBY = -perpY
         End If
 
-        Call DrawSignPost(pt1, dAX, dAY)
+        ' Legacy order: text label → sign face cell → post
         Call PlaceSignFaceAndText(pt1, signNum, signSize, dAX, dAY)
+        Call DrawSignPost(pt1, dAX, dAY)
 
-        Call DrawSignPost(pt2, dBX, dBY)
         Call PlaceSignFaceAndText(pt2, signNum, signSize, dBX, dBY)
+        Call DrawSignPost(pt2, dBX, dBY)
 
         Call DrawConnectingArc(pt1, pt2)
     End If
@@ -185,12 +281,16 @@ Sub DrawSignPost(postPt As Point3d, dirX As Double, dirY As Double)
     CadInputQueue.SendDataPoint point, 1
     CadInputQueue.SendReset
 
-    ' Re-attach sign face library for subsequent operations
-    CadInputQueue.SendCommand "ATTACH LIBRARY c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel"
+    ' Re-attach sign face library so next PlaceSignFaceAndText uses correct library
+    If currentSignFaceLibraryPath = "" Then
+        currentSignFaceLibraryPath = "c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel"
+    End If
+    CadInputQueue.SendCommand "ATTACH LIBRARY " & currentSignFaceLibraryPath
 End Sub
 
 ' ============================================================
 ' PLACE SIGN FACE CELL AND TWO-LINE TEXT LABEL
+' Follows Legacy pattern order: text label first, then sign face cell.
 ' Sign face is placed 20 ft from post in dirX/Y direction.
 ' Text (sign number + size) is placed 70 ft from post.
 ' ============================================================
@@ -198,31 +298,45 @@ Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As Strin
                           dirX As Double, dirY As Double)
     Dim point As Point3d
 
-    ' Sign face cell at 20 ft — use the sign number as the cell name (matches ny_plan_nmutcd_signface.cel)
-    SetCExpressionValue "tcb->activeCellUtf16", signNum, ""
-    CadInputQueue.SendCommand "PLACE CELL ICON"
-    point.X = postPt.X + dirX * 20#
-    point.Y = postPt.Y + dirY * 20#
-    point.Z = postPt.Z
-    CadInputQueue.SendDataPoint point, 1
-    CadInputQueue.SendReset
-
-    ' Text label at 70 ft: sign number (line 1) + size (line 2)
-    ' Replace " (inch symbol) with ' to avoid TEXTEDITOR keyin quoting issues
-    Dim cleanSize As String
-    cleanSize = Replace(signSize, Chr(34), Chr(39))
+    ' --- Text label at 70 ft: sign number (line 1) + size (line 2) ---
+    ' Escape " (inch marks) as "" for TEXTEDITOR keyin (matches Legacy pattern)
+    Dim escapedSize As String
+    escapedSize = Replace(signSize, Chr(34), Chr(34) & Chr(34))
 
     CadInputQueue.SendCommand "TEXTEDITOR PLACE"
     CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & signNum & """"
-    If cleanSize <> "" Then
+    If Len(escapedSize) > 0 Then
         CadInputQueue.SendCommand "TEXTEDITOR PLAYCOMMAND KEY_DOWN KEY_CODE 0x06 CONTROL_KEY_STATE UP SHIFT_KEY_STATE UP ALT_KEY_STATE UP"
-        CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & cleanSize & """"
+        CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & escapedSize & """"
     End If
     point.X = postPt.X + dirX * 70#
     point.Y = postPt.Y + dirY * 70#
     point.Z = postPt.Z
     CadInputQueue.SendDataPoint point, 1
     CadInputQueue.SendReset
+
+    ' --- Sign face cell at 20 ft (same for every sign in library) ---
+    ' Re-attach sign face library so it is active before placing cell
+    If Len(currentSignFaceLibraryPath) = 0 Then
+        currentSignFaceLibraryPath = "c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel"
+    End If
+    CadInputQueue.SendCommand "ATTACH LIBRARY " & currentSignFaceLibraryPath
+    ' Cell name from SignLibrary so all signs place their face; fallback to signNum if not in library
+    Dim cellName As String
+    If SignLibrary.SignExists(signNum) Then
+        cellName = SignLibrary.GetSignData(signNum).CellName
+    Else
+        cellName = signNum
+    End If
+    If Len(cellName) > 0 Then
+        SetCExpressionValue "tcb->activeCellUtf16", cellName, ""
+        CadInputQueue.SendCommand "PLACE CELL ICON"
+        point.X = postPt.X + dirX * 20#
+        point.Y = postPt.Y + dirY * 20#
+        point.Z = postPt.Z
+        CadInputQueue.SendDataPoint point, 1
+        CadInputQueue.SendReset
+    End If
 End Sub
 
 ' ============================================================

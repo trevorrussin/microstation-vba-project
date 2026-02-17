@@ -1,4 +1,4 @@
-﻿# WORKZONE TRAFFIC CONTROL DESIGNER — INSTALLATION GUIDE
+# WORKZONE TRAFFIC CONTROL DESIGNER — INSTALLATION GUIDE
 
 ## Quick Navigation
 
@@ -50,15 +50,13 @@ Import every `.bas`, `.frm`, and `.cls` file from the project folder into the VB
 | File | Module Name | Purpose |
 |------|-------------|---------|
 | `Launcher.bas` | Launcher | Launch entry points |
-| `SignLibrary.bas` | SignLibrary | Sign library manager |
-| `SignTypes.bas` | SignTypes | `signData` type definition |
+| `SignLibrary.bas` | SignLibrary | Sign library: `signData` type, default signs, lookup by sign number |
 | `AlignmentTool.bas` | AlignmentTool | Alignment drawing tool logic |
 | `SharedState.bas` | SharedState | All public persistent state variables |
 | `PerpPlacement.bas` | PerpPlacement | Path geometry + perpendicular lines |
-| `SignPlacer.bas` | SignPlacer | Sign placement state machine |
+| `DrawSign.bas` | DrawSign | Sign placement state + drawing (post, face, text) at perpendicular lines |
 | `DrawElements.bas` | DrawElements | WZTC elements drawing |
 | `CellPlacer.bas` | CellPlacer | Cell library placement |
-| `DrawSign.bas` | DrawSign | Sign drawing at perpendicular lines |
 
 ### UserForms (`.frm`) — in `UserForms/` subfolder
 | File | Form Name | Purpose |
@@ -329,7 +327,7 @@ WZTCDesigner.Show vbModeless
 ## TROUBLESHOOTING
 
 ### "Sub or Function Not Defined"
-- Verify all `.bas` files from the import table were imported (especially `DrawSign.bas`, `SignPlacer.bas`, `DrawElements.bas`, `CellPlacer.bas`)
+- Verify all `.bas` files from the import table were imported (especially `DrawSign.bas`, `SignLibrary.bas`, `DrawElements.bas`, `CellPlacer.bas`)
 - Check that class modules `PlaceButtons.cls` and `SignNumBox.cls` were imported
 
 ### "Control not found" Error
@@ -368,15 +366,13 @@ WZTCDesigner.Show vbModeless
 | File | Type | Purpose |
 |------|------|---------|
 | `Launcher.bas` | Standard Module | Entry points: `LaunchWZTC`, `LaunchNYSDOTViewer` |
-| `SignLibrary.bas` | Standard Module | Sign library (load/get/match signs from cell library) |
-| `SignTypes.bas` | Standard Module | `signData` Public Type definition |
+| `SignLibrary.bas` | Standard Module | Sign library: `signData` type, load/get signs, cell name and path for drawing |
 | `AlignmentTool.bas` | Standard Module | Alignment drawing: `StartWZTCDrawing`, `GroupAndLaunchPlacement` |
 | `SharedState.bas` | Standard Module | All public persistent state variables |
 | `PerpPlacement.bas` | Standard Module | Path geometry engine + perpendicular line placement |
-| `SignPlacer.bas` | Standard Module | Sign placement state machine |
+| `DrawSign.bas` | Standard Module | Sign placement state + `DrawSignAtPerpLine` — post, sign face, text (uses SignLibrary) |
 | `DrawElements.bas` | Standard Module | WZTC element drawing (level/color/hatch) |
 | `CellPlacer.bas` | Standard Module | Cell library placement + count tracking |
-| `DrawSign.bas` | Standard Module | `DrawSignAtPerpLine` — sign drawing with post/face/text |
 | `WZTCDesigner.frm` | UserForm | Main workzone configuration form |
 | `SheetViewer.frm` | UserForm | NYSDOT 619 standard sheet reference viewer |
 | `AlignDraw.frm` | UserForm | Alignment drawing (line/arc segments + Done) |

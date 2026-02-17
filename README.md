@@ -1,4 +1,4 @@
-﻿# NYSDOT Workzone Traffic Control Designer
+# NYSDOT Workzone Traffic Control Designer
 
 A MicroStation V8i VBA tool that automates the placement of NYSDOT workzone traffic control (WZTC) signs, elements, and cell symbols along a user-drawn alignment, in compliance with MUTCD New York State supplement standards.
 
@@ -44,7 +44,7 @@ LaunchWZTC (Launcher)
                             └─► GroupAndLaunchPlacement (AlignmentTool)
                                     └─► StartAlignmentPlacement (ModuleAlignmentPlacement)
                                             └─► PlacePerp  ← user places perp lines
-                                                    └─► StartSignPlacement (ModuleSignPlacement)
+                                                    └─► StartSignPlacement (DrawSign)
                                                             └─► PlaceSign  ← user draws signs
                                                                     └─► StartWZTCElementsPlacement (ModuleWZTCElements)
                                                                             └─► PlaceElements  ← user draws elements
@@ -57,13 +57,11 @@ LaunchWZTC (Launcher)
 | File | Role |
 |------|------|
 | `Launcher.bas` | Entry points (`LaunchWZTC`, `LaunchNYSDOTViewer`) |
-| `SignLibrary.bas` | Sign library: loads default signs, looks up spacing/size by sign number |
-| `SignTypes.bas` | `Public Type signData` definition (shared across all modules) |
+| `SignLibrary.bas` | Sign library: `signData` type, loads default signs, looks up by sign number (cell name/path) |
 | `AlignmentTool.bas` | Alignment drawing: snapshot max element ID, show AlignDraw, group elements |
 | `SharedState.bas` | **All public persistent state** — survives form unload/reload |
 | `PerpPlacement.bas` | Path geometry engine: build arc/line chain, interpolate points, place perp lines |
-| `SignPlacer.bas` | Sign step state machine: index tracking, accessor functions for `PlaceSign` |
-| `DrawSign.bas` | Low-level sign drawing: click collection, projection onto perp line, post + face + text |
+| `DrawSign.bas` | Sign placement and drawing: state for PlaceSign, click collection, post + sign face + text (uses SignLibrary) |
 | `DrawElements.bas` | WZTC element drawing: level/color/weight setup, shape + hatch, line elements |
 | `CellPlacer.bas` | Cell library: populate catalogue, attach library, interactive placement with count tracking |
 | `PlaceButtons.cls` | `WithEvents` sink for dynamically created `Place Line` / `Skip` buttons |
@@ -134,10 +132,10 @@ For a 45 mph, 4-lane divided freeway workzone (Category F):
 
 **Tradeoff:** The user must proceed in order. Going backward requires navigating manually via Back buttons. There is no branching or non-linear workflow.
 
-### Decision: `ae.Origin` for arc center instead of derivation from chain point
-**Why:** MicroStation's `ArcElement` stores the geometric center in `.Origin`. Earlier code derived the center from `chainPt - r*(cos(sa), sin(sa))`, which assumes the path enters at the geometric start angle. MicroStation can store arcs in either direction relative to the drawn path, causing the center to be computed from the wrong endpoint.
+### Decision: Dual-method arc center resolution instead of single derivation
+**Why:** MicroStation can store arcs with either geometric endpoint as the start angle. Earlier code assumed the chain point was always at the geometric start angle and derived `center = chainPt - r*(cos(sa), sin(sa))`, which produced wrong centers when MicroStation stored the arc in reverse orientation. The fix first tries `ae.CenterPoint` (available in MicroStation 2023 / CONNECT edition), then falls back to computing both candidate centers and validating against `ae.Range` (works in all versions). Once the center is known, both geometric endpoints are compared to the chain point to determine travel direction.
 
-**Tradeoff:** Using `.Origin` is correct and robust. It requires checking both geometric endpoints for proximity to the chain to determine travel direction.
+**Tradeoff:** The Range-based fallback adds a small amount of computation per arc segment. In practice this is negligible since alignment chains rarely have more than a few dozen segments.
 
 ### Decision: Centroid-based auto-hatch for Work Space
 **Why:** The hatch command (`HATCH ICON`) requires a data point inside the closed shape. Computing the centroid of the user's clicked vertices gives a point near the center of the drawn area without requiring the user to make an extra click.

@@ -1,4 +1,4 @@
-﻿# Using Cursor and Claude Code for VBA Development
+# Using Cursor and Claude Code for VBA Development
 
 A practical guide to using AI-assisted coding tools to develop, debug, and extend this MicroStation VBA project efficiently.
 
@@ -148,7 +148,7 @@ For completely unrelated tasks, starting a new session (`/clear` or just restart
 
 ### Strategy 5: Use Background Agents for Parallel Reads
 Claude Code can launch sub-agents to read multiple files in parallel. If you're doing a refactor that touches many files, say:
-> "I need to understand how the five-module workflow connects — read AlignmentTool.bas, PerpPlacement.bas, SignPlacer.bas, DrawElements.bas, and CellPlacer.bas in parallel and summarize their interfaces."
+> "I need to understand how the workflow connects — read AlignmentTool.bas, PerpPlacement.bas, DrawSign.bas, DrawElements.bas, and CellPlacer.bas in parallel and summarize their interfaces."
 
 ### Strategy 6: Keep Context Files Updated
 The `MEMORY.md` file in `.claude/projects/` is loaded automatically into every Claude Code session. Keep it accurate — it saves re-explaining the project architecture in every session. See [memory notes below](#memory-and-context-files).

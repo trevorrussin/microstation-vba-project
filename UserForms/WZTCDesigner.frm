@@ -1379,7 +1379,7 @@ End Sub
 
 ' ============================================================
 ' POPULATE SIGN TABLE (CLEAR ONLY - USER TYPES SIGN NUMBERS)
-' User types sign number in each row; spacing and size auto-fill from library (SignLibrary) on Exit.
+' User types sign number in each row; spacing and size auto-fill from SignLibrary.bas on Exit.
 ' ============================================================
 Private Sub PopulateSignTable()
     Dim i As Integer
@@ -1394,7 +1394,7 @@ End Sub
 
 ' ============================================================
 ' APPLY SIGN LIBRARY TO ROW (called when user leaves sign number field or presses Enter)
-' Looks up sign in SignLibrary and auto-fills spacing and size for that row.
+' Looks up sign in SignLibrary.bas and auto-fills spacing and size for that row.
 ' ============================================================
 Public Sub ApplySignLibraryToRow(rowIndex As Integer)
     On Error GoTo ApplyLibError
@@ -1406,7 +1406,11 @@ Public Sub ApplySignLibraryToRow(rowIndex As Integer)
     Dim matchKey As String
     s = Trim(signNumberBoxes(rowIndex).Value)
     If s = "" Then Exit Sub
-    sd = GetSignData(s)
+    ' Pass current road type so library returns correct size (Non-Freeway vs Freeway)
+    Dim roadType As String
+    roadType = "Non-Freeway"
+    If ControlExists("cboRoadType") And cboRoadType.ListIndex > 0 Then roadType = cboRoadType.Value
+    sd = GetSignData(s, roadType)
     If sd.SignNumber = "" Then
         ' Try case-insensitive match (library keys are case-sensitive)
         allSigns = GetAllSignNumbers
@@ -1418,7 +1422,7 @@ Public Sub ApplySignLibraryToRow(rowIndex As Integer)
             End If
         Next i
         If matchKey = "" Then Exit Sub
-        sd = GetSignData(matchKey)
+        sd = GetSignData(matchKey, roadType)
         If sd.SignNumber = "" Then Exit Sub
     End If
     signSpacingBoxes(rowIndex).Value = CStr(sd.DefaultSpacing)
@@ -1663,7 +1667,11 @@ Private Sub BuildWZTCOrderTable()
     wztcOrderCount = 0
 
     ' Fixed spacing section labels (no values, just names)
+    ' Work Area is second — immediately after Downstream Taper,
+    ' before Roll Ahead, because it defines the protected work space boundary.
     wztcOrderTexts(wztcOrderCount) = "Downstream Taper"
+    wztcOrderCount = wztcOrderCount + 1
+    wztcOrderTexts(wztcOrderCount) = "Work Area"
     wztcOrderCount = wztcOrderCount + 1
     wztcOrderTexts(wztcOrderCount) = "Roll Ahead Distance"
     wztcOrderCount = wztcOrderCount + 1
@@ -1705,10 +1713,6 @@ Private Sub BuildWZTCOrderTable()
                "before adding them to the WZTC Order.", _
                vbExclamation, "Incomplete Sign Data"
     End If
-
-    ' Work Area (always present)
-    wztcOrderTexts(wztcOrderCount) = "Work Area"
-    wztcOrderCount = wztcOrderCount + 1
 
     If wztcOrderCount > 0 Then
         ReDim Preserve wztcOrderTexts(0 To wztcOrderCount - 1)

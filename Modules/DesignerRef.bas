@@ -1625,7 +1625,11 @@ Private Sub BuildWZTCOrderTable()
     wztcOrderCount = 0
 
     ' Fixed spacing section labels (no values, just names)
+    ' Work Area is second — immediately after Downstream Taper,
+    ' before Roll Ahead, because it defines the protected work space boundary.
     wztcOrderTexts(wztcOrderCount) = "Downstream Taper"
+    wztcOrderCount = wztcOrderCount + 1
+    wztcOrderTexts(wztcOrderCount) = "Work Area"
     wztcOrderCount = wztcOrderCount + 1
     wztcOrderTexts(wztcOrderCount) = "Roll Ahead Distance"
     wztcOrderCount = wztcOrderCount + 1
@@ -1645,10 +1649,6 @@ Private Sub BuildWZTCOrderTable()
             wztcOrderCount = wztcOrderCount + 1
         End If
     Next i
-
-    ' Work Area (always present)
-    wztcOrderTexts(wztcOrderCount) = "Work Area"
-    wztcOrderCount = wztcOrderCount + 1
 
     If wztcOrderCount > 0 Then
         ReDim Preserve wztcOrderTexts(0 To wztcOrderCount - 1)

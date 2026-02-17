@@ -51,6 +51,7 @@ Three new forms that allow users to develop detour plans automatically, followin
 - Will follow the same sequential form workflow pattern as the WZTC Designer
 - Will share the existing sign library infrastructure for detour sign data
 - Detour state will be stored in `SharedState.bas` alongside existing WZTC state
+- Option to create multiple tabs on the workzone designer to have multiple forms for multiple stages of road work.
 
 ---
 
@@ -61,10 +62,10 @@ Three new forms that allow users to develop detour plans automatically, followin
 A new form that automatically generates Workzone Traffic Control summary tables from the current design data.
 
 ### Planned Features
-- Reads all placed WZTC items from the current design session
-- Generates a summary table listing all signs, elements, and cells with quantities
+- Tabulates all the planned workzone stages user requsts in order.
+- Creates references to correct workzone and detour plans based on work order.
 - Formats the table for direct placement in MicroStation or export to external documents
-- Supports multiple workzone configurations within a single project
+
 
 ---
 

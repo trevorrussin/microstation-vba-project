@@ -25,6 +25,11 @@ Public Sub StartAlignmentTool()
     CadInputQueue.SendKeyin "ACTIVE ANGLE 0"
     CadInputQueue.SendKeyin "LOCK ROTATION OFF"
 
+    ' Set element properties: Default level, color 0 (white), weight 0
+    CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
+    CadInputQueue.SendKeyin "ACTIVE COLOR 0"
+    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
+
     AlignDraw.Show vbModeless
 End Sub
 
@@ -180,6 +185,11 @@ Public Sub StartWZTCDrawing()
     CadInputQueue.SendKeyin "ACS SET WORLD"
     CadInputQueue.SendKeyin "ACTIVE ANGLE 0"
     CadInputQueue.SendKeyin "LOCK ROTATION OFF"
+
+    ' Set element properties: Default level, color 0 (white), weight 0
+    CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
+    CadInputQueue.SendKeyin "ACTIVE COLOR 0"
+    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
 
     ' Snapshot max element ID before user draws the alignment.
     ' All elements with ID > this value were drawn as part of the alignment.

@@ -3,6 +3,10 @@ Option Explicit
 ' ============================================================
 ' WZTC SIGN PLACEMENT FORM
 ' ------------------------------------------------------------
+' Sign placement state and drawing: DrawSign.bas (StartSignPlacement,
+' DrawCurrentSign, AdvanceSign, GetCurrentSignNum, GetCurrentSignSide,
+' GetCurrentSignSize, GetCurrentSignNumber, GetTotalSignCount, IsAllSignsDone).
+'
 ' Controls to add manually in the VBA IDE form designer:
 '   lblSignOf      - Label          (e.g. "Sign 1 of 3:")
 '   lblSignName    - Label          (sign number, large/bold)
