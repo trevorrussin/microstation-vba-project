@@ -235,6 +235,7 @@ Claude Code can run git commands directly:
 3. **Cite module names** — use exact module names (e.g., `PerpPlacement.bas`, not "the alignment module")
 4. **Specify MicroStation constraints** — mention when something must work as a modeless form, or when you need `GetInput` loop behavior
 5. **Say "do not delete"** when you only want additions — Claude defaults to minimal changes but it's good to be explicit about preserved functionality
+6. **See Appendix A** For specific examples of how Claude Code reasons.
 
 ---
 
@@ -270,3 +271,201 @@ The Claude Code status line shows token usage in real time. Enable it with:
 | Import file to VBA IDE | Right-click project → Import File |
 | Export file from VBA IDE | Right-click module → Export File |
 | Check API usage | console.anthropic.com |
+
+
+# Appendix A: Claude Reasoning — Extended Excerpts & Commentary
+
+
+# Claude Reasoning — Extended Excerpts & Commentary (How Claude Thinks)
+
+> **Purpose:** This appendix shows *how Claude reasons* — not just the technical conclusions it reached, but the **mental moves**, **self‑corrections**, **re‑evaluation**, and **decision‑making patterns** Claude displays. The excerpts below are from real conversations, with commentary explaining *how Claude organizes information, shifts hypotheses, and decides what to do next*.
+
+---
+
+## 1) Recognizing a Pattern → Switching to a New Hypothesis Mid‑Thought
+
+**Excerpt**
+
+> *“The `TEXTEDITOR PLACE` command might still be active when the function returns … queued commands are asynchronous … actually wait — if `StartDefaultCommand` fires too early, that could leave MicroStation expecting input even though VBA has moved on.”*
+
+### What this shows about Claude’s reasoning
+- Claude begins with **Hypothesis A** (“TEXTEDITOR PLACE still active”).
+- Then something in the logic triggers a *second* insight, and it shifts to **Hypothesis B** (“StartDefaultCommand happening too early”).
+- Notice the phrase: **“actually wait —”** → Claude is *overriding its own initial reasoning*. 
+- This is characteristic of Claude’s chain‑of‑thought: when new implications appear, it **re-evaluates the situation** instead of sticking to its original guess.
+
+### How it organizes thoughts
+- Claude keeps multiple hypotheses active at once and rotates between them.
+- It continuously checks: *“Does this explanation fit all observed symptoms?”*
+- When it realizes a better match exists, it pivots.
+
+This is Claude practising **iterative hypothesis refinement** — one of its strongest reasoning behaviors.
+
+---
+
+## 2) Shifting From Local Logic → Recognizing a Global Pattern
+
+**Excerpt**
+
+> *“frmAlignmentPlacement stays visible and doesn’t call `GetInput` inside the click handler … Let’s replicate that.”*
+
+### What this reveals
+Claude spots a **pattern that already works** somewhere else in your codebase and decides:
+- “Instead of debugging from scratch…”
+- “…use a **known-good example** as the model.”
+
+This is Claude engaging in:
+- **Pattern matching**
+- **Analogy-based reasoning**
+- **Local-to-global generalization**
+
+It compares two workflows, identifies the difference (“this one hides the form, the other doesn’t”), and infers a solution.
+
+### This is Claude’s reasoning move: *“Find the stable system and copy its rules.”*
+
+---
+
+## 3) Noticing a Conflict → Declaring a Root Cause
+
+**Excerpt**
+
+> *“Locking arises from asynchronous CadInputQueue state + re‑entrancy … the two sequences interleave and conflict.”*
+
+### What this means in terms of reasoning
+Claude identifies **two independent forces** causing the same issue and realizes they interact:
+- Force 1: Asynchronous queue behavior
+- Force 2: UI re-entrancy and event overlap
+
+Then it merges them into a single conceptual diagnosis:
+- **“Interleaving”**
+
+This shows:
+- **Causal chaining** (“A leads to B leads to C”)
+- **Synthesis** (“These two problems are actually one larger problem”)
+- **Conflict detection** (“Two things running at the wrong time”) 
+
+Claude often combines multiple signals into a unified model.
+
+---
+
+## 4) Realizing a Hidden Rule → Rewriting the Mental Model
+
+**Excerpt**
+
+> *“The cell name is the sign number.”*
+
+This appears obvious *after Claude says it*, but prior to that, the system didn’t have the rule explicitly.
+
+### What Claude is doing
+- Detecting a **data invariant** (“text and cell names must match because they represent the same selected item”).
+- Updating its internal ruleset: *“The system’s behavior is governed by this relationship.”*
+
+This is **constraint discovery** — Claude finds hidden rules that unify several observed behaviors.
+
+---
+
+## 5) Local Reasoning → Jump to a Better Global Strategy
+
+**Excerpt**
+
+> *“A cleaner fix would be to use the MicroStation VBA API directly … but the more likely minimal fix is to keep the form modeless and disable buttons.”*
+
+### What Claude is doing
+Claude is weighing **two different solution classes**:
+1. **Ideal long-term fix** (direct API calls), and
+2. **Low-risk short-term fix** (modifying UI/tool sequencing).
+
+This demonstrates:
+- **Cost–benefit reasoning** (risk vs reward)
+- **Prioritization** (“better to fix the timing issue first, then refactor later”)
+- **Software engineering judgment**, not just syntax
+
+Claude often lays out multiple solution layers, then selects the one matching your constraints (low-risk, fast, minimal code changes).
+
+---
+
+## 6) Re-evaluating Earlier Thoughts When New Evidence Appears
+
+**Excerpt**
+
+> *“More likely, the real problem is that clicking Next Sign triggers GetInput which blocks while waiting for user input … the queued flow isn’t completing cleanly, so the screen locks up.”*
+
+### What this shows
+Claude starts with several guesses, but once it connects the symptoms:
+- Blocking behavior from `GetInput`
+- Queue processing not flushed
+- User clicking before tool ends
+
+…it **re-prioritizes its hypotheses**, promoting this one to the new “most likely cause.”
+
+This is:
+- **Bayesian-like reasoning** (reweighting hypotheses)
+- **Diagnostic narrowing** (eliminate less consistent theories)
+- **Confidence adjustment** (“more likely the problem is…”)
+
+---
+
+## 7) “Thinking Out Loud” — Internal Monologue Moments
+
+Claude sometimes reveals parts of its self-dialogue:
+
+**Examples from your excerpts:**
+- *“actually wait—”* → catching a contradiction
+- *“more likely the real problem is…”* → reprioritizing hypotheses
+- *“let’s replicate that”* → pattern selection
+- *“a cleaner fix would be…”* → optimization planning
+- *“but the minimal fix is…”* → constraint‑aware decision
+
+These moments expose **its internal decision tree**, even though Claude typically summarizes rather than dumping raw chain‑of‑thought.
+
+---
+
+## 8) Macro-Level Reasoning Structure Claude Uses
+
+Across all excerpts, Claude repeatedly falls into the same reasoning architecture:
+
+### 1. **Symptom analysis**
+“What exactly is going wrong?”
+
+### 2. **Hypothesis generation**
+“Possibilities include A, B, C…”
+
+### 3. **Pattern matching**
+“Where have I seen similar logic in this project?”
+
+### 4. **Conflict detection**
+“These two actions overlap incorrectly.”
+
+### 5. **Constraint discovery**
+“Oh — cell name = sign number, that’s a rule.”
+
+### 6. **Refinement**
+“Actually, this explanation fits better…”
+
+### 7. **Decision & action plan**
+“Minimal fix: change UI flow. Long-term fix: API implementation.”
+
+This is how Claude organizes and evolves its reasoning mid-dialogue.
+
+---
+
+## 9) Why This Commentary Matters
+
+These examples teach you **how to structure your prompts** to get Claude’s best work:
+- Give symptoms → Claude generates hypotheses
+- Describe patterns → Claude checks analogies
+- Ask for minimal fixes → Claude avoids over-refactoring
+- Ask “is there a better way?” → Claude explores alternate strategies
+
+Understanding Claude’s reasoning moves lets you *steer* it and recognize when it is:
+- Revising a hypothesis
+- Spotting a pattern
+- Detecting a conflict
+- Discovering a rule
+- Scaling up to a better solution
+
+Use this document as a guide for reading Claude’s thought process and leveraging its strengths in your MicroStation VBA workflows.
+
+---
+
+**Maintainer Note:** These excerpts and interpretations come from your real working notes and conversations. They are intended to help future maintainers understand *how* Claude reasons so they can replicate successful interactions.
