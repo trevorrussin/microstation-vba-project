@@ -62,6 +62,11 @@ Public wztcAlignmentFirstPointX As Double
 Public wztcAlignmentFirstPointY As Double
 Public wztcAlignmentFirstPointZ As Double
 
+' Perpendicular line element IDs – one entry per line placed during alignment placement.
+' Used by PlaceCells Finish to selectively delete only those reference lines.
+Public wztcPerpLineIDCount As Integer
+Public wztcPerpLineIDs() As Double
+
 ' ============================================================
 ' UTILITY: Convert a MicroStation DLong element ID to Double
 ' so it can be stored and compared with normal operators.

@@ -4,14 +4,17 @@ Option Explicit
 ' WZTC DRAWING ELEMENTS FORM
 ' ------------------------------------------------------------
 ' Controls to add manually in the VBA IDE form designer:
-'   lblElementOf    - Label          (e.g. "Element 1 of 5:")
-'   lblElementName  - Label          (element name, large/bold)
-'   lblElementInstr - Label          (drawing instructions)
-'   btnStartDrawing - CommandButton  "Start Drawing"
-'   btnNextElement  - CommandButton  "Next WZTC Element"
-'   btnGoCellLib    - CommandButton  "Next: Cell Library"
-'   btnCancelElem   - CommandButton  "Cancel"
-'   lblStatus       - Label          (status / error messages)
+'   lblElementOf      - Label          (e.g. "Element 1 of 5:")
+'   lblElementName    - Label          (element name, large/bold)
+'   lblElementInstr   - Label          (drawing instructions)
+'   btnStartDrawing   - CommandButton  "Start Drawing"
+'   btnNextElement    - CommandButton  "Next WZTC Element"
+'   btnCancelElem     - CommandButton  "Cancel"
+'   btnPlaceDimension - CommandButton  "Place Dimension"
+'   btnGoCellLib      - CommandButton  "Next: Cell Library"
+'   lblStatus         - Label          (status / error messages)
+'   btnBack           - CommandButton  "< Back"
+'   btnReturnToDesigner - CommandButton "Return to Designer"
 ' ============================================================
 
 Private Function ControlExists(ctrlName As String) As Boolean
@@ -64,7 +67,7 @@ Private Sub UserForm_Initialize()
         lblElementInstr.ForeColor = RGB(80, 80, 80)
     End If
 
-    ' ========== PRIMARY ACTION BUTTONS ==========
+    ' ========== PRIMARY ACTION BUTTONS (row 1) ==========
     If ControlExists("btnStartDrawing") Then
         btnStartDrawing.Caption   = "Start Drawing"
         btnStartDrawing.Top       = 96
@@ -90,10 +93,22 @@ Private Sub UserForm_Initialize()
         btnCancelElem.Height  = 23
     End If
 
-    ' ========== NEXT STEP BUTTON (enabled when all elements done) ==========
+    ' ========== PLACE DIMENSION BUTTON (row 2) ==========
+    ' Draws a linear dimension between two clicked points.
+    ' Uses Default level, color 2 (yellow), weight 0.
+    If ControlExists("btnPlaceDimension") Then
+        btnPlaceDimension.Caption   = "Place Dimension"
+        btnPlaceDimension.Top       = 128
+        btnPlaceDimension.Left      = 10
+        btnPlaceDimension.Width     = 135
+        btnPlaceDimension.Height    = 23
+        btnPlaceDimension.Font.Bold = False
+    End If
+
+    ' ========== NEXT STEP BUTTON (row 3 - always available) ==========
     If ControlExists("btnGoCellLib") Then
         btnGoCellLib.Caption   = "Next: Cell Library"
-        btnGoCellLib.Top       = 128
+        btnGoCellLib.Top       = 155
         btnGoCellLib.Left      = 10
         btnGoCellLib.Width     = 140
         btnGoCellLib.Height    = 23
@@ -104,7 +119,7 @@ Private Sub UserForm_Initialize()
     ' ========== STATUS LABEL ==========
     If ControlExists("lblStatus") Then
         lblStatus.Caption   = "Ready"
-        lblStatus.Top       = 160
+        lblStatus.Top       = 185
         lblStatus.Left      = 10
         lblStatus.Width     = 310
         lblStatus.Height    = 50
@@ -115,7 +130,7 @@ Private Sub UserForm_Initialize()
     ' ========== NAVIGATION BUTTONS ==========
     If ControlExists("btnBack") Then
         btnBack.Caption   = "< Back"
-        btnBack.Top       = 218
+        btnBack.Top       = 241
         btnBack.Left      = 10
         btnBack.Width     = 90
         btnBack.Height    = 23
@@ -123,13 +138,13 @@ Private Sub UserForm_Initialize()
 
     If ControlExists("btnReturnToDesigner") Then
         btnReturnToDesigner.Caption = "Return to Designer"
-        btnReturnToDesigner.Top     = 218
+        btnReturnToDesigner.Top     = 241
         btnReturnToDesigner.Left    = 108
         btnReturnToDesigner.Width   = 145
         btnReturnToDesigner.Height  = 23
     End If
 
-    Me.Height = 268
+    Me.Height = 291
     Call RefreshDisplay
 End Sub
 
@@ -141,6 +156,7 @@ Private Sub btnStartDrawing_Click()
 
     If ControlExists("btnStartDrawing") Then btnStartDrawing.Enabled = False
     If ControlExists("btnNextElement") Then btnNextElement.Enabled = False
+    If ControlExists("btnPlaceDimension") Then btnPlaceDimension.Enabled = False
     If ControlExists("btnGoCellLib") Then btnGoCellLib.Enabled = False
     If ControlExists("btnBack") Then btnBack.Enabled = False
     If ControlExists("btnReturnToDesigner") Then btnReturnToDesigner.Enabled = False
@@ -153,6 +169,7 @@ Private Sub btnStartDrawing_Click()
     End If
     If ControlExists("btnStartDrawing") Then btnStartDrawing.Enabled = True
     If ControlExists("btnNextElement") Then btnNextElement.Enabled = True
+    If ControlExists("btnPlaceDimension") Then btnPlaceDimension.Enabled = True
     If ControlExists("btnGoCellLib") Then btnGoCellLib.Enabled = True
     If ControlExists("btnBack") Then btnBack.Enabled = True
     If ControlExists("btnReturnToDesigner") Then btnReturnToDesigner.Enabled = True
@@ -162,6 +179,71 @@ DrawErr:
     If ControlExists("lblStatus") Then lblStatus.Caption = "Error drawing: " & Err.Description
     If ControlExists("btnStartDrawing") Then btnStartDrawing.Enabled = True
     If ControlExists("btnNextElement") Then btnNextElement.Enabled = True
+    If ControlExists("btnPlaceDimension") Then btnPlaceDimension.Enabled = True
+    If ControlExists("btnGoCellLib") Then btnGoCellLib.Enabled = True
+    If ControlExists("btnBack") Then btnBack.Enabled = True
+    If ControlExists("btnReturnToDesigner") Then btnReturnToDesigner.Enabled = True
+End Sub
+
+' ============================================================
+' PLACE DIMENSION - set properties, collect 3 clicks, place dim
+' Properties: Default level, color 2 (yellow), weight 0
+' Does NOT affect other elements (each Start Drawing resets its own level/color).
+' ============================================================
+Private Sub btnPlaceDimension_Click()
+    On Error GoTo DimErr
+
+    If ControlExists("btnStartDrawing") Then btnStartDrawing.Enabled = False
+    If ControlExists("btnNextElement") Then btnNextElement.Enabled = False
+    If ControlExists("btnPlaceDimension") Then btnPlaceDimension.Enabled = False
+    If ControlExists("btnGoCellLib") Then btnGoCellLib.Enabled = False
+    If ControlExists("btnBack") Then btnBack.Enabled = False
+    If ControlExists("btnReturnToDesigner") Then btnReturnToDesigner.Enabled = False
+    If ControlExists("lblStatus") Then
+        lblStatus.Caption = "Click in MicroStation: (1) first dimension point, (2) second dimension point, (3) dimension line position. Right-click to cancel."
+    End If
+
+    ' Set element properties: Default level, color 2 (yellow), weight 0
+    CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
+    CadInputQueue.SendKeyin "ACTIVE COLOR 2"
+    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
+
+    ' Start linear dimension command (3-click: start point, end point, offset)
+    CadInputQueue.SendKeyin "DIMENSION SIZE WITH LINES"
+
+    ' Collect user clicks: 3 data points required for a linear dimension
+    Dim oMsg As CadInputMessage
+    Dim nPts As Integer
+    nPts = 0
+    Set oMsg = CadInputQueue.GetInput
+    Do While oMsg.InputType <> msdCadInputTypeReset
+        If oMsg.InputType = msdCadInputTypeDataPoint Then
+            CadInputQueue.SendDataPoint oMsg.Point, 1
+            nPts = nPts + 1
+            If nPts >= 3 Then Exit Do   ' start pt, end pt, dim-line offset
+        End If
+        Set oMsg = CadInputQueue.GetInput
+    Loop
+
+    CadInputQueue.SendReset
+    CommandState.StartDefaultCommand
+
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Dimension placed. Click 'Place Dimension' again for another, or continue."
+    If ControlExists("btnStartDrawing") Then btnStartDrawing.Enabled = True
+    If ControlExists("btnNextElement") Then btnNextElement.Enabled = True
+    If ControlExists("btnPlaceDimension") Then btnPlaceDimension.Enabled = True
+    If ControlExists("btnGoCellLib") Then btnGoCellLib.Enabled = True
+    If ControlExists("btnBack") Then btnBack.Enabled = True
+    If ControlExists("btnReturnToDesigner") Then btnReturnToDesigner.Enabled = True
+    Exit Sub
+
+DimErr:
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Error placing dimension: " & Err.Description
+    CadInputQueue.SendReset
+    CommandState.StartDefaultCommand
+    If ControlExists("btnStartDrawing") Then btnStartDrawing.Enabled = True
+    If ControlExists("btnNextElement") Then btnNextElement.Enabled = True
+    If ControlExists("btnPlaceDimension") Then btnPlaceDimension.Enabled = True
     If ControlExists("btnGoCellLib") Then btnGoCellLib.Enabled = True
     If ControlExists("btnBack") Then btnBack.Enabled = True
     If ControlExists("btnReturnToDesigner") Then btnReturnToDesigner.Enabled = True

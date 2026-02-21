@@ -182,6 +182,83 @@ Or edit the files directly in Cursor.
 
 ---
 
+## CLAUDE.md — Project-Level Persistent Instructions
+
+### What It Is
+
+`CLAUDE.md` is a special file placed at the **root of your project folder**. Claude Code reads it automatically at the start of **every session**, before any conversation begins — including brand new sessions where Claude has no prior context.
+
+Think of it as the "always read this first" file. Anything written there is in scope for every conversation without you having to repeat it.
+
+```
+c:\repos\microstation-vba-project\
+├── CLAUDE.md          ← read automatically at session start
+├── Modules\
+├── UserForms\
+└── ...
+```
+
+### How It Differs from MEMORY.md
+
+| | CLAUDE.md | MEMORY.md |
+|---|---|---|
+| **Location** | Project root (checked into git) | Claude's local memory directory (not in git) |
+| **When read** | Start of every session, automatically | Start of every session, automatically |
+| **Best for** | Rules, constraints, behavioral instructions | Facts, module tables, architecture summaries |
+| **Who edits it** | You (in Cursor or any editor) | Claude (when you say "remember that…") |
+| **Shared with team** | Yes — it's in the repo | No — it's local to your machine |
+| **Line limit** | No hard limit | 200 lines (content after line 200 is truncated) |
+
+**Use CLAUDE.md for:**
+- Things Claude should always do or never do in this project
+- API constraints specific to MicroStation VBA (e.g., IncludeOnlyType doesn't exist)
+- Which Legacy Files to read before implementing certain patterns
+- Element level/color/weight rules that apply project-wide
+- File sync protocol reminders
+
+**Use MEMORY.md for:**
+- Module roles table
+- Key SharedState variable names
+- Architecture summary
+- Known bugs and their fixes
+
+### What's in This Project's CLAUDE.md
+
+The `CLAUDE.md` at the root of this project contains:
+
+1. **Project summary** — what the tool does and the 6-step workflow
+2. **"Read Legacy Files first" rule** — instructs Claude to check LegacyPrototype.bas and LegacyElements.bas before writing any CadInputQueue command sequence
+3. **MicroStation VBA API constraints** — documents which ElementScanCriteria methods exist, when to use SendCommand vs SendKeyin, and the CenterPoint fallback chain
+4. **Element properties table** — which level/color/weight applies to each element type so Claude never mixes them up
+5. **File sync protocol** — reminds Claude about the Import/Export step between disk edits and the VBA IDE
+6. **Debugging guidance** — what information to ask for when a CadInputQueue bug is reported
+
+### How to Update CLAUDE.md
+
+Edit it directly in Cursor or any text editor. It's a plain markdown file.
+
+Good reasons to add something to CLAUDE.md:
+- You've told Claude the same rule three times across different sessions
+- Claude keeps making the same type of mistake (wrong API method, wrong level, etc.)
+- You've established a new project-wide pattern that should apply everywhere
+
+Example additions you might make over time:
+```markdown
+## New Rule Added After v1.2.0
+When writing cost estimate code, always read DesignerRef.bas first — it contains
+all the spacing constants and item codes used in cost calculations.
+```
+
+### CLAUDE.md vs CLAUDE_CODE_GUIDE.md
+
+This guide (`CLAUDE_CODE_GUIDE.md`) is **documentation for you** — explaining how to use Claude Code effectively.
+
+`CLAUDE.md` is **instructions for Claude** — it speaks directly to the AI in the imperative ("do this", "never do that").
+
+Write CLAUDE.md as if you're writing instructions for a new employee who reads it before every shift.
+
+---
+
 ## Common Pitfalls and How to Avoid Them
 
 ### Pitfall: Claude Stops Mid-Task

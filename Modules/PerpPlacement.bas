@@ -459,6 +459,11 @@ Public Sub PlacePerpendicularLine(ptX As Double, ptY As Double, ptZ As Double, _
     ActiveModelReference.AddElement lineEl
     lineEl.Rewrite
 
+    ' Track element ID so Finish can delete only these perp reference lines
+    wztcPerpLineIDCount = wztcPerpLineIDCount + 1
+    ReDim Preserve wztcPerpLineIDs(1 To wztcPerpLineIDCount)
+    wztcPerpLineIDs(wztcPerpLineIDCount) = ElIDAsDouble(lineEl.ID)
+
     Exit Sub
 PlaceErr:
     MsgBox "Error placing perpendicular line: " & Err.Description, _
@@ -599,6 +604,50 @@ Private Function IsSignLabel(lbl As String) As Boolean
             IsSignLabel = (Trim(lbl) <> "")
     End Select
 End Function
+
+' ============================================================
+' DELETE ALL PERPENDICULAR REFERENCE LINES
+' Scans the model for line elements whose IDs were recorded during
+' PlacePerpendicularLine and removes them. Called by PlaceCells Finish.
+' Only the exact perp lines are deleted — all other elements are untouched.
+' ============================================================
+Public Sub DeletePerpLines()
+    If wztcPerpLineIDCount = 0 Then Exit Sub
+
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+
+    Dim toDelete() As Element
+    Dim nDelete As Integer
+    nDelete = 0
+
+    Dim el As Element
+    Dim elIDDbl As Double
+    Dim i As Integer
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        elIDDbl = ElIDAsDouble(el.ID)
+        For i = 1 To wztcPerpLineIDCount
+            If elIDDbl = wztcPerpLineIDs(i) Then
+                nDelete = nDelete + 1
+                ReDim Preserve toDelete(1 To nDelete)
+                Set toDelete(nDelete) = el
+                Exit For
+            End If
+        Next i
+    Loop
+
+    For i = 1 To nDelete
+        ActiveModelReference.RemoveElement toDelete(i)
+    Next i
+
+    wztcPerpLineIDCount = 0
+    If nDelete > 0 Then ReDim wztcPerpLineIDs(0)
+End Sub
 
 ' ============================================================
 ' TRY TO COMPUTE ARC CENTER FROM CHAIN POINT AND ANGLES
