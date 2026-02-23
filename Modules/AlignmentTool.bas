@@ -1,58 +1,127 @@
 Option Explicit
 
-' Remembers the last placed endpoint so the next segment starts there
-Private lastPoint As Point3d
-Private hasLastPoint As Boolean
+' ============================================================
+' ALIGNMENT DRAWING TOOL
+' ------------------------------------------------------------
+' Supports drawing multiple named alignments (Upstream,
+' Downstream, plus any additional alignments the user added
+' in WZTCDesigner). Each alignment is drawn independently:
+' the user selects an alignment from the dropdown in AlignDraw,
+' draws line/arc segments, then clicks "Commit This Alignment"
+' to assign those elements to a MicroStation graphic group.
+' After all desired alignments are committed, the user clicks
+' "Next: Place Perp Lines" to launch PerpPlacement.
+' ============================================================
 
-' Tracks whether the very first click point of THIS alignment session
-' has been captured and saved to wztcAlignmentFirstPoint*.
-Private alignmentFirstPointCaptured As Boolean
+' Per-alignment endpoint memory (1-based, indexed by alignment number)
+Private lastPointArr(1 To 10)            As Point3d
+Private hasLastPointArr(1 To 10)         As Boolean
+Private alignFirstPtCapturedArr(1 To 10) As Boolean
+
+' Which alignment the user is currently drawing
+Private currentAlignIdx As Integer
 
 ' ============================================================
-' ALIGNMENT DRAWING TOOL - MAIN ENTRY POINT
+' SETUP VIEW AND ELEMENT PROPERTIES (shared helper)
 ' ============================================================
-Public Sub StartAlignmentTool()
+Private Sub SetupView()
+    On Error Resume Next
     Dim v As View
-
-    ' Reset endpoint memory for this session
-    hasLastPoint = False
-
     Set v = ActiveDesignFile.Views(1)
     v.Rotation = Matrix3dIdentity
     v.Redraw
-
     CadInputQueue.SendKeyin "ACS SET WORLD"
     CadInputQueue.SendKeyin "ACTIVE ANGLE 0"
     CadInputQueue.SendKeyin "LOCK ROTATION OFF"
-
-    ' Set element properties: Default level, color 0 (white), weight 0
     CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
     CadInputQueue.SendKeyin "ACTIVE COLOR 0"
     CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
+End Sub
 
+' ============================================================
+' GET CURRENT MAX ELEMENT ID IN MODEL
+' ============================================================
+Private Function GetCurrentMaxID() As Double
+    Dim el As Element
+    Dim oEnum As ElementEnumerator
+    Dim oScan As ElementScanCriteria
+    Dim maxID As Double
+    maxID = 0
+    On Error GoTo MaxIDErr
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        Dim elID As Double
+        elID = ElIDAsDouble(el.ID)
+        If elID > maxID Then maxID = elID
+    Loop
+MaxIDErr:
+    GetCurrentMaxID = maxID
+End Function
+
+' ============================================================
+' SWITCH TO A DIFFERENT ALIGNMENT
+' Called when user changes dropdown in AlignDraw form.
+' On first visit: snapshots current max element ID.
+' Subsequent visits restore the per-alignment endpoint state.
+' ============================================================
+Public Sub SetCurrentAlignment(aIdx As Integer)
+    If aIdx < 1 Or aIdx > 10 Then Exit Sub
+    currentAlignIdx = aIdx
+    wztcCurrentAlignDrawIdx = aIdx
+
+    ' First time drawing this alignment: snapshot the max element ID
+    ' so CommitCurrentAlignment can identify which elements belong here.
+    If wztcAlignMaxIDSnapshot(aIdx) = 0 Then
+        wztcAlignMaxIDSnapshot(aIdx) = GetCurrentMaxID()
+    End If
+End Sub
+
+' ============================================================
+' START WZTC DRAWING SESSION
+' Called from DrawWorkSpace.frm "Next: Draw Alignments" button.
+' Resets state, sets up view, shows AlignDraw form.
+' ============================================================
+Public Sub StartWZTCDrawing()
+    Dim i As Integer
+    ' Reset all per-alignment state for a fresh drawing session
+    For i = 1 To 10
+        hasLastPointArr(i) = False
+        alignFirstPtCapturedArr(i) = False
+        wztcAlignMaxIDSnapshot(i) = 0
+        wztcAlignGraphicGroup(i) = 0
+        wztcAlignDrawn(i) = False
+    Next i
+    currentAlignIdx = 1
+    wztcCurrentAlignDrawIdx = 1
+
+    Call SetupView
+
+    ' Show AlignDraw (it will call SetCurrentAlignment(1) in Initialize)
     AlignDraw.Show vbModeless
 End Sub
 
 ' ============================================================
-' START A LINE SEGMENT
+' START A LINE SEGMENT (for current alignment)
 ' ============================================================
-' If a previous endpoint is stored, starts the line from there
-' automatically. Otherwise waits for the user to click a first point.
-' Subsequent clicks extend the line; right-click finishes and
-' stores the last point for the next segment.
 Public Sub StartLineSegment()
     Dim oMsg As CadInputMessage
     Dim currentPoint As Point3d
+    Dim aIdx As Integer
+    aIdx = currentAlignIdx
+    If aIdx < 1 Or aIdx > 10 Then aIdx = 1
 
     CadInputQueue.SendReset
 
-    If hasLastPoint Then
-        ' Continue from where the last segment ended
-        currentPoint = lastPoint
+    If hasLastPointArr(aIdx) Then
+        ' Continue from last endpoint of this alignment
+        currentPoint = lastPointArr(aIdx)
         CadInputQueue.SendCommand "PLACE LINE CONSTRAINED"
         CadInputQueue.SendDataPoint currentPoint, 1
     Else
-        ' First segment - wait for user to click start point
+        ' First segment for this alignment — wait for first click
         CadInputQueue.SendKeyin "ECHO Click first point, right-click to cancel"
         CadInputQueue.SendCommand "NULL"
 
@@ -66,28 +135,32 @@ Public Sub StartLineSegment()
         Loop
 
         currentPoint = oMsg.Point
-        lastPoint = currentPoint
-        hasLastPoint = True
+        lastPointArr(aIdx) = currentPoint
+        hasLastPointArr(aIdx) = True
 
-        ' Capture the alignment start point on the very first segment
-        If Not alignmentFirstPointCaptured Then
-            wztcAlignmentFirstPointX = currentPoint.X
-            wztcAlignmentFirstPointY = currentPoint.Y
-            wztcAlignmentFirstPointZ = currentPoint.Z
-            alignmentFirstPointCaptured = True
+        ' Capture alignment start point (per-alignment + alignment 1 backward-compat)
+        If Not alignFirstPtCapturedArr(aIdx) Then
+            wztcAlignFirstPtX(aIdx) = currentPoint.X
+            wztcAlignFirstPtY(aIdx) = currentPoint.Y
+            wztcAlignFirstPtZ(aIdx) = currentPoint.Z
+            If aIdx = 1 Then
+                wztcAlignmentFirstPointX = currentPoint.X
+                wztcAlignmentFirstPointY = currentPoint.Y
+                wztcAlignmentFirstPointZ = currentPoint.Z
+            End If
+            alignFirstPtCapturedArr(aIdx) = True
         End If
 
         CadInputQueue.SendCommand "PLACE LINE CONSTRAINED"
         CadInputQueue.SendDataPoint currentPoint, 1
     End If
 
-    ' Collect further clicks; each one extends the line
-    CadInputQueue.SendKeyin "ECHO Click next points, right-click to finish"
+    CadInputQueue.SendKeyin "ECHO Click next points, right-click to finish segment"
     Do
         Set oMsg = CadInputQueue.GetInput
         If oMsg.InputType = msdCadInputTypeDataPoint Then
             CadInputQueue.SendDataPoint oMsg.Point, 1
-            lastPoint = oMsg.Point      ' remember for next segment
+            lastPointArr(aIdx) = oMsg.Point
         ElseIf oMsg.InputType = msdCadInputTypeReset Then
             Exit Do
         End If
@@ -98,20 +171,20 @@ Public Sub StartLineSegment()
 End Sub
 
 ' ============================================================
-' START AN ARC SEGMENT
+' START AN ARC SEGMENT (for current alignment)
 ' ============================================================
-' Same endpoint-memory behaviour as StartLineSegment.
-' 3-point arc: start -> end -> point on arc.
-' The end point (2nd click) is stored as the next start.
 Public Sub StartArcSegment()
     Dim oMsg As CadInputMessage
     Dim firstPoint As Point3d
     Dim pointCount As Integer
+    Dim aIdx As Integer
+    aIdx = currentAlignIdx
+    If aIdx < 1 Or aIdx > 10 Then aIdx = 1
 
     CadInputQueue.SendReset
 
-    If hasLastPoint Then
-        firstPoint = lastPoint
+    If hasLastPointArr(aIdx) Then
+        firstPoint = lastPointArr(aIdx)
     Else
         CadInputQueue.SendKeyin "ECHO Click first point of arc, right-click to cancel"
         CadInputQueue.SendCommand "NULL"
@@ -126,19 +199,24 @@ Public Sub StartArcSegment()
         Loop
 
         firstPoint = oMsg.Point
-        lastPoint = firstPoint
-        hasLastPoint = True
+        lastPointArr(aIdx) = firstPoint
+        hasLastPointArr(aIdx) = True
 
-        ' Capture the alignment start point on the very first segment
-        If Not alignmentFirstPointCaptured Then
-            wztcAlignmentFirstPointX = firstPoint.X
-            wztcAlignmentFirstPointY = firstPoint.Y
-            wztcAlignmentFirstPointZ = firstPoint.Z
-            alignmentFirstPointCaptured = True
+        ' Capture alignment start point (per-alignment + alignment 1 backward-compat)
+        If Not alignFirstPtCapturedArr(aIdx) Then
+            wztcAlignFirstPtX(aIdx) = firstPoint.X
+            wztcAlignFirstPtY(aIdx) = firstPoint.Y
+            wztcAlignFirstPtZ(aIdx) = firstPoint.Z
+            If aIdx = 1 Then
+                wztcAlignmentFirstPointX = firstPoint.X
+                wztcAlignmentFirstPointY = firstPoint.Y
+                wztcAlignmentFirstPointZ = firstPoint.Z
+            End If
+            alignFirstPtCapturedArr(aIdx) = True
         End If
     End If
 
-    ' Activate 3-point arc and seed with start point
+    ' Activate 3-point arc mode and seed with start point
     CadInputQueue.SendCommand "PLACE ARC ICON"
     SetCExpressionValue "tcb->msToolSettings.igen.placeArcModeEx", 3, "CONSGEOM"
     CadInputQueue.SendCommand "PLACE ARC ICON"
@@ -153,7 +231,7 @@ Public Sub StartArcSegment()
             CadInputQueue.SendDataPoint oMsg.Point, 1
             pointCount = pointCount + 1
             If pointCount = 2 Then
-                lastPoint = oMsg.Point  ' arc endpoint becomes next start
+                lastPointArr(aIdx) = oMsg.Point  ' arc endpoint = next start
             End If
             If pointCount >= 3 Then Exit Do
         ElseIf oMsg.InputType = msdCadInputTypeReset Then
@@ -166,65 +244,21 @@ Public Sub StartArcSegment()
 End Sub
 
 ' ============================================================
-' START WZTC ALIGNMENT DRAWING TOOL
+' COMMIT CURRENT ALIGNMENT
+' Called by AlignDraw "Commit This Alignment" button.
+' Groups all elements drawn since the last maxID snapshot for
+' this alignment into a new MicroStation graphic group.
 ' ============================================================
-' Called after WZTCDesigner submits. Resets state,
-' snapshots the current max element ID (so we can identify
-' elements drawn as part of this alignment later), and
-' launches AlignDraw for alignment drawing.
-Public Sub StartWZTCDrawing()
-    Dim v As View
+Public Sub CommitCurrentAlignment()
+    On Error GoTo CommitErr
+    Dim aIdx As Integer
+    aIdx = currentAlignIdx
+    If aIdx < 1 Or aIdx > 10 Then Exit Sub
 
-    hasLastPoint = False
-    alignmentFirstPointCaptured = False
+    Dim snapshotID As Double
+    snapshotID = wztcAlignMaxIDSnapshot(aIdx)
 
-    Set v = ActiveDesignFile.Views(1)
-    v.Rotation = Matrix3dIdentity
-    v.Redraw
-
-    CadInputQueue.SendKeyin "ACS SET WORLD"
-    CadInputQueue.SendKeyin "ACTIVE ANGLE 0"
-    CadInputQueue.SendKeyin "LOCK ROTATION OFF"
-
-    ' Set element properties: Default level, color 0 (white), weight 0
-    CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
-    CadInputQueue.SendKeyin "ACTIVE COLOR 0"
-    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
-
-    ' Snapshot max element ID before user draws the alignment.
-    ' All elements with ID > this value were drawn as part of the alignment.
-    Dim el As Element
-    Dim maxID As Double
-    Dim oEnum As ElementEnumerator
-    Dim oScan As ElementScanCriteria
-    maxID = 0
-    Set oScan = New ElementScanCriteria
-    oScan.ExcludeNonGraphical
-    Set oEnum = ActiveModelReference.Scan(oScan)
-    Do While oEnum.MoveNext
-        Set el = oEnum.Current
-        Dim elID As Double
-        elID = ElIDAsDouble(el.ID)
-        If elID > maxID Then maxID = elID
-    Loop
-    wztcAlignmentStartMaxID = maxID
-    
-    WZTCDesigner.Hide
-    AlignDraw.Show vbModeless
-End Sub
-
-' ============================================================
-' GROUP ALIGNMENT ELEMENTS AND LAUNCH PLACEMENT TOOL
-' ============================================================
-' Called by AlignDraw.cmdDone_Click after the user finishes
-' drawing the alignment. Assigns all newly drawn elements
-' (those with ID > wztcAlignmentStartMaxID) to a new
-' MicroStation graphic group, then launches the perpendicular
-' line placement form.
-Public Sub GroupAndLaunchPlacement()
-    On Error GoTo GroupError
-
-    ' Find max graphic group number currently in use
+    ' Find the highest graphic group number currently in the model
     Dim maxGG As Long
     maxGG = 0
     Dim el As Element
@@ -241,13 +275,15 @@ Public Sub GroupAndLaunchPlacement()
     Dim newGG As Long
     newGG = maxGG + 1
 
-    ' Assign all elements drawn since the snapshot to the new group
+    ' Assign all elements with ID > snapshot that are not yet in a group
     Dim groupedCount As Long
     groupedCount = 0
     Set oEnum = ActiveModelReference.Scan(oScan)
     Do While oEnum.MoveNext
         Set el = oEnum.Current
-        If ElIDAsDouble(el.ID) > wztcAlignmentStartMaxID Then
+        Dim elIDDbl As Double
+        elIDDbl = ElIDAsDouble(el.ID)
+        If elIDDbl > snapshotID And el.GraphicGroup = 0 Then
             el.GraphicGroup = newGG
             el.Rewrite
             groupedCount = groupedCount + 1
@@ -255,21 +291,39 @@ Public Sub GroupAndLaunchPlacement()
     Loop
 
     If groupedCount = 0 Then
-        MsgBox "No alignment elements found." & vbCrLf & _
-               "Please draw the alignment before clicking Done.", _
-               vbExclamation, "Group Alignment"
+        MsgBox "No new elements found for this alignment." & vbCrLf & _
+               "Please draw some line/arc segments first.", _
+               vbExclamation, "Commit Alignment"
         Exit Sub
     End If
 
-    CadInputQueue.SendKeyin "ECHO Alignment grouped: " & groupedCount & _
-                            " elements in graphic group " & newGG
+    ' Store graphic group and mark alignment as drawn
+    wztcAlignGraphicGroup(aIdx) = CInt(newGG)
+    wztcAlignDrawn(aIdx) = True
 
-    ' Launch the perpendicular line placement tool
-    StartAlignmentPlacement
+    ' Update snapshot so the next alignment's snapshot is after these elements
+    wztcAlignMaxIDSnapshot(aIdx) = GetCurrentMaxID()
+
+    ' Backward compat: keep wztcAlignmentStartMaxID for alignment 1
+    If aIdx = 1 Then
+        wztcAlignmentStartMaxID = snapshotID
+    End If
+
+    CadInputQueue.SendKeyin "ECHO " & wztcAlignNames(aIdx) & " committed: " & _
+                            groupedCount & " elements in graphic group " & newGG
 
     Exit Sub
+CommitErr:
+    MsgBox "Error committing alignment: " & Err.Description, vbCritical, "Commit Error"
+End Sub
 
-GroupError:
-    MsgBox "Error grouping alignment elements: " & Err.Description, _
-           vbCritical, "Group Error"
+' ============================================================
+' LEGACY ENTRY POINT (kept for back-compatibility references)
+' Previously called from AlignDraw.cmdDone_Click.
+' Now replaced by CommitCurrentAlignment + AlignDraw cmdNextStep.
+' ============================================================
+Public Sub GroupAndLaunchPlacement()
+    Call CommitCurrentAlignment
+    ' Note: perp placement is now launched from AlignDraw.cmdNextStep_Click
+    ' directly via StartAlignmentPlacement (PerpPlacement.bas).
 End Sub

@@ -107,6 +107,9 @@ Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
                        midX As Double, midY As Double, midZ As Double, _
                        perpX As Double, perpY As Double)
 
+    ' Ensure sign library is loaded before any lookup
+    If SignLibrary.GetSignCount() = 0 Then Call SignLibrary.InitializeSignLibrary
+
     Const HALF_LEN As Double = 40   ' matches PERP_HALF_LEN in PerpPlacement
 
     ' Setup view
@@ -321,12 +324,13 @@ Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As Strin
         currentSignFaceLibraryPath = "c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel"
     End If
     CadInputQueue.SendCommand "ATTACH LIBRARY " & currentSignFaceLibraryPath
-    ' Cell name from SignLibrary so all signs place their face; fallback to signNum if not in library
+    ' Cell name from SignLibrary; warn and skip face if sign is not in library
     Dim cellName As String
     If SignLibrary.SignExists(signNum) Then
         cellName = SignLibrary.GetSignData(signNum).CellName
     Else
-        cellName = signNum
+        CadInputQueue.SendKeyin "ECHO WARNING: Sign " & signNum & " not found in library — face cell skipped"
+        cellName = ""
     End If
     If Len(cellName) > 0 Then
         SetCExpressionValue "tcb->activeCellUtf16", cellName, ""

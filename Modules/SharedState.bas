@@ -18,6 +18,8 @@ Public wztcSkipLines As String
 Public wztcChannelizing As String
 Public wztcFlareBarrier As String
 Public wztcFlareBeam As String
+Public wztcUpTaperBarrier As String
+Public wztcUpTaperBeam As String
 
 ' User Selections
 Public wztcCategory As String
@@ -66,6 +68,32 @@ Public wztcAlignmentFirstPointZ As Double
 ' Used by PlaceCells Finish to selectively delete only those reference lines.
 Public wztcPerpLineIDCount As Integer
 Public wztcPerpLineIDs() As Double
+
+' Multi-alignment combined table data (set on Submit & Draw).
+' Index 1 = Upstream alignment; index 2 = Downstream; 3+ = additional alignments.
+' wztcOrderLabels / wztcSignNumbers etc. remain populated from alignment 1 for
+' downstream compatibility (AlignDraw → PlacePerp → PlaceSign unchanged).
+Public wztcAlignCount As Integer
+Public wztcAlignNames(1 To 10) As String
+Public wztcAlignRowCounts(1 To 10) As Integer
+Public wztcAlignRowTypes(1 To 10, 1 To 50) As String     ' "Sign" or "Non-Sign"
+Public wztcAlignRowLabels(1 To 10, 1 To 50) As String    ' sign number or description
+Public wztcAlignRowSpacings(1 To 10, 1 To 50) As String  ' spacing value in ft
+Public wztcAlignRowSizes(1 To 10, 1 To 50) As String     ' sign size string (Signs only)
+Public wztcAlignRowSides(1 To 10, 1 To 50) As String     ' "One Side"/"Both Sides" (Signs only)
+
+' Per-alignment drawing tracking (set by AlignmentTool during multi-alignment drawing step).
+' wztcAlignMaxIDSnapshot: max element ID before user starts drawing that alignment
+' wztcAlignGraphicGroup: graphic group number assigned to that alignment's elements on Commit
+' wztcAlignDrawn: True once CommitCurrentAlignment() has been called for that alignment
+' wztcCurrentAlignDrawIdx: which alignment the user is currently drawing (1-based)
+Public wztcAlignMaxIDSnapshot(1 To 10) As Double
+Public wztcAlignGraphicGroup(1 To 10) As Integer
+Public wztcAlignDrawn(1 To 10) As Boolean
+Public wztcCurrentAlignDrawIdx As Integer
+Public wztcAlignFirstPtX(1 To 10) As Double  ' first click X for each alignment (for path orientation)
+Public wztcAlignFirstPtY(1 To 10) As Double
+Public wztcAlignFirstPtZ(1 To 10) As Double
 
 ' ============================================================
 ' UTILITY: Convert a MicroStation DLong element ID to Double

@@ -209,7 +209,7 @@ Private Sub btnPlaceDimension_Click()
     CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
 
     ' Start linear dimension command (3-click: start point, end point, offset)
-    CadInputQueue.SendKeyin "DIMENSION SIZE WITH LINES"
+    CadInputQueue.SendCommand "DIMENSION SIZE WITH LINES"
 
     ' Collect user clicks: 3 data points required for a linear dimension
     Dim oMsg As CadInputMessage
@@ -335,7 +335,7 @@ End Sub
 ' ============================================================
 Private Sub btnBack_Click()
     Unload Me
-    StartSignPlacement
+    StartSignPlacement   ' Return to sign placement (PlaceSign.frm)
 End Sub
 
 Private Sub btnReturnToDesigner_Click()

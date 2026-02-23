@@ -180,7 +180,7 @@ End Sub
 ' ============================================================
 Private Sub btnWZTCElements_Click()
     Unload Me
-    StartWZTCElementsPlacement
+    StartWZTCElementsPlacementFromElement2
 End Sub
 
 ' ============================================================

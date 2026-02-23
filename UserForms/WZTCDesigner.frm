@@ -1,34 +1,69 @@
 Option Explicit
 
-' Control arrays for dynamic sign table
-Private signNumberBoxes() As MSForms.TextBox
-Private signSpacingBoxes() As MSForms.TextBox
-Private signSizeBoxes() As MSForms.TextBox
-Private signSideComboBoxes() As MSForms.ComboBox
-Private rowCount As Integer
+' ============================================================
+' ALIGNMENT TABLE DATA
+' Each alignment (1 to MAX_ALIGNMENTS) has its own scrollable
+' frame containing rows with Type / Label / Spacing / Size / Side.
+' ============================================================
+Private Const MAX_ALIGNMENTS As Integer = 10
+Private Const MAX_ALIGN_ROWS  As Integer = 50
+
+Private alignTypeBoxes(1 To 10, 1 To 50)    As MSForms.ComboBox
+Private alignLabelBoxes(1 To 10, 1 To 50)   As MSForms.TextBox
+Private alignSpacingBoxes(1 To 10, 1 To 50) As MSForms.TextBox
+Private alignSizeBoxes(1 To 10, 1 To 50)    As MSForms.TextBox
+Private alignSideBoxes(1 To 10, 1 To 50)    As MSForms.ComboBox
+
+Private alignRowCounts(1 To 10)     As Integer
+Private alignCount                  As Integer
+Private alignFrames(1 To 10)        As Object    ' Frame objects (created in code)
+Private alignSectionLabels(1 To 10) As Object    ' Section title Label objects
+
+Private activeAlignIdx As Integer   ' 0 = no row selected
+Private activeRowIdx   As Integer   ' 0 = no row selected
+Private inSelectAlignRow As Boolean  ' recursion guard for SelectAlignRow
+
+Private alignRowHandlers(1 To 10)    As Collection  ' AlignRowBox instances per alignment
+Private alignTypeHandlers(1 To 10)  As Collection  ' AlignTypeBox instances per alignment
+Private alignAddBtnHandlers(1 To 10) As Object     ' AlignSectionBtns instances per alignment
+Private alignRowSelBoxes(1 To 10)    As Object     ' Row selector ComboBoxes per alignment
+Private spacingBoxHandlers           As Collection  ' SpacingBox instances
+
+' Cached spacing values from GenerateSpacingTable — used by AutoPopulateWZTCItems
+Private cachedDownstreamTaper  As Double
+Private cachedRollAhead        As Double
+Private cachedVehicleSpace     As Double
+Private cachedBufferSpace      As Double
+Private cachedMergingTaper     As Double
+Private cachedShoulderTapers   As Double
+Private cachedUpTaperBarrier   As Double
+Private cachedUpTaperBeam      As Double
+Private hasSpacingData         As Boolean
 
 ' Status tracking
-Private selectedOperationType As String
-Private selectedSheet As String
-Private selectedSpeed As String
+Private selectedSpeed    As String
 Private selectedRoadType As String
 
-' Table layout constants
-Private Const TABLE_START_TOP As Integer = 120
-Private Const TABLE_LEFT As Integer = 20
-Private Const COL1_WIDTH As Integer = 100   ' Sign Number
-Private Const COL2_WIDTH As Integer = 100   ' Spacing
-Private Const COL3_WIDTH As Integer = 80    ' Size
-Private Const COL4_WIDTH As Integer = 120   ' Side selection
-Private Const ROW_HEIGHT As Integer = 30
-Private Const INITIAL_ROWS As Integer = 10
-
-' WZTC Order table
-Private wztcOrderTexts() As String
-Private wztcOrderCount As Integer
-
-' Handlers for sign number textbox Exit (auto-fill spacing/size from library)
-Private signNumberHandlers As Collection
+' ---- Column layout constants (inside alignment Frame) ----
+Private Const ALN_FRAME_LEFT    As Integer = 440   ' right column start on form
+Private Const ALN_FRAME_WIDTH   As Integer = 540   ' frame visible width
+Private Const ALN_FRAME_VIS_H   As Integer = 210   ' frame visible height (scrolls internally)
+Private Const ALN_SECTION_TOP0  As Integer = 175   ' top of first alignment section on form
+Private Const ALN_SECTION_H     As Integer = 275   ' vertical space per alignment section (includes footer buttons)
+Private Const ALN_COL_TYPE_L    As Integer = 10
+Private Const ALN_COL_TYPE_W    As Integer = 75
+Private Const ALN_COL_LABEL_L   As Integer = 90
+Private Const ALN_COL_LABEL_W   As Integer = 110
+Private Const ALN_COL_SPACE_L   As Integer = 205
+Private Const ALN_COL_SPACE_W   As Integer = 80
+Private Const ALN_COL_SIZE_L    As Integer = 290
+Private Const ALN_COL_SIZE_W    As Integer = 70
+Private Const ALN_COL_SIDE_L    As Integer = 365
+Private Const ALN_COL_SIDE_W    As Integer = 110
+Private Const ALN_HDR_TOP       As Integer = 15
+Private Const ALN_ROW_START_TOP As Integer = 40
+Private Const ALN_ROW_H         As Integer = 25
+Private Const HIGHLIGHT_COLOR   As Long = 13166847  ' &HC8E8FF light blue
 
 ' ============================================================
 ' INITIALIZE FORM
@@ -36,275 +71,152 @@ Private signNumberHandlers As Collection
 Private Sub UserForm_Initialize()
     On Error GoTo InitError
 
-    Debug.Print "Starting UserForm_Initialize..."
-
-    Set signNumberHandlers = New Collection
+    Debug.Print "WZTCDesigner: Starting Initialize..."
 
     Me.Caption = "Workzone Traffic Control Designer - MUTCD NY"
+    Me.Width = 1030
+    Me.Height = 740
+    Set spacingBoxHandlers = New Collection
 
-    ' Widen form to accommodate WZTC Order panel
-    If Me.Width < 1820 Then Me.Width = 1820
-
-    ' ========== INPUT SECTION ==========
-    ' Workzone Category Label & Dropdown
+    ' ========== LEFT COLUMN: INPUT DROPDOWNS ==========
     If ControlExists("lblCategory") Then
         lblCategory.Caption = "Workzone Category:"
-        lblCategory.Top = 10
-        lblCategory.Left = 20
-        lblCategory.Width = 120
-        lblCategory.Font.Bold = True
+        lblCategory.Top = 10: lblCategory.Left = 20
+        lblCategory.Width = 120: lblCategory.Font.Bold = True
     End If
-    
     If ControlExists("cboCategory") Then
-        cboCategory.Top = 10
-        cboCategory.Left = 150
-        cboCategory.Width = 250
+        cboCategory.Top = 10: cboCategory.Left = 150: cboCategory.Width = 250
         Call PopulateCategories
     End If
-    
-    ' Sheet Number Label & Dropdown
+
     If ControlExists("lblSheet") Then
         lblSheet.Caption = "Standard Sheet Number:"
-        lblSheet.Top = 40
-        lblSheet.Left = 20
-        lblSheet.Width = 120
-        lblSheet.Font.Bold = True
+        lblSheet.Top = 40: lblSheet.Left = 20
+        lblSheet.Width = 120: lblSheet.Font.Bold = True
     End If
-    
     If ControlExists("cboSheet") Then
-        cboSheet.Top = 40
-        cboSheet.Left = 150
-        cboSheet.Width = 250
-    End If
-    
-    ' Road Speed Label & Dropdown
-    If ControlExists("lblRoadSpeed") Then
-        lblRoadSpeed.Caption = "Road Speed (mph):"
-        lblRoadSpeed.Top = 70
-        lblRoadSpeed.Left = 20
-        lblRoadSpeed.Width = 120
-        lblRoadSpeed.Font.Bold = True
+        cboSheet.Top = 40: cboSheet.Left = 150: cboSheet.Width = 250
     End If
 
+    If ControlExists("lblRoadSpeed") Then
+        lblRoadSpeed.Caption = "Road Speed (mph):"
+        lblRoadSpeed.Top = 70: lblRoadSpeed.Left = 20
+        lblRoadSpeed.Width = 120: lblRoadSpeed.Font.Bold = True
+    End If
     If ControlExists("cboRoadSpeed") Then
-        cboRoadSpeed.Top = 70
-        cboRoadSpeed.Left = 150
-        cboRoadSpeed.Width = 250
+        cboRoadSpeed.Top = 70: cboRoadSpeed.Left = 150: cboRoadSpeed.Width = 250
         Call PopulateRoadSpeeds
     End If
 
-    ' Road Type Label & Dropdown
     If ControlExists("lblRoadType") Then
         lblRoadType.Caption = "Road Type:"
-        lblRoadType.Top = 100
-        lblRoadType.Left = 20
-        lblRoadType.Width = 120
-        lblRoadType.Font.Bold = True
+        lblRoadType.Top = 100: lblRoadType.Left = 20
+        lblRoadType.Width = 120: lblRoadType.Font.Bold = True
     End If
-
     If ControlExists("cboRoadType") Then
-        cboRoadType.Top = 100
-        cboRoadType.Left = 150
-        cboRoadType.Width = 250
+        cboRoadType.Top = 100: cboRoadType.Left = 150: cboRoadType.Width = 250
         Call PopulateRoadType
     End If
 
-    ' Lane Width Label & Dropdown
     If ControlExists("lblLaneWidth") Then
         lblLaneWidth.Caption = "Lane Width (ft):"
-        lblLaneWidth.Top = 130
-        lblLaneWidth.Left = 20
-        lblLaneWidth.Width = 120
-        lblLaneWidth.Font.Bold = True
+        lblLaneWidth.Top = 130: lblLaneWidth.Left = 20
+        lblLaneWidth.Width = 120: lblLaneWidth.Font.Bold = True
     End If
-
     If ControlExists("cboLaneWidth") Then
-        cboLaneWidth.Top = 130
-        cboLaneWidth.Left = 150
-        cboLaneWidth.Width = 250
+        cboLaneWidth.Top = 130: cboLaneWidth.Left = 150: cboLaneWidth.Width = 250
         Call PopulateLaneWidth
     End If
-    
-    ' Shoulder Width Label & Dropdown
+
     If ControlExists("lblShoulderWidth") Then
         lblShoulderWidth.Caption = "Shoulder Width (ft):"
-        lblShoulderWidth.Top = 160
-        lblShoulderWidth.Left = 20
-        lblShoulderWidth.Width = 120
-        lblShoulderWidth.Font.Bold = True
+        lblShoulderWidth.Top = 160: lblShoulderWidth.Left = 20
+        lblShoulderWidth.Width = 120: lblShoulderWidth.Font.Bold = True
     End If
-
     If ControlExists("cboShoulderWidth") Then
-        cboShoulderWidth.Top = 160
-        cboShoulderWidth.Left = 150
-        cboShoulderWidth.Width = 250
+        cboShoulderWidth.Top = 160: cboShoulderWidth.Left = 150: cboShoulderWidth.Width = 250
         Call PopulateShoulderWidth
     End If
-    
+
     ' ========== SPACING & CLEARANCES SECTION ==========
     If ControlExists("frameSpacingValues") Then
-        frameSpacingValues.Caption = "Calculated Spacing & Clearances (per MUTCD NY)"
-        frameSpacingValues.Top = 195
-        frameSpacingValues.Left = 10
-        frameSpacingValues.Width = 280
-        frameSpacingValues.Height = 260
-
+        frameSpacingValues.Caption = "Calculated Recommended Spacing & Clearances (per MUTCD NY)"
+        frameSpacingValues.Top = 195: frameSpacingValues.Left = 10
+        frameSpacingValues.Width = 280: frameSpacingValues.Height = 360
         Call CreateSpacingLabels
     End If
-    
-    ' ========== SIGN TABLE SECTION ==========
-    If ControlExists("lblSignTable") Then
-        lblSignTable.Caption = "Required Signs & Placement Details"
-        lblSignTable.Top = 205
-        lblSignTable.Left = 300
-        lblSignTable.Width = 270
-        lblSignTable.Font.Bold = True
+
+    ' ========== RIGHT COLUMN: GLOBAL ROW BUTTONS (hidden — now per-section below each table) ==========
+    If ControlExists("lblRowActions") Then  lblRowActions.Visible = False  End If
+    If ControlExists("btnAddRow") Then      btnAddRow.Visible = False      End If
+    If ControlExists("btnDeleteRow") Then   btnDeleteRow.Visible = False   End If
+    If ControlExists("btnMoveUp") Then      btnMoveUp.Visible = False      End If
+    If ControlExists("btnMoveDown") Then    btnMoveDown.Visible = False    End If
+
+    ' ========== ALIGNMENT MANAGEMENT BUTTONS ==========
+    If ControlExists("lblAlignActions") Then
+        lblAlignActions.Caption = "Alignments:"
+        lblAlignActions.Top = 10: lblAlignActions.Left = 440
+        lblAlignActions.Width = 110: lblAlignActions.Font.Bold = True
+    End If
+    If ControlExists("btnAddAlignment") Then
+        btnAddAlignment.Caption = "Add Alignment +"
+        btnAddAlignment.Top = 30: btnAddAlignment.Left = 440
+        btnAddAlignment.Width = 115: btnAddAlignment.Height = 22
+        btnAddAlignment.Font.Size = 8
+    End If
+    If ControlExists("btnRemoveAlignment") Then
+        btnRemoveAlignment.Caption = "Remove Alignment"
+        btnRemoveAlignment.Top = 30: btnRemoveAlignment.Left = 560
+        btnRemoveAlignment.Width = 125: btnRemoveAlignment.Height = 22
+        btnRemoveAlignment.Font.Size = 8
     End If
 
-    If ControlExists("frameSignTable") Then
-        frameSignTable.Caption = "Sign Selection"
-        frameSignTable.Top = 205
-        frameSignTable.Left = 300
-        frameSignTable.Width = 540
-        frameSignTable.Height = 260
-        frameSignTable.ScrollBars = fmScrollBarsVertical
-        frameSignTable.KeepScrollBarsVisible = fmScrollBarsVertical
-    End If
-
-    ' ========== WZTC ORDER SECTION ==========
-    ' Controls to add manually in IDE (directly on form, not inside a frame):
-    '   frameWZTCOrder  - Frame            "WZTC Order"
-    '   lstWZTCOrder    - ListBox
-    '   btnOrderUp      - CommandButton
-    '   btnOrderDown    - CommandButton
-    '   btnOrderDelete  - CommandButton
-    '   btnRefreshOrder - CommandButton
-    If ControlExists("frameWZTCOrder") Then
-        frameWZTCOrder.Caption = "WZTC Order"
-        frameWZTCOrder.Top = 195
-        frameWZTCOrder.Left = 855
-        frameWZTCOrder.Width = 305
-        frameWZTCOrder.Height = 315
-    End If
-
-    If ControlExists("lstWZTCOrder") Then
-        lstWZTCOrder.Top = 215
-        lstWZTCOrder.Left = 865
-        lstWZTCOrder.Width = 220
-        lstWZTCOrder.Height = 255
-    End If
-
-    If ControlExists("btnOrderUp") Then
-        btnOrderUp.Caption = "MOVE UP"
-        btnOrderUp.Top = 225
-        btnOrderUp.Left = 1190
-        btnOrderUp.Width = 60
-        btnOrderUp.Height = 22
-    End If
-
-    If ControlExists("btnOrderDown") Then
-        btnOrderDown.Caption = "MOVE DOWN"
-        btnOrderDown.Top = 253
-        btnOrderDown.Left = 1190
-        btnOrderDown.Width = 60
-        btnOrderDown.Height = 22
-    End If
-
-    If ControlExists("btnOrderDelete") Then
-        btnOrderDelete.Caption = "DELETE"
-        btnOrderDelete.Top = 285
-        btnOrderDelete.Left = 1190
-        btnOrderDelete.Width = 60
-        btnOrderDelete.Height = 22
-    End If
-
-    If ControlExists("btnRefreshOrder") Then
-        btnRefreshOrder.Caption = "Add to WZTC Order"
-        btnRefreshOrder.Top = 470
-        btnRefreshOrder.Left = 690
-        btnRefreshOrder.Width = 150
-        btnRefreshOrder.Height = 25
-        btnRefreshOrder.Font.Size = 8
-        btnAddRow.Font.Bold = True
-    End If
-
-    ' ========== ACTION BUTTONS ==========
-    ' Add Row button (moved below tables)
-    If ControlExists("btnAddRow") Then
-        btnAddRow.Caption = "Add Row +"
-        btnAddRow.Top = 470
-        btnAddRow.Left = 300
-        btnAddRow.Width = 150
-        btnAddRow.Height = 25
-        btnAddRow.Font.Size = 8
-
-    End If
-
-    ' Remove Row button (moved below tables)
-    If ControlExists("btnRemoveRow") Then
-        btnRemoveRow.Caption = "Remove Row --"
-        btnRemoveRow.Top = 470
-        btnRemoveRow.Left = 495
-        btnRemoveRow.Width = 150
-        btnRemoveRow.Height = 25
-        btnRemoveRow.Font.Size = 8
-        
-    End If
-
+    ' ========== ACTION BUTTONS (top-right) ==========
     If ControlExists("btnReference") Then
         btnReference.Caption = "Reference (MUTCD)"
-        btnReference.Top = 50
-        btnReference.Left = 580
-        btnReference.Width = 130
-        btnReference.Height = 25
+        btnReference.Top = 10: btnReference.Left = 875
+        btnReference.Width = 130: btnReference.Height = 22
     End If
-
     If ControlExists("btnSubmit") Then
         btnSubmit.Caption = "Submit & Draw"
-        btnSubmit.Top = 85
-        btnSubmit.Left = 580
-        btnSubmit.Width = 130
-        btnSubmit.Height = 25
+        btnSubmit.Top = 38: btnSubmit.Left = 875
+        btnSubmit.Width = 130: btnSubmit.Height = 22
         btnSubmit.Font.Bold = True
     End If
+    If ControlExists("btnClear") Then
+        btnClear.Caption = "Clear All"
+        btnClear.Top = 62: btnClear.Left = 875
+        btnClear.Width = 130: btnClear.Height = 22
+    End If
 
+    ' ========== STATUS LABEL ==========
     If ControlExists("lblStatus") Then
-        lblStatus.Caption = "Welcome! This form helps you configure MUTCD NY workzone traffic control signs. Please select a workzone category."
-        lblStatus.Top = 500
-        lblStatus.Left = 20
-        lblStatus.Width = 550
-        lblStatus.Height = 65
-        lblStatus.Font.Size = 10
-        lblStatus.WordWrap = True
-    End If
-    
-    ' Initialize table
-    Debug.Print "Initializing sign table..."
-    rowCount = 0
-    If ControlExists("frameSignTable") Then
-        Debug.Print "frameSignTable exists, creating table..."
-        On Error Resume Next
-        Call CreateTableHeaders
-        Debug.Print "Headers created"
-        ' Note: Start with no rows - user clicks "+" to add rows
-        ' This prevents crashes from dynamic control creation
-        Debug.Print "Table initialized - use + button to add rows"
-        On Error GoTo 0
-    Else
-        Debug.Print "WARNING: frameSignTable does not exist!"
+        lblStatus.Caption = "Select road parameters, then use the buttons below each alignment table to add and arrange rows."
+        lblStatus.Top = 60: lblStatus.Left = 440
+        lblStatus.Width = 425: lblStatus.Height = 100
+        lblStatus.Font.Size = 9: lblStatus.WordWrap = True
     End If
 
-    Debug.Print "UserForm_Initialize completed successfully"
-    Call BuildWZTCOrderTable
+    ' ========== INITIALIZE ALIGNMENT TABLES ==========
+    alignCount = 0
+    activeAlignIdx = 0: activeRowIdx = 0
+    hasSpacingData = False
+    Call InitAlignments
+
+    Debug.Print "WZTCDesigner: Initialize complete"
     Call RestoreState
     Exit Sub
+
 InitError:
-    MsgBox "Error initializing form at line: " & Erl & vbCrLf & "Error: " & Err.Description & vbCrLf & "Number: " & Err.Number, vbCritical, "Initialization Error"
+    MsgBox "Error initializing form at line: " & Erl & vbCrLf & _
+           "Error: " & Err.Description & vbCrLf & "Number: " & Err.Number, _
+           vbCritical, "Initialization Error"
     Debug.Print "CRASH at line: " & Erl & " - " & Err.Description
 End Sub
 
 ' ============================================================
-' CHECK IF CONTROL EXISTS
+' CONTROL EXISTS HELPER
 ' ============================================================
 Private Function ControlExists(controlName As String) As Boolean
     On Error GoTo NotFound
@@ -315,6 +227,821 @@ Private Function ControlExists(controlName As String) As Boolean
 NotFound:
     ControlExists = False
 End Function
+
+' ============================================================
+' INITIALIZE ALIGNMENTS — creates Upstream and Downstream sections
+' ============================================================
+Private Sub InitAlignments()
+    Call CreateAlignSection(1, "Upstream Alignment")
+    Call CreateAlignSection(2, "Downstream Alignment")
+    alignCount = 2
+    Call UpdateFormScrollHeight
+End Sub
+
+' ============================================================
+' ALIGNMENT SECTION TOP POSITION
+' ============================================================
+Private Function AlignSectionTop(aIdx As Integer) As Integer
+    AlignSectionTop = ALN_SECTION_TOP0 + (aIdx - 1) * ALN_SECTION_H
+End Function
+
+' ============================================================
+' CREATE ALIGNMENT SECTION (title label + scrollable frame + headers)
+' ============================================================
+Private Sub CreateAlignSection(aIdx As Integer, sectionName As String)
+    On Error GoTo CreateError
+    Dim topPos As Integer: topPos = AlignSectionTop(aIdx)
+
+    Set alignRowHandlers(aIdx) = New Collection
+    Set alignTypeHandlers(aIdx) = New Collection
+    alignRowCounts(aIdx) = 0
+
+    ' Section title label on the form
+    Dim lblTitle As MSForms.Label
+    Set lblTitle = Me.Controls.Add("Forms.Label.1", "lblAlign_" & aIdx)
+    With lblTitle
+        .Caption = sectionName
+        .Top = topPos: .Left = ALN_FRAME_LEFT
+        .Width = 220: .Height = 18
+        .Font.Bold = True: .Font.Size = 9
+    End With
+    Set alignSectionLabels(aIdx) = lblTitle
+
+    ' Scrollable frame
+    Dim frm As Object
+    Set frm = Me.Controls.Add("Forms.Frame.1", "frAlign_" & aIdx)
+    With frm
+        .Caption = ""
+        .Top = topPos + 20: .Left = ALN_FRAME_LEFT
+        .Width = ALN_FRAME_WIDTH: .Height = ALN_FRAME_VIS_H
+        .ScrollBars = fmScrollBarsVertical
+        .KeepScrollBarsVisible = fmScrollBarsVertical
+        .ScrollHeight = 500
+    End With
+    Set alignFrames(aIdx) = frm
+
+    Call CreateAlignHeaders(aIdx)
+
+    ' Per-section row action buttons in footer below frame
+    Dim footerTop As Integer: footerTop = topPos + 20 + ALN_FRAME_VIS_H + 4
+    Dim secBtns As AlignSectionBtns
+    Set secBtns = New AlignSectionBtns
+    secBtns.AlignIdx = aIdx
+    Set secBtns.ParentForm = Me
+
+    Dim bAdd As MSForms.CommandButton
+    Set bAdd = Me.Controls.Add("Forms.CommandButton.1", "btnSecAdd_" & aIdx)
+    With bAdd: .Caption = "+ Add Row": .Top = footerTop: .Left = ALN_FRAME_LEFT
+               .Width = 85: .Height = 22: .Font.Size = 7: End With
+    Set secBtns.BtnAdd = bAdd
+
+    Dim bDel As MSForms.CommandButton
+    Set bDel = Me.Controls.Add("Forms.CommandButton.1", "btnSecDel_" & aIdx)
+    With bDel: .Caption = "Del Row": .Top = footerTop: .Left = ALN_FRAME_LEFT + 88
+               .Width = 65: .Height = 22: .Font.Size = 7: End With
+    Set secBtns.BtnDel = bDel
+
+    ' Row # selector — user picks which row to move up/down
+    Dim lblRowSel As MSForms.Label
+    Set lblRowSel = Me.Controls.Add("Forms.Label.1", "lblRowSel_" & aIdx)
+    With lblRowSel: .Caption = "Row #:": .Top = footerTop + 4: .Left = ALN_FRAME_LEFT + 157
+                    .Width = 38: .Height = 16: .Font.Size = 7: End With
+    Dim cboRowSel As MSForms.ComboBox
+    Set cboRowSel = Me.Controls.Add("Forms.ComboBox.1", "cboRowSel_" & aIdx)
+    With cboRowSel: .Top = footerTop: .Left = ALN_FRAME_LEFT + 198: .Width = 42: .Height = 22
+                    .Style = fmStyleDropDownList: .Font.Size = 8: End With
+    Set alignRowSelBoxes(aIdx) = cboRowSel
+    Set secBtns.CboRowSel = cboRowSel
+
+    Dim bUp As MSForms.CommandButton
+    Set bUp = Me.Controls.Add("Forms.CommandButton.1", "btnSecUp_" & aIdx)
+    With bUp: .Caption = "Move Up": .Top = footerTop: .Left = ALN_FRAME_LEFT + 243
+              .Width = 68: .Height = 22: .Font.Size = 7: End With
+    Set secBtns.BtnUp = bUp
+
+    Dim bDown As MSForms.CommandButton
+    Set bDown = Me.Controls.Add("Forms.CommandButton.1", "btnSecDown_" & aIdx)
+    With bDown: .Caption = "Move Down": .Top = footerTop: .Left = ALN_FRAME_LEFT + 314
+                .Width = 75: .Height = 22: .Font.Size = 7: End With
+    Set secBtns.BtnDown = bDown
+
+    Set alignAddBtnHandlers(aIdx) = secBtns
+    Exit Sub
+
+CreateError:
+    Debug.Print "CreateAlignSection error aIdx=" & aIdx & ": " & Err.Description
+End Sub
+
+' ============================================================
+' CREATE COLUMN HEADERS INSIDE ALIGNMENT FRAME
+' ============================================================
+Private Sub CreateAlignHeaders(aIdx As Integer)
+    Dim frm As Object: Set frm = alignFrames(aIdx)
+    Dim lbl As MSForms.Label
+
+    Set lbl = frm.Controls.Add("Forms.Label.1", "lblHdrType_" & aIdx)
+    With lbl: .Caption = "Type": .Top = ALN_HDR_TOP: .Left = ALN_COL_TYPE_L
+        .Width = ALN_COL_TYPE_W: .Height = 18: .Font.Bold = True: .BackColor = &H8000000F: End With
+
+    Set lbl = frm.Controls.Add("Forms.Label.1", "lblHdrLabel_" & aIdx)
+    With lbl: .Caption = "Sign # / Description": .Top = ALN_HDR_TOP: .Left = ALN_COL_LABEL_L
+        .Width = ALN_COL_LABEL_W: .Height = 18: .Font.Bold = True: .BackColor = &H8000000F: End With
+
+    Set lbl = frm.Controls.Add("Forms.Label.1", "lblHdrSpacing_" & aIdx)
+    With lbl: .Caption = "Spacing (ft)": .Top = ALN_HDR_TOP: .Left = ALN_COL_SPACE_L
+        .Width = ALN_COL_SPACE_W: .Height = 18: .Font.Bold = True: .BackColor = &H8000000F: End With
+
+    Set lbl = frm.Controls.Add("Forms.Label.1", "lblHdrSize_" & aIdx)
+    With lbl: .Caption = "Size (Signs)": .Top = ALN_HDR_TOP: .Left = ALN_COL_SIZE_L
+        .Width = ALN_COL_SIZE_W: .Height = 18: .Font.Bold = True: .BackColor = &H8000000F: End With
+
+    Set lbl = frm.Controls.Add("Forms.Label.1", "lblHdrSide_" & aIdx)
+    With lbl: .Caption = "Road Side": .Top = ALN_HDR_TOP: .Left = ALN_COL_SIDE_L
+        .Width = ALN_COL_SIDE_W: .Height = 18: .Font.Bold = True: .BackColor = &H8000000F: End With
+End Sub
+
+' ============================================================
+' ADD A BLANK SIGN ROW TO AN ALIGNMENT
+' ============================================================
+Private Sub AddAlignRow(aIdx As Integer)
+    Call AddAlignRowWithData(aIdx, "Sign", "", "", "", "One Side")
+End Sub
+
+' ============================================================
+' ADD A ROW WITH SPECIFIED DATA TO AN ALIGNMENT
+' ============================================================
+Private Sub AddAlignRowWithData(aIdx As Integer, rowType As String, rowLabel As String, _
+                                 rowSpacing As String, rowSize As String, rowSide As String)
+    On Error GoTo RowError
+    If aIdx < 1 Or aIdx > MAX_ALIGNMENTS Then Exit Sub
+    If alignRowCounts(aIdx) >= MAX_ALIGN_ROWS Then
+        MsgBox "Maximum " & MAX_ALIGN_ROWS & " rows per alignment.", vbExclamation: Exit Sub
+    End If
+
+    alignRowCounts(aIdx) = alignRowCounts(aIdx) + 1
+    Dim rIdx As Integer: rIdx = alignRowCounts(aIdx)
+    Dim frm As Object: Set frm = alignFrames(aIdx)
+    Dim rowTop As Integer: rowTop = ALN_ROW_START_TOP + (rIdx - 1) * ALN_ROW_H
+
+    ' --- Type ComboBox ---
+    Dim cboType As MSForms.ComboBox
+    Set cboType = frm.Controls.Add("Forms.ComboBox.1", "cboType_" & aIdx & "_" & rIdx)
+    With cboType
+        .Top = rowTop: .Left = ALN_COL_TYPE_L: .Width = ALN_COL_TYPE_W: .Height = 20
+        .AddItem "Sign": .AddItem "Non-Sign"
+        .Style = fmStyleDropDownList
+        If rowType = "Non-Sign" Then .ListIndex = 1 Else .ListIndex = 0
+        .BackColor = &HFFFFFF
+    End With
+    Set alignTypeBoxes(aIdx, rIdx) = cboType
+
+    Dim typeHandler As AlignTypeBox
+    Set typeHandler = New AlignTypeBox
+    typeHandler.AlignIdx = aIdx: typeHandler.RowIdx = rIdx
+    Set typeHandler.Cbo = cboType: Set typeHandler.ParentForm = Me
+    alignTypeHandlers(aIdx).Add typeHandler, CStr(rIdx)
+
+    ' --- Label/Sign# TextBox ---
+    Dim txtLabel As MSForms.TextBox
+    Set txtLabel = frm.Controls.Add("Forms.TextBox.1", "txtLabel_" & aIdx & "_" & rIdx)
+    With txtLabel
+        .Top = rowTop: .Left = ALN_COL_LABEL_L: .Width = ALN_COL_LABEL_W: .Height = 20
+        .Text = rowLabel: .BackColor = &HFFFFFF
+    End With
+    Set alignLabelBoxes(aIdx, rIdx) = txtLabel
+
+    Dim rowHandler As AlignRowBox
+    Set rowHandler = New AlignRowBox
+    rowHandler.AlignIdx = aIdx: rowHandler.RowIdx = rIdx
+    Set rowHandler.Txt = txtLabel: Set rowHandler.ParentForm = Me
+    alignRowHandlers(aIdx).Add rowHandler, CStr(rIdx)
+
+    ' --- Spacing TextBox ---
+    Dim txtSpacing As MSForms.TextBox
+    Set txtSpacing = frm.Controls.Add("Forms.TextBox.1", "txtSpacing_" & aIdx & "_" & rIdx)
+    With txtSpacing
+        .Top = rowTop: .Left = ALN_COL_SPACE_L: .Width = ALN_COL_SPACE_W: .Height = 20
+        .Text = rowSpacing: .BackColor = &HFFFFFF
+    End With
+    Set alignSpacingBoxes(aIdx, rIdx) = txtSpacing
+
+    ' --- Size TextBox ---
+    Dim txtSize As MSForms.TextBox
+    Set txtSize = frm.Controls.Add("Forms.TextBox.1", "txtSize_" & aIdx & "_" & rIdx)
+    With txtSize
+        .Top = rowTop: .Left = ALN_COL_SIZE_L: .Width = ALN_COL_SIZE_W: .Height = 20
+        .Text = rowSize: .BackColor = &HFFFFFF
+    End With
+    Set alignSizeBoxes(aIdx, rIdx) = txtSize
+
+    ' --- Side ComboBox ---
+    Dim cboSide As MSForms.ComboBox
+    Set cboSide = frm.Controls.Add("Forms.ComboBox.1", "cboSide_" & aIdx & "_" & rIdx)
+    With cboSide
+        .Top = rowTop: .Left = ALN_COL_SIDE_L: .Width = ALN_COL_SIDE_W: .Height = 20
+        .AddItem "One Side": .AddItem "Both Sides"
+        .Style = fmStyleDropDownList
+        If rowSide = "Both Sides" Then .ListIndex = 1 Else .ListIndex = 0
+        .BackColor = &HFFFFFF
+    End With
+    Set alignSideBoxes(aIdx, rIdx) = cboSide
+
+    ' Apply Non-Sign disabled state
+    If rowType = "Non-Sign" Then
+        txtSize.Enabled = False:  txtSize.BackColor = &HE0E0E0
+        cboSide.Enabled = False: cboSide.BackColor = &HE0E0E0
+    End If
+
+    ' Update frame scroll height so new row is reachable
+    Dim needed As Integer: needed = ALN_ROW_START_TOP + rIdx * ALN_ROW_H + 15
+    If needed > frm.ScrollHeight Then frm.ScrollHeight = needed
+    Call UpdateRowSelector(aIdx)
+    Exit Sub
+RowError:
+    Debug.Print "AddAlignRowWithData error aIdx=" & aIdx & " rIdx=" & rIdx & ": " & Err.Description
+    alignRowCounts(aIdx) = alignRowCounts(aIdx) - 1
+End Sub
+
+' ============================================================
+' REBUILD ALIGNMENT TABLE FROM DATA ARRAYS
+' Delete, Move Up, Move Down all use read-modify-rebuild pattern.
+' ============================================================
+Private Sub RebuildAlignTable(aIdx As Integer, _
+                               types() As String, labels() As String, _
+                               spacings() As String, sizes() As String, _
+                               sides() As String, rCount As Integer)
+    On Error GoTo RebuildError
+    Dim frm As Object: Set frm = alignFrames(aIdx)
+
+    ' Clear all existing row controls
+    Dim r As Integer
+    For r = 1 To alignRowCounts(aIdx)
+        On Error Resume Next
+        frm.Controls.Remove "cboType_" & aIdx & "_" & r
+        frm.Controls.Remove "txtLabel_" & aIdx & "_" & r
+        frm.Controls.Remove "txtSpacing_" & aIdx & "_" & r
+        frm.Controls.Remove "txtSize_" & aIdx & "_" & r
+        frm.Controls.Remove "cboSide_" & aIdx & "_" & r
+        Set alignTypeBoxes(aIdx, r) = Nothing
+        Set alignLabelBoxes(aIdx, r) = Nothing
+        Set alignSpacingBoxes(aIdx, r) = Nothing
+        Set alignSizeBoxes(aIdx, r) = Nothing
+        Set alignSideBoxes(aIdx, r) = Nothing
+        On Error GoTo RebuildError
+    Next r
+    Set alignRowHandlers(aIdx) = New Collection
+    Set alignTypeHandlers(aIdx) = New Collection
+    alignRowCounts(aIdx) = 0
+    frm.ScrollHeight = 500   ' reset scroll
+
+    ' Recreate from supplied arrays
+    Dim i As Integer
+    For i = 1 To rCount
+        Call AddAlignRowWithData(aIdx, types(i), labels(i), spacings(i), sizes(i), sides(i))
+    Next i
+    Call UpdateRowSelector(aIdx)   ' ensure combobox is correct even when rCount=0
+    Exit Sub
+
+RebuildError:
+    Debug.Print "RebuildAlignTable error aIdx=" & aIdx & ": " & Err.Description
+End Sub
+
+' ============================================================
+' READ ALL ROW DATA FROM AN ALIGNMENT INTO TEMP ARRAYS
+' ============================================================
+Private Sub ReadAlignData(aIdx As Integer, _
+                           types() As String, labels() As String, _
+                           spacings() As String, sizes() As String, _
+                           sides() As String, rCount As Integer)
+    rCount = alignRowCounts(aIdx)
+    If rCount = 0 Then Exit Sub
+    ReDim types(1 To rCount)
+    ReDim labels(1 To rCount)
+    ReDim spacings(1 To rCount)
+    ReDim sizes(1 To rCount)
+    ReDim sides(1 To rCount)
+    Dim r As Integer
+    For r = 1 To rCount
+        types(r) = alignTypeBoxes(aIdx, r).Value
+        labels(r) = alignLabelBoxes(aIdx, r).Text
+        spacings(r) = alignSpacingBoxes(aIdx, r).Text
+        sizes(r) = alignSizeBoxes(aIdx, r).Text
+        sides(r) = alignSideBoxes(aIdx, r).Value
+    Next r
+End Sub
+
+' ============================================================
+' ROW SELECTION — Public so AlignRowBox class can call it
+' ============================================================
+Public Sub SelectAlignRow(aIdx As Integer, rIdx As Integer)
+    If inSelectAlignRow Then Exit Sub
+    inSelectAlignRow = True
+    On Error Resume Next
+    If activeAlignIdx > 0 And activeRowIdx > 0 Then
+        Call SetRowHighlight(activeAlignIdx, activeRowIdx, False)
+    End If
+    activeAlignIdx = aIdx
+    activeRowIdx = rIdx
+    Call SetRowHighlight(aIdx, rIdx, True)
+    ' Sync row selector combobox without retriggering this sub
+    If Not alignRowSelBoxes(aIdx) Is Nothing Then
+        If alignRowSelBoxes(aIdx).ListIndex <> rIdx - 1 Then
+            alignRowSelBoxes(aIdx).ListIndex = rIdx - 1
+        End If
+    End If
+    inSelectAlignRow = False
+End Sub
+
+' ============================================================
+' CALLED BY CboRowSel_Change IN AlignSectionBtns
+' ============================================================
+Public Sub SelectAlignRowFromSel(aIdx As Integer, rIdx As Integer)
+    If aIdx < 1 Or rIdx < 1 Then Exit Sub
+    If aIdx > alignCount Or rIdx > alignRowCounts(aIdx) Then Exit Sub
+    Call SelectAlignRow(aIdx, rIdx)
+End Sub
+
+' ============================================================
+' REPOPULATE ROW SELECTOR COMBOBOX FOR AN ALIGNMENT
+' ============================================================
+Private Sub UpdateRowSelector(aIdx As Integer)
+    If aIdx < 1 Or aIdx > MAX_ALIGNMENTS Then Exit Sub
+    On Error Resume Next
+    If alignRowSelBoxes(aIdx) Is Nothing Then Exit Sub
+    Dim cbo As Object: Set cbo = alignRowSelBoxes(aIdx)
+    cbo.Clear
+    Dim r As Integer
+    For r = 1 To alignRowCounts(aIdx)
+        cbo.AddItem CStr(r)
+    Next r
+    ' Leave at -1 (no selection); caller sets selection explicitly if needed
+End Sub
+
+' ============================================================
+' SYNC SPACING TABLE VALUE TO MATCHING ALIGNMENT ROW
+' Called by SpacingBox.cls on Enter or focus-loss
+' ============================================================
+Public Sub SyncSpacingToAlignment(aIdx As Integer, rowLabel As String, newValue As String)
+    On Error Resume Next
+    If aIdx < 1 Or aIdx > alignCount Then Exit Sub
+    Dim r As Integer
+    For r = 1 To alignRowCounts(aIdx)
+        If Not alignLabelBoxes(aIdx, r) Is Nothing Then
+            If Trim(alignLabelBoxes(aIdx, r).Text) = rowLabel Then
+                alignSpacingBoxes(aIdx, r).Text = newValue
+                Exit For
+            End If
+        End If
+    Next r
+End Sub
+
+Private Sub SetRowHighlight(aIdx As Integer, rIdx As Integer, highlighted As Boolean)
+    If aIdx < 1 Or rIdx < 1 Then Exit Sub
+    If aIdx > alignCount Or rIdx > alignRowCounts(aIdx) Then Exit Sub
+    On Error Resume Next
+    Dim c As Long
+    If highlighted Then
+        c = HIGHLIGHT_COLOR
+    Else
+        c = CLng(&HFFFFFF)
+    End If
+    alignTypeBoxes(aIdx, rIdx).BackColor = c
+    alignLabelBoxes(aIdx, rIdx).BackColor = c
+    alignSpacingBoxes(aIdx, rIdx).BackColor = c
+    If highlighted Then
+        alignSizeBoxes(aIdx, rIdx).BackColor = c
+        alignSideBoxes(aIdx, rIdx).BackColor = c
+    Else
+        If alignSizeBoxes(aIdx, rIdx).Enabled Then
+            alignSizeBoxes(aIdx, rIdx).BackColor = CLng(&HFFFFFF)
+        Else
+            alignSizeBoxes(aIdx, rIdx).BackColor = CLng(&HE0E0E0)
+        End If
+        If alignSideBoxes(aIdx, rIdx).Enabled Then
+            alignSideBoxes(aIdx, rIdx).BackColor = CLng(&HFFFFFF)
+        Else
+            alignSideBoxes(aIdx, rIdx).BackColor = CLng(&HE0E0E0)
+        End If
+    End If
+    On Error GoTo 0
+End Sub
+
+' ============================================================
+' TYPE CHANGE — Public so AlignTypeBox class can call it
+' ============================================================
+Public Sub OnTypeChange(aIdx As Integer, rIdx As Integer)
+    If aIdx < 1 Or rIdx < 1 Then Exit Sub
+    If aIdx > alignCount Or rIdx > alignRowCounts(aIdx) Then Exit Sub
+    On Error Resume Next
+    Dim isSign As Boolean: isSign = (alignTypeBoxes(aIdx, rIdx).Value = "Sign")
+    alignSizeBoxes(aIdx, rIdx).Enabled = isSign
+    alignSideBoxes(aIdx, rIdx).Enabled = isSign
+    If isSign Then
+        alignSizeBoxes(aIdx, rIdx).BackColor = CLng(&HFFFFFF)
+        alignSideBoxes(aIdx, rIdx).BackColor = CLng(&HFFFFFF)
+    Else
+        alignSizeBoxes(aIdx, rIdx).BackColor = CLng(&HE0E0E0)
+        alignSideBoxes(aIdx, rIdx).BackColor = CLng(&HE0E0E0)
+        alignSizeBoxes(aIdx, rIdx).Text = ""
+        alignSideBoxes(aIdx, rIdx).ListIndex = 0
+    End If
+    On Error GoTo 0
+End Sub
+
+' ============================================================
+' SIGN LIBRARY AUTO-FILL — Public so AlignRowBox can call it
+' ============================================================
+Public Sub ApplySignLibraryToAlignRow(aIdx As Integer, rIdx As Integer)
+    On Error GoTo LibError
+    If aIdx < 1 Or rIdx < 1 Then Exit Sub
+    If aIdx > alignCount Or rIdx > alignRowCounts(aIdx) Then Exit Sub
+    If alignTypeBoxes(aIdx, rIdx).Value <> "Sign" Then Exit Sub
+
+    Dim s As String: s = Trim(alignLabelBoxes(aIdx, rIdx).Text)
+    If s = "" Then Exit Sub
+
+    Dim roadType As String: roadType = "Non-Freeway"
+    If ControlExists("cboRoadType") And cboRoadType.ListIndex > 0 Then
+        roadType = cboRoadType.Value
+    End If
+
+    Dim sd As signData
+    sd = GetSignData(s, roadType)
+    If sd.SignNumber = "" Then
+        Dim allSigns() As String: allSigns = GetAllSignNumbers
+        Dim i As Long, matchKey As String: matchKey = ""
+        For i = LBound(allSigns) To UBound(allSigns)
+            If allSigns(i) <> "" And StrComp(s, allSigns(i), vbTextCompare) = 0 Then
+                matchKey = allSigns(i): Exit For
+            End If
+        Next i
+        If matchKey = "" Then Exit Sub
+        sd = GetSignData(matchKey, roadType)
+        If sd.SignNumber = "" Then Exit Sub
+    End If
+    alignSpacingBoxes(aIdx, rIdx).Text = CStr(sd.DefaultSpacing)
+    alignSizeBoxes(aIdx, rIdx).Text = sd.TextLine2
+    Exit Sub
+LibError:
+    Debug.Print "ApplySignLibraryToAlignRow error: " & Err.Description
+End Sub
+
+' ============================================================
+' AUTO-POPULATE WZTC SPACING ITEMS INTO UPSTREAM ALIGNMENT
+' Called from GenerateSpacingTable after spacing values are computed.
+' ============================================================
+Private Sub AutoPopulateWZTCItems(aIdx As Integer)
+    If Not hasSpacingData Then Exit Sub
+    If aIdx < 1 Or aIdx > alignCount Then Exit Sub
+
+    If aIdx = 1 Then
+        ' Upstream: Roll Ahead, Vehicle Space, Buffer Space, Merging Taper, Shoulder Taper,
+        '           Upstream Taper Temp Barrier, Upstream Taper Box/Corr Beam
+        Dim ut(1 To 7)  As String, ul(1 To 7)  As String
+        Dim us(1 To 7)  As String, usz(1 To 7) As String, usd(1 To 7) As String
+        Dim i As Integer
+        For i = 1 To 7: ut(i) = "Non-Sign": usz(i) = "": usd(i) = "One Side": Next i
+        ul(1) = "Roll Ahead Distance":          us(1) = Format(cachedRollAhead, "0.0")
+        ul(2) = "Vehicle Space":                us(2) = Format(cachedVehicleSpace, "0.0")
+        ul(3) = "Buffer Space":                 us(3) = Format(cachedBufferSpace, "0.0")
+        ul(4) = "Merging/Shifting Taper":       us(4) = Format(cachedMergingTaper, "0.0")
+        ul(5) = "Shoulder Taper":               us(5) = Format(cachedShoulderTapers, "0.0")
+        ul(6) = "Upstream Taper Temp Barrier":  us(6) = Format(cachedUpTaperBarrier, "0.0")
+        ul(7) = "Upstream Taper Box/Corr Beam": us(7) = Format(cachedUpTaperBeam, "0.0")
+        Call RebuildAlignTable(1, ut, ul, us, usz, usd, 7)
+        If ControlExists("lblStatus") Then
+            lblStatus.Caption = "Upstream populated with 7 spacing items. " & _
+                                "Use '+ Add Row' next to each alignment title to add Sign rows."
+        End If
+
+    ElseIf aIdx = 2 Then
+        ' Downstream: Downstream Taper only
+        Dim dt(1 To 1)  As String, dl(1 To 1)  As String
+        Dim ds(1 To 1)  As String, dsz(1 To 1) As String, dsd(1 To 1) As String
+        dt(1) = "Non-Sign": dl(1) = "Downstream Taper"
+        ds(1) = Format(cachedDownstreamTaper, "0.0"): dsz(1) = "": dsd(1) = "One Side"
+        Call RebuildAlignTable(2, dt, dl, ds, dsz, dsd, 1)
+    End If
+End Sub
+
+' ============================================================
+' PER-SECTION ADD ROW — called by AlignAddBtn click handler
+' ============================================================
+Public Sub AddRowForAlign(aIdx As Integer)
+    If aIdx < 1 Or aIdx > alignCount Then Exit Sub
+    Call AddAlignRow(aIdx)
+    Call SelectAlignRow(aIdx, alignRowCounts(aIdx))   ' auto-select the new row
+    If ControlExists("lblStatus") Then
+        Dim nm As String
+        Select Case aIdx
+            Case 1:    nm = "Upstream"
+            Case 2:    nm = "Downstream"
+            Case Else: nm = "Alignment " & aIdx
+        End Select
+        lblStatus.Caption = "Row added to " & nm & " alignment."
+    End If
+End Sub
+
+' ============================================================
+' PER-SECTION DEL ROW
+' ============================================================
+Public Sub DelRowForAlign(aIdx As Integer)
+    If alignRowCounts(aIdx) = 0 Then
+        If ControlExists("lblStatus") Then lblStatus.Caption = "No rows to delete." End If
+        Exit Sub
+    End If
+    ' Delete the row selected in this alignment's combobox, or the last row if none selected
+    Dim rIdx As Integer
+    If activeAlignIdx = aIdx And activeRowIdx >= 1 And activeRowIdx <= alignRowCounts(aIdx) Then
+        rIdx = activeRowIdx
+    Else
+        rIdx = alignRowCounts(aIdx)
+    End If
+    Dim types() As String, labels() As String
+    Dim spacings() As String, sizes() As String
+    Dim sides() As String, rCount As Integer
+    Call ReadAlignData(aIdx, types, labels, spacings, sizes, sides, rCount)
+    If rCount = 0 Then Exit Sub
+    Dim i As Integer
+    For i = rIdx To rCount - 1
+        types(i) = types(i + 1): labels(i) = labels(i + 1)
+        spacings(i) = spacings(i + 1): sizes(i) = sizes(i + 1): sides(i) = sides(i + 1)
+    Next i
+    rCount = rCount - 1
+    activeAlignIdx = 0: activeRowIdx = 0
+    If rCount > 0 Then
+        Call RebuildAlignTable(aIdx, types, labels, spacings, sizes, sides, rCount)
+    Else
+        Dim emptyT(1 To 1) As String, emptyL(1 To 1) As String
+        Dim emptySp(1 To 1) As String, emptySz(1 To 1) As String
+        Dim emptySd(1 To 1) As String
+        Call RebuildAlignTable(aIdx, emptyT, emptyL, emptySp, emptySz, emptySd, 0)
+    End If
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Row deleted." End If
+End Sub
+
+' ============================================================
+' PER-SECTION MOVE UP
+' ============================================================
+Public Sub MoveRowUpForAlign(aIdx As Integer)
+    If activeAlignIdx <> aIdx Or activeRowIdx <= 1 Then
+        If ControlExists("lblStatus") Then
+            lblStatus.Caption = "Select a row below the first in this alignment, then click Move Up."
+        End If
+        Exit Sub
+    End If
+    Dim rIdx As Integer: rIdx = activeRowIdx
+    Dim types() As String, labels() As String
+    Dim spacings() As String, sizes() As String
+    Dim sides() As String, rCount As Integer
+    Call ReadAlignData(aIdx, types, labels, spacings, sizes, sides, rCount)
+    Dim tmp As String
+    tmp = types(rIdx):    types(rIdx) = types(rIdx - 1):       types(rIdx - 1) = tmp
+    tmp = labels(rIdx):   labels(rIdx) = labels(rIdx - 1):     labels(rIdx - 1) = tmp
+    tmp = spacings(rIdx): spacings(rIdx) = spacings(rIdx - 1): spacings(rIdx - 1) = tmp
+    tmp = sizes(rIdx):    sizes(rIdx) = sizes(rIdx - 1):       sizes(rIdx - 1) = tmp
+    tmp = sides(rIdx):    sides(rIdx) = sides(rIdx - 1):       sides(rIdx - 1) = tmp
+    activeAlignIdx = 0: activeRowIdx = 0
+    Call RebuildAlignTable(aIdx, types, labels, spacings, sizes, sides, rCount)
+    Call SelectAlignRow(aIdx, rIdx - 1)
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Row moved up." End If
+End Sub
+
+' ============================================================
+' PER-SECTION MOVE DOWN
+' ============================================================
+Public Sub MoveRowDownForAlign(aIdx As Integer)
+    If activeAlignIdx <> aIdx Or activeRowIdx = 0 Then
+        If ControlExists("lblStatus") Then
+            lblStatus.Caption = "Select a row in this alignment first, then click Move Down."
+        End If
+        Exit Sub
+    End If
+    Dim rIdx As Integer: rIdx = activeRowIdx
+    If rIdx >= alignRowCounts(aIdx) Then
+        If ControlExists("lblStatus") Then lblStatus.Caption = "Row is already at the bottom." End If
+        Exit Sub
+    End If
+    Dim types() As String, labels() As String
+    Dim spacings() As String, sizes() As String
+    Dim sides() As String, rCount As Integer
+    Call ReadAlignData(aIdx, types, labels, spacings, sizes, sides, rCount)
+    Dim tmp As String
+    tmp = types(rIdx):    types(rIdx) = types(rIdx + 1):       types(rIdx + 1) = tmp
+    tmp = labels(rIdx):   labels(rIdx) = labels(rIdx + 1):     labels(rIdx + 1) = tmp
+    tmp = spacings(rIdx): spacings(rIdx) = spacings(rIdx + 1): spacings(rIdx + 1) = tmp
+    tmp = sizes(rIdx):    sizes(rIdx) = sizes(rIdx + 1):       sizes(rIdx + 1) = tmp
+    tmp = sides(rIdx):    sides(rIdx) = sides(rIdx + 1):       sides(rIdx + 1) = tmp
+    activeAlignIdx = 0: activeRowIdx = 0
+    Call RebuildAlignTable(aIdx, types, labels, spacings, sizes, sides, rCount)
+    Call SelectAlignRow(aIdx, rIdx + 1)
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Row moved down." End If
+End Sub
+
+' ============================================================
+' UPDATE FORM SCROLL HEIGHT
+' ============================================================
+Private Sub UpdateFormScrollHeight()
+    Dim neededHeight As Integer
+    neededHeight = AlignSectionTop(alignCount) + ALN_SECTION_H + 40
+    Me.ScrollBars = fmScrollBarsVertical
+    If neededHeight > Me.Height Then
+        Me.ScrollHeight = neededHeight
+    End If
+End Sub
+
+' ============================================================
+' UPDATE SIGN SIZES WHEN ROAD TYPE CHANGES
+' ============================================================
+Private Sub UpdateSignSizesForAllAlignments()
+    If ControlExists("cboRoadType") Then
+        If cboRoadType.ListIndex <= 0 Then Exit Sub
+    End If
+    Dim roadType As String: roadType = cboRoadType.Value
+    Dim a As Integer, r As Integer
+    Dim sd As signData
+    For a = 1 To alignCount
+        For r = 1 To alignRowCounts(a)
+            If Not alignTypeBoxes(a, r) Is Nothing Then
+                If alignTypeBoxes(a, r).Value = "Sign" Then
+                    Dim s As String: s = Trim(alignLabelBoxes(a, r).Text)
+                    If s <> "" Then
+                        sd = GetSignData(s, roadType)
+                        If sd.SignNumber <> "" Then
+                            alignSizeBoxes(a, r).Text = sd.TextLine2
+                        End If
+                    End If
+                End If
+            End If
+        Next r
+    Next a
+End Sub
+
+' ============================================================
+' ROW ACTION BUTTON HANDLERS
+' ============================================================
+Private Sub btnAddRow_Click()
+    If activeAlignIdx > 0 Then
+        Call AddAlignRow(activeAlignIdx)
+        Dim nm As String
+        Select Case activeAlignIdx
+            Case 1:    nm = "Upstream"
+            Case 2:    nm = "Downstream"
+            Case Else: nm = "Alignment " & activeAlignIdx
+        End Select
+        lblStatus.Caption = "Row added to " & nm & " alignment."
+    Else
+        lblStatus.Caption = "Use the '+ Add Row' button beside each alignment's title to add rows, " & _
+                            "or click any existing row's Sign # field first to target that alignment."
+    End If
+End Sub
+
+Private Sub btnDeleteRow_Click()
+    If activeAlignIdx = 0 Or activeRowIdx = 0 Then
+        lblStatus.Caption = "Click the Sign # / Description field in a row to select it, then click Del Row."
+        Exit Sub
+    End If
+    Dim aIdx As Integer: aIdx = activeAlignIdx
+    Dim rIdx As Integer: rIdx = activeRowIdx
+    If alignRowCounts(aIdx) = 0 Then Exit Sub
+
+    Dim types()    As String, labels()   As String
+    Dim spacings() As String, sizes()    As String
+    Dim sides()    As String, rCount As Integer
+    Call ReadAlignData(aIdx, types, labels, spacings, sizes, sides, rCount)
+
+    If rCount = 0 Then Exit Sub
+
+    ' Remove rIdx from arrays by shifting down
+    Dim i As Integer
+    For i = rIdx To rCount - 1
+        types(i) = types(i + 1): labels(i) = labels(i + 1)
+        spacings(i) = spacings(i + 1): sizes(i) = sizes(i + 1): sides(i) = sides(i + 1)
+    Next i
+    rCount = rCount - 1
+
+    activeAlignIdx = 0: activeRowIdx = 0
+    If rCount > 0 Then
+        Call RebuildAlignTable(aIdx, types, labels, spacings, sizes, sides, rCount)
+    Else
+        Dim emptyT(1 To 1) As String, emptyL(1 To 1) As String
+        Dim emptySp(1 To 1) As String, emptySz(1 To 1) As String
+        Dim emptySd(1 To 1) As String
+        Call RebuildAlignTable(aIdx, emptyT, emptyL, emptySp, emptySz, emptySd, 0)
+    End If
+    lblStatus.Caption = "Row deleted."
+End Sub
+
+Private Sub btnMoveUp_Click()
+    If activeAlignIdx = 0 Or activeRowIdx <= 1 Then
+        lblStatus.Caption = "Select a row below the first, then click Move Up."
+        Exit Sub
+    End If
+    Dim aIdx As Integer: aIdx = activeAlignIdx
+    Dim rIdx As Integer: rIdx = activeRowIdx
+
+    Dim types()    As String, labels()   As String
+    Dim spacings() As String, sizes()    As String
+    Dim sides()    As String, rCount As Integer
+    Call ReadAlignData(aIdx, types, labels, spacings, sizes, sides, rCount)
+
+    Dim tmp As String
+    tmp = types(rIdx): types(rIdx) = types(rIdx - 1): types(rIdx - 1) = tmp
+    tmp = labels(rIdx): labels(rIdx) = labels(rIdx - 1): labels(rIdx - 1) = tmp
+    tmp = spacings(rIdx): spacings(rIdx) = spacings(rIdx - 1): spacings(rIdx - 1) = tmp
+    tmp = sizes(rIdx): sizes(rIdx) = sizes(rIdx - 1): sizes(rIdx - 1) = tmp
+    tmp = sides(rIdx): sides(rIdx) = sides(rIdx - 1): sides(rIdx - 1) = tmp
+
+    activeAlignIdx = 0: activeRowIdx = 0
+    Call RebuildAlignTable(aIdx, types, labels, spacings, sizes, sides, rCount)
+    Call SelectAlignRow(aIdx, rIdx - 1)
+    lblStatus.Caption = "Row moved up."
+End Sub
+
+Private Sub btnMoveDown_Click()
+    If activeAlignIdx = 0 Or activeRowIdx = 0 Then
+        lblStatus.Caption = "Select a row first, then click Move Down."
+        Exit Sub
+    End If
+    Dim aIdx As Integer: aIdx = activeAlignIdx
+    Dim rIdx As Integer: rIdx = activeRowIdx
+    If rIdx >= alignRowCounts(aIdx) Then
+        lblStatus.Caption = "Row is already at the bottom."
+        Exit Sub
+    End If
+
+    Dim types()    As String, labels()   As String
+    Dim spacings() As String, sizes()    As String
+    Dim sides()    As String, rCount As Integer
+    Call ReadAlignData(aIdx, types, labels, spacings, sizes, sides, rCount)
+
+    Dim tmp As String
+    tmp = types(rIdx): types(rIdx) = types(rIdx + 1): types(rIdx + 1) = tmp
+    tmp = labels(rIdx): labels(rIdx) = labels(rIdx + 1): labels(rIdx + 1) = tmp
+    tmp = spacings(rIdx): spacings(rIdx) = spacings(rIdx + 1): spacings(rIdx + 1) = tmp
+    tmp = sizes(rIdx): sizes(rIdx) = sizes(rIdx + 1): sizes(rIdx + 1) = tmp
+    tmp = sides(rIdx): sides(rIdx) = sides(rIdx + 1): sides(rIdx + 1) = tmp
+
+    activeAlignIdx = 0: activeRowIdx = 0
+    Call RebuildAlignTable(aIdx, types, labels, spacings, sizes, sides, rCount)
+    Call SelectAlignRow(aIdx, rIdx + 1)
+    lblStatus.Caption = "Row moved down."
+End Sub
+
+' ============================================================
+' ALIGNMENT MANAGEMENT BUTTON HANDLERS
+' ============================================================
+Private Sub btnAddAlignment_Click()
+    If alignCount >= MAX_ALIGNMENTS Then
+        MsgBox "Maximum " & MAX_ALIGNMENTS & " alignments reached.", vbExclamation
+        Exit Sub
+    End If
+    alignCount = alignCount + 1
+    Call CreateAlignSection(alignCount, "Alignment " & alignCount)
+    Call AddAlignRow(alignCount)   ' seed with one empty row so user can target this alignment
+    Call UpdateFormScrollHeight
+    lblStatus.Caption = "Alignment " & alignCount & " added. Use '+ Add Row' beside its title to add more rows."
+End Sub
+
+Private Sub btnRemoveAlignment_Click()
+    If alignCount <= 2 Then
+        MsgBox "Upstream and Downstream alignments cannot be removed.", vbExclamation
+        Exit Sub
+    End If
+    Dim aIdx As Integer: aIdx = alignCount
+
+    If activeAlignIdx = aIdx Then
+        activeAlignIdx = 0: activeRowIdx = 0
+    End If
+
+    ' Remove all row controls from this alignment's frame
+    Dim r As Integer
+    Dim frm As Object: Set frm = alignFrames(aIdx)
+    For r = 1 To alignRowCounts(aIdx)
+        On Error Resume Next
+        frm.Controls.Remove "cboType_" & aIdx & "_" & r
+        frm.Controls.Remove "txtLabel_" & aIdx & "_" & r
+        frm.Controls.Remove "txtSpacing_" & aIdx & "_" & r
+        frm.Controls.Remove "txtSize_" & aIdx & "_" & r
+        frm.Controls.Remove "cboSide_" & aIdx & "_" & r
+        On Error GoTo 0
+    Next r
+    alignRowCounts(aIdx) = 0
+
+    On Error Resume Next
+    Me.Controls.Remove "frAlign_" & aIdx
+    Me.Controls.Remove "lblAlign_" & aIdx
+    On Error GoTo 0
+    Set alignFrames(aIdx) = Nothing
+    Set alignSectionLabels(aIdx) = Nothing
+
+    alignCount = alignCount - 1
+    lblStatus.Caption = "Alignment removed."
+End Sub
+
+' ============================================================
+' POPULATE DROPDOWN LISTS
+' ============================================================
 Private Sub PopulateCategories()
     cboCategory.Clear
     cboCategory.AddItem "001-020: General Information (8 sheets)"
@@ -336,13 +1063,8 @@ Private Sub cboCategory_Change()
     End If
 End Sub
 
-
-' ============================================================
-' POPULATE SHEET NUMBERS BASED ON CATEGORY
-' ============================================================
 Private Sub PopulateSheets(categoryName As String)
     cboSheet.Clear
-    
     Select Case categoryName
         Case "001-020: General Information (8 sheets)"
             cboSheet.AddItem "619-001: Temporary Positive Barrier (6 Sheets)"
@@ -353,7 +1075,6 @@ Private Sub PopulateSheets(categoryName As String)
             cboSheet.AddItem "619-010: Work Zone Traffic Control General Notes"
             cboSheet.AddItem "619-011: Work Zone Traffic Control General Tables and Legend"
             cboSheet.AddItem "619-012: Sign Table (2 Sheets)"
-            
         Case "021-099: Special Operations (13 sheets)"
             cboSheet.AddItem "619-021: Work Beyond Shoulder - Non-Freeway Mowing"
             cboSheet.AddItem "619-022: Shoulder Encroachment - Non-Freeway Mowing"
@@ -368,20 +1089,17 @@ Private Sub PopulateSheets(categoryName As String)
             cboSheet.AddItem "619-080: Work Beyond Shoulder - All Roadways All Durations"
             cboSheet.AddItem "619-090: Temporary Road Closure - Two-Lane Two-Way"
             cboSheet.AddItem "619-091: Temporary Intersection Closure - Two-Lane Two-Way"
-            
         Case "101-109: Stop & Go Operations (4 sheets)"
             cboSheet.AddItem "619-101: Right Shoulder Closure - Non-Freeway Stop and Go"
             cboSheet.AddItem "619-102: Lane Closure - Non-Freeway Stop and Go"
             cboSheet.AddItem "619-103: Left Lane and Shoulder Closure - Freeway Stop and Go"
             cboSheet.AddItem "619-104: Left Two Lane and Shoulder Closure - Freeway Stop and Go"
-            
         Case "110-200: Mobile Operations (5 sheets)"
             cboSheet.AddItem "619-110: Lane Encroachment/Shoulder Closure - Freeway Mobile (2 Sheets)"
             cboSheet.AddItem "619-111: Right Lane Closure - Freeway Mobile (2 Sheets)"
             cboSheet.AddItem "619-112: Right Two Lane Closure - Freeway Mobile (2 Sheets)"
             cboSheet.AddItem "619-113: Left Shoulder Closure on Ramp - Freeway Mobile"
             cboSheet.AddItem "619-114: Lane Closure - Parkway Mobile"
-            
         Case "201-300: Short Duration Operations (12 sheets)"
             cboSheet.AddItem "619-201: Right Shoulder Closure - Non-Freeway Short Duration"
             cboSheet.AddItem "619-202: Left Lane Closure - Multilane Undivided Short Duration"
@@ -394,7 +1112,6 @@ Private Sub PopulateSheets(categoryName As String)
             cboSheet.AddItem "619-209: Left Two Lane Closure - Freeway Short Duration"
             cboSheet.AddItem "619-211: Left Shoulder Closure on Exit Ramp - Freeway Short Duration"
             cboSheet.AddItem "619-212: Right/Left Lane Closure - Parkway Short Duration"
-            
         Case "301-400: Short Term Operations (25 sheets)"
             cboSheet.AddItem "619-301: Right Shoulder Closure - Freeway Short Term"
             cboSheet.AddItem "619-302: Right Lane Closure - All Roadways Short Term"
@@ -420,7 +1137,6 @@ Private Sub PopulateSheets(categoryName As String)
             cboSheet.AddItem "619-323: Flagging Operation at Intersection - Two-Lane Short Term"
             cboSheet.AddItem "619-324: Single Lane Shift with Two Way Left Turn Lane - Two-Lane Short Term"
             cboSheet.AddItem "619-325: Double Interior Lane Closure - Multilane Two-Way Short Term"
-            
         Case "401-500: Intermediate Operations (17 sheets)"
             cboSheet.AddItem "619-401: Right Shoulder Closure - Freeway Intermediate (2 Sheets)"
             cboSheet.AddItem "619-402: Right Lane Closure - All Roadways Intermediate (2 Sheets)"
@@ -438,7 +1154,6 @@ Private Sub PopulateSheets(categoryName As String)
             cboSheet.AddItem "619-421: Flagging Operation at Intersection - Two-Lane Intermediate (2 Sheets)"
             cboSheet.AddItem "619-422: Single Lane Shift with Two Way Left Turn Lane - Two-Lane Intermediate"
             cboSheet.AddItem "619-423: Double Interior Lane Closure - Multilane Two-Way Intermediate"
-            
         Case "501-600: Long Term Operations (10 sheets)"
             cboSheet.AddItem "619-501: Right Shoulder Closure - Freeway Long Term (2 Sheets)"
             cboSheet.AddItem "619-502: Multi Lane Shift - Freeway Long Term (2 Sheets)"
@@ -451,22 +1166,16 @@ Private Sub PopulateSheets(categoryName As String)
             cboSheet.AddItem "619-523: Double Interior Lane Closure - Multilane Two-Way Long Term"
             cboSheet.AddItem "619-524: Temporary Traffic Signal - Two-Lane Long Term"
     End Select
-    
-    If cboSheet.ListCount > 0 Then
-        cboSheet.ListIndex = 0
-    End If
+    If cboSheet.ListCount > 0 Then cboSheet.ListIndex = 0
 End Sub
 
 Private Sub cboSheet_Change()
     If cboSheet.ListIndex >= 0 Then
-        lblStatus.Caption = "Standard Sheet Number selected - Please select Road Speed."
+        lblStatus.Caption = "Sheet selected - Please select Road Speed."
         Call CheckAllSelectionsComplete
     End If
 End Sub
 
-' ============================================================
-' POPULATE ROAD TYPE
-' ============================================================
 Private Sub PopulateRoadType()
     On Error GoTo PopError
     If ControlExists("cboRoadType") Then
@@ -484,41 +1193,12 @@ End Sub
 Private Sub cboRoadType_Change()
     If cboRoadType.ListIndex > 0 Then
         selectedRoadType = cboRoadType.Value
-        ' Update sign sizes in all existing rows to match new road type
-        Call UpdateSignSizesForRoadType
+        Call UpdateSignSizesForAllAlignments
         lblStatus.Caption = "Road Type selected - Please select Lane Width."
         Call CheckAllSelectionsComplete
     End If
 End Sub
 
-' ============================================================
-' UPDATE SIGN SIZES FOR CURRENT ROAD TYPE
-' When the user switches between Freeway and Non-Freeway,
-' re-lookup each sign in the library and update its size column.
-' ============================================================
-Private Sub UpdateSignSizesForRoadType()
-    Dim i As Integer
-    Dim signNum As String
-    Dim sd As signData
-    Dim roadType As String
-
-    If cboRoadType.ListIndex <= 0 Then Exit Sub
-    roadType = cboRoadType.Value
-
-    For i = 1 To rowCount
-        signNum = Trim(signNumberBoxes(i).Value)
-        If signNum <> "" Then
-            sd = GetSignData(signNum, roadType)
-            If sd.SignNumber <> "" Then
-                signSizeBoxes(i).Value = sd.TextLine2
-            End If
-        End If
-    Next i
-End Sub
-
-' ============================================================
-' POPULATE LANE WIDTH
-' ============================================================
 Private Sub PopulateLaneWidth()
     On Error GoTo PopError
     If ControlExists("cboLaneWidth") Then
@@ -545,9 +1225,6 @@ Private Sub cboLaneWidth_Change()
     End If
 End Sub
 
-' ============================================================
-' POPULATE SHOULDER WIDTHS
-' ============================================================
 Private Sub PopulateShoulderWidth()
     On Error GoTo PopError
     If ControlExists("cboShoulderWidth") Then
@@ -578,37 +1255,6 @@ Private Sub cboShoulderWidth_Change()
     End If
 End Sub
 
-' ============================================================
-' OPEN REFERENCE VIEWER COMPACT ALONGSIDE THIS FORM
-' ============================================================
-Private Sub ShowReferenceViewerCompact()
-    Dim catText   As String
-    Dim sheetText As String
-
-    On Error Resume Next
-    catText   = cboCategory.Value
-    sheetText = cboSheet.Value
-    On Error GoTo 0
-
-    ' Position the reference viewer to the right of this form
-    On Error Resume Next
-    SheetViewer.Left = Me.Left + Me.Width + 8
-    SheetViewer.Top  = Me.Top
-    On Error GoTo 0
-
-    If catText <> "" Then
-        ' Open compact with matching category + sheet auto-selected
-        SheetViewer.SelectAndShow catText, sheetText
-    Else
-        ' No selections yet - open normally so user can browse
-        Me.Hide
-        SheetViewer.Show vbModeless
-    End If
-End Sub
-
-' ============================================================
-' POPULATE ROAD SPEEDS
-' ============================================================
 Private Sub PopulateRoadSpeeds()
     On Error GoTo PopError
     If ControlExists("cboRoadSpeed") Then
@@ -629,258 +1275,31 @@ PopError:
     MsgBox "Error populating road speeds: " & Err.Description, vbExclamation
 End Sub
 
-
-' ============================================================
-' ROAD SPEED CHANGE EVENT - TRIGGERS TABLE GENERATION
-' ============================================================
 Private Sub cboRoadSpeed_Change()
     If cboRoadSpeed.ListIndex > 0 And cboCategory.ListIndex > 0 Then
         selectedSpeed = cboRoadSpeed.Value
         Call GenerateSpacingTable
-        Call PopulateSignTable
         lblStatus.Caption = "Road Speed selected - Please select Road Type."
         Call CheckAllSelectionsComplete
     End If
 End Sub
 
 ' ============================================================
-' CREATE SPACING LABELS IN FRAME
+' REFERENCE BUTTON — opens MUTCD sheet viewer
 ' ============================================================
-Private Sub CreateSpacingLabels()
-    On Error GoTo SpacingError
-
-    ' Create labels and textboxes for the spacing values
-    Dim lblDownstream As MSForms.Label
-    Dim txtDownstream As MSForms.TextBox
-    Dim lblRollAhead As MSForms.Label
-    Dim txtRollAhead As MSForms.TextBox
-    Dim lblVehicle As MSForms.Label
-    Dim txtVehicle As MSForms.TextBox
-    Dim lblBuffer As MSForms.Label
-    Dim txtBuffer As MSForms.TextBox
-    Dim lblMerging As MSForms.Label
-    Dim txtMerging As MSForms.TextBox
-    Dim lblShoulder As MSForms.Label
-    Dim txtShoulder As MSForms.TextBox
-    Dim lblAdvanced As MSForms.Label
-    Dim txtAdvanced As MSForms.TextBox
-    Dim lblSkipLines As MSForms.Label
-    Dim txtSkipLines As MSForms.TextBox
-    Dim lblChannelizing As MSForms.Label
-    Dim txtChannelizing As MSForms.TextBox
-    Dim lblFlareBarrier As MSForms.Label
-    Dim txtFlareBarrier As MSForms.TextBox
-    Dim lblFlareBeam As MSForms.Label
-    Dim txtFlareBeam As MSForms.TextBox
-
-    ' Label: downstreamTaper
-    Set lblDownstream = frameSpacingValues.Controls.Add("Forms.Label.1", "lblDownstreamTaper")
-    With lblDownstream
-        .Caption = "Downstream Taper (ft):"
-        .Top = 20
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtDownstream = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtDownstreamTaper")
-    With txtDownstream
-        .Top = 20
-        .Left = 125
-        .Width = 50
-        .Height = 18
-        .Enabled = False
-    End With
-
-    ' Label: Roll Ahead Distance (inserted below downstream taper)
-    Set lblRollAhead = frameSpacingValues.Controls.Add("Forms.Label.1", "lblRollAhead")
-    With lblRollAhead
-        .Caption = "Roll Ahead Distance (ft):"
-        .Top = 40
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtRollAhead = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtRollAhead")
-    With txtRollAhead
-        .Top = 40
-        .Left = 125
-        .Width = 50
-        .Height = 18
-        .Enabled = False
-    End With
-
-    ' Label: vehicleSpace
-    Set lblVehicle = frameSpacingValues.Controls.Add("Forms.Label.1", "lblVehicleSpace")
-    With lblVehicle
-        .Caption = "Vehicle Space (ft):"
-        .Top = 60
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtVehicle = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtVehicleSpace")
-    With txtVehicle
-        .Top = 60
-        .Left = 125
-        .Width = 50
-        .Height = 18
-        .Enabled = False
-    End With
-
-    ' Label: bufferSpace
-    Set lblBuffer = frameSpacingValues.Controls.Add("Forms.Label.1", "lblBufferSpace")
-    With lblBuffer
-        .Caption = "Buffer Space (ft):"
-        .Top = 80
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtBuffer = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtBufferSpace")
-    With txtBuffer
-        .Top = 80
-        .Left = 125
-        .Width = 50
-        .Height = 18
-        .Enabled = False
-    End With
-
-    ' Label: mergingTaper
-    Set lblMerging = frameSpacingValues.Controls.Add("Forms.Label.1", "lblMergingTaper")
-    With lblMerging
-        .Caption = "Merging/Shifting Taper (ft):"
-        .Top = 100
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtMerging = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtMergingTaper")
-    With txtMerging
-        .Top = 100
-        .Left = 125
-        .Width = 50
-        .Height = 18
-        .Enabled = False
-    End With
-
-    ' Label: shoulderTapers
-    Set lblShoulder = frameSpacingValues.Controls.Add("Forms.Label.1", "lblShoulderTapers")
-    With lblShoulder
-        .Caption = "Shoulder Tapers (ft):"
-        .Top = 120
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtShoulder = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtShoulderTapers")
-    With txtShoulder
-        .Top = 120
-        .Left = 125
-        .Width = 50
-        .Height = 18
-        .Enabled = False
-    End With
-
-    ' Label: advancedWarningSpacing
-    Set lblAdvanced = frameSpacingValues.Controls.Add("Forms.Label.1", "lblAdvancedWarningSpacing")
-    With lblAdvanced
-        .Caption = "Advanced Warning Spacing (ft):"
-        .Top = 140
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtAdvanced = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtAdvancedWarningSpacing")
-    With txtAdvanced
-        .Top = 140
-        .Left = 125
-        .Width = 50
-        .Height = 18
-        .Enabled = False
-    End With
-
-    ' Label: # of Skip Lines
-    Set lblSkipLines = frameSpacingValues.Controls.Add("Forms.Label.1", "lblSkipLines")
-    With lblSkipLines
-        .Caption = "# of Skip Lines:"
-        .Top = 160
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtSkipLines = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtSkipLines")
-    With txtSkipLines
-        .Top = 160
-        .Left = 125
-        .Width = 50
-        .Height = 18
-    End With
-
-    ' Label: # of Channelizing Devices
-    Set lblChannelizing = frameSpacingValues.Controls.Add("Forms.Label.1", "lblChannelizing")
-    With lblChannelizing
-        .Caption = "# of Channelizing Devices:"
-        .Top = 180
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtChannelizing = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtChannelizing")
-    With txtChannelizing
-        .Top = 180
-        .Left = 125
-        .Width = 50
-        .Height = 18
-    End With
-
-    ' Label: Flare Rate Temporary Positive Barrier
-    Set lblFlareBarrier = frameSpacingValues.Controls.Add("Forms.Label.1", "lblFlareBarrier")
-    With lblFlareBarrier
-        .Caption = "Flare Rate Temp Barrier:"
-        .Top = 200
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtFlareBarrier = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtFlareBarrier")
-    With txtFlareBarrier
-        .Top = 200
-        .Left = 125
-        .Width = 50
-        .Height = 18
-    End With
-
-    ' Label: Flare Rate Box Beam/Corrugated Beam
-    Set lblFlareBeam = frameSpacingValues.Controls.Add("Forms.Label.1", "lblFlareBeam")
-    With lblFlareBeam
-        .Caption = "Flare Rate Box/Corr Beam:"
-        .Top = 220
-        .Left = 10
-        .Width = 110
-        .Height = 18
-    End With
-
-    Set txtFlareBeam = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtFlareBeam")
-    With txtFlareBeam
-        .Top = 220
-        .Left = 125
-        .Width = 50
-        .Height = 18
-    End With
-
-    Exit Sub
-SpacingError:
-    MsgBox "Error in CreateSpacingLabels: " & Err.Description, vbExclamation
+Private Sub btnReference_Click()
+    On Error Resume Next
+    Dim catText As String, sheetText As String
+    catText = cboCategory.Value
+    sheetText = cboSheet.Value
+    SheetViewer.Left = Me.Left + Me.Width + 8
+    SheetViewer.Top = Me.Top
+    If catText <> "" Then
+        SheetViewer.SelectAndShow catText, sheetText
+    Else
+        Me.Hide
+        SheetViewer.Show vbModeless
+    End If
 End Sub
 
 ' ============================================================
@@ -888,102 +1307,196 @@ End Sub
 ' ============================================================
 Private Sub CheckAllSelectionsComplete()
     Dim allComplete As Boolean
-    
-    ' Check if all 6 required fields have valid selections:
-    ' 1-Category, 2-Sheet, 3-Speed, 4-Road Type, 5-Lane Width, 6-Shoulder Width
     allComplete = (cboCategory.ListIndex >= 0) And _
                   (cboSheet.ListIndex >= 0) And _
                   (cboRoadSpeed.ListIndex > 0) And _
                   (cboRoadType.ListIndex > 0) And _
                   (cboLaneWidth.ListIndex > 0) And _
                   (cboShoulderWidth.ListIndex > 0)
-    
     If allComplete Then
-        lblStatus.Caption = "Ready to configure signs for: " & cboSheet.List(cboSheet.ListIndex) & vbCrLf & _
-                            "Tip: Click 'Reference (MUTCD)' to view the NYS Standard Sheet and identify the sign numbers you will need for this workzone type."
+        lblStatus.Caption = "All parameters selected. Add signs and spacing items to alignments, then click Submit & Draw."
     End If
 End Sub
 
 ' ============================================================
+' Wire a SpacingBox handler for a spacing textbox → alignment row sync
+' ============================================================
+Private Sub AddSpacingHandler(txt As MSForms.TextBox, aIdx As Integer, rowLabel As String)
+    Dim h As SpacingBox
+    Set h = New SpacingBox
+    h.AlignIdx = aIdx
+    h.RowLabel = rowLabel
+    Set h.Txt = txt
+    Set h.ParentForm = Me
+    spacingBoxHandlers.Add h
+End Sub
+
+' ============================================================
+' CREATE SPACING LABELS IN FRAME (unchanged from original)
+' ============================================================
+Private Sub CreateSpacingLabels()
+    On Error GoTo SpacingError
+
+    Dim lblDownstream As MSForms.Label, txtDownstream As MSForms.TextBox
+    Dim lblRollAhead As MSForms.Label, txtRollAhead As MSForms.TextBox
+    Dim lblVehicle As MSForms.Label, txtVehicle As MSForms.TextBox
+    Dim lblBuffer As MSForms.Label, txtBuffer As MSForms.TextBox
+    Dim lblMerging As MSForms.Label, txtMerging As MSForms.TextBox
+    Dim lblShoulder As MSForms.Label, txtShoulder As MSForms.TextBox
+    Dim lblAdvanced As MSForms.Label, txtAdvanced As MSForms.TextBox
+    Dim lblSkipLines As MSForms.Label, txtSkipLines As MSForms.TextBox
+    Dim lblChannelizing As MSForms.Label, txtChannelizing As MSForms.TextBox
+    Dim lblFlareBarrier As MSForms.Label, txtFlareBarrier As MSForms.TextBox
+    Dim lblFlareBeam As MSForms.Label, txtFlareBeam As MSForms.TextBox
+
+    Set lblDownstream = frameSpacingValues.Controls.Add("Forms.Label.1", "lblDownstreamTaper")
+    With lblDownstream: .Caption = "Downstream Taper (ft):": .Top = 20: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtDownstream = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtDownstreamTaper")
+    With txtDownstream: .Top = 20: .Left = 125: .Width = 50: .Height = 18: End With
+    Call AddSpacingHandler(txtDownstream, 2, "Downstream Taper")
+
+    Set lblRollAhead = frameSpacingValues.Controls.Add("Forms.Label.1", "lblRollAhead")
+    With lblRollAhead: .Caption = "Roll Ahead Distance (ft):": .Top = 40: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtRollAhead = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtRollAhead")
+    With txtRollAhead: .Top = 40: .Left = 125: .Width = 50: .Height = 18: End With
+    Call AddSpacingHandler(txtRollAhead, 1, "Roll Ahead Distance")
+
+    Set lblVehicle = frameSpacingValues.Controls.Add("Forms.Label.1", "lblVehicleSpace")
+    With lblVehicle: .Caption = "Vehicle Space (ft):": .Top = 60: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtVehicle = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtVehicleSpace")
+    With txtVehicle: .Top = 60: .Left = 125: .Width = 50: .Height = 18: End With
+    Call AddSpacingHandler(txtVehicle, 1, "Vehicle Space")
+
+    Set lblBuffer = frameSpacingValues.Controls.Add("Forms.Label.1", "lblBufferSpace")
+    With lblBuffer: .Caption = "Buffer Space (ft):": .Top = 80: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtBuffer = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtBufferSpace")
+    With txtBuffer: .Top = 80: .Left = 125: .Width = 50: .Height = 18: End With
+    Call AddSpacingHandler(txtBuffer, 1, "Buffer Space")
+
+    Set lblMerging = frameSpacingValues.Controls.Add("Forms.Label.1", "lblMergingTaper")
+    With lblMerging: .Caption = "Merging/Shifting Taper (ft):": .Top = 100: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtMerging = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtMergingTaper")
+    With txtMerging: .Top = 100: .Left = 125: .Width = 50: .Height = 18: End With
+    Call AddSpacingHandler(txtMerging, 1, "Merging/Shifting Taper")
+
+    Set lblShoulder = frameSpacingValues.Controls.Add("Forms.Label.1", "lblShoulderTapers")
+    With lblShoulder: .Caption = "Shoulder Tapers (ft):": .Top = 120: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtShoulder = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtShoulderTapers")
+    With txtShoulder: .Top = 120: .Left = 125: .Width = 50: .Height = 18: End With
+    Call AddSpacingHandler(txtShoulder, 1, "Shoulder Taper")
+
+    Set lblAdvanced = frameSpacingValues.Controls.Add("Forms.Label.1", "lblAdvancedWarningSpacing")
+    With lblAdvanced: .Caption = "Adv. Warning Spacing (ft):": .Top = 140: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtAdvanced = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtAdvancedWarningSpacing")
+    With txtAdvanced: .Top = 140: .Left = 125: .Width = 50: .Height = 18: End With
+
+    Set lblSkipLines = frameSpacingValues.Controls.Add("Forms.Label.1", "lblSkipLines")
+    With lblSkipLines: .Caption = "# of Skip Lines:": .Top = 160: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtSkipLines = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtSkipLines")
+    With txtSkipLines: .Top = 160: .Left = 125: .Width = 50: .Height = 18: End With
+
+    Set lblChannelizing = frameSpacingValues.Controls.Add("Forms.Label.1", "lblChannelizing")
+    With lblChannelizing: .Caption = "# of Channelizing Devices:": .Top = 180: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtChannelizing = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtChannelizing")
+    With txtChannelizing: .Top = 180: .Left = 125: .Width = 50: .Height = 18: End With
+
+    Set lblFlareBarrier = frameSpacingValues.Controls.Add("Forms.Label.1", "lblFlareBarrier")
+    With lblFlareBarrier: .Caption = "Flare Rate Temp Barrier:": .Top = 200: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtFlareBarrier = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtFlareBarrier")
+    With txtFlareBarrier: .Top = 200: .Left = 125: .Width = 50: .Height = 18: End With
+
+    Set lblFlareBeam = frameSpacingValues.Controls.Add("Forms.Label.1", "lblFlareBeam")
+    With lblFlareBeam: .Caption = "Flare Rate Box/Corr Beam:": .Top = 220: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtFlareBeam = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtFlareBeam")
+    With txtFlareBeam: .Top = 220: .Left = 125: .Width = 50: .Height = 18: End With
+
+    Dim lblUpTaperBarrier As MSForms.Label, txtUpTaperBarrier As MSForms.TextBox
+    Dim lblUpTaperBeam    As MSForms.Label, txtUpTaperBeam    As MSForms.TextBox
+
+    Set lblUpTaperBarrier = frameSpacingValues.Controls.Add("Forms.Label.1", "lblUpTaperBarrier")
+    With lblUpTaperBarrier: .Caption = "Upstream Taper Temp Barrier (ft):": .Top = 242: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtUpTaperBarrier = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtUpTaperBarrier")
+    With txtUpTaperBarrier: .Top = 242: .Left = 125: .Width = 50: .Height = 18: End With
+    Call AddSpacingHandler(txtUpTaperBarrier, 1, "Upstream Taper Temp Barrier")
+
+    Set lblUpTaperBeam = frameSpacingValues.Controls.Add("Forms.Label.1", "lblUpTaperBeam")
+    With lblUpTaperBeam: .Caption = "Upstream Taper Box/Corr Beam (ft):": .Top = 264: .Left = 10: .Width = 110: .Height = 18: End With
+    Set txtUpTaperBeam = frameSpacingValues.Controls.Add("Forms.TextBox.1", "txtUpTaperBeam")
+    With txtUpTaperBeam: .Top = 264: .Left = 125: .Width = 50: .Height = 18: End With
+    Call AddSpacingHandler(txtUpTaperBeam, 1, "Upstream Taper Box/Corr Beam")
+
+    Exit Sub
+SpacingError:
+    MsgBox "Error in CreateSpacingLabels: " & Err.Description, vbExclamation
+End Sub
+
+' ============================================================
+' PARSE UPSTREAM TAPER — converts "X:Y" flare rate + lane width to taper length
+' Formula: upstreamTaper = laneWidth × (X / Y)
+' Example: "8:1" + 12ft lane → 12 × 8 = 96 ft
+' ============================================================
+Private Function ParseUpstreamTaper(flareStr As String, laneWid As Integer) As Double
+    On Error Resume Next
+    ParseUpstreamTaper = 0
+    If flareStr = "" Then Exit Function
+    Dim parts() As String: parts = Split(flareStr, ":")
+    If UBound(parts) < 1 Then Exit Function
+    Dim num As Double: num = CDbl(Trim(parts(0)))
+    Dim den As Double: den = CDbl(Trim(parts(1)))
+    If den = 0 Then Exit Function
+    ParseUpstreamTaper = laneWid * (num / den)
+End Function
+
+' ============================================================
 ' GENERATE SPACING TABLE BASED ON MUTCD NY STANDARDS
+' Caches computed values, then auto-populates Upstream alignment.
 ' ============================================================
 Private Sub GenerateSpacingTable()
-    Dim speed As Integer
-    Dim laneWidth As Integer
-    Dim downstreamTaper As Double
-    Dim vehicleSpace As Double
-    Dim bufferSpace As Double
-    Dim mergingTaper As Double
-    Dim shoulderTapers As Double
-    Dim advancedWarningSpacing As Double
+    Dim speed As Integer, laneWidth As Integer
+    Dim downstreamTaper As Double, vehicleSpace As Double
+    Dim bufferSpace As Double, mergingTaper As Double
+    Dim shoulderTapers As Double, advancedWarningSpacing As Double
     Dim skipMerge As Integer, chanMerge As Integer
     Dim skipShoulder As Integer, chanShoulder As Integer
-    Dim skipBuffer As Integer
-    Dim skipRollAhead As Integer
+    Dim skipBuffer As Integer, skipRollAhead As Integer
     Dim flareBarrierStr As String, flareBeamStr As String
     Dim skipTotal As Integer, chanTotal As Integer
-    
-    ' Extract speed value from dropdown
+    Dim upTaperBarrierVal As Double, upTaperBeamVal As Double
+
     speed = Val(Left(selectedSpeed, 2))
-    
-    ' Extract lane width value from dropdown
     laneWidth = Val(Left(cboLaneWidth.Value, 2))
-    
-    ' MUTCD NY formulas for spacing based on speed
-    ' Downstream taper depends on road type (Freeway vs Non-Freeway)
+
     If LCase(Trim(selectedRoadType)) = "non-freeway" Then
         downstreamTaper = 50
     Else
         downstreamTaper = 100
     End If
     vehicleSpace = 50
-    
-    ' Buffer Space based on preconstruction posted speed limit table
+
     Select Case speed
-        Case 25
-            bufferSpace = 155
-        Case 30
-            bufferSpace = 200
-        Case 35
-            bufferSpace = 250
-        Case 40
-            bufferSpace = 305
-        Case 45
-            bufferSpace = 360
-        Case 50
-            bufferSpace = 425
-        Case 55
-            bufferSpace = 495
-        Case 65
-            bufferSpace = 645
-        Case Else
-            bufferSpace = speed * 70  ' Default formula if speed not in table
+        Case 25: bufferSpace = 155
+        Case 30: bufferSpace = 200
+        Case 35: bufferSpace = 250
+        Case 40: bufferSpace = 305
+        Case 45: bufferSpace = 360
+        Case 50: bufferSpace = 425
+        Case 55: bufferSpace = 495
+        Case 65: bufferSpace = 645
+        Case Else: bufferSpace = speed * 70
     End Select
-    
-    ' Buffer Space Skip Lines based on speed only
+
     Select Case speed
-        Case 25
-            skipBuffer = 4
-        Case 30
-            skipBuffer = 5
-        Case 35
-            skipBuffer = 6
-        Case 40
-            skipBuffer = 8
-        Case 45
-            skipBuffer = 9
-        Case 50
-            skipBuffer = 11
-        Case 55
-            skipBuffer = 13
-        Case 65
-            skipBuffer = 16
-        Case Else
-            skipBuffer = 0
+        Case 25: skipBuffer = 4
+        Case 30: skipBuffer = 5
+        Case 35: skipBuffer = 6
+        Case 40: skipBuffer = 8
+        Case 45: skipBuffer = 9
+        Case 50: skipBuffer = 11
+        Case 55: skipBuffer = 13
+        Case 65: skipBuffer = 16
+        Case Else: skipBuffer = 0
     End Select
-    
-    ' Merging/Shifting Taper based on speed and lane width table
-    ' Also captures skip lines and channelizing device counts
+
     Select Case speed
         Case 25
             Select Case laneWidth
@@ -1042,187 +1555,157 @@ Private Sub GenerateSpacingTable()
                 Case Else: mergingTaper = 640: skipMerge = 16: chanMerge = 17
             End Select
         Case Else
-            mergingTaper = (speed * (laneWidth)^2)/60: skipMerge = 0: chanMerge = 0
+            mergingTaper = (speed * (laneWidth) ^ 2) / 60: skipMerge = 0: chanMerge = 0
     End Select
-    
-    ' Shoulder Taper based on speed and shoulder width table
-    ' Also captures skip lines and channelizing device counts
+
     Select Case speed
         Case 25
             Select Case cboShoulderWidth.Value
                 Case "<= 4 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "5-7 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "8 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "9 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "10 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "11 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "12 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case Else: shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "5-7 ft":  shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "8 ft":    shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "9 ft":    shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "10 ft":   shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "11 ft":   shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "12 ft":   shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case Else:      shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
             End Select
         Case 30
             Select Case cboShoulderWidth.Value
                 Case "<= 4 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "5-7 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "8 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "9 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "10 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "11 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "12 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case Else: shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "5-7 ft":  shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "8 ft":    shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "9 ft":    shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "10 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case "11 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case "12 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case Else:      shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
             End Select
         Case 35
             Select Case cboShoulderWidth.Value
                 Case "<= 4 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "5-7 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "8 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "9 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "10 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "11 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "12 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case Else: shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "5-7 ft":  shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "8 ft":    shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case "9 ft":    shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case "10 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case "11 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case "12 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case Else:      shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
             End Select
         Case 40
             Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "5-7 ft": shoulderTapers = 80: skipShoulder = 1: chanShoulder = 2
-                Case "8 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "9 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "10 ft": shoulderTapers = 120: skipShoulder = 2: chanShoulder = 3
-                Case "11 ft": shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "12 ft": shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case Else: shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
+                Case "<= 4 ft": shoulderTapers = 40:  skipShoulder = 1: chanShoulder = 2
+                Case "5-7 ft":  shoulderTapers = 80:  skipShoulder = 1: chanShoulder = 2
+                Case "8 ft":    shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
+                Case "9 ft":    shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
+                Case "10 ft":   shoulderTapers = 120: skipShoulder = 2: chanShoulder = 3
+                Case "11 ft":   shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
+                Case "12 ft":   shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
+                Case Else:      shoulderTapers = 40:  skipShoulder = 1: chanShoulder = 2
             End Select
         Case 45
             Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "5-7 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "8 ft": shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "9 ft": shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "10 ft": shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "11 ft": shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "12 ft": shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case Else: shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case "<= 4 ft": shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
+                Case "5-7 ft":  shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
+                Case "8 ft":    shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
+                Case "9 ft":    shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
+                Case "10 ft":   shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
+                Case "11 ft":   shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
+                Case "12 ft":   shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
+                Case Else:      shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
             End Select
         Case 50
             Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "5-7 ft": shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "8 ft": shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "9 ft": shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "10 ft": shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "11 ft": shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "12 ft": shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case Else: shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case "<= 4 ft": shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
+                Case "5-7 ft":  shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
+                Case "8 ft":    shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
+                Case "9 ft":    shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
+                Case "10 ft":   shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
+                Case "11 ft":   shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
+                Case "12 ft":   shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
+                Case Else:      shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
             End Select
         Case 55
             Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "5-7 ft": shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "8 ft": shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "9 ft": shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "10 ft": shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "11 ft": shoulderTapers = 200: skipShoulder = 5: chanShoulder = 6
-                Case "12 ft": shoulderTapers = 200: skipShoulder = 5: chanShoulder = 6
-                Case Else: shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case "<= 4 ft": shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
+                Case "5-7 ft":  shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
+                Case "8 ft":    shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
+                Case "9 ft":    shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
+                Case "10 ft":   shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
+                Case "11 ft":   shoulderTapers = 200: skipShoulder = 5: chanShoulder = 6
+                Case "12 ft":   shoulderTapers = 200: skipShoulder = 5: chanShoulder = 6
+                Case Else:      shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
             End Select
         Case 65
             Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "5-7 ft": shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "8 ft": shoulderTapers = 200: skipShoulder = 5: chanShoulder = 6
-                Case "9 ft": shoulderTapers = 240: skipShoulder = 6: chanShoulder = 7
-                Case "10 ft": shoulderTapers = 240: skipShoulder = 6: chanShoulder = 7
-                Case "11 ft": shoulderTapers = 280: skipShoulder = 7: chanShoulder = 8
-                Case "12 ft": shoulderTapers = 280: skipShoulder = 7: chanShoulder = 8
-                Case Else: shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
+                Case "<= 4 ft": shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
+                Case "5-7 ft":  shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
+                Case "8 ft":    shoulderTapers = 200: skipShoulder = 5: chanShoulder = 6
+                Case "9 ft":    shoulderTapers = 240: skipShoulder = 6: chanShoulder = 7
+                Case "10 ft":   shoulderTapers = 240: skipShoulder = 6: chanShoulder = 7
+                Case "11 ft":   shoulderTapers = 280: skipShoulder = 7: chanShoulder = 8
+                Case "12 ft":   shoulderTapers = 280: skipShoulder = 7: chanShoulder = 8
+                Case Else:      shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
             End Select
         Case Else
             shoulderTapers = speed * 0.8: skipShoulder = 0: chanShoulder = 0
     End Select
-    
-    ' Advanced placement of warning sign based on speed (lookup)
+
     Select Case speed
-        Case 25
-            advancedWarningSpacing = 515
-        Case 30
-            advancedWarningSpacing = 620
-        Case 35
-            advancedWarningSpacing = 720
-        Case 40
-            advancedWarningSpacing = 825
-        Case 45
-            advancedWarningSpacing = 930
-        Case 50
-            advancedWarningSpacing = 1030
-        Case 55
-            advancedWarningSpacing = 1135
-        Case 65
-            advancedWarningSpacing = 1365
-        Case Else
-            advancedWarningSpacing = speed * 10
+        Case 25: advancedWarningSpacing = 515
+        Case 30: advancedWarningSpacing = 620
+        Case 35: advancedWarningSpacing = 720
+        Case 40: advancedWarningSpacing = 825
+        Case 45: advancedWarningSpacing = 930
+        Case 50: advancedWarningSpacing = 1030
+        Case 55: advancedWarningSpacing = 1135
+        Case 65: advancedWarningSpacing = 1365
+        Case Else: advancedWarningSpacing = speed * 10
     End Select
 
-    ' Roll ahead distance based on speed (lookup)
     Dim rollAhead As Double
     Select Case speed
-        Case 25, 30, 35, 40
-            rollAhead = 120
-        Case 45, 50, 55
-            rollAhead = 160
-        Case 65
-            rollAhead = 200
-        Case Else
-            rollAhead = 120
+        Case 25, 30, 35, 40: rollAhead = 120
+        Case 45, 50, 55:     rollAhead = 160
+        Case 65:             rollAhead = 200
+        Case Else:           rollAhead = 120
     End Select
-    
-    ' Roll ahead distance skip lines based on speed
+
+    Dim skipRollAheadVal As Integer
     Select Case speed
-        Case 25, 30, 35, 40
-            skipRollAhead = 3
-        Case 45, 50, 55
-            skipRollAhead = 4
-        Case 65
-            skipRollAhead = 5
-        Case Else
-            skipRollAhead = 0
+        Case 25, 30, 35, 40: skipRollAheadVal = 3
+        Case 45, 50, 55:     skipRollAheadVal = 4
+        Case 65:             skipRollAheadVal = 5
+        Case Else:           skipRollAheadVal = 0
     End Select
-    
-    ' Determine flare rates based on speed
+    skipRollAhead = skipRollAheadVal
+
     Select Case speed
-        Case 25, 30, 35
-            flareBarrierStr = "8:1"
-        Case 40, 45
-            flareBarrierStr = "11:1"
-        Case 50
-            flareBarrierStr = "14:1"
-        Case 55
-            flareBarrierStr = "16:1"
-        Case 65
-            flareBarrierStr = "20:1"
-        Case Else
-            flareBarrierStr = ""
+        Case 25, 30, 35: flareBarrierStr = "8:1"
+        Case 40, 45:     flareBarrierStr = "11:1"
+        Case 50:         flareBarrierStr = "14:1"
+        Case 55:         flareBarrierStr = "16:1"
+        Case 65:         flareBarrierStr = "20:1"
+        Case Else:       flareBarrierStr = ""
     End Select
 
     Select Case speed
-        Case 25, 30, 35
-            flareBeamStr = "7:1"
-        Case 40, 45
-            flareBeamStr = "9:1"
-        Case 50
-            flareBeamStr = "11:1"
-        Case 55
-            flareBeamStr = "12:1"
-        Case 65
-            flareBeamStr = "15:1"
-        Case Else
-            flareBeamStr = ""
+        Case 25, 30, 35: flareBeamStr = "7:1"
+        Case 40, 45:     flareBeamStr = "9:1"
+        Case 50:         flareBeamStr = "11:1"
+        Case 55:         flareBeamStr = "12:1"
+        Case 65:         flareBeamStr = "15:1"
+        Case Else:       flareBeamStr = ""
     End Select
 
-    ' Sum skip lines and channelizing devices from merging, shoulder, buffer and roll-ahead contributions
     skipTotal = skipMerge + skipShoulder + skipBuffer + skipRollAhead
     chanTotal = chanMerge + chanShoulder
-    
-    ' Populate the text boxes
+
+    ' Upstream taper = laneWidth × (flare numerator / flare denominator)
+    upTaperBarrierVal = ParseUpstreamTaper(flareBarrierStr, laneWidth)
+    upTaperBeamVal    = ParseUpstreamTaper(flareBeamStr, laneWidth)
+
+    ' Populate spacing display textboxes
     frameSpacingValues.Controls("txtDownstreamTaper").Value = Format(downstreamTaper, "0.0")
     frameSpacingValues.Controls("txtRollAhead").Value = Format(rollAhead, "0.0")
     frameSpacingValues.Controls("txtVehicleSpace").Value = Format(vehicleSpace, "0.0")
@@ -1234,363 +1717,57 @@ Private Sub GenerateSpacingTable()
     frameSpacingValues.Controls("txtChannelizing").Value = Format(chanTotal, "0")
     frameSpacingValues.Controls("txtFlareBarrier").Value = flareBarrierStr
     frameSpacingValues.Controls("txtFlareBeam").Value = flareBeamStr
+    frameSpacingValues.Controls("txtUpTaperBarrier").Value = Format(upTaperBarrierVal, "0.0")
+    frameSpacingValues.Controls("txtUpTaperBeam").Value = Format(upTaperBeamVal, "0.0")
 
-    Call BuildWZTCOrderTable
-
+    ' Cache values and auto-populate Upstream and Downstream alignments
+    cachedDownstreamTaper = downstreamTaper
+    cachedRollAhead = rollAhead
+    cachedVehicleSpace = vehicleSpace
+    cachedBufferSpace = bufferSpace
+    cachedMergingTaper = mergingTaper
+    cachedShoulderTapers = shoulderTapers
+    cachedUpTaperBarrier = upTaperBarrierVal
+    cachedUpTaperBeam = upTaperBeamVal
+    hasSpacingData = True
+    Call AutoPopulateWZTCItems(1)
+    Call AutoPopulateWZTCItems(2)
 End Sub
 
 ' ============================================================
-' CREATE TABLE HEADERS IN FRAME
-' ============================================================
-Private Sub CreateTableHeaders()
-    Dim lblSignNum As MSForms.Label
-    Dim lblSpacing As MSForms.Label
-    Dim lblSize As MSForms.Label
-    Dim lblSide As MSForms.Label
-    
-    ' Create header labels
-    Set lblSignNum = frameSignTable.Controls.Add("Forms.Label.1", "lblHeaderSignNum")
-    With lblSignNum
-        .Caption = "Sign Number"
-        .Top = 15
-        .Left = TABLE_LEFT
-        .Width = COL1_WIDTH
-        .Height = 20
-        .Font.Bold = True
-        .TextAlign = fmTextAlignCenter
-        .BackColor = &H8000000F  ' Light gray
-    End With
-    
-    Set lblSpacing = frameSignTable.Controls.Add("Forms.Label.1", "lblHeaderSpacing")
-    With lblSpacing
-        .Caption = "Spacing (ft)"
-        .Top = 15
-        .Left = TABLE_LEFT + COL1_WIDTH + 5
-        .Width = COL2_WIDTH
-        .Height = 20
-        .Font.Bold = True
-        .TextAlign = fmTextAlignCenter
-        .BackColor = &H8000000F
-    End With
-    
-    Set lblSize = frameSignTable.Controls.Add("Forms.Label.1", "lblHeaderSize")
-    With lblSize
-        .Caption = "Size"
-        .Top = 15
-        .Left = TABLE_LEFT + COL1_WIDTH + COL2_WIDTH + 10
-        .Width = COL3_WIDTH
-        .Height = 20
-        .Font.Bold = True
-        .TextAlign = fmTextAlignCenter
-        .BackColor = &H8000000F
-    End With
-    
-    Set lblSide = frameSignTable.Controls.Add("Forms.Label.1", "lblHeaderSide")
-    With lblSide
-        .Caption = "Road Side"
-        .Top = 15
-        .Left = TABLE_LEFT + COL1_WIDTH + COL2_WIDTH + COL3_WIDTH + 15
-        .Width = COL4_WIDTH
-        .Height = 20
-        .Font.Bold = True
-        .TextAlign = fmTextAlignCenter
-        .BackColor = &H8000000F
-    End With
-End Sub
-
-' ============================================================
-' ADD INITIAL ROWS TO TABLE
-' ============================================================
-Private Sub AddInitialRows()
-    Dim i As Integer
-    For i = 1 To INITIAL_ROWS
-        Call AddTableRow
-    Next i
-End Sub
-
-' ============================================================
-' ADD TABLE ROW
-' ============================================================
-Private Sub AddTableRow()
-    On Error GoTo RowError
-
-    Dim txtSignNum As MSForms.TextBox
-    Dim txtSpacing As MSForms.TextBox
-    Dim txtSize As MSForms.TextBox
-    Dim cboSide As MSForms.ComboBox
-    Dim currentTop As Integer
-
-    Debug.Print "Adding row " & (rowCount + 1)
-
-    rowCount = rowCount + 1
-    currentTop = TABLE_START_TOP + (rowCount - 1) * ROW_HEIGHT
-
-    ' Resize arrays
-    ReDim Preserve signNumberBoxes(1 To rowCount)
-    ReDim Preserve signSpacingBoxes(1 To rowCount)
-    ReDim Preserve signSizeBoxes(1 To rowCount)
-    ReDim Preserve signSideComboBoxes(1 To rowCount)
-
-    ' Sign Number textbox
-    Debug.Print "Creating sign number textbox..."
-    Set txtSignNum = frameSignTable.Controls.Add("Forms.TextBox.1", "txtSignNum" & rowCount)
-    With txtSignNum
-        .Top = currentTop
-        .Left = TABLE_LEFT
-        .Width = COL1_WIDTH
-        .Height = 22
-        .Text = ""
-    End With
-    Set signNumberBoxes(rowCount) = txtSignNum
-    ' Wire Exit event so typing a sign number auto-fills spacing and size from library
-    Dim handler As SignNumBox
-    Set handler = New SignNumBox
-    handler.RowIndex = rowCount
-    Set handler.Txt = txtSignNum
-    Set handler.ParentForm = Me
-    signNumberHandlers.Add handler, CStr(rowCount)
-    Debug.Print "Sign number textbox created"
-
-    ' Spacing textbox
-    Debug.Print "Creating spacing textbox..."
-    Set txtSpacing = frameSignTable.Controls.Add("Forms.TextBox.1", "txtSpacing" & rowCount)
-    With txtSpacing
-        .Top = currentTop
-        .Left = TABLE_LEFT + COL1_WIDTH + 5
-        .Width = COL2_WIDTH
-        .Height = 22
-        .Text = ""
-    End With
-    Set signSpacingBoxes(rowCount) = txtSpacing
-    Debug.Print "Spacing textbox created"
-
-    ' Size textbox
-    Debug.Print "Creating size textbox..."
-    Set txtSize = frameSignTable.Controls.Add("Forms.TextBox.1", "txtSize" & rowCount)
-    With txtSize
-        .Top = currentTop
-        .Left = TABLE_LEFT + COL1_WIDTH + COL2_WIDTH + 10
-        .Width = COL3_WIDTH
-        .Height = 22
-        .Text = ""
-    End With
-    Set signSizeBoxes(rowCount) = txtSize
-    Debug.Print "Size textbox created"
-
-    ' Side selection combobox (replaces option buttons for reliability)
-    Debug.Print "Creating side selection combobox..."
-    Set cboSide = frameSignTable.Controls.Add("Forms.ComboBox.1", "cboSide" & rowCount)
-    With cboSide
-        .Top = currentTop
-        .Left = TABLE_LEFT + COL1_WIDTH + COL2_WIDTH + COL3_WIDTH + 15
-        .Width = COL4_WIDTH
-        .Height = 22
-        .AddItem "One Side"
-        .AddItem "Both Sides"
-        .ListIndex = 0  ' Default to "One Side"
-        .Style = fmStyleDropDownList  ' Dropdown list style
-    End With
-    Set signSideComboBoxes(rowCount) = cboSide
-    Debug.Print "Side combobox created"
-
-    ' Note: frame stays at fixed height (set in Initialize); vertical scrollbar lets user scroll rows.
-    Debug.Print "Row " & rowCount & " added successfully"
-    Exit Sub
-
-RowError:
-    MsgBox "Error adding row at line " & Erl & ":" & vbCrLf & Err.Description & vbCrLf & "Row count: " & rowCount, vbCritical, "Add Row Error"
-    Debug.Print "ERROR adding row: " & Err.Description & " at line " & Erl
-    ' Rollback the row count if we failed
-    If rowCount > 0 Then rowCount = rowCount - 1
-End Sub
-
-' ============================================================
-' POPULATE SIGN TABLE (CLEAR ONLY - USER TYPES SIGN NUMBERS)
-' User types sign number in each row; spacing and size auto-fill from SignLibrary.bas on Exit.
-' ============================================================
-Private Sub PopulateSignTable()
-    Dim i As Integer
-    ' Clear existing data only; user adds sign numbers and library fills spacing/size
-    For i = 1 To rowCount
-        signNumberBoxes(i).Value = ""
-        signSpacingBoxes(i).Value = ""
-        signSizeBoxes(i).Value = ""
-        signSideComboBoxes(i).ListIndex = 0  ' Default to "One Side"
-    Next i
-End Sub
-
-' ============================================================
-' APPLY SIGN LIBRARY TO ROW (called when user leaves sign number field or presses Enter)
-' Looks up sign in SignLibrary.bas and auto-fills spacing and size for that row.
-' ============================================================
-Public Sub ApplySignLibraryToRow(rowIndex As Integer)
-    On Error GoTo ApplyLibError
-    If rowIndex < 1 Or rowIndex > rowCount Then Exit Sub
-    Dim s As String
-    Dim sd As signData
-    Dim allSigns() As String
-    Dim i As Long
-    Dim matchKey As String
-    s = Trim(signNumberBoxes(rowIndex).Value)
-    If s = "" Then Exit Sub
-    ' Pass current road type so library returns correct size (Non-Freeway vs Freeway)
-    Dim roadType As String
-    roadType = "Non-Freeway"
-    If ControlExists("cboRoadType") And cboRoadType.ListIndex > 0 Then roadType = cboRoadType.Value
-    sd = GetSignData(s, roadType)
-    If sd.SignNumber = "" Then
-        ' Try case-insensitive match (library keys are case-sensitive)
-        allSigns = GetAllSignNumbers
-        matchKey = ""
-        For i = LBound(allSigns) To UBound(allSigns)
-            If allSigns(i) <> "" And StrComp(s, allSigns(i), vbTextCompare) = 0 Then
-                matchKey = allSigns(i)
-                Exit For
-            End If
-        Next i
-        If matchKey = "" Then Exit Sub
-        sd = GetSignData(matchKey, roadType)
-        If sd.SignNumber = "" Then Exit Sub
-    End If
-    signSpacingBoxes(rowIndex).Value = CStr(sd.DefaultSpacing)
-    signSizeBoxes(rowIndex).Value = sd.TextLine2
-    Exit Sub
-ApplyLibError:
-    Debug.Print "ApplySignLibraryToRow error: " & Err.Description
-End Sub
-
-' Move focus to the spacing textbox for the given row (after Enter in sign number).
-Public Sub MoveFocusToSpacing(rowIndex As Integer)
-    On Error Resume Next
-    If rowIndex >= 1 And rowIndex <= rowCount Then
-        signSpacingBoxes(rowIndex).SetFocus
-    End If
-End Sub
-
-' ============================================================
-' ADD ROW BUTTON CLICK EVENT
-' ============================================================
-Private Sub btnAddRow_Click()
-    Call AddTableRow
-    lblStatus.Caption = "Row " & rowCount & " added"
-End Sub
-
-' ============================================================
-' REMOVE ROW BUTTON CLICK EVENT
-' ============================================================
-Private Sub btnRemoveRow_Click()
-    Call RemoveTableRow
-End Sub
-
-' ============================================================
-' REMOVE TABLE ROW
-' ============================================================
-Private Sub RemoveTableRow()
-    On Error GoTo RemoveError
-    
-    If rowCount <= 0 Then
-        MsgBox "No rows to remove", vbExclamation
-        Exit Sub
-    End If
-    
-    Dim lastRowNum As Integer
-    lastRowNum = rowCount
-    
-    ' Remove the controls for the last row
-    Debug.Print "Removing row " & lastRowNum
-    
-    ' Remove event handler for this row's sign number box
-    On Error Resume Next
-    signNumberHandlers.Remove CStr(lastRowNum)
-    On Error GoTo 0
-
-    ' Remove controls in reverse order
-    On Error Resume Next  ' Continue if a control doesn't exist
-    frameSignTable.Controls.Remove "cboSide" & lastRowNum
-    frameSignTable.Controls.Remove "txtSize" & lastRowNum
-    frameSignTable.Controls.Remove "txtSpacing" & lastRowNum
-    frameSignTable.Controls.Remove "txtSignNum" & lastRowNum
-    On Error GoTo RemoveError  ' Resume error handling
-    
-    ' Clear array references before resizing
-    Set signSideComboBoxes(lastRowNum) = Nothing
-    Set signSizeBoxes(lastRowNum) = Nothing
-    Set signSpacingBoxes(lastRowNum) = Nothing
-    Set signNumberBoxes(lastRowNum) = Nothing
-    
-    ' Decrement row count
-    rowCount = rowCount - 1
-    
-    ' Resize arrays to exclude the deleted row
-    ReDim Preserve signNumberBoxes(1 To rowCount)
-    ReDim Preserve signSpacingBoxes(1 To rowCount)
-    ReDim Preserve signSizeBoxes(1 To rowCount)
-    ReDim Preserve signSideComboBoxes(1 To rowCount)
-    
-    Debug.Print "Row removed successfully. Total rows: " & rowCount
-    lblStatus.Caption = "Row " & lastRowNum & " removed. Total rows: " & rowCount
-    Exit Sub
-
-RemoveError:
-    MsgBox "Error removing row at line " & Erl & ":" & vbCrLf & Err.Description, vbCritical, "Remove Row Error"
-    Debug.Print "ERROR removing row: " & Err.Description & " at line " & Erl
-End Sub
-
-' ============================================================
-' SIDE SELECTION - Uses ComboBox for better reliability
-' ComboBoxes are more stable than option buttons in MicroStation VBA
-' ============================================================
-
-' ============================================================
-' REFERENCE BUTTON CLICK EVENT - OPENS REFERENCE MUTCD FORM
-' ============================================================
-Private Sub btnReference_Click()
-    Call ShowReferenceViewerCompact
-End Sub
-
-' ============================================================
-' SUBMIT BUTTON CLICK EVENT
-' Validates input and processes selection
+' SUBMIT BUTTON
 ' ============================================================
 Private Sub btnSubmit_Click()
-    ' Validate that selections are made
+    ' Basic validation
     If cboCategory.ListIndex <= 0 Then
-        MsgBox "Please select a workzone category", vbExclamation
-        Exit Sub
+        MsgBox "Please select a workzone category.", vbExclamation: Exit Sub
     End If
-    
     If cboSheet.ListIndex < 0 Then
-        MsgBox "Please select a sheet number", vbExclamation
-        Exit Sub
+        MsgBox "Please select a sheet number.", vbExclamation: Exit Sub
     End If
-    
     If cboRoadSpeed.ListIndex <= 0 Then
-        MsgBox "Please select a road speed", vbExclamation
+        MsgBox "Please select a road speed.", vbExclamation: Exit Sub
+    End If
+    If cboRoadType.ListIndex <= 0 Then
+        MsgBox "Please select a road type (Freeway or Non-Freeway).", vbExclamation: Exit Sub
+    End If
+
+    ' Require at least one Sign row in alignment 1
+    Dim hasSign As Boolean: hasSign = False
+    Dim r As Integer
+    For r = 1 To alignRowCounts(1)
+        If Not alignTypeBoxes(1, r) Is Nothing Then
+            If alignTypeBoxes(1, r).Value = "Sign" And Trim(alignLabelBoxes(1, r).Text) <> "" Then
+                hasSign = True: Exit For
+            End If
+        End If
+    Next r
+    If Not hasSign Then
+        MsgBox "Please add at least one Sign row to the Upstream alignment.", vbExclamation
         Exit Sub
     End If
 
-    If cboRoadType.ListIndex <= 0 Then
-        MsgBox "Please select a road type (Freeway or Non-Freeway)", vbExclamation
-        Exit Sub
-    End If
-    
-    ' Validate that at least one sign is entered
-    Dim i As Integer
-    Dim hasSign As Boolean
-    hasSign = False
-    For i = 1 To rowCount
-        If signNumberBoxes(i).Value <> "" Then
-            hasSign = True
-            Exit For
-        End If
-    Next i
-    
-    If Not hasSign Then
-        MsgBox "Please enter at least one sign number", vbExclamation
-        Exit Sub
-    End If
-    
-    ' Save spacing & clearances to public storage
+    ' Save spacing values to SharedState
     wztcDownstreamTaper = frameSpacingValues.Controls("txtDownstreamTaper").Value
     wztcRollAhead = frameSpacingValues.Controls("txtRollAhead").Value
     wztcVehicleSpace = frameSpacingValues.Controls("txtVehicleSpace").Value
@@ -1602,8 +1779,10 @@ Private Sub btnSubmit_Click()
     wztcChannelizing = frameSpacingValues.Controls("txtChannelizing").Value
     wztcFlareBarrier = frameSpacingValues.Controls("txtFlareBarrier").Value
     wztcFlareBeam = frameSpacingValues.Controls("txtFlareBeam").Value
+    wztcUpTaperBarrier = frameSpacingValues.Controls("txtUpTaperBarrier").Value
+    wztcUpTaperBeam = frameSpacingValues.Controls("txtUpTaperBeam").Value
 
-    ' Save user selections to public storage
+    ' Save user selections
     wztcCategory = cboCategory.Value
     wztcSheet = cboSheet.Value
     wztcSpeed = cboRoadSpeed.Value
@@ -1611,288 +1790,106 @@ Private Sub btnSubmit_Click()
     wztcLaneWidth = cboLaneWidth.Value
     wztcShoulderWidth = cboShoulderWidth.Value
 
-    ' Save sign table to public storage (sign number, spacing, size string, One Side/Both Sides)
-    wztcSignCount = rowCount
-    ReDim wztcSignNumbers(1 To rowCount)
-    ReDim wztcSignSpacings(1 To rowCount)
-    ReDim wztcSignSizes(1 To rowCount)
-    ReDim wztcSignSides(1 To rowCount)
-    For i = 1 To rowCount
-        wztcSignNumbers(i) = signNumberBoxes(i).Value
-        wztcSignSpacings(i) = signSpacingBoxes(i).Value
-        ' Normalize size: replace single-quote (foot mark) with double-quote (inch mark)
-        ' MUTCD sign sizes are always in inches; users sometimes type ' instead of "
-        wztcSignSizes(i) = Replace(signSizeBoxes(i).Value, "'", Chr(34))
-        wztcSignSides(i) = signSideComboBoxes(i).Value ' "One Side" or "Both Sides"
-    Next i
+    ' Save multi-alignment data to SharedState
+    wztcAlignCount = alignCount
+    Dim a As Integer
+    For a = 1 To alignCount
+        If a = 1 Then
+            wztcAlignNames(a) = "Upstream"
+        ElseIf a = 2 Then
+            wztcAlignNames(a) = "Downstream"
+        Else
+            wztcAlignNames(a) = "Alignment " & a
+        End If
+        wztcAlignRowCounts(a) = alignRowCounts(a)
+        For r = 1 To alignRowCounts(a)
+            wztcAlignRowTypes(a, r) = alignTypeBoxes(a, r).Value
+            wztcAlignRowLabels(a, r) = Trim(alignLabelBoxes(a, r).Text)
+            wztcAlignRowSpacings(a, r) = Trim(alignSpacingBoxes(a, r).Text)
+            wztcAlignRowSizes(a, r) = Trim(alignSizeBoxes(a, r).Text)
+            wztcAlignRowSides(a, r) = alignSideBoxes(a, r).Value
+        Next r
+    Next a
 
-    ' Store the WZTC Order table (all parameter labels and sign labels in current order)
-    wztcOrderLabelCount = wztcOrderCount
-    If wztcOrderCount > 0 Then
-        ReDim wztcOrderLabels(0 To wztcOrderCount - 1)
-        For i = 0 To wztcOrderCount - 1
-            wztcOrderLabels(i) = wztcOrderTexts(i)
-        Next i
+    ' Backward compatibility: populate wztcOrderLabels from alignment 1
+    wztcOrderLabelCount = alignRowCounts(1)
+    If alignRowCounts(1) > 0 Then
+        ReDim wztcOrderLabels(0 To alignRowCounts(1) - 1)
+        For r = 1 To alignRowCounts(1)
+            wztcOrderLabels(r - 1) = Trim(alignLabelBoxes(1, r).Text)
+        Next r
     Else
         ReDim wztcOrderLabels(0 To -1)
     End If
 
-    ' Confirm before entering drawing mode
-    Dim confirm As VbMsgBoxResult
-    confirm = MsgBox("Designer Mode will exit and you will now enter Drawing Mode." & vbCrLf & vbCrLf & _
-                     "Are you sure you are ready to submit?", _
-                     vbYesNo + vbQuestion, "Confirm Submit & Draw")
-    If confirm = vbNo Then Exit Sub
-
-    ' Close form and launch alignment drawing tool
-    Unload Me
-    StartWZTCDrawing
-
-End Sub
-
-' ============================================================
-' DRAW WORKZONE TRAFFIC CONTROL
-' Main routine to coordinate sign placement
-' ============================================================
-Private Sub DrawWorkzoneTrafficControl()
-    Dim i As Integer
-    Dim signNum As String
-    Dim spacing As Double
-    Dim bothSides As Boolean
-
-    ' Process each sign in the table
-    For i = 1 To rowCount
-        signNum = signNumberBoxes(i).Value
-
-        ' Skip empty rows
-        If signNum = "" Then
-            GoTo NextSign
-        End If
-
-        ' Get spacing and side information
-        spacing = Val(signSpacingBoxes(i).Value)
-        bothSides = (signSideComboBoxes(i).Value = "Both Sides")
-
-        ' Log the sign information (placeholder for actual drawing logic)
-        ' In a real implementation, this would place sign symbols in MicroStation
-        Debug.Print "Sign: " & signNum & ", Spacing: " & spacing & ", Both Sides: " & bothSides
-
-NextSign:
-    Next i
-
-End Sub
-
-' ============================================================
-' BUILD WZTC ORDER TABLE
-' Collects spacing labels + non-empty sign numbers + Work Area
-' ============================================================
-Private Sub BuildWZTCOrderTable()
-    If Not ControlExists("lstWZTCOrder") Then Exit Sub
-
-    Dim i As Integer
-    ReDim wztcOrderTexts(0 To 7 + rowCount)
-    wztcOrderCount = 0
-
-    ' Fixed spacing section labels (no values, just names)
-    ' Work Area is second — immediately after Downstream Taper,
-    ' before Roll Ahead, because it defines the protected work space boundary.
-    wztcOrderTexts(wztcOrderCount) = "Downstream Taper"
-    wztcOrderCount = wztcOrderCount + 1
-    wztcOrderTexts(wztcOrderCount) = "Work Area"
-    wztcOrderCount = wztcOrderCount + 1
-    wztcOrderTexts(wztcOrderCount) = "Roll Ahead Distance"
-    wztcOrderCount = wztcOrderCount + 1
-    wztcOrderTexts(wztcOrderCount) = "Vehicle Space"
-    wztcOrderCount = wztcOrderCount + 1
-    wztcOrderTexts(wztcOrderCount) = "Buffer Space"
-    wztcOrderCount = wztcOrderCount + 1
-    wztcOrderTexts(wztcOrderCount) = "Merging/Shifting Taper"
-    wztcOrderCount = wztcOrderCount + 1
-    wztcOrderTexts(wztcOrderCount) = "Shoulder Taper"
-    wztcOrderCount = wztcOrderCount + 1
-
-    ' Non-empty sign rows from sign selection table
-    ' Validate that each sign row has spacing and size filled in before adding.
-    Dim missingRows As String
-    missingRows = ""
-    For i = 1 To rowCount
-        If signNumberBoxes(i).Value <> "" Then
-            Dim hasSpacing As Boolean, hasSize As Boolean
-            hasSpacing = (Trim(signSpacingBoxes(i).Value) <> "")
-            hasSize = (Trim(signSizeBoxes(i).Value) <> "")
-            If Not hasSpacing Or Not hasSize Then
-                If missingRows = "" Then
-                    missingRows = signNumberBoxes(i).Value
-                Else
-                    missingRows = missingRows & ", " & signNumberBoxes(i).Value
-                End If
-            Else
-                wztcOrderTexts(wztcOrderCount) = signNumberBoxes(i).Value
-                wztcOrderCount = wztcOrderCount + 1
+    ' Backward compatibility: populate wztcSignNumbers etc. from Sign rows in alignment 1
+    Dim signIdx As Integer: signIdx = 0
+    For r = 1 To alignRowCounts(1)
+        If Not alignTypeBoxes(1, r) Is Nothing Then
+            If alignTypeBoxes(1, r).Value = "Sign" And Trim(alignLabelBoxes(1, r).Text) <> "" Then
+                signIdx = signIdx + 1
             End If
         End If
-    Next i
-
-    If missingRows <> "" Then
-        MsgBox "The following sign(s) are missing spacing and/or size:" & vbCrLf & vbCrLf & _
-               missingRows & vbCrLf & vbCrLf & _
-               "Please fill in both the Spacing and Size columns for these signs" & vbCrLf & _
-               "before adding them to the WZTC Order.", _
-               vbExclamation, "Incomplete Sign Data"
+    Next r
+    wztcSignCount = signIdx
+    If signIdx > 0 Then
+        ReDim wztcSignNumbers(1 To signIdx)
+        ReDim wztcSignSpacings(1 To signIdx)
+        ReDim wztcSignSizes(1 To signIdx)
+        ReDim wztcSignSides(1 To signIdx)
+        signIdx = 0
+        For r = 1 To alignRowCounts(1)
+            If Not alignTypeBoxes(1, r) Is Nothing Then
+                If alignTypeBoxes(1, r).Value = "Sign" And Trim(alignLabelBoxes(1, r).Text) <> "" Then
+                    signIdx = signIdx + 1
+                    wztcSignNumbers(signIdx) = Trim(alignLabelBoxes(1, r).Text)
+                    wztcSignSpacings(signIdx) = Trim(alignSpacingBoxes(1, r).Text)
+                    wztcSignSizes(signIdx) = Replace(Trim(alignSizeBoxes(1, r).Text), "'", Chr(34))
+                    wztcSignSides(signIdx) = alignSideBoxes(1, r).Value
+                End If
+            End If
+        Next r
     End If
 
-    If wztcOrderCount > 0 Then
-        ReDim Preserve wztcOrderTexts(0 To wztcOrderCount - 1)
-    End If
+    ' Confirm
+    Dim confirm As VbMsgBoxResult
+    confirm = MsgBox("Submit & Draw will close this form and start alignment drawing mode." & vbCrLf & vbCrLf & _
+                     "Are you ready to submit?", vbYesNo + vbQuestion, "Confirm Submit & Draw")
+    If confirm = vbNo Then Exit Sub
 
-    Call RenderWZTCOrder
-End Sub
-
-' ============================================================
-' RENDER WZTC ORDER INTO LISTBOX
-' ============================================================
-Private Sub RenderWZTCOrder()
-    If Not ControlExists("lstWZTCOrder") Then Exit Sub
-    Dim savedIdx As Integer
-    savedIdx = lstWZTCOrder.ListIndex
-    lstWZTCOrder.Clear
-    Dim i As Integer
-    For i = 0 To wztcOrderCount - 1
-        lstWZTCOrder.AddItem wztcOrderTexts(i)
-    Next i
-    If savedIdx >= 0 And savedIdx < wztcOrderCount Then
-        lstWZTCOrder.ListIndex = savedIdx
-    End If
-End Sub
-
-' ============================================================
-' WZTC ORDER - MOVE SELECTED ITEM UP
-' ============================================================
-Private Sub btnOrderUp_Click()
-    If Not ControlExists("lstWZTCOrder") Then Exit Sub
-    Dim idx As Integer
-    idx = lstWZTCOrder.ListIndex
-    If idx <= 0 Then Exit Sub
-    Dim temp As String
-    temp = wztcOrderTexts(idx)
-    wztcOrderTexts(idx) = wztcOrderTexts(idx - 1)
-    wztcOrderTexts(idx - 1) = temp
-    Call RenderWZTCOrder
-    lstWZTCOrder.ListIndex = idx - 1
-    If ControlExists("lblStatus") Then
-        lblStatus.Caption = "'" & wztcOrderTexts(idx - 1) & "' moved up in the WZTC Order."
-    End If
-End Sub
-
-' ============================================================
-' WZTC ORDER - MOVE SELECTED ITEM DOWN
-' ============================================================
-Private Sub btnOrderDown_Click()
-    If Not ControlExists("lstWZTCOrder") Then Exit Sub
-    Dim idx As Integer
-    idx = lstWZTCOrder.ListIndex
-    If idx < 0 Or idx >= wztcOrderCount - 1 Then Exit Sub
-    Dim temp As String
-    temp = wztcOrderTexts(idx)
-    wztcOrderTexts(idx) = wztcOrderTexts(idx + 1)
-    wztcOrderTexts(idx + 1) = temp
-    Call RenderWZTCOrder
-    lstWZTCOrder.ListIndex = idx + 1
-    If ControlExists("lblStatus") Then
-        lblStatus.Caption = "'" & wztcOrderTexts(idx + 1) & "' moved down in the WZTC Order."
-    End If
-End Sub
-
-' ============================================================
-' WZTC ORDER - DELETE SELECTED ITEM
-' ============================================================
-Private Sub btnOrderDelete_Click()
-    If Not ControlExists("lstWZTCOrder") Then Exit Sub
-    Dim idx As Integer
-    idx = lstWZTCOrder.ListIndex
-    If idx < 0 Or wztcOrderCount = 0 Then Exit Sub
-    Dim deletedItem As String
-    deletedItem = wztcOrderTexts(idx)
-    Dim i As Integer
-    For i = idx To wztcOrderCount - 2
-        wztcOrderTexts(i) = wztcOrderTexts(i + 1)
-    Next i
-    wztcOrderCount = wztcOrderCount - 1
-    If wztcOrderCount > 0 Then
-        ReDim Preserve wztcOrderTexts(0 To wztcOrderCount - 1)
-    End If
-    Call RenderWZTCOrder
-    If wztcOrderCount > 0 Then
-        If idx < wztcOrderCount Then
-            lstWZTCOrder.ListIndex = idx
-        Else
-            lstWZTCOrder.ListIndex = wztcOrderCount - 1
-        End If
-    End If
-    If ControlExists("lblStatus") Then
-        lblStatus.Caption = "'" & deletedItem & "' removed from the WZTC Order."
-    End If
-End Sub
-
-' ============================================================
-' WZTC ORDER - REFRESH FROM CURRENT SIGN TABLE
-' ============================================================
-Private Sub btnRefreshOrder_Click()
-    Call BuildWZTCOrderTable
-    If ControlExists("lblStatus") Then
-        lblStatus.Caption = "WZTC Order updated with current signs." & vbCrLf & _
-                            "Use MOVE UP / MOVE DOWN to change the order items will be placed along the alignment. Use DELETE to remove an item from the order."
-    End If
+    Unload Me
+    DrawWorkSpace.Show vbModeless
 End Sub
 
 ' ============================================================
 ' RESTORE PREVIOUS SUBMISSION STATE
-' Called from UserForm_Initialize when returning to designer.
-' Repopulates all dropdowns, sign table rows, and WZTC order
-' from the public vars saved in ModuleWZTCData on last submit.
 ' ============================================================
 Private Sub RestoreState()
-    If wztcCategory = "" Then Exit Sub   ' no previous submission
-
+    If wztcCategory = "" Then Exit Sub
     On Error Resume Next
 
     ' ---- Dropdowns ----
     Dim i As Integer
     For i = 0 To cboCategory.ListCount - 1
-        If cboCategory.List(i) = wztcCategory Then
-            cboCategory.ListIndex = i: Exit For
-        End If
+        If cboCategory.List(i) = wztcCategory Then cboCategory.ListIndex = i: Exit For
     Next i
-    ' cboCategory_Change fires -> PopulateSheets populates cboSheet list
     For i = 0 To cboSheet.ListCount - 1
-        If cboSheet.List(i) = wztcSheet Then
-            cboSheet.ListIndex = i: Exit For
-        End If
+        If cboSheet.List(i) = wztcSheet Then cboSheet.ListIndex = i: Exit For
     Next i
     For i = 0 To cboRoadSpeed.ListCount - 1
-        If cboRoadSpeed.List(i) = wztcSpeed Then
-            cboRoadSpeed.ListIndex = i: Exit For
-        End If
+        If cboRoadSpeed.List(i) = wztcSpeed Then cboRoadSpeed.ListIndex = i: Exit For
     Next i
     For i = 0 To cboRoadType.ListCount - 1
-        If cboRoadType.List(i) = wztcRoadType Then
-            cboRoadType.ListIndex = i: Exit For
-        End If
+        If cboRoadType.List(i) = wztcRoadType Then cboRoadType.ListIndex = i: Exit For
     Next i
-    ' cboLaneWidth_Change fires -> sets selectedSpeed, calls GenerateSpacingTable
     For i = 0 To cboLaneWidth.ListCount - 1
-        If cboLaneWidth.List(i) = wztcLaneWidth Then
-            cboLaneWidth.ListIndex = i: Exit For
-        End If
+        If cboLaneWidth.List(i) = wztcLaneWidth Then cboLaneWidth.ListIndex = i: Exit For
     Next i
-    ' cboShoulderWidth_Change fires -> calls GenerateSpacingTable again
     For i = 0 To cboShoulderWidth.ListCount - 1
-        If cboShoulderWidth.List(i) = wztcShoulderWidth Then
-            cboShoulderWidth.ListIndex = i: Exit For
-        End If
+        If cboShoulderWidth.List(i) = wztcShoulderWidth Then cboShoulderWidth.ListIndex = i: Exit For
     Next i
 
-    ' ---- Spacing table values (override auto-generated with saved values) ----
+    ' ---- Spacing values ----
     frameSpacingValues.Controls("txtDownstreamTaper").Value = wztcDownstreamTaper
     frameSpacingValues.Controls("txtRollAhead").Value = wztcRollAhead
     frameSpacingValues.Controls("txtVehicleSpace").Value = wztcVehicleSpace
@@ -1904,68 +1901,64 @@ Private Sub RestoreState()
     frameSpacingValues.Controls("txtChannelizing").Value = wztcChannelizing
     frameSpacingValues.Controls("txtFlareBarrier").Value = wztcFlareBarrier
     frameSpacingValues.Controls("txtFlareBeam").Value = wztcFlareBeam
+    frameSpacingValues.Controls("txtUpTaperBarrier").Value = wztcUpTaperBarrier
+    frameSpacingValues.Controls("txtUpTaperBeam").Value = wztcUpTaperBeam
 
-    ' ---- Sign table rows ----
-    If wztcSignCount > 0 Then
-        Dim j As Integer
-        For i = 1 To wztcSignCount
-            Call AddTableRow
-            signNumberBoxes(rowCount).Value = wztcSignNumbers(i)
-            signSpacingBoxes(rowCount).Value = wztcSignSpacings(i)
-            signSizeBoxes(rowCount).Value = wztcSignSizes(i)
-            ' Restore Side selection
-            For j = 0 To signSideComboBoxes(rowCount).ListCount - 1
-                If signSideComboBoxes(rowCount).List(j) = wztcSignSides(i) Then
-                    signSideComboBoxes(rowCount).ListIndex = j: Exit For
-                End If
-            Next j
-        Next i
-    End If
+    ' ---- Alignment table rows from saved SharedState ----
+    If wztcAlignCount > 0 Then
+        ' Create any extra alignments beyond the initial 2
+        Do While alignCount < wztcAlignCount
+            alignCount = alignCount + 1
+            Call CreateAlignSection(alignCount, "Alignment " & alignCount)
+        Loop
+        Call UpdateFormScrollHeight
 
-    ' ---- WZTC Order ----
-    If wztcOrderLabelCount > 0 Then
-        wztcOrderCount = wztcOrderLabelCount
-        ReDim wztcOrderTexts(0 To wztcOrderCount - 1)
-        For i = 0 To wztcOrderCount - 1
-            wztcOrderTexts(i) = wztcOrderLabels(i)
-        Next i
-        Call RenderWZTCOrder
+        Dim a As Integer, r As Integer
+        For a = 1 To wztcAlignCount
+            Dim rc As Integer: rc = wztcAlignRowCounts(a)
+            If rc > 0 Then
+                Dim types()    As String: ReDim types(1 To rc)
+                Dim labels()   As String: ReDim labels(1 To rc)
+                Dim spacings() As String: ReDim spacings(1 To rc)
+                Dim sizes()    As String: ReDim sizes(1 To rc)
+                Dim sides()    As String: ReDim sides(1 To rc)
+                For r = 1 To rc
+                    types(r) = wztcAlignRowTypes(a, r)
+                    labels(r) = wztcAlignRowLabels(a, r)
+                    spacings(r) = wztcAlignRowSpacings(a, r)
+                    sizes(r) = wztcAlignRowSizes(a, r)
+                    sides(r) = wztcAlignRowSides(a, r)
+                    If sides(r) = "" Then sides(r) = "One Side"
+                Next r
+                Call RebuildAlignTable(a, types, labels, spacings, sizes, sides, rc)
+            End If
+        Next a
     End If
 
     On Error GoTo 0
     If ControlExists("lblStatus") Then
-        lblStatus.Caption = "Previous session restored. Review your selections, then click 'Submit & Draw' when ready."
+        lblStatus.Caption = "Previous session restored. Review your alignments, then click Submit & Draw."
     End If
 End Sub
 
 ' ============================================================
-' CLEAR ALL SELECTIONS - resets all state and reopens fresh
-' Add a "btnClear" button manually in the VBA IDE form designer
+' CLEAR ALL BUTTON
 ' ============================================================
 Private Sub btnClear_Click()
     Dim ans As VbMsgBoxResult
     ans = MsgBox("Clear all selections and start fresh?" & vbCrLf & _
-                 "All sign selections, WZTC order, and spacing values will be removed.", _
+                 "All alignment rows, spacing values, and sign selections will be removed.", _
                  vbYesNo + vbQuestion, "Clear All")
     If ans = vbNo Then Exit Sub
 
-    ' Clear all public state vars
     wztcCategory = "": wztcSheet = "": wztcSpeed = "": wztcRoadType = ""
     wztcLaneWidth = "": wztcShoulderWidth = ""
-    wztcSignCount = 0: wztcOrderLabelCount = 0
+    wztcSignCount = 0: wztcOrderLabelCount = 0: wztcAlignCount = 0
     wztcDownstreamTaper = "": wztcRollAhead = "": wztcVehicleSpace = ""
     wztcBufferSpace = "": wztcMergingTaper = "": wztcShoulderTapers = ""
     wztcAdvancedWarningSpacing = "": wztcSkipLines = ""
     wztcChannelizing = "": wztcFlareBarrier = "": wztcFlareBeam = ""
 
-    ' Reopen the form clean
     Unload Me
     WZTCDesigner.Show vbModeless
 End Sub
-
-
-
-
-
-
-

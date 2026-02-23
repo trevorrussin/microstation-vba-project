@@ -36,8 +36,11 @@ Private pathSegCount   As Integer
 Private totalPathLen   As Double
 
 ' ---- Placement progress (read by PlacePerp) ----
-Public currentItemIdx  As Integer   ' 0-based index into wztcOrderLabels
+Public currentItemIdx  As Integer   ' 0-based index into current alignment's rows
 Public currentPathPos  As Double    ' cumulative distance from alignment start (ft)
+
+' Which alignment is currently being processed through PlacePerp
+Private currentProcessingAlignIdx As Integer
 
 ' Default half-length of each perpendicular tick line (master units = ft)
 ' Total line length = 2 * PERP_HALF_LEN = 80 ft (40 ft each side of alignment)
@@ -47,26 +50,52 @@ Private Const PERP_HALF_LEN As Double = 40
 ' MAIN ENTRY POINT
 ' ============================================================
 Public Sub StartAlignmentPlacement()
-    If Not BuildAlignmentPath() Then
-        MsgBox "Could not build alignment path." & vbCrLf & _
-               "Make sure you drew the alignment before clicking Done.", _
-               vbExclamation, "Alignment Placement"
-        Exit Sub
-    End If
-
-    If wztcOrderLabelCount <= 0 Then
-        MsgBox "No WZTC order items found." & vbCrLf & _
-               "Please run Workzone Designer first.", _
-               vbExclamation, "Alignment Placement"
-        Exit Sub
-    End If
-
-    ' Reset progress
-    currentItemIdx = 0
-    currentPathPos = 0
+    ' Reset perp line tracking (critical: prevents stale IDs from previous sessions)
+    wztcPerpLineIDCount = 0
     wztcPlacedSignCount = 0
 
-    ' Show the placement form
+    ' Find the first committed alignment
+    currentProcessingAlignIdx = 0
+    Dim i As Integer
+    For i = 1 To wztcAlignCount
+        If wztcAlignDrawn(i) Then
+            currentProcessingAlignIdx = i
+            Exit For
+        End If
+    Next i
+
+    ' Fallback: if new multi-alignment arrays are empty but old alignment exists,
+    ' try alignment 1 using legacy wztcAlignmentStartMaxID path
+    If currentProcessingAlignIdx = 0 Then
+        If wztcAlignmentStartMaxID > 0 Then
+            currentProcessingAlignIdx = 1
+            wztcAlignDrawn(1) = True
+            wztcAlignGraphicGroup(1) = -1   ' flag: use legacy ID-based scan
+        Else
+            MsgBox "No committed alignments found." & vbCrLf & _
+                   "Please commit at least one alignment in AlignDraw first.", _
+                   vbExclamation, "Alignment Placement"
+            Exit Sub
+        End If
+    End If
+
+    If Not BuildAlignmentPath(currentProcessingAlignIdx) Then
+        MsgBox "Could not build alignment path for " & GetCurrentAlignmentName() & "." & vbCrLf & _
+               "Make sure you committed the alignment after drawing it.", _
+               vbExclamation, "Alignment Placement"
+        Exit Sub
+    End If
+
+    If wztcAlignRowCounts(currentProcessingAlignIdx) <= 0 Then
+        MsgBox "No rows found for " & GetCurrentAlignmentName() & "." & vbCrLf & _
+               "Please add rows in WZTCDesigner first.", _
+               vbExclamation, "Alignment Placement"
+        Exit Sub
+    End If
+
+    currentItemIdx = 0
+    currentPathPos = 0
+
     PlacePerp.Show vbModeless
 End Sub
 
@@ -77,7 +106,7 @@ End Sub
 ' recorded click point, and fills pathSegs().
 ' Returns True on success.
 ' ============================================================
-Private Function BuildAlignmentPath() As Boolean
+Private Function BuildAlignmentPath(aIdx As Integer) As Boolean
     On Error GoTo BuildErr
 
     pathSegCount = 0
@@ -85,9 +114,14 @@ Private Function BuildAlignmentPath() As Boolean
     ReDim pathSegs(0)
 
     ' --- collect candidate elements ---
+    ' Use graphic group (preferred) or legacy maxID scan for alignment 1 fallback
     Dim elems()  As Element
     Dim nElems   As Integer
     nElems = 0
+    Dim useGG As Boolean
+    Dim gg As Integer
+    useGG = (wztcAlignGraphicGroup(aIdx) > 0)
+    gg = wztcAlignGraphicGroup(aIdx)
 
     Dim el As Element
     Dim oEnum As ElementEnumerator
@@ -97,7 +131,15 @@ Private Function BuildAlignmentPath() As Boolean
     Set oEnum = ActiveModelReference.Scan(oScan)
     Do While oEnum.MoveNext
         Set el = oEnum.Current
-        If ElIDAsDouble(el.ID) > wztcAlignmentStartMaxID Then
+        Dim include As Boolean
+        include = False
+        If useGG Then
+            If el.GraphicGroup = gg Then include = True
+        Else
+            ' Legacy: use maxID scan for alignment 1 when graphic group not set
+            If ElIDAsDouble(el.ID) > wztcAlignmentStartMaxID Then include = True
+        End If
+        If include Then
             If el.Type = msdElementTypeLine Or el.Type = msdElementTypeArc Then
                 nElems = nElems + 1
                 ReDim Preserve elems(1 To nElems)
@@ -146,9 +188,16 @@ Private Function BuildAlignmentPath() As Boolean
     '         The chain direction is then determined by checking which
     '         geometric endpoint (sa or sa+sw) is closer to chainPt.
     Dim chainX As Double, chainY As Double, chainZ As Double
-    chainX = wztcAlignmentFirstPointX
-    chainY = wztcAlignmentFirstPointY
-    chainZ = wztcAlignmentFirstPointZ
+    ' Use per-alignment first point if available, else backward-compat global
+    If wztcAlignFirstPtX(aIdx) <> 0 Or wztcAlignFirstPtY(aIdx) <> 0 Then
+        chainX = wztcAlignFirstPtX(aIdx)
+        chainY = wztcAlignFirstPtY(aIdx)
+        chainZ = wztcAlignFirstPtZ(aIdx)
+    Else
+        chainX = wztcAlignmentFirstPointX
+        chainY = wztcAlignmentFirstPointY
+        chainZ = wztcAlignmentFirstPointZ
+    End If
 
     ReDim pathSegs(1 To nElems)
 
@@ -461,7 +510,11 @@ Public Sub PlacePerpendicularLine(ptX As Double, ptY As Double, ptZ As Double, _
 
     ' Track element ID so Finish can delete only these perp reference lines
     wztcPerpLineIDCount = wztcPerpLineIDCount + 1
-    ReDim Preserve wztcPerpLineIDs(1 To wztcPerpLineIDCount)
+    If wztcPerpLineIDCount = 1 Then
+        ReDim wztcPerpLineIDs(1 To 1)
+    Else
+        ReDim Preserve wztcPerpLineIDs(1 To wztcPerpLineIDCount)
+    End If
     wztcPerpLineIDs(wztcPerpLineIDCount) = ElIDAsDouble(lineEl.ID)
 
     Exit Sub
@@ -500,16 +553,20 @@ End Function
 ' ============================================================
 
 Public Function GetCurrentItemLabel() As String
-    If currentItemIdx >= 0 And currentItemIdx < wztcOrderLabelCount Then
-        GetCurrentItemLabel = wztcOrderLabels(currentItemIdx)
+    Dim aIdx As Integer: aIdx = currentProcessingAlignIdx
+    Dim rowNum As Integer: rowNum = currentItemIdx + 1   ' 1-based row
+    If aIdx >= 1 And rowNum >= 1 And rowNum <= wztcAlignRowCounts(aIdx) Then
+        GetCurrentItemLabel = wztcAlignRowLabels(aIdx, rowNum)
     Else
         GetCurrentItemLabel = ""
     End If
 End Function
 
 Public Function GetCurrentItemSuggestedSpacing() As Double
-    If currentItemIdx >= 0 And currentItemIdx < wztcOrderLabelCount Then
-        GetCurrentItemSuggestedSpacing = GetSpacingForLabel(wztcOrderLabels(currentItemIdx))
+    Dim aIdx As Integer: aIdx = currentProcessingAlignIdx
+    Dim rowNum As Integer: rowNum = currentItemIdx + 1
+    If aIdx >= 1 And rowNum >= 1 And rowNum <= wztcAlignRowCounts(aIdx) Then
+        GetCurrentItemSuggestedSpacing = Val(wztcAlignRowSpacings(aIdx, rowNum))
     Else
         GetCurrentItemSuggestedSpacing = 0
     End If
@@ -517,7 +574,7 @@ End Function
 
 ' Place the perpendicular line for the current item using the given spacing,
 ' then advance to the next item.
-' If the item is a sign number, records its geometry for the sign drawing step.
+' Only records sign geometry for rows where Type = "Sign" in the alignment table.
 Public Sub PlaceLineForCurrentItem(spacing As Double)
     currentPathPos = currentPathPos + spacing
 
@@ -526,46 +583,41 @@ Public Sub PlaceLineForCurrentItem(spacing As Double)
     Call GetPointAndTangent(currentPathPos, ptX, ptY, ptZ, tanX, tanY)
     Call PlacePerpendicularLine(ptX, ptY, ptZ, tanX, tanY, PERP_HALF_LEN)
 
-    ' If this item is a sign number, store its perpendicular line geometry
-    Dim lbl As String
-    lbl = GetCurrentItemLabel()
-    If IsSignLabel(lbl) Then
-        Dim n As Integer
-        n = wztcPlacedSignCount + 1
-        wztcPlacedSignCount = n
-        ReDim Preserve wztcPlacedSignNums(1 To n)
-        ReDim Preserve wztcPlacedSignPtX(1 To n)
-        ReDim Preserve wztcPlacedSignPtY(1 To n)
-        ReDim Preserve wztcPlacedSignPtZ(1 To n)
-        ReDim Preserve wztcPlacedSignPerpX(1 To n)
-        ReDim Preserve wztcPlacedSignPerpY(1 To n)
-        ReDim Preserve wztcPlacedSignSide(1 To n)
-        ReDim Preserve wztcPlacedSignSize(1 To n)
-        wztcPlacedSignNums(n) = lbl
-        wztcPlacedSignPtX(n) = ptX
-        wztcPlacedSignPtY(n) = ptY
-        wztcPlacedSignPtZ(n) = ptZ
-        ' Perpendicular vector = tangent rotated 90 degrees CCW
-        wztcPlacedSignPerpX(n) = -tanY
-        wztcPlacedSignPerpY(n) = tanX
-        ' Look up side and size from the sign selection table
-        Dim i As Integer
-        wztcPlacedSignSide(n) = "Both Sides"
-        wztcPlacedSignSize(n) = ""
-        For i = 1 To wztcSignCount
-            If Trim(wztcSignNumbers(i)) = Trim(lbl) Then
-                wztcPlacedSignSide(n) = wztcSignSides(i)
-                wztcPlacedSignSize(n) = wztcSignSizes(i)
-                Exit For
-            End If
-        Next i
+    ' Only record sign geometry if this row is Type = "Sign" in the alignment table
+    Dim aIdx As Integer: aIdx = currentProcessingAlignIdx
+    Dim rowNum As Integer: rowNum = currentItemIdx + 1
+    If aIdx >= 1 And rowNum >= 1 And rowNum <= wztcAlignRowCounts(aIdx) Then
+        If wztcAlignRowTypes(aIdx, rowNum) = "Sign" Then
+            Dim n As Integer
+            n = wztcPlacedSignCount + 1
+            wztcPlacedSignCount = n
+            ReDim Preserve wztcPlacedSignNums(1 To n)
+            ReDim Preserve wztcPlacedSignPtX(1 To n)
+            ReDim Preserve wztcPlacedSignPtY(1 To n)
+            ReDim Preserve wztcPlacedSignPtZ(1 To n)
+            ReDim Preserve wztcPlacedSignPerpX(1 To n)
+            ReDim Preserve wztcPlacedSignPerpY(1 To n)
+            ReDim Preserve wztcPlacedSignSide(1 To n)
+            ReDim Preserve wztcPlacedSignSize(1 To n)
+            wztcPlacedSignNums(n) = wztcAlignRowLabels(aIdx, rowNum)
+            wztcPlacedSignPtX(n) = ptX
+            wztcPlacedSignPtY(n) = ptY
+            wztcPlacedSignPtZ(n) = ptZ
+            ' Perpendicular vector = tangent rotated 90 degrees CCW
+            wztcPlacedSignPerpX(n) = -tanY
+            wztcPlacedSignPerpY(n) = tanX
+            ' Read side and size directly from alignment table
+            wztcPlacedSignSide(n) = wztcAlignRowSides(aIdx, rowNum)
+            wztcPlacedSignSize(n) = wztcAlignRowSizes(aIdx, rowNum)
+            ' Fallback defaults if blank
+            If Len(Trim(wztcPlacedSignSide(n))) = 0 Then wztcPlacedSignSide(n) = "Both Sides"
+        End If
     End If
 
     currentItemIdx = currentItemIdx + 1
 End Sub
 
 ' Advance past the current item without placing a line or advancing the path position.
-' The next item will be placed at the same cumulative position as this item would have used.
 Public Sub SkipCurrentItem()
     currentItemIdx = currentItemIdx + 1
 End Sub
@@ -575,7 +627,11 @@ Public Function GetCurrentItemNumber() As Integer
 End Function
 
 Public Function GetTotalItemCount() As Integer
-    GetTotalItemCount = wztcOrderLabelCount
+    If currentProcessingAlignIdx >= 1 Then
+        GetTotalItemCount = wztcAlignRowCounts(currentProcessingAlignIdx)
+    Else
+        GetTotalItemCount = wztcOrderLabelCount
+    End If
 End Function
 
 Public Function GetCurrentPosition() As Double
@@ -587,18 +643,68 @@ Public Function GetTotalPathLength() As Double
 End Function
 
 Public Function IsAllDone() As Boolean
-    IsAllDone = (currentItemIdx >= wztcOrderLabelCount)
+    If currentProcessingAlignIdx >= 1 Then
+        IsAllDone = (currentItemIdx >= wztcAlignRowCounts(currentProcessingAlignIdx))
+    Else
+        IsAllDone = (currentItemIdx >= wztcOrderLabelCount)
+    End If
 End Function
 
 ' ============================================================
-' HELPER: Is the given label a sign number (not a spacing item)?
-' Spacing items are the fixed parameter names; everything else
-' is a sign number entered in the sign selection table.
+' MULTI-ALIGNMENT: advance to next committed alignment
+' Called by PlacePerp "Next Alignment" button after IsAllDone()
+' ============================================================
+Public Sub AdvanceToNextAlignment()
+    Dim nextIdx As Integer
+    nextIdx = currentProcessingAlignIdx + 1
+    Do While nextIdx <= wztcAlignCount
+        If wztcAlignDrawn(nextIdx) Then Exit Do
+        nextIdx = nextIdx + 1
+    Loop
+    If nextIdx > wztcAlignCount Then Exit Sub   ' no more alignments
+
+    currentProcessingAlignIdx = nextIdx
+    currentItemIdx = 0
+    currentPathPos = 0
+    Call BuildAlignmentPath(currentProcessingAlignIdx)
+End Sub
+
+' Returns True if there are no more committed alignments after the current one
+Public Function IsLastAlignment() As Boolean
+    Dim nextIdx As Integer
+    nextIdx = currentProcessingAlignIdx + 1
+    Do While nextIdx <= wztcAlignCount
+        If wztcAlignDrawn(nextIdx) Then
+            IsLastAlignment = False
+            Exit Function
+        End If
+        nextIdx = nextIdx + 1
+    Loop
+    IsLastAlignment = True
+End Function
+
+Public Function GetCurrentAlignmentName() As String
+    Dim aIdx As Integer: aIdx = currentProcessingAlignIdx
+    If aIdx >= 1 And aIdx <= 10 And Len(Trim(wztcAlignNames(aIdx))) > 0 Then
+        GetCurrentAlignmentName = wztcAlignNames(aIdx)
+    ElseIf aIdx = 1 Then
+        GetCurrentAlignmentName = "Upstream Alignment"
+    ElseIf aIdx = 2 Then
+        GetCurrentAlignmentName = "Downstream Alignment"
+    Else
+        GetCurrentAlignmentName = "Alignment " & aIdx
+    End If
+End Function
+
+' ============================================================
+' HELPER: Is the given label a sign number (kept for backward compat)?
+' Now superceded by checking wztcAlignRowTypes directly in PlaceLineForCurrentItem.
 ' ============================================================
 Private Function IsSignLabel(lbl As String) As Boolean
     Select Case Trim(lbl)
         Case "Downstream Taper", "Roll Ahead Distance", "Vehicle Space", _
-             "Buffer Space", "Merging/Shifting Taper", "Shoulder Taper", "Work Area"
+             "Buffer Space", "Merging/Shifting Taper", "Shoulder Taper", "Work Area", _
+             "Upstream Taper Temp Barrier", "Upstream Taper Box/Corr Beam"
             IsSignLabel = False
         Case Else
             IsSignLabel = (Trim(lbl) <> "")
@@ -612,7 +718,12 @@ End Function
 ' Only the exact perp lines are deleted — all other elements are untouched.
 ' ============================================================
 Public Sub DeletePerpLines()
-    If wztcPerpLineIDCount = 0 Then Exit Sub
+    If wztcPerpLineIDCount = 0 Then
+        MsgBox "No perpendicular lines were tracked (count = 0)." & vbCrLf & _
+               "Nothing was deleted. This may happen if placement was not run in this session.", _
+               vbInformation, "Delete Perp Lines"
+        Exit Sub
+    End If
 
     Dim oScan As ElementScanCriteria
     Set oScan = New ElementScanCriteria
@@ -646,7 +757,6 @@ Public Sub DeletePerpLines()
     Next i
 
     wztcPerpLineIDCount = 0
-    If nDelete > 0 Then ReDim wztcPerpLineIDs(0)
 End Sub
 
 ' ============================================================

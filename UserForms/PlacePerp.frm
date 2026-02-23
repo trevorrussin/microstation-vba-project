@@ -4,17 +4,19 @@ Option Explicit
 ' WZTC ALIGNMENT PLACEMENT FORM
 ' ------------------------------------------------------------
 ' Controls to add manually in the VBA IDE form designer:
-'   lblItemOf      - Label       (top counter, e.g. "Item 1 of 5:")
-'   lblItemName    - Label       (item name, large/bold)
-'   lblSpacingHint - Label       "Spacing to this item (ft):"
-'   txtSpacing     - TextBox     (editable spacing value)
-'   lblCumulative  - Label       (next position along alignment)
-'   lblTotalLen    - Label       (total alignment length)
-'   btnPlace       - CommandButton  "Place Line"
-'   btnSkip        - CommandButton  "Skip"
-'   btnCancel      - CommandButton  "Cancel All"
-'   btnNext        - CommandButton  "Next: Draw Signs"
-'   lblStatus      - Label       (status / error messages)
+'   lblAlignProgress - Label       (shows current alignment name)
+'   lblItemOf        - Label       (counter, e.g. "Item 1 of 5:")
+'   lblItemName      - Label       (item name, large/bold)
+'   lblSpacingHint   - Label       "Spacing to this item (ft):"
+'   txtSpacing       - TextBox     (editable spacing value)
+'   lblCumulative    - Label       (next position along alignment)
+'   lblTotalLen      - Label       (total alignment length)
+'   btnPlace         - CommandButton  "Place Line"
+'   btnSkip          - CommandButton  "Skip"
+'   btnCancel        - CommandButton  "Cancel All"
+'   btnNext          - CommandButton  "Next: Draw Signs"
+'   btnNextAlign     - CommandButton  "Next Alignment >"
+'   lblStatus        - Label       (status / error messages)
 ' ============================================================
 
 Private Function ControlExists(ctrlName As String) As Boolean
@@ -33,10 +35,21 @@ Private Sub UserForm_Initialize()
     Me.Width  = 360
     Me.Height = 250
 
+    ' ========== ALIGNMENT PROGRESS LABEL (shows current alignment name) ==========
+    If ControlExists("lblAlignProgress") Then
+        lblAlignProgress.Caption   = ""
+        lblAlignProgress.Top       = 8
+        lblAlignProgress.Left      = 10
+        lblAlignProgress.Width     = 330
+        lblAlignProgress.Height    = 14
+        lblAlignProgress.Font.Size = 8
+        lblAlignProgress.ForeColor = RGB(0, 80, 160)
+    End If
+
     ' ========== ITEM COUNTER LABEL ==========
     If ControlExists("lblItemOf") Then
         lblItemOf.Caption   = "Initialising..."
-        lblItemOf.Top       = 8
+        lblItemOf.Top       = 24
         lblItemOf.Left      = 10
         lblItemOf.Width     = 330
         lblItemOf.Height    = 16
@@ -46,7 +59,7 @@ Private Sub UserForm_Initialize()
     ' ========== ITEM NAME LABEL (large, bold) ==========
     If ControlExists("lblItemName") Then
         lblItemName.Caption   = ""
-        lblItemName.Top       = 26
+        lblItemName.Top       = 42
         lblItemName.Left      = 10
         lblItemName.Width     = 330
         lblItemName.Height    = 22
@@ -58,7 +71,7 @@ Private Sub UserForm_Initialize()
     ' ========== SPACING ROW ==========
     If ControlExists("lblSpacingHint") Then
         lblSpacingHint.Caption   = "Spacing to this item (ft):"
-        lblSpacingHint.Top       = 60
+        lblSpacingHint.Top       = 76
         lblSpacingHint.Left      = 10
         lblSpacingHint.Width     = 160
         lblSpacingHint.Height    = 16
@@ -67,7 +80,7 @@ Private Sub UserForm_Initialize()
 
     If ControlExists("txtSpacing") Then
         txtSpacing.Text      = "0.0"
-        txtSpacing.Top       = 57
+        txtSpacing.Top       = 73
         txtSpacing.Left      = 175
         txtSpacing.Width     = 70
         txtSpacing.Height    = 20
@@ -77,7 +90,7 @@ Private Sub UserForm_Initialize()
     ' ========== PROGRESS LABELS ==========
     If ControlExists("lblCumulative") Then
         lblCumulative.Caption   = "Next position along alignment:  0.0 ft"
-        lblCumulative.Top       = 85
+        lblCumulative.Top       = 101
         lblCumulative.Left      = 10
         lblCumulative.Width     = 330
         lblCumulative.Height    = 14
@@ -88,7 +101,7 @@ Private Sub UserForm_Initialize()
     If ControlExists("lblTotalLen") Then
         lblTotalLen.Caption   = "Total alignment length:  " & _
                                 Format(GetTotalPathLength(), "0.0") & " ft"
-        lblTotalLen.Top       = 101
+        lblTotalLen.Top       = 117
         lblTotalLen.Left      = 10
         lblTotalLen.Width     = 330
         lblTotalLen.Height    = 14
@@ -99,7 +112,7 @@ Private Sub UserForm_Initialize()
     ' ========== ACTION BUTTONS ==========
     If ControlExists("btnPlace") Then
         btnPlace.Caption   = "Place Line"
-        btnPlace.Top       = 125
+        btnPlace.Top       = 141
         btnPlace.Left      = 10
         btnPlace.Width     = 90
         btnPlace.Height    = 23
@@ -108,7 +121,7 @@ Private Sub UserForm_Initialize()
 
     If ControlExists("btnSkip") Then
         btnSkip.Caption = "Skip"
-        btnSkip.Top     = 125
+        btnSkip.Top     = 141
         btnSkip.Left    = 108
         btnSkip.Width   = 70
         btnSkip.Height  = 23
@@ -116,7 +129,7 @@ Private Sub UserForm_Initialize()
 
     If ControlExists("btnCancel") Then
         btnCancel.Caption = "Cancel All"
-        btnCancel.Top     = 125
+        btnCancel.Top     = 141
         btnCancel.Left    = 186
         btnCancel.Width   = 80
         btnCancel.Height  = 23
@@ -124,7 +137,7 @@ Private Sub UserForm_Initialize()
 
     If ControlExists("btnNext") Then
         btnNext.Caption    = "Next: Draw Signs"
-        btnNext.Top        = 125
+        btnNext.Top        = 141
         btnNext.Left       = 274
         btnNext.Width      = 76
         btnNext.Height     = 23
@@ -132,10 +145,21 @@ Private Sub UserForm_Initialize()
         btnNext.Enabled    = False
     End If
 
+    ' ========== NEXT ALIGNMENT BUTTON (hidden; shown when current alignment is done but more remain) ==========
+    If ControlExists("btnNextAlign") Then
+        btnNextAlign.Caption   = "Next Alignment >"
+        btnNextAlign.Top       = 141
+        btnNextAlign.Left      = 274
+        btnNextAlign.Width     = 76
+        btnNextAlign.Height    = 23
+        btnNextAlign.Font.Bold = True
+        btnNextAlign.Visible   = False
+    End If
+
     ' ========== STATUS LABEL ==========
     If ControlExists("lblStatus") Then
         lblStatus.Caption   = "Ready"
-        lblStatus.Top       = 158
+        lblStatus.Top       = 174
         lblStatus.Left      = 10
         lblStatus.Width     = 330
         lblStatus.Height    = 52
@@ -146,7 +170,7 @@ Private Sub UserForm_Initialize()
     ' ========== NAVIGATION BUTTONS ==========
     If ControlExists("btnBack") Then
         btnBack.Caption   = "< Back"
-        btnBack.Top       = 218
+        btnBack.Top       = 234
         btnBack.Left      = 10
         btnBack.Width     = 90
         btnBack.Height    = 23
@@ -154,13 +178,13 @@ Private Sub UserForm_Initialize()
 
     If ControlExists("btnReturnToDesigner") Then
         btnReturnToDesigner.Caption = "Return to Designer"
-        btnReturnToDesigner.Top     = 218
+        btnReturnToDesigner.Top     = 234
         btnReturnToDesigner.Left    = 108
         btnReturnToDesigner.Width   = 145
         btnReturnToDesigner.Height  = 23
     End If
 
-    Me.Height = 265
+    Me.Height = 283
     Call RefreshDisplay
 End Sub
 
@@ -236,6 +260,10 @@ Private Sub RefreshDisplay()
     sp    = GetCurrentItemSuggestedSpacing()
     nextP = GetCurrentPosition() + sp
 
+    If ControlExists("lblAlignProgress") Then
+        lblAlignProgress.Caption = GetCurrentAlignmentName() & " — Item " & idx & " of " & GetTotalItemCount()
+    End If
+    If ControlExists("btnNextAlign") Then btnNextAlign.Visible = False
     If ControlExists("lblItemOf") Then lblItemOf.Caption = "Item " & idx & " of " & GetTotalItemCount() & ":"
     If ControlExists("lblItemName") Then lblItemName.Caption = lbl
     If ControlExists("txtSpacing") Then txtSpacing.Text = Format(sp, "0.0")
@@ -271,21 +299,54 @@ Private Sub ShowAllDone()
                                 Format(GetCurrentPosition(), "0.0") & " ft"
     End If
 
-    If wztcPlacedSignCount > 0 Then
+    If Not IsLastAlignment() Then
+        ' More alignments remain — show Next Alignment button, hide Next: Draw Signs
+        If ControlExists("lblAlignProgress") Then
+            lblAlignProgress.Caption = GetCurrentAlignmentName() & " complete."
+        End If
+        If ControlExists("lblStatus") Then
+            lblStatus.Caption = GetCurrentAlignmentName() & " done. Click 'Next Alignment >' to continue."
+        End If
+        If ControlExists("btnNextAlign") Then btnNextAlign.Visible = True
+        If ControlExists("btnNext") Then btnNext.Enabled = False
+    ElseIf wztcPlacedSignCount > 0 Then
+        ' All alignments done and signs were placed
+        If ControlExists("lblAlignProgress") Then
+            lblAlignProgress.Caption = "All alignments complete."
+        End If
         If ControlExists("lblStatus") Then
             lblStatus.Caption = wztcPlacedSignCount & " sign line(s) placed." & vbCrLf & _
                                 "Click 'Next: Draw Signs' to place sign graphics."
         End If
+        If ControlExists("btnNextAlign") Then btnNextAlign.Visible = False
         If ControlExists("btnNext") Then btnNext.Enabled = True
     Else
+        ' All alignments done, no signs
+        If ControlExists("lblAlignProgress") Then
+            lblAlignProgress.Caption = "All alignments complete."
+        End If
         If ControlExists("lblStatus") Then
             lblStatus.Caption = "Done! No signs in the WZTC order — you may close this window."
         End If
+        If ControlExists("btnNextAlign") Then btnNextAlign.Visible = False
         If ControlExists("btnNext") Then btnNext.Enabled = False
     End If
 
     If ControlExists("btnPlace") Then btnPlace.Enabled = False
     If ControlExists("btnSkip") Then btnSkip.Enabled = False
+End Sub
+
+' ============================================================
+' NEXT ALIGNMENT - advance to the next committed alignment
+' ============================================================
+Private Sub btnNextAlign_Click()
+    Call AdvanceToNextAlignment
+    If ControlExists("btnNextAlign") Then btnNextAlign.Visible = False
+    If ControlExists("lblTotalLen") Then
+        lblTotalLen.Caption = "Total alignment length:  " & _
+                              Format(GetTotalPathLength(), "0.0") & " ft"
+    End If
+    Call RefreshDisplay
 End Sub
 
 ' ============================================================

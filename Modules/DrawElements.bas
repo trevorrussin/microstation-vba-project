@@ -53,9 +53,22 @@ End Function
 
 ' ============================================================
 ' ENTRY POINT - called by PlaceSign btnWZTCElements_Click
+' Starts at element 1 (Work Space) — used for back-navigation only.
+' Normal workflow uses StartWZTCElementsPlacementFromElement2 since
+' Work Space is now drawn in DrawWorkSpace.frm before AlignDraw.
 ' ============================================================
 Public Sub StartWZTCElementsPlacement()
     currentElementIdx = 1
+    PlaceElements.Show vbModeless
+End Sub
+
+' ============================================================
+' ENTRY POINT - normal workflow (Work Space done in DrawWorkSpace.frm)
+' Starts at element 2 (Channelizing Devices).
+' Called by PlaceSign btnWZTCElements_Click in the main workflow.
+' ============================================================
+Public Sub StartWZTCElementsPlacementFromElement2()
+    currentElementIdx = 2
     PlaceElements.Show vbModeless
 End Sub
 
