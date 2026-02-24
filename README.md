@@ -55,6 +55,9 @@ The tool walks you through 8 steps in order. Each step opens its own window. You
 
 This is the main configuration window where you describe your workzone. It has two main areas: the left side for road parameters and spacing, and the right side for your alignment tables where you enter signs and sequence items.
 
+![Step 1 — Designer Window](Screenshots/step1.png)
+*The Designer window configured for a 45 mph Non-Freeway shoulder closure. Road parameters are on the left, calculated spacings in the center panel, and the Upstream and Downstream alignment tables on the right.*
+
 **Road parameters (left side):**
 
 1. **Category** — Select the type of workzone (for example, "Lane Closure on Multilane Highway"). This determines which NYSDOT 619 sheet applies.
@@ -88,6 +91,9 @@ You can also add additional alignment tables (for example, a third alignment for
 
 When your configuration is complete, click **Submit** to save everything and move to the next step.
 
+![Step 2 — 619 Standard Sheet Viewer](Screenshots/step2.png)
+*The built-in 619 standard sheet viewer open in MicroStation alongside the Designer window, displaying the workzone layout diagram for the selected category as an in-drawing reference.*
+
 ---
 
 ### Step 2 — Draw the Work Zone Boundary (Draw Work Space Window)
@@ -100,6 +106,9 @@ Before drawing the alignment, you draw the outline of your work zone area.
 4. Click the **border** of the shape to apply the hatch fill pattern.
 
 The shape and hatching are placed automatically on the correct NYSDOT level (TWZWS2_P). You can draw multiple work space areas. When finished, click **Next: Draw Alignments**.
+
+![Step 3 — Draw Work Space Window](Screenshots/step3.png)
+*The Draw Work Space window with step-by-step instructions. After clicking the corners of your boundary and right-clicking to close the shape, click the border of the shape to apply the hatch fill.*
 
 ---
 
@@ -114,6 +123,9 @@ Draw the centerline path that your workzone elements will be placed along.
 
 The alignment is drawn on the MicroStation Default level in white so it is visible as a construction reference without appearing on final plots.
 
+![Step 4 — Draw Alignments Window](Screenshots/step4.png)
+*The Draw Alignments window with Upstream selected in the dropdown. Draw line or arc segments, right-click to finish each one, then click Commit All Alignments before advancing to the next step.*
+
 ---
 
 ### Step 4 — Place Reference Lines (Place Reference Lines Window)
@@ -127,6 +139,9 @@ For each item:
 
 When all items have been placed, click **Next: Sign Color (Optional)**.
 
+![Step 5 — Place Signs Window](Screenshots/step5.png)
+*The Place Signs window guiding the user through each sign in sequence. The current sign number, side (One Side or Both Sides), and instructions are shown. Click Draw Sign and then click the post location on the tick line in MicroStation.*
+
 ---
 
 ### Step 5 — Sign Face Background Color (Optional)
@@ -134,6 +149,9 @@ When all items have been placed, click **Next: Sign Color (Optional)**.
 This step is optional. If you have sign face graphics already in your drawing and want to change their background color before proceeding, click **Apply Attributes to Sign** and then click the sign cell in MicroStation. Right-click when done.
 
 If you have no sign faces to adjust, click **Next: Draw Signs** to continue immediately.
+
+![Step 6 — Sign Attribute Editor](Screenshots/step6.png)
+*The Sign Attribute Editor — an optional step to apply NYSDOT sign display attributes (level SF\_P, color 240, weight 3) to placed sign face cells. Click Apply Attributes to Sign, then click each sign in MicroStation. Right-click when done.*
 
 ---
 
@@ -163,6 +181,9 @@ Each element is placed automatically on the correct NYSDOT level with the correc
 
 When all elements are placed, click **Next: Cell Library**.
 
+![Step 7 — Draw Elements Window](Screenshots/step7.png)
+*The Draw Elements window on Channelizing Devices (Element 2 of 5). Click Start Drawing, draw the line in MicroStation, right-click to finish, and advance with Next WZTC Element. Each element is placed on the correct NYSDOT level automatically.*
+
 ---
 
 ### Step 8 — Place Symbols and Callouts (Cell Library Window)
@@ -172,6 +193,9 @@ Place any remaining workzone symbols — arrow panels, flaggers, crash cushions,
 You can also place text callouts (leader notes) for items such as channelizing device spacing, barrier type, and pavement marking descriptions.
 
 When everything is placed, click **Finish**. The perpendicular reference tick lines that were placed in Step 4 are automatically deleted from the drawing, leaving only your final plan elements.
+
+![Step 8 — Cell Library Window](Screenshots/step8.png)
+*The Cell Library window for placing workzone symbols (Arrow Panel selected in the dropdown) and labeled callouts. Select a symbol and click Place Cell, or use the Place Callout section to add a leader note such as "DOWNSTREAM TAPER" to the drawing.*
 
 ---
 
