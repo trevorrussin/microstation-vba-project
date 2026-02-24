@@ -321,15 +321,16 @@ Private Sub ShowAllDone()
         If ControlExists("btnNextAlign") Then btnNextAlign.Visible = False
         If ControlExists("btnNext") Then btnNext.Enabled = True
     Else
-        ' All alignments done, no signs
+        ' All alignments done, no signs — still allow the user to proceed or go back
         If ControlExists("lblAlignProgress") Then
             lblAlignProgress.Caption = "All alignments complete."
         End If
         If ControlExists("lblStatus") Then
-            lblStatus.Caption = "Done! No signs in the WZTC order — you may close this window."
+            lblStatus.Caption = "All reference lines placed (no signs in this WZTC order). " & _
+                                "Click 'Next: Draw Signs' to continue, or use the Back / Return buttons below."
         End If
         If ControlExists("btnNextAlign") Then btnNextAlign.Visible = False
-        If ControlExists("btnNext") Then btnNext.Enabled = False
+        If ControlExists("btnNext") Then btnNext.Enabled = True
     End If
 
     If ControlExists("btnPlace") Then btnPlace.Enabled = False

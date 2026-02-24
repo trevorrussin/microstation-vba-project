@@ -335,7 +335,7 @@ End Sub
 ' ============================================================
 Private Sub btnBack_Click()
     Unload Me
-    StartSignPlacement   ' Return to sign placement (PlaceSign.frm)
+    frmSignSubColors.Show vbModeless
 End Sub
 
 Private Sub btnReturnToDesigner_Click()

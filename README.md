@@ -1,132 +1,320 @@
 # NYSDOT Workzone Traffic Control Designer
 
-A MicroStation VBA tool that automates the layout of NYSDOT workzone traffic control plans. Instead of manually placing every sign, taper, and element by hand, this tool lets you configure the workzone once and then walks you through placing everything in the correct order with the correct MUTCD NY spacings.
+A MicroStation tool that automates the creation of NYSDOT-compliant workzone traffic control plans. You fill in your project parameters once, draw your alignment, and the tool places every sign, taper marker, and element at the correct location — on the correct MicroStation level, with the correct spacing — automatically.
 
 ---
 
-## What This Tool Does
+## Why Use This Tool
 
-Designing a workzone traffic control plan normally means:
+Preparing a workzone traffic control plan by hand in MicroStation is time-consuming and error-prone. It requires:
 
-- Looking up spacing values from the NYSDOT 619 standard sheets for the road speed, category, lane width, and shoulder width
-- Calculating cumulative distances along the alignment for each sign, taper, buffer, and element
-- Placing 30-100+ individual elements (sign faces, posts, text labels, hatched areas, channelizing devices) one at a time
+- Looking up spacing values in the NYSDOT Part 619 standard sheets based on speed, road category, lane width, and shoulder width
+- Calculating cumulative distances from scratch for every sign, taper, buffer zone, and work area marker
+- Manually placing each sign face cell, sign post cell, connecting line, and text label one at a time from the cell library
+- Switching MicroStation levels by hand for each element type, then switching back
+- Keeping track of which items belong to which alignment (upstream vs. downstream)
 
-This tool handles all of that automatically. You draw the alignment, fill in your workzone parameters, and the tool places everything at the right locations along the alignment with the correct levels, colors, and spacings.
+This tool automates all of that. Here is what it does for you:
+
+**Automatic spacing calculations.** Enter your road speed, lane width, and shoulder width and the tool immediately calculates every required spacing value — downstream taper length, roll-ahead distance, vehicle space, buffer space, merging taper, shoulder taper — directly from the NYSDOT standard tables. No manual lookup required.
+
+**Built-in sign library with 500+ NYSDOT/MUTCD signs.** Type a sign number (for example, W20-01RA) and press Enter. The tool automatically fills in the correct sign size (Freeway or Non-Freeway) and recommended spacing. You never have to look up sign dimensions or search through the cell library manually.
+
+**Standard 619 sheet viewer — right inside MicroStation.** You can open any NYSDOT Part 619 standard sheet directly in your MicroStation design file and mark it up as a reference while you work. Previously, engineers had to keep a separate PDF open and manually translate values into the drawing.
+
+**Automatic element placement on the correct MicroStation levels.** Every element the tool places — sign faces, work space hatching, channelizing device lines, barriers, dimensions — is automatically placed on its correct NYSDOT level with the correct color and line weight. You never have to set these properties by hand or worry about forgetting to switch levels between elements.
+
+**Automatic sign placement.** For each sign location, the tool places the sign face cell (the actual graphic from the NYSDOT cell library), the sign post cell, the connecting post line, and the text label with the sign number and size — all in one click. Without this tool, each of those four elements would need to be placed individually.
+
+**Handles curved alignments.** The tool correctly walks along lines and arcs as a connected path, so perpendicular reference lines and sign locations are placed at the right arc-length distances even on curved roads.
+
+**Multiple alignments in one session.** Define separate upstream and downstream alignments (or additional alignments for crossovers or complex setups) and work through each one in sequence.
+
+**Repeatable, consistent results.** Every engineer using the tool for the same road parameters will get the same spacings and placements. There is no risk of forgetting a value or entering it in the wrong cell.
 
 ---
 
-## Requirements
+## What You Need Before Starting
 
-- MicroStation with VBA support (V8i, CONNECT, or 2023)
+- MicroStation CONNECT Edition (2023 recommended)
 - Design file units set to **feet**
-- NYSDOT ProjectWise WorkSpace mounted (for cell libraries):
-  - Sign faces: `ny_plan_nmutcd_signface.cel`
+- NYSDOT ProjectWise WorkSpace mounted locally, which provides:
+  - Sign face cells: `ny_plan_nmutcd_signface.cel`
   - WZTC symbols: `ny_plan_wztc.cel`
-- The alignment must be drawn as a **continuous chain** (each segment connects to the previous one)
+- The tool is launched from the MicroStation VBA macro list — run the macro named **LaunchWZTC**
 
 ---
 
-## How It Works — Step by Step
+## Step-by-Step Guide
 
-The tool guides you through 6 steps in order:
-
-### Step 1: Configure the Workzone (WZTCDesigner form)
-Select the workzone category, 619 standard sheet number, road speed, road type (Freeway or Non-Freeway), lane width, and shoulder width. The form automatically calculates all MUTCD NY spacings (downstream taper, roll ahead, buffer space, merging taper, shoulder taper, etc.). Then add your required signs to the sign selection table — the built-in sign library auto-fills spacing and size when you type a sign number. You can view the 619 standard sheet for reference at any time. The WZTC Order panel shows the sequence items will be placed along the alignment, and you can reorder them.
-
-### Step 2: Draw the Alignment (AlignDraw form)
-Draw lines and arcs to trace the alignment path. Each segment connects automatically to the previous one. Click "Done" when finished — the tool groups all alignment elements together.
-
-### Step 3: Place Perpendicular Lines (PlacePerp form)
-The tool walks along the alignment and places an 80-ft perpendicular tick line at each item location (tapers, signs, work area, etc.), spaced according to the values from Step 1. For each item you can accept the suggested spacing or adjust it, and you can skip items you don't need.
-
-### Step 4: Draw Signs (PlaceSign form)
-For each sign that had a perpendicular line placed, you click where on the tick line to place the sign post. The tool automatically places the sign face cell, post cell, post line, and text label (sign number and size) at that location. For "Both Sides" signs, you click two points.
-
-### Step 5: Draw WZTC Elements (PlaceElements form)
-Draw the remaining workzone elements in sequence: Work Space polygon (with hatch), channelizing device lines, removal striping, temporary barrier, and barrier with warning lights. Each element is placed on its correct NYSDOT level. For the Work Space, you trace the boundary shape, then click inside it to apply the hatch pattern.
-
-### Step 6: Place Cell Symbols (PlaceCells form)
-Place any additional WZTC cell symbols (arrow panels, flaggers, etc.) from the ny_plan_wztc.cel library.
+The tool walks you through 8 steps in order. Each step opens its own window. You can always go back to the previous step or return to the main designer using the buttons at the bottom of each window.
 
 ---
 
-## File Descriptions
+### Step 1 — Configure Your Workzone (Designer Window)
 
-| File | What It Does |
-|------|-------------|
-| `Launcher.bas` | Starts the tool — run `LaunchWZTC` to begin |
-| `SignLibrary.bas` | Contains 150+ MUTCD sign definitions with cell names, sizes (Freeway and Non-Freeway), and default spacings. When you type a sign number in the designer, this is where the auto-fill data comes from. |
-| `AlignmentTool.bas` | Handles the alignment drawing step. Tracks what elements you draw so the tool knows which lines and arcs form your alignment. |
-| `SharedState.bas` | Stores all your workzone configuration (speeds, spacings, sign selections, etc.) so it persists between the different steps. If you go back to the designer form, your previous selections are still there. |
-| `PerpPlacement.bas` | The alignment geometry engine. It takes your drawn alignment, builds a connected path of lines and arcs, and calculates where each perpendicular tick line should go based on your configured spacings. |
-| `DrawSign.bas` | Places the sign face cell, post cell, post line, and text label at each sign location along the perpendicular lines. |
-| `DrawElements.bas` | Handles drawing the WZTC shape elements (work space, channelizing devices, barriers, etc.) on the correct NYSDOT levels. |
-| `CellPlacer.bas` | Lets you browse and place additional WZTC cell symbols from the ny_plan_wztc.cel library. |
-| `DesignerRef.bas` | Provides the WZTC order table logic and NYSDOT 619 standard sheet reference data. |
-| `PlaceButtons.cls` | Handles the "Place Line" and "Skip" button clicks in the perpendicular line placement step. |
-| `SignNumBox.cls` | Handles the sign number text box behavior — when you finish typing a sign number, it triggers the library lookup to auto-fill spacing and size. |
+This is the main configuration window where you describe your workzone. It has two main areas: the left side for road parameters and spacing, and the right side for your alignment tables where you enter signs and sequence items.
+
+**Road parameters (left side):**
+
+1. **Category** — Select the type of workzone (for example, "Lane Closure on Multilane Highway"). This determines which NYSDOT 619 sheet applies.
+2. **Standard Sheet** — The 619 sheet number is filled in automatically based on your category selection. You can also click **View Standard Sheet** at any time to open that sheet directly in MicroStation where you can zoom in and mark it up as a reference.
+3. **Road Speed** — Select the posted speed limit of the road (in mph).
+4. **Road Type** — Select Freeway or Non-Freeway. This controls the sign sizes that are looked up from the library. Freeway signs are generally larger.
+5. **Lane Width** and **Shoulder Width** — Enter the dimensions of the travel lane and shoulder in feet.
+6. Click **Calculate Spacing** — The tool immediately fills in all required spacing values in the Spacing & Clearances panel:
+   - Downstream Taper length
+   - Roll Ahead Distance
+   - Vehicle Space
+   - Buffer Space
+   - Merging/Shifting Taper length
+   - Shoulder Taper lengths
+   These values come directly from the NYSDOT standard tables for your selected speed and road dimensions.
+
+**Alignment tables (right side):**
+
+The right side shows one table per alignment. By default you have an **Upstream** table and a **Downstream** table. Each table lists the items that will be placed along that alignment, in order from the first item encountered to the last.
+
+When you click Calculate Spacing, the Upstream table is automatically populated with the standard spacing items in the correct order (Downstream Taper, Work Area, Roll Ahead Distance, Vehicle Space, Buffer Space, Merging/Shifting Taper, Shoulder Taper). These are listed as **Non-Sign** rows and their spacing values are filled in from the calculation.
+
+To add a sign to a table:
+1. Click **Add Row** to add a new row to the active table.
+2. Set the **Type** column to **Sign**.
+3. Type the sign number in the **Label** column (for example, `W20-01RA`) and press Enter. The tool looks up the sign in its built-in library and automatically fills in the **Spacing** and **Size** columns.
+4. Use **Move Up** and **Move Down** to position the sign in the correct sequence.
+5. Use **Del Row** to remove a row you no longer need.
+
+You can also add additional alignment tables (for example, a third alignment for a crossover) using **Add Alignment +**, or remove the last alignment using **Remove Alignment**.
+
+When your configuration is complete, click **Submit** to save everything and move to the next step.
 
 ---
 
-## Example
+### Step 2 — Draw the Work Zone Boundary (Draw Work Space Window)
 
-For a 45 mph freeway workzone (12 ft lanes, 8 ft shoulder):
+Before drawing the alignment, you draw the outline of your work zone area.
 
-1. **Configure:** Select Freeway, 45 mph, 12 ft lane, 8 ft shoulder. The tool calculates: Downstream Taper = 100 ft, Roll Ahead = 160 ft, Buffer Space = 360 ft, Merging Taper = 560 ft, Shoulder Taper = 120 ft. Add signs W20-05, W20-03, R02-01 to the sign table.
+1. Click **Draw Work Space**.
+2. Click the corners of your work zone boundary in MicroStation.
+3. Right-click to close the shape.
+4. Click the **border** of the shape to apply the hatch fill pattern.
 
-2. **Draw alignment:** Trace your alignment with lines and arcs (~2000 ft total).
-
-3. **Place perpendicular lines:** The tool places 80-ft tick lines at each calculated location along the alignment.
-
-4. **Draw signs:** Click on each tick line to place signs. The sign face, post, and label appear automatically.
-
-5. **Draw elements:** Trace the work space boundary and click inside it to hatch. Draw channelizing device lines and barrier lines on the correct levels.
-
-6. **Place cells:** Add any remaining symbols (arrow panels, flaggers, etc.).
-
-**Result:** A complete NYSDOT-compliant WZTC plan layout in the design file, ready for review.
+The shape and hatching are placed automatically on the correct NYSDOT level (TWZWS2_P). You can draw multiple work space areas. When finished, click **Next: Draw Alignments**.
 
 ---
 
-## Design Decisions & Tradeoffs
+### Step 3 — Draw the Alignment (Draw Alignment Window)
 
-### Decision: Public module variables instead of a class or database
-**Why:** MicroStation VBA does not support persistent objects across form loads. Using public variables in a standard module (`SharedState.bas`) is the only reliable way to pass state between the sequential form steps. A class module would be reset when unloaded; a file-based store would add I/O complexity and a dependency on a writable path.
+Draw the centerline path that your workzone elements will be placed along.
 
-**Tradeoff:** State is lost when the VBA project is reset or MicroStation is closed. There is no save/load of a project file. For long multi-session projects, the user must redo the configuration step.
+- Select whether you are drawing a **line** or **arc** segment and click the start and end points in MicroStation.
+- Each new segment automatically connects to the end of the previous one.
+- Use the dropdown to switch between your alignments (Upstream, Downstream, etc.) and commit each one using the **Commit This Alignment** button before switching.
+- When all alignments are drawn and committed, click **Next: Place Reference Lines**.
 
-### Decision: Sequential form workflow (not a wizard)
-**Why:** Each step requires active MicroStation interaction (drawing, clicking). A single form with tabs would need to hide/show sections and block interaction between steps, which is fragile in a modeless VBA environment.
+The alignment is drawn on the MicroStation Default level in white so it is visible as a construction reference without appearing on final plots.
 
-**Tradeoff:** The user must proceed in order. Going backward requires navigating manually via Back buttons. There is no branching or non-linear workflow.
+---
 
-### Decision: Dual-method arc center resolution instead of single derivation
-**Why:** MicroStation can store arcs with either geometric endpoint as the start angle. Earlier code assumed the chain point was always at the geometric start angle and derived `center = chainPt - r*(cos(sa), sin(sa))`, which produced wrong centers when MicroStation stored the arc in reverse orientation. The fix first tries `ae.CenterPoint` (available in MicroStation 2023 / CONNECT edition), then falls back to computing both candidate centers and validating against `ae.Range` (works in all versions). Once the center is known, both geometric endpoints are compared to the chain point to determine travel direction.
+### Step 4 — Place Reference Lines (Place Reference Lines Window)
 
-**Tradeoff:** The Range-based fallback adds a small amount of computation per arc segment. In practice this is negligible since alignment chains rarely have more than a few dozen segments.
+The tool walks along your alignment and, for each item in your sequence, proposes a perpendicular 80-foot tick line at the correct calculated distance from the previous item.
 
-### Decision: User-click hatch for Work Space
-**Why:** The hatch command (`HATCH ICON`) requires a data point inside the closed shape. Earlier code computed the centroid of the user's clicked vertices automatically, but this failed silently for non-convex shapes (e.g., L-shapes) where the centroid falls outside the boundary. The current approach asks the user to click inside the shape after drawing it, which works reliably for any shape.
+For each item:
+- The item name and suggested spacing are shown. You can type a different spacing value if needed.
+- Click **Place Line** to accept and place the tick line, or **Skip** to omit that item.
+- The window shows your current position along the alignment and the total length, so you can see how much alignment is left.
 
-**Tradeoff:** Requires one extra click from the user after drawing the work space boundary. In practice this is a minor step and gives the user full control over hatch placement.
+When all items have been placed, click **Next: Sign Color (Optional)**.
 
-### Decision: DrawSign.bas name for the sign drawing module
-**Why:** This module evolved from a testing scaffold and was renamed from `ModTest` to `DrawSign` during refactoring to accurately reflect its role as the sign drawing engine.
+---
 
-**Tradeoff:** None remaining. The rename resolved the earlier naming confusion.
+### Step 5 — Sign Face Background Color (Optional)
 
-### Decision: Form-based dynamic control creation instead of IDE-designed controls
-**Why:** The sign table in `WZTCDesigner` and the WZTC order rows in `PlacePerp` are variable-length lists. Creating them dynamically in `UserForm_Initialize` allows any number of rows without requiring the IDE designer.
+This step is optional. If you have sign face graphics already in your drawing and want to change their background color before proceeding, click **Apply Attributes to Sign** and then click the sign cell in MicroStation. Right-click when done.
 
-**Tradeoff:** Dynamic controls require `WithEvents` class modules (`PlaceButtons`, `SignNumBox`) since standard VBA event syntax only works with named IDE-designed controls. This adds two class files to the project. Dynamic controls also require the `ControlExists()` guard before every access, since they may not exist if the form fails to initialize.
+If you have no sign faces to adjust, click **Next: Draw Signs** to continue immediately.
 
-### Decision: Sign size quote normalization at save time
-**Why:** MUTCD sign sizes are always in inches (e.g., `48" x 48"`). Users sometimes type `'` (foot mark) instead of `"` (inch mark). The sign library stores correct `"` characters. Normalizing at `btnSubmit_Click` (`Replace(value, "'", Chr(34))`) converts user input silently without affecting library-filled values.
+---
 
-**Tradeoff:** A `'` typed intentionally in a sign size string is replaced. In practice, `'` in an inch context is always an error, so this is safe.
+### Step 6 — Place Sign Graphics (Place Signs Window)
 
-### Decision: Cell library path hardcoded to `c:\pwworking\...`
-**Why:** NYSDOT ProjectWise WorkSpace maps all project files to a standard local path. Hardcoding avoids requiring the user to browse for libraries on every run.
+For each sign that had a reference tick line placed, the tool guides you through placing the full sign assembly.
 
-**Tradeoff:** Tool will not work if the ProjectWise WorkSpace is not mounted or if a different project path is used. The path constant (`WZTC_CELL_LIB` in `CellPlacer.bas`, sign library paths in `SignLibrary.bas` and `DrawSign.ba
+- The current sign number, size, and side (One Side or Both Sides) are shown.
+- Click **Draw Sign** and then click the point on the tick line where you want the sign post.
+- The tool automatically places: the sign face cell (the rectangular sign graphic from the cell library), the sign post cell, the vertical post line, and the text label showing the sign number and size — all at once.
+- For Both Sides signs, you click two points (one for each side of the road).
+- Click **Next Sign** to advance to the following sign, then repeat.
+
+---
+
+### Step 7 — Draw Remaining Elements (Draw Elements Window)
+
+Draw the remaining workzone elements in sequence. The tool cycles through: Channelizing Devices, Removal Striping, Temporary Barrier, and Barrier with Warning Lights.
+
+For each element type:
+1. Click **Start Drawing**.
+2. Draw the line or shape in MicroStation.
+3. Right-click to finish.
+4. Click **Next WZTC Element** to advance.
+
+Each element is placed automatically on the correct NYSDOT level with the correct color and line weight. You can also click **Place Dimension** to add a dimension annotation to your drawing.
+
+When all elements are placed, click **Next: Cell Library**.
+
+---
+
+### Step 8 — Place Symbols and Callouts (Cell Library Window)
+
+Place any remaining workzone symbols — arrow panels, flaggers, crash cushions, and others — from the NYSDOT cell library. Select a symbol from the dropdown and click **Place Cell**, then click in MicroStation to place it.
+
+You can also place text callouts (leader notes) for items such as channelizing device spacing, barrier type, and pavement marking descriptions.
+
+When everything is placed, click **Finish**. The perpendicular reference tick lines that were placed in Step 4 are automatically deleted from the drawing, leaving only your final plan elements.
+
+---
+
+## Components Overview
+
+| Component | What It Does |
+|-----------|-------------|
+| **Designer** (WZTCDesigner) | Main configuration window — road parameters, spacing calculations, sign selection, alignment tables, 619 sheet viewer |
+| **Draw Work Space** (DrawWorkSpace) | Draws the work zone boundary shape and hatch fill |
+| **Draw Alignment** (AlignDraw) | Records the alignment path (lines and arcs) drawn by the user |
+| **Place Reference Lines** (PlacePerp) | Walks the alignment and places 80-ft perpendicular tick lines at each item location |
+| **Sign Attribute Editor** (frmSignSubColors) | Optional: changes sign face background color and other display attributes |
+| **Place Signs** (PlaceSign) | For each sign, places the face cell, post cell, post line, and text label in one operation |
+| **Draw Elements** (PlaceElements) | Draws channelizing devices, barriers, removal striping, and dimensions on the correct levels |
+| **Cell Library** (PlaceCells) | Places WZTC cell symbols (arrow panels, flaggers, etc.) and leader note callouts |
+| **Sign Library** | Stores 500+ NYSDOT/MUTCD sign definitions — cell names, sizes, and default spacings for both Freeway and Non-Freeway road types |
+| **Spacing Engine** | Calculates the alignment path geometry (including curves) and determines where each tick line goes |
+| **Shared Memory** | Stores your configuration between steps so your entries are preserved if you go back to a previous window |
+| **Sign Drawing Engine** | Contains the logic for placing the four-part sign assembly (face, post, line, label) |
+| **Element Drawing Engine** | Contains the logic for drawing work space, channelizing devices, barriers, and striping on the correct levels |
+
+---
+
+## Tips
+
+- **Going back:** Every window has a Back button to return to the previous step, and a "Return to Designer" button to go all the way back to Step 1 to change your configuration.
+- **Skipping elements:** In the reference line placement step, you can skip any item you don't need for your particular plan.
+- **Multiple runs:** If you need to redo a section, you can go back to the designer, adjust your configuration, and run through the steps again. Previously placed elements remain in the drawing — you may need to delete them manually before re-running.
+- **Cell library path:** The tool requires the NYSDOT ProjectWise WorkSpace to be mounted at the standard local path. If the sign cells or WZTC symbols do not appear, confirm that your ProjectWise WorkSpace is active and connected.
+- **Alignment length:** Make sure your drawn alignment is long enough to accommodate all the spacing items in your sequence. The reference line placement step will show you the total alignment length and your current position so you can verify this before placing all lines.
+- **Committing alignments:** If you draw both your upstream and downstream alignments without clicking "Commit This Alignment" between them, use the "Commit All Alignments" button to commit all of them at once before proceeding.
+
+---
+
+## Worked Example — Shoulder Closure on a Rural Highway
+
+**Scenario:** A contractor needs to close the right shoulder of a 45 mph, two-lane rural highway (Non-Freeway) for guardrail replacement. The lanes are 12 ft wide and the shoulder is 8 ft wide. The required signs are W20-01RA (Road Work Ahead) and R02-01 (One Lane Road Ahead).
+
+---
+
+**Step 1 — Configure:**
+
+In the Designer window, the engineer selects:
+- Category: *Shoulder Closure*
+- Road Speed: *45 mph*
+- Road Type: *Non-Freeway*
+- Lane Width: *12 ft*, Shoulder Width: *8 ft*
+
+After clicking **Calculate Spacing**, the tool fills in:
+- Downstream Taper: **100 ft**
+- Roll Ahead Distance: **100 ft**
+- Vehicle Space: **100 ft**
+- Buffer Space: **350 ft**
+- Merging/Shifting Taper: **0 ft** *(not required for shoulder closure)*
+- Shoulder Taper: **80 ft**
+
+The Upstream alignment table is automatically populated with these items in the correct order. The engineer then adds two Sign rows:
+- Sign W20-01RA → the library auto-fills Size: 30" x 30" and Spacing: 350 ft
+- Sign R02-01 → the library auto-fills Size: 30" x 30" and Spacing: 100 ft
+
+Both signs are moved to the correct position in the sequence using Move Up / Move Down. The engineer clicks **Submit**.
+
+---
+
+**Step 2 — Draw Work Space:**
+
+The engineer clicks **Draw Work Space** and clicks four corners outlining the closed shoulder area in MicroStation — approximately 400 ft long. After right-clicking to close the shape, they click the border of the shape to apply the hatch fill. The hatched polygon appears on the TWZWS2_P level automatically. The engineer clicks **Next: Draw Alignments**.
+
+---
+
+**Step 3 — Draw Alignment:**
+
+The engineer selects *Upstream Alignment* from the dropdown, clicks **Start Segment**, and draws a straight line along the highway centerline — approximately 900 ft from the start of the shoulder taper back to the most upstream sign. After right-clicking to end the segment, they click **Commit This Alignment**. There is no downstream alignment needed for this closure, so they click **Next: Place Reference Lines**.
+
+---
+
+**Step 4 — Place Reference Lines:**
+
+The tool begins walking the alignment. The first item shown is *Shoulder Taper* at a suggested spacing of 80 ft. The engineer accepts the spacing and clicks **Place Line**. An 80-ft perpendicular tick line appears at that location.
+
+The tool advances to the next item: *Buffer Space* at 350 ft. The engineer accepts and places the line. The process continues through each item:
+
+| Item | Suggested Spacing | Action |
+|------|------------------|--------|
+| Shoulder Taper | 80 ft | Place Line |
+| Buffer Space | 350 ft | Place Line |
+| Vehicle Space | 100 ft | Place Line |
+| Roll Ahead Distance | 100 ft | Place Line |
+| W20-01RA | 350 ft | Place Line |
+| R02-01 | 100 ft | Place Line |
+
+After the last item, the status shows "All reference lines placed." The engineer clicks **Next: Draw Signs**.
+
+---
+
+**Step 5 — Place Signs:**
+
+PlaceSign shows the first sign: **W20-01RA**, One Side. The engineer clicks **Draw Sign**, then clicks the desired post location on the first tick line in MicroStation. The tool immediately places the W20-01RA sign face cell (30" x 30"), the sign post, the connecting line, and the text label "W20-01RA 30x30" — all on the correct NYSDOT levels.
+
+The engineer clicks **Next Sign**, then repeats for R02-01. After both signs are placed, the status shows "All signs placed." The engineer clicks **Next: WZTC Elements**.
+
+---
+
+**Step 6 — Sign Attribute Editor (Optional):**
+
+The engineer chooses to skip this step since no background color changes are needed. They click **Next: WZTC Elements** immediately.
+
+---
+
+**Step 7 — Draw Elements:**
+
+The first element shown is *Channelizing Devices*. The engineer clicks **Start Drawing** and draws a line along the shoulder edge where the drums will be shown. The line is placed on the TWZCD_P level with color 6 and weight 2 automatically. The engineer clicks **Next WZTC Element**.
+
+The second element is *Shoulder Taper* striping (Removal Striping). The engineer draws the taper line, and the tool places it on the TWZPMRC_P level. No barrier is needed for this closure, so the engineer clicks **Next WZTC Element** and **Skip** for the barrier items.
+
+The engineer clicks **Place Dimension** to annotate the 350 ft buffer space distance.
+
+---
+
+**Step 8 — Cell Library:**
+
+The engineer places a *Type III Barricade* symbol at the closed shoulder entrance and adds a callout: *"CHANNELIZING DEVICES SPACED @ 20' O.C."* using the Place Callout button.
+
+Clicking **Finish** removes all the perpendicular reference tick lines, leaving a clean NYSDOT-compliant shoulder closure plan layout.
+
+**Total time:** Approximately 20–30 minutes for a plan that would typically take 2–3 hours to produce manually.
+
+---
+
+## Design Notes
+
+The following explains some choices made in how this tool works, in case you are troubleshooting or want to understand the behavior better.
+
+**Why stored settings disappear if you close MicroStation.** The tool saves all your workzone configuration — speed, spacings, signs, alignment references — in memory while MicroStation is running. This is the only reliable way to pass information between the tool's different windows. When MicroStation closes, that memory is cleared. If you need to continue a workzone plan in a later session, you will need to re-enter your parameters in the Designer window. The elements already placed in your drawing file are saved with the file and are not affected.
+
+**Why there is no "undo all" option.** The tool places elements in MicroStation one step at a time. Each element placed is a permanent addition to the design file. MicroStation's standard undo command (Ctrl+Z) can reverse individual placements, but the tool itself does not track a full undo history. If you need to redo a section, delete the affected elements in MicroStation and re-run from the appropriate step.
+
+**Why you click the border of the work zone shape to apply hatching, not the center.** When you draw the work zone boundary and right-click to close it, MicroStation's hatch tool needs you to identify which closed shape to fill. Clicking the border of the shape tells MicroStation exactly which outline to hatch. Clicking in the center of a complex or irregular shape can sometimes confuse the hatch tool. Clicking the border is more reliable for any shape type.
+
+**Why the tool asks you to right-click to end each segment when drawing alignments.** The alignment drawing step lets you place as many line and arc segments as needed to define a curved or complex centerline. Right-clicking signals that you are done with the current segment so the tool can connect the next segment to it. If you forget to right-click, the current segment stays active in MicroStation and the next click will extend it rather than start a new segment.
+
+**Why the sign library auto-fills size and spacing.** The built-in sign library stores the correct size and recommended spacing for each of the 500+ NYSDOT/MUTCD signs based on road type (Freeway vs. Non-Freeway). When you type a sign number and press Enter, the tool looks it up and fills those fields automatically, saving you from consulting the standard sheets. You can always override the auto-filled values before clicking Submit.
+
+**Why the alignment path sometimes places tick lines at slightly different positions than calculated.** The tool measures distance along the actual drawn path — not in a straight line. On curves, it follows the arc length. If your alignment includes arcs, the actual measured distance may differ slightly from a straight-line estimate. The reference line placement window shows your exact current position along the path so you can see where you are at all times.
+
+**Why sign sizes and cell names are set by the tool, not by your active settings.** Every element the tool places — sign faces, posts, levels, colors, line weights — uses settings defined in the tool itself, not whatever happens to be active in your MicroStation session. This prevents the common mistake of placing elements on the wrong level because a different level was active from a previous command.

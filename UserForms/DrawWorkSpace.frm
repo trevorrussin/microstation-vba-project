@@ -35,7 +35,7 @@ Private Sub UserForm_Initialize()
                        "1. Click ""Draw Work Space"" below." & vbCrLf & _
                        "2. Click corners of the work zone area." & vbCrLf & _
                        "3. Right-click to close the shape." & vbCrLf & _
-                       "4. Click INSIDE the shape to apply hatching." & vbCrLf & _
+                       "4. Click the BORDER of the shape to apply hatching." & vbCrLf & _
                        "You may draw multiple work spaces. Click ""Next"" when done."
             .Top = 10: .Left = 10: .Width = 290: .Height = 90
             .WordWrap = True
@@ -122,7 +122,7 @@ Private Sub btnDrawWorkSpace_Click()
     ' If enough points for a shape, offer hatching
     If nPts >= 3 Then
         If ControlExists("lblStatus") Then
-            lblStatus.Caption = "Shape closed. Click INSIDE the work zone area to apply hatching."
+            lblStatus.Caption = "Shape closed. Click the BORDER of the work zone shape to apply hatching."
             lblStatus.ForeColor = RGB(0, 0, 180)
         End If
 

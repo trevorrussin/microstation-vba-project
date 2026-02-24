@@ -89,10 +89,17 @@ Private Sub UserForm_Initialize()
         cmdCommit.Width = 200: cmdCommit.Height = 28
     End If
 
+    ' ---- Commit All Alignments ----
+    If ControlExists("cmdCommitAll") Then
+        cmdCommitAll.Caption = "Commit All Alignments"
+        cmdCommitAll.Top = 163: cmdCommitAll.Left = 10
+        cmdCommitAll.Width = 200: cmdCommitAll.Height = 28
+    End If
+
     ' ---- Next Step ----
     If ControlExists("cmdNextStep") Then
         cmdNextStep.Caption = "Next: Place Perp Lines >"
-        cmdNextStep.Top = 163: cmdNextStep.Left = 10
+        cmdNextStep.Top = 198: cmdNextStep.Left = 10
         cmdNextStep.Width = 200: cmdNextStep.Height = 28
         cmdNextStep.Font.Bold = True
         cmdNextStep.Enabled = False   ' enabled after first commit
@@ -101,7 +108,7 @@ Private Sub UserForm_Initialize()
     ' ---- Status label ----
     If ControlExists("lblStatus") Then
         lblStatus.Caption = "Select an alignment, draw segments, then click 'Commit'."
-        lblStatus.Top = 200: lblStatus.Left = 10
+        lblStatus.Top = 235: lblStatus.Left = 10
         lblStatus.Width = 205: lblStatus.Height = 48
         lblStatus.WordWrap = True
         lblStatus.ForeColor = RGB(0, 0, 160)
@@ -110,7 +117,7 @@ Private Sub UserForm_Initialize()
     ' ---- Right-click tip ----
     If ControlExists("lblRightClick") Then
         lblRightClick.Caption = "Tip: Right-click in MicroStation to finish each segment."
-        lblRightClick.Top = 252: lblRightClick.Left = 10
+        lblRightClick.Top = 287: lblRightClick.Left = 10
         lblRightClick.Width = 205: lblRightClick.Height = 30
         lblRightClick.Font.Size = 8
         lblRightClick.WordWrap = True
@@ -120,14 +127,16 @@ Private Sub UserForm_Initialize()
     ' ---- Navigation buttons ----
     If ControlExists("btnBack") Then
         btnBack.Caption = "< Back"
-        btnBack.Top = 292: btnBack.Left = 10
+        btnBack.Top = 327: btnBack.Left = 10
         btnBack.Width = 95: btnBack.Height = 22
     End If
     If ControlExists("btnReturnToDesigner") Then
         btnReturnToDesigner.Caption = "Return to Designer"
-        btnReturnToDesigner.Top = 292: btnReturnToDesigner.Left = 115
+        btnReturnToDesigner.Top = 327: btnReturnToDesigner.Left = 115
         btnReturnToDesigner.Width = 100: btnReturnToDesigner.Height = 22
     End If
+
+    Me.Height = 380
 
     ' Initialize AlignmentTool to alignment 1
     Call SetCurrentAlignment(1)
@@ -199,6 +208,46 @@ Private Sub cmdCommit_Click()
         If wztcAlignDrawn(aIdx) Then
             lblStatus.Caption = nm & " committed! Select another alignment or click 'Next: Place Perp Lines'."
             lblStatus.ForeColor = RGB(0, 120, 0)
+        End If
+    End If
+End Sub
+
+' ============================================================
+' COMMIT ALL ALIGNMENTS — commits every alignment in one click
+' Useful when multiple alignments were drawn without committing each one.
+' ============================================================
+Private Sub cmdCommitAll_Click()
+    Dim i As Integer
+    Dim nCommitted As Integer
+    nCommitted = 0
+
+    Dim total As Integer
+    total = wztcAlignCount
+    If total < 1 Then total = 2
+
+    For i = 1 To total
+        Call SetCurrentAlignment(i)
+        Call CommitCurrentAlignment
+        If wztcAlignDrawn(i) Then nCommitted = nCommitted + 1
+    Next i
+
+    ' Restore dropdown selection
+    If ControlExists("cboAlignSelect") Then
+        Dim sel As Integer
+        sel = cboAlignSelect.ListIndex + 1
+        If sel >= 1 Then Call SetCurrentAlignment(sel)
+    End If
+
+    If nCommitted > 0 Then
+        If ControlExists("cmdNextStep") Then cmdNextStep.Enabled = True
+        If ControlExists("lblStatus") Then
+            lblStatus.Caption = CStr(nCommitted) & " alignment(s) committed. Click 'Next: Place Perp Lines' to continue."
+            lblStatus.ForeColor = RGB(0, 120, 0)
+        End If
+    Else
+        If ControlExists("lblStatus") Then
+            lblStatus.Caption = "No alignment segments found to commit. Draw at least one segment first."
+            lblStatus.ForeColor = RGB(160, 0, 0)
         End If
     End If
 End Sub

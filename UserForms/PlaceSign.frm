@@ -180,7 +180,7 @@ End Sub
 ' ============================================================
 Private Sub btnWZTCElements_Click()
     Unload Me
-    StartWZTCElementsPlacementFromElement2
+    frmSignSubColors.Show vbModeless
 End Sub
 
 ' ============================================================
@@ -261,10 +261,11 @@ Private Sub ShowAllSignsDone()
     If ControlExists("lblSignSide") Then lblSignSide.Caption = ""
     If ControlExists("lblInstruction") Then lblInstruction.Caption = ""
     If ControlExists("lblStatus") Then
-        lblStatus.Caption = "Done! All signs have been drawn. You may close this window."
+        lblStatus.Caption = "All signs placed. Click 'Next: WZTC Elements' to continue."
     End If
     If ControlExists("btnDraw") Then btnDraw.Enabled = False
     If ControlExists("btnNextSign") Then btnNextSign.Enabled = False
+    If ControlExists("btnWZTCElements") Then btnWZTCElements.Enabled = True
 End Sub
 
 ' ============================================================
