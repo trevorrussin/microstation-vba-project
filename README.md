@@ -139,9 +139,6 @@ For each item:
 
 When all items have been placed, click **Next: Sign Color (Optional)**.
 
-![Step 5 — Place Signs Window](Screenshots/step5.png)
-*The Place Signs window guiding the user through each sign in sequence. The current sign number, side (One Side or Both Sides), and instructions are shown. Click Draw Sign and then click the post location on the tick line in MicroStation.*
-
 ---
 
 ### Step 5 — Sign Face Background Color (Optional)
@@ -164,6 +161,9 @@ For each sign that had a reference tick line placed, the tool guides you through
 - The tool automatically places: the sign face cell (the rectangular sign graphic from the cell library), the sign post cell, the vertical post line, and the text label showing the sign number and size — all at once.
 - For Both Sides signs, you click two points (one for each side of the road).
 - Click **Next Sign** to advance to the following sign, then repeat.
+
+![Step 6 — Place Signs Window](Screenshots/step5.png)
+*The Place Signs window guiding the user through each sign in sequence. The current sign number, side (One Side or Both Sides), and instructions are shown. Click Draw Sign and then click the post location on the tick line in MicroStation.*
 
 ---
 
