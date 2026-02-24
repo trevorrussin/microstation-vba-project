@@ -8,11 +8,11 @@ A MicroStation tool that automates the creation of NYSDOT-compliant workzone tra
 
 Preparing a workzone traffic control plan by hand in MicroStation is time-consuming and error-prone. It requires:
 
-- Looking up spacing values in the NYSDOT Part 619 standard sheets based on speed, road category, lane width, and shoulder width
-- Calculating cumulative distances from scratch for every sign, taper, buffer zone, and work area marker
+- Looking up spacing values in the NYSDOT Part 619 standard sheets and tables based on speed, road category, lane width, and shoulder width
+- Drawing in cumulative distances and dimensions from scratch for every sign, taper, buffer zone, and work area marker
 - Manually placing each sign face cell, sign post cell, connecting line, and text label one at a time from the cell library
 - Switching MicroStation levels by hand for each element type, then switching back
-- Keeping track of which items belong to which alignment (upstream vs. downstream)
+- Keeping track of which signs go where in the .dgn file
 
 This tool automates all of that. Here is what it does for you:
 

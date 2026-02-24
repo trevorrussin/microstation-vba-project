@@ -333,6 +333,23 @@ Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As Strin
         cellName = ""
     End If
     If Len(cellName) > 0 Then
+        ' Rotate sign face cell to match perpendicular direction.
+        ' Cells are designed with angle 0 = facing north (+Y).
+        ' Formula: active_angle = atan2(-dirX, dirY) in degrees.
+        Dim PI As Double: PI = 3.14159265358979
+        Dim signAngle As Double
+        If Abs(dirY) > 0.0001 Then
+            signAngle = Atn(-dirX / dirY)
+            If dirY < 0 Then
+                If -dirX >= 0 Then signAngle = signAngle + PI Else signAngle = signAngle - PI
+            End If
+        ElseIf dirX > 0 Then
+            signAngle = -PI / 2
+        ElseIf dirX < 0 Then
+            signAngle = PI / 2
+        End If
+        CadInputQueue.SendKeyin "ACTIVE ANGLE " & (signAngle * 180# / PI)
+
         SetCExpressionValue "tcb->activeCellUtf16", cellName, ""
         CadInputQueue.SendCommand "PLACE CELL ICON"
         point.X = postPt.X + dirX * 20#
@@ -340,6 +357,8 @@ Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As Strin
         point.Z = postPt.Z
         CadInputQueue.SendDataPoint point, 1
         CadInputQueue.SendReset
+
+        CadInputQueue.SendKeyin "ACTIVE ANGLE 0"   ' restore for subsequent operations
     End If
 End Sub
 

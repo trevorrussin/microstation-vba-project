@@ -95,6 +95,15 @@ Public wztcAlignFirstPtX(1 To 10) As Double  ' first click X for each alignment 
 Public wztcAlignFirstPtY(1 To 10) As Double
 Public wztcAlignFirstPtZ(1 To 10) As Double
 
+' Per-alignment drawing session tracking.
+' Each "Start Segment" click = one session. Sessions record the element ID range
+' [startID+1 .. endID] of elements drawn in that session. CommitCurrentAlignment
+' groups only elements whose IDs fall within a recorded session for that alignment.
+' This correctly separates alignments regardless of drawing order.
+Public wztcAlignSessionCount(1 To 10) As Integer
+Public wztcAlignSessionStartIDs(1 To 10, 1 To 50) As Double
+Public wztcAlignSessionEndIDs(1 To 10, 1 To 50) As Double
+
 ' ============================================================
 ' UTILITY: Convert a MicroStation DLong element ID to Double
 ' so it can be stored and compared with normal operators.

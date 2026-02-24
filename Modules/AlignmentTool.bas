@@ -41,7 +41,7 @@ End Sub
 ' ============================================================
 ' GET CURRENT MAX ELEMENT ID IN MODEL
 ' ============================================================
-Private Function GetCurrentMaxID() As Double
+Public Function GetCurrentMaxID() As Double
     Dim el As Element
     Dim oEnum As ElementEnumerator
     Dim oScan As ElementScanCriteria
@@ -99,8 +99,30 @@ Public Sub StartWZTCDrawing()
 
     Call SetupView
 
+    ' Reset per-alignment session tracking
+    For i = 1 To 10
+        wztcAlignSessionCount(i) = 0
+    Next i
+
     ' Show AlignDraw (it will call SetCurrentAlignment(1) in Initialize)
     AlignDraw.Show vbModeless
+End Sub
+
+' ============================================================
+' RECORD A DRAWING SESSION FOR AN ALIGNMENT
+' Called from AlignDraw cmdStartSegment_Click after each
+' drawing session. startID = maxID before drawing; endID = maxID after.
+' Ignored if no new elements were drawn (endID <= startID).
+' ============================================================
+Public Sub RecordAlignmentSession(aIdx As Integer, startID As Double, endID As Double)
+    If aIdx < 1 Or aIdx > 10 Then Exit Sub
+    If endID <= startID Then Exit Sub   ' nothing drawn this session
+    Dim s As Integer
+    s = wztcAlignSessionCount(aIdx) + 1
+    If s > 50 Then s = 50   ' cap at 50 sessions per alignment
+    wztcAlignSessionCount(aIdx) = s
+    wztcAlignSessionStartIDs(aIdx, s) = startID
+    wztcAlignSessionEndIDs(aIdx, s) = endID
 End Sub
 
 ' ============================================================
@@ -245,9 +267,13 @@ End Sub
 
 ' ============================================================
 ' COMMIT CURRENT ALIGNMENT
-' Called by AlignDraw "Commit This Alignment" button.
-' Groups all elements drawn since the last maxID snapshot for
-' this alignment into a new MicroStation graphic group.
+' Called by AlignDraw "Commit All Alignments" button.
+' Groups elements from all recorded drawing sessions for this
+' alignment into a new MicroStation graphic group.
+'
+' Uses session-based ID ranges (wztcAlignSessionStartIDs /
+' wztcAlignSessionEndIDs) so that alignments drawn in any order
+' — even interleaved — are correctly separated.
 ' ============================================================
 Public Sub CommitCurrentAlignment()
     On Error GoTo CommitErr
@@ -255,8 +281,12 @@ Public Sub CommitCurrentAlignment()
     aIdx = currentAlignIdx
     If aIdx < 1 Or aIdx > 10 Then Exit Sub
 
-    Dim snapshotID As Double
-    snapshotID = wztcAlignMaxIDSnapshot(aIdx)
+    If wztcAlignSessionCount(aIdx) = 0 Then
+        MsgBox "No segments recorded for this alignment." & vbCrLf & _
+               "Click 'Start Segment' to draw before committing.", _
+               vbExclamation, "Commit Alignment"
+        Exit Sub
+    End If
 
     ' Find the highest graphic group number currently in the model
     Dim maxGG As Long
@@ -275,23 +305,36 @@ Public Sub CommitCurrentAlignment()
     Dim newGG As Long
     newGG = maxGG + 1
 
-    ' Assign all elements with ID > snapshot that are not yet in a group
+    ' Assign elements whose IDs fall within any recorded session for this alignment.
+    ' Elements already in a group are skipped (already committed to another alignment).
     Dim groupedCount As Long
     groupedCount = 0
     Set oEnum = ActiveModelReference.Scan(oScan)
     Do While oEnum.MoveNext
         Set el = oEnum.Current
-        Dim elIDDbl As Double
-        elIDDbl = ElIDAsDouble(el.ID)
-        If elIDDbl > snapshotID And el.GraphicGroup = 0 Then
-            el.GraphicGroup = newGG
-            el.Rewrite
-            groupedCount = groupedCount + 1
+        If el.GraphicGroup = 0 Then
+            Dim elIDDbl As Double
+            elIDDbl = ElIDAsDouble(el.ID)
+            Dim s As Integer
+            Dim inSession As Boolean
+            inSession = False
+            For s = 1 To wztcAlignSessionCount(aIdx)
+                If elIDDbl > wztcAlignSessionStartIDs(aIdx, s) And _
+                   elIDDbl <= wztcAlignSessionEndIDs(aIdx, s) Then
+                    inSession = True
+                    Exit For
+                End If
+            Next s
+            If inSession Then
+                el.GraphicGroup = newGG
+                el.Rewrite
+                groupedCount = groupedCount + 1
+            End If
         End If
     Loop
 
     If groupedCount = 0 Then
-        MsgBox "No new elements found for this alignment." & vbCrLf & _
+        MsgBox "No elements found for this alignment." & vbCrLf & _
                "Please draw some line/arc segments first.", _
                vbExclamation, "Commit Alignment"
         Exit Sub
@@ -301,13 +344,9 @@ Public Sub CommitCurrentAlignment()
     wztcAlignGraphicGroup(aIdx) = CInt(newGG)
     wztcAlignDrawn(aIdx) = True
 
-    ' Update snapshot so the next alignment's snapshot is after these elements
+    ' Update snapshot for backward compat (used by legacy BuildAlignmentPath fallback)
     wztcAlignMaxIDSnapshot(aIdx) = GetCurrentMaxID()
-
-    ' Backward compat: keep wztcAlignmentStartMaxID for alignment 1
-    If aIdx = 1 Then
-        wztcAlignmentStartMaxID = snapshotID
-    End If
+    If aIdx = 1 Then wztcAlignmentStartMaxID = wztcAlignMaxIDSnapshot(aIdx)
 
     CadInputQueue.SendKeyin "ECHO " & wztcAlignNames(aIdx) & " committed: " & _
                             groupedCount & " elements in graphic group " & newGG

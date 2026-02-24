@@ -11,12 +11,15 @@ Option Explicit
 '   optLine         - OptionButton "Line"
 '   optArc          - OptionButton "Arc"
 '   cmdStartSegment - CommandButton "Start Segment"
-'   cmdCommit       - CommandButton "Commit This Alignment"
+'   cmdCommitAll    - CommandButton "Commit All Alignments"
 '   cmdNextStep     - CommandButton "Next: Place Perp Lines >"
 '   lblStatus       - Label (status/instruction text)
 '   lblRightClick   - Label (right-click tip)
 '   btnBack         - CommandButton "< Back"
 '   btnReturnToDesigner - CommandButton "Return to Designer"
+'
+' NOTE: cmdCommit ("Commit This Alignment") has been removed.
+'       Use cmdCommitAll to commit all drawn alignments at once.
 ' ============================================================
 
 Private Function ControlExists(ctrlName As String) As Boolean
@@ -82,33 +85,26 @@ Private Sub UserForm_Initialize()
         cmdStartSegment.Font.Bold = True
     End If
 
-    ' ---- Commit This Alignment ----
-    If ControlExists("cmdCommit") Then
-        cmdCommit.Caption = "Commit This Alignment"
-        cmdCommit.Top = 128: cmdCommit.Left = 10
-        cmdCommit.Width = 200: cmdCommit.Height = 28
-    End If
-
-    ' ---- Commit All Alignments ----
+    ' ---- Commit All Alignments (single commit button) ----
     If ControlExists("cmdCommitAll") Then
         cmdCommitAll.Caption = "Commit All Alignments"
-        cmdCommitAll.Top = 163: cmdCommitAll.Left = 10
+        cmdCommitAll.Top = 128: cmdCommitAll.Left = 10
         cmdCommitAll.Width = 200: cmdCommitAll.Height = 28
     End If
 
     ' ---- Next Step ----
     If ControlExists("cmdNextStep") Then
         cmdNextStep.Caption = "Next: Place Perp Lines >"
-        cmdNextStep.Top = 198: cmdNextStep.Left = 10
+        cmdNextStep.Top = 163: cmdNextStep.Left = 10
         cmdNextStep.Width = 200: cmdNextStep.Height = 28
         cmdNextStep.Font.Bold = True
-        cmdNextStep.Enabled = False   ' enabled after first commit
+        cmdNextStep.Enabled = False   ' enabled after commit
     End If
 
     ' ---- Status label ----
     If ControlExists("lblStatus") Then
-        lblStatus.Caption = "Select an alignment, draw segments, then click 'Commit'."
-        lblStatus.Top = 235: lblStatus.Left = 10
+        lblStatus.Caption = "Select an alignment, draw segments, then click 'Commit All Alignments'."
+        lblStatus.Top = 200: lblStatus.Left = 10
         lblStatus.Width = 205: lblStatus.Height = 48
         lblStatus.WordWrap = True
         lblStatus.ForeColor = RGB(0, 0, 160)
@@ -117,7 +113,7 @@ Private Sub UserForm_Initialize()
     ' ---- Right-click tip ----
     If ControlExists("lblRightClick") Then
         lblRightClick.Caption = "Tip: Right-click in MicroStation to finish each segment."
-        lblRightClick.Top = 287: lblRightClick.Left = 10
+        lblRightClick.Top = 252: lblRightClick.Left = 10
         lblRightClick.Width = 205: lblRightClick.Height = 30
         lblRightClick.Font.Size = 8
         lblRightClick.WordWrap = True
@@ -127,16 +123,16 @@ Private Sub UserForm_Initialize()
     ' ---- Navigation buttons ----
     If ControlExists("btnBack") Then
         btnBack.Caption = "< Back"
-        btnBack.Top = 327: btnBack.Left = 10
+        btnBack.Top = 292: btnBack.Left = 10
         btnBack.Width = 95: btnBack.Height = 22
     End If
     If ControlExists("btnReturnToDesigner") Then
         btnReturnToDesigner.Caption = "Return to Designer"
-        btnReturnToDesigner.Top = 327: btnReturnToDesigner.Left = 115
+        btnReturnToDesigner.Top = 292: btnReturnToDesigner.Left = 115
         btnReturnToDesigner.Width = 100: btnReturnToDesigner.Height = 22
     End If
 
-    Me.Height = 380
+    Me.Height = 345
 
     ' Initialize AlignmentTool to alignment 1
     Call SetCurrentAlignment(1)
@@ -163,10 +159,20 @@ Private Sub cboAlignSelect_Change()
 End Sub
 
 ' ============================================================
-' START SEGMENT — hide form, call StartLineSegment or StartArcSegment
+' START SEGMENT — hide form, draw, record session element IDs
+' Snapshot the max element ID before and after drawing so
+' CommitCurrentAlignment knows exactly which elements belong
+' to this alignment (regardless of drawing order).
 ' ============================================================
 Private Sub cmdStartSegment_Click()
     Me.Hide
+
+    Dim aIdx As Integer
+    aIdx = cboAlignSelect.ListIndex + 1
+    If aIdx < 1 Then aIdx = 1
+
+    Dim startID As Double
+    startID = GetCurrentMaxID()
 
     If ControlExists("optArc") Then
         If optArc.Value Then
@@ -178,43 +184,18 @@ Private Sub cmdStartSegment_Click()
         StartLineSegment
     End If
 
+    Dim endID As Double
+    endID = GetCurrentMaxID()
+    Call RecordAlignmentSession(aIdx, startID, endID)
+
     Me.Show
 End Sub
 
 ' ============================================================
-' COMMIT THIS ALIGNMENT
-' ============================================================
-Private Sub cmdCommit_Click()
-    Call CommitCurrentAlignment
-
-    ' Enable Next Step button if at least one alignment is drawn
-    Dim i As Integer
-    For i = 1 To 10
-        If wztcAlignDrawn(i) Then
-            If ControlExists("cmdNextStep") Then cmdNextStep.Enabled = True
-            Exit For
-        End If
-    Next i
-
-    If ControlExists("lblStatus") Then
-        Dim aIdx As Integer
-        aIdx = cboAlignSelect.ListIndex + 1
-        Dim nm As String
-        If ControlExists("cboAlignSelect") And aIdx >= 1 And aIdx <= cboAlignSelect.ListCount Then
-            nm = cboAlignSelect.List(aIdx - 1)
-        Else
-            nm = "Alignment " & aIdx
-        End If
-        If wztcAlignDrawn(aIdx) Then
-            lblStatus.Caption = nm & " committed! Select another alignment or click 'Next: Place Perp Lines'."
-            lblStatus.ForeColor = RGB(0, 120, 0)
-        End If
-    End If
-End Sub
-
-' ============================================================
-' COMMIT ALL ALIGNMENTS — commits every alignment in one click
-' Useful when multiple alignments were drawn without committing each one.
+' COMMIT ALL ALIGNMENTS
+' Commits every alignment that has recorded drawing sessions.
+' Works correctly regardless of drawing order — each alignment
+' only receives elements drawn during its own sessions.
 ' ============================================================
 Private Sub cmdCommitAll_Click()
     Dim i As Integer
@@ -226,9 +207,11 @@ Private Sub cmdCommitAll_Click()
     If total < 1 Then total = 2
 
     For i = 1 To total
-        Call SetCurrentAlignment(i)
-        Call CommitCurrentAlignment
-        If wztcAlignDrawn(i) Then nCommitted = nCommitted + 1
+        If wztcAlignSessionCount(i) > 0 Then
+            Call SetCurrentAlignment(i)   ' sets currentAlignIdx; snapshot harmless with session approach
+            Call CommitCurrentAlignment
+            If wztcAlignDrawn(i) Then nCommitted = nCommitted + 1
+        End If
     Next i
 
     ' Restore dropdown selection
