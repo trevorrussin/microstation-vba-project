@@ -56,7 +56,7 @@ The tool walks you through 8 steps in order. Each step opens its own window. You
 This is the main configuration window where you describe your workzone. It has two main areas: the left side for road parameters and spacing, and the right side for your alignment tables where you enter signs and sequence items.
 
 ![Step 1 — Designer Window](Screenshots/step1.png)
-*The Designer window configured for a 45 mph Non-Freeway shoulder closure. Road parameters are on the left, calculated spacings in the center panel, and the Upstream and Downstream alignment tables on the right.*
+*The Designer window. Road parameters are on the left, calculated spacings in the center panel, and the Upstream and Downstream alignment tables on the right.*
 
 **Road parameters (left side):**
 
