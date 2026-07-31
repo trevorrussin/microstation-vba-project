@@ -112,6 +112,7 @@ Call AddSign("R09-10", "Sidewalk Closed, Use Other Side",     "R09-10", celPath,
 Call AddSign("R09-11", "Sidewalk Closed Ahead, Cross Here",   "R09-11", celPath, "R09-11", "24"" x 18""", "24"" x 18""", 24, 18, postType, postPath, defSpacing)
 Call AddSign("R09-11a","Sidewalk Closed, Cross Here",         "R09-11a",celPath, "R09-11a","24"" x 12""", "24"" x 12""", 24, 12, postType, postPath, defSpacing)
 Call AddSign("R09-12", "Bike Lane Closed",                    "R09-12", celPath, "R09-12", "24"" x 12""", "24"" x 12""", 24, 12, postType, postPath, defSpacing)
+Call AddSign("NYR9-12", "Fines Doubled for Speeding in Work Zones", "NYR9-12", celPath, "NYR9-12", "24"" x 36""", "36"" x 54""", 24, 36, postType, postPath, defSpacing)
 
 Call AddSign("R10-06", "Stop Here on Red", "R10-06", celPath, "R10-06", "24"" x 36""", "24"" x 36""", 24, 36, postType, postPath, defSpacing)
 
@@ -476,6 +477,7 @@ Call AddSign("W08-22NY", "Smoke",                                         "W08-2
 Call AddSign("W08-23",   "Shoulders (No)",                                "W08-23",   celPath, "W08-23",   "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)      '341
 Call AddSign("W08-24",   "Pavement (Steel Plate on)",                     "W08-24",   celPath, "W08-24",   "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)      '342
 Call AddSign("W08-25",   "Shoulder (Ends)",                               "W08-25",   celPath, "W08-25",   "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)      '343
+Call AddSign("NYW8-4",   "Bridge Closed 500 Ft",                          "NYW8-4",   celPath, "NYW8-4",   "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)
 End Sub
 
 Private Sub LoadSigns_Part4()
@@ -585,7 +587,7 @@ Call AddSign("W14-02",     "No Outlet",                     "W14-02",      celPa
 Call AddSign("W14-02aL",   "No Outlet (Left)",              "W14-02aL",    celPath, "W14-02aL",    "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)          '438
 Call AddSign("W14-02aR",   "No Outlet (Right)",             "W14-02aR",    celPath, "W14-02aR",    "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)          '439
 Call AddSign("W14-03",     "No Passing Zone",               "W14-03",      celPath, "W14-03",      "48"" x 48""", "64"" x 64""", 48, 48, postType, postPath, defSpacing)            '440
-Call AddSign("W14-03NY",   "Accident Ahead",                "W14-03NY",    celPath, "W14-03NY",    "48"" x 48""", "64"" x 64""", 48, 48, postType, postPath, defSpacing)          '441
+Call AddSign("W14-03NY",   "Accident Ahead",                "W14-03NY",    celPath, "W14-03NY",    "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)          '441
 Call AddSign("W14-04NY",   "Emergency Scene Ahead",         "W14-04NY",    celPath, "W14-04NY",    "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)          '442
 
 Call AddSign("W15-01",     "Playground",                    "W15-01",      celPath, "W15-01",      "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)            '443
@@ -613,7 +615,7 @@ Call AddSign("W16-11P",    "Auxiliary (HOV) (Symbol)",      "W16-11P",     celPa
 Call AddSign("W16-12P",    "Auxiliary (Traffic Circle) (Warning)","W16-12P", celPath,"W16-12P",    "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)            '464
 Call AddSign("W16-12wPNY", "Auxiliary (Driveways) (1 Line)","W16-12wPNY",  celPath, "W16-12wPNY",  "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)           '465
 Call AddSign("W16-12xPNY", "Auxiliary (Driveways) (2 Lines)","W16-12xPNY", celPath, "W16-12xPNY",  "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)           '466
-Call AddSign("W16-12zNY",  "Increased Enforcement Area",    "W16-12zNY",   celPath, "W16-12zNY",   "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)          '467
+Call AddSign("W16-12zNY",  "Increased Enforcement Area",    "W16-12zNY",   celPath, "W16-12zNY",   "48"" x 30""", "60"" x 42""", 48, 30, postType, postPath, defSpacing)          '467
 Call AddSign("W16-13P",    "Auxiliary (When Flashing) (Warning)","W16-13P", celPath, "W16-13P",   "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)            '468
 Call AddSign("W16-15P",    "Auxiliary (New) (Warning)",     "W16-15P",     celPath, "W16-15P",     "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)            '469
 Call AddSign("W16-16P",    "Auxiliary (Last Exit Before Toll)","W16-16P",  celPath, "W16-16P",     "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)            '470

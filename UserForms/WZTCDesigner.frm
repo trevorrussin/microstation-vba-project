@@ -30,14 +30,7 @@ Private alignRowSelBoxes(1 To 10)    As Object     ' Row selector ComboBoxes per
 Private spacingBoxHandlers           As Collection  ' SpacingBox instances
 
 ' Cached spacing values from GenerateSpacingTable — used by AutoPopulateWZTCItems
-Private cachedDownstreamTaper  As Double
-Private cachedRollAhead        As Double
-Private cachedVehicleSpace     As Double
-Private cachedBufferSpace      As Double
-Private cachedMergingTaper     As Double
-Private cachedShoulderTapers   As Double
-Private cachedUpTaperBarrier   As Double
-Private cachedUpTaperBeam      As Double
+Private cachedSpacing          As WZTCSpacing
 Private hasSpacingData         As Boolean
 
 ' Status tracking
@@ -147,11 +140,11 @@ Private Sub UserForm_Initialize()
     End If
 
     ' ========== RIGHT COLUMN: GLOBAL ROW BUTTONS (hidden — now per-section below each table) ==========
-    If ControlExists("lblRowActions") Then  lblRowActions.Visible = False  End If
-    If ControlExists("btnAddRow") Then      btnAddRow.Visible = False      End If
-    If ControlExists("btnDeleteRow") Then   btnDeleteRow.Visible = False   End If
-    If ControlExists("btnMoveUp") Then      btnMoveUp.Visible = False      End If
-    If ControlExists("btnMoveDown") Then    btnMoveDown.Visible = False    End If
+    If ControlExists("lblRowActions") Then Me.Controls("lblRowActions").Visible = False
+    If ControlExists("btnAddRow") Then Me.Controls("btnAddRow").Visible = False
+    If ControlExists("btnDeleteRow") Then Me.Controls("btnDeleteRow").Visible = False
+    If ControlExists("btnMoveUp") Then Me.Controls("btnMoveUp").Visible = False
+    If ControlExists("btnMoveDown") Then Me.Controls("btnMoveDown").Visible = False
 
     ' ========== ALIGNMENT MANAGEMENT BUTTONS ==========
     If ControlExists("lblAlignActions") Then
@@ -694,33 +687,64 @@ Private Sub AutoPopulateWZTCItems(aIdx As Integer)
     If Not hasSpacingData Then Exit Sub
     If aIdx < 1 Or aIdx > alignCount Then Exit Sub
 
+    ' Default Non-Sign spacing rows for this alignment
+    Dim dTypes() As String, dLabels() As String, dSpacings() As String
+    Dim dSizes() As String, dSides() As String, dCount As Integer
     If aIdx = 1 Then
-        ' Upstream: Roll Ahead, Vehicle Space, Buffer Space, Merging Taper, Shoulder Taper,
-        '           Upstream Taper Temp Barrier, Upstream Taper Box/Corr Beam
-        Dim ut(1 To 7)  As String, ul(1 To 7)  As String
-        Dim us(1 To 7)  As String, usz(1 To 7) As String, usd(1 To 7) As String
-        Dim i As Integer
-        For i = 1 To 7: ut(i) = "Non-Sign": usz(i) = "": usd(i) = "One Side": Next i
-        ul(1) = "Roll Ahead Distance":          us(1) = Format(cachedRollAhead, "0.0")
-        ul(2) = "Vehicle Space":                us(2) = Format(cachedVehicleSpace, "0.0")
-        ul(3) = "Buffer Space":                 us(3) = Format(cachedBufferSpace, "0.0")
-        ul(4) = "Merging/Shifting Taper":       us(4) = Format(cachedMergingTaper, "0.0")
-        ul(5) = "Shoulder Taper":               us(5) = Format(cachedShoulderTapers, "0.0")
-        ul(6) = "Upstream Taper Temp Barrier":  us(6) = Format(cachedUpTaperBarrier, "0.0")
-        ul(7) = "Upstream Taper Box/Corr Beam": us(7) = Format(cachedUpTaperBeam, "0.0")
-        Call RebuildAlignTable(1, ut, ul, us, usz, usd, 7)
-        If ControlExists("lblStatus") Then
-            lblStatus.Caption = "Upstream populated with 7 spacing items. " & _
-                                "Use '+ Add Row' next to each alignment title to add Sign rows."
-        End If
-
+        Call WZTCRules.GetDefaultUpstreamItems(cachedSpacing, dTypes, dLabels, _
+                                               dSpacings, dSizes, dSides, dCount)
     ElseIf aIdx = 2 Then
-        ' Downstream: Downstream Taper only
-        Dim dt(1 To 1)  As String, dl(1 To 1)  As String
-        Dim ds(1 To 1)  As String, dsz(1 To 1) As String, dsd(1 To 1) As String
-        dt(1) = "Non-Sign": dl(1) = "Downstream Taper"
-        ds(1) = Format(cachedDownstreamTaper, "0.0"): dsz(1) = "": dsd(1) = "One Side"
-        Call RebuildAlignTable(2, dt, dl, ds, dsz, dsd, 1)
+        Call WZTCRules.GetDefaultDownstreamItems(cachedSpacing, dTypes, dLabels, _
+                                                 dSpacings, dSizes, dSides, dCount)
+    Else
+        Exit Sub
+    End If
+
+    ' Preserve Sign rows the user already added — refreshing spacing values after a
+    ' dropdown change must not discard them.
+    Dim eTypes() As String, eLabels() As String, eSpacings() As String
+    Dim eSizes() As String, eSides() As String, eCount As Integer
+    eCount = 0
+    Call ReadAlignData(aIdx, eTypes, eLabels, eSpacings, eSizes, eSides, eCount)
+
+    Dim keptSigns As Integer, r As Integer
+    keptSigns = 0
+    For r = 1 To eCount
+        If eTypes(r) = "Sign" Then keptSigns = keptSigns + 1
+    Next r
+
+    Dim nTypes() As String, nLabels() As String, nSpacings() As String
+    Dim nSizes() As String, nSides() As String, nCount As Integer
+    nCount = dCount + keptSigns
+    ReDim nTypes(1 To nCount)
+    ReDim nLabels(1 To nCount)
+    ReDim nSpacings(1 To nCount)
+    ReDim nSizes(1 To nCount)
+    ReDim nSides(1 To nCount)
+
+    Dim k As Integer
+    For k = 1 To dCount
+        nTypes(k) = dTypes(k):    nLabels(k) = dLabels(k)
+        nSpacings(k) = dSpacings(k): nSizes(k) = dSizes(k)
+        nSides(k) = dSides(k)
+    Next k
+
+    k = dCount
+    For r = 1 To eCount
+        If eTypes(r) = "Sign" Then
+            k = k + 1
+            nTypes(k) = eTypes(r):    nLabels(k) = eLabels(r)
+            nSpacings(k) = eSpacings(r): nSizes(k) = eSizes(r)
+            nSides(k) = eSides(r)
+        End If
+    Next r
+
+    Call RebuildAlignTable(aIdx, nTypes, nLabels, nSpacings, nSizes, nSides, nCount)
+
+    If aIdx = 1 And ControlExists("lblStatus") Then
+        lblStatus.Caption = "Upstream populated with " & dCount & " spacing items" & _
+                            IIf(keptSigns > 0, " (" & keptSigns & " sign rows kept)", "") & ". " & _
+                            "Use '+ Add Row' next to each alignment title to add Sign rows."
     End If
 End Sub
 
@@ -747,7 +771,7 @@ End Sub
 ' ============================================================
 Public Sub DelRowForAlign(aIdx As Integer)
     If alignRowCounts(aIdx) = 0 Then
-        If ControlExists("lblStatus") Then lblStatus.Caption = "No rows to delete." End If
+        If ControlExists("lblStatus") Then lblStatus.Caption = "No rows to delete."
         Exit Sub
     End If
     ' Delete the row selected in this alignment's combobox, or the last row if none selected
@@ -777,7 +801,7 @@ Public Sub DelRowForAlign(aIdx As Integer)
         Dim emptySd(1 To 1) As String
         Call RebuildAlignTable(aIdx, emptyT, emptyL, emptySp, emptySz, emptySd, 0)
     End If
-    If ControlExists("lblStatus") Then lblStatus.Caption = "Row deleted." End If
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Row deleted."
 End Sub
 
 ' ============================================================
@@ -804,7 +828,7 @@ Public Sub MoveRowUpForAlign(aIdx As Integer)
     activeAlignIdx = 0: activeRowIdx = 0
     Call RebuildAlignTable(aIdx, types, labels, spacings, sizes, sides, rCount)
     Call SelectAlignRow(aIdx, rIdx - 1)
-    If ControlExists("lblStatus") Then lblStatus.Caption = "Row moved up." End If
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Row moved up."
 End Sub
 
 ' ============================================================
@@ -819,7 +843,7 @@ Public Sub MoveRowDownForAlign(aIdx As Integer)
     End If
     Dim rIdx As Integer: rIdx = activeRowIdx
     If rIdx >= alignRowCounts(aIdx) Then
-        If ControlExists("lblStatus") Then lblStatus.Caption = "Row is already at the bottom." End If
+        If ControlExists("lblStatus") Then lblStatus.Caption = "Row is already at the bottom."
         Exit Sub
     End If
     Dim types() As String, labels() As String
@@ -835,7 +859,7 @@ Public Sub MoveRowDownForAlign(aIdx As Integer)
     activeAlignIdx = 0: activeRowIdx = 0
     Call RebuildAlignTable(aIdx, types, labels, spacings, sizes, sides, rCount)
     Call SelectAlignRow(aIdx, rIdx + 1)
-    If ControlExists("lblStatus") Then lblStatus.Caption = "Row moved down." End If
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Row moved down."
 End Sub
 
 ' ============================================================
@@ -1045,12 +1069,11 @@ End Sub
 Private Sub PopulateCategories()
     cboCategory.Clear
     cboCategory.AddItem "001-020: General Information (8 sheets)"
-    cboCategory.AddItem "021-099: Special Operations (13 sheets)"
-    cboCategory.AddItem "101-109: Stop & Go Operations (4 sheets)"
+    cboCategory.AddItem "021-099: Special Operations (20 sheets)"
     cboCategory.AddItem "110-200: Mobile Operations (5 sheets)"
     cboCategory.AddItem "201-300: Short Duration Operations (12 sheets)"
-    cboCategory.AddItem "301-400: Short Term Operations (25 sheets)"
-    cboCategory.AddItem "401-500: Intermediate Operations (17 sheets)"
+    cboCategory.AddItem "301-400: Short Term Operations (24 sheets)"
+    cboCategory.AddItem "401-500: Intermediate Operations (14 sheets)"
     cboCategory.AddItem "501-600: Long Term Operations (10 sheets)"
     cboCategory.AddItem "ALL: Show All Sheets (91 total)"
     cboCategory.ListIndex = -1
@@ -1075,25 +1098,27 @@ Private Sub PopulateSheets(categoryName As String)
             cboSheet.AddItem "619-010: Work Zone Traffic Control General Notes"
             cboSheet.AddItem "619-011: Work Zone Traffic Control General Tables and Legend"
             cboSheet.AddItem "619-012: Sign Table (2 Sheets)"
-        Case "021-099: Special Operations (13 sheets)"
+        Case "021-099: Special Operations (20 sheets)"
             cboSheet.AddItem "619-021: Work Beyond Shoulder - Non-Freeway Mowing"
-            cboSheet.AddItem "619-022: Shoulder Encroachment - Non-Freeway Mowing"
-            cboSheet.AddItem "619-023: Lane Closure/Encroachment - Two-Lane Mowing (2 Sheets)"
-            cboSheet.AddItem "619-031: Work Beyond Shoulder - Freeway Mowing"
-            cboSheet.AddItem "619-032: Shoulder Encroachment - Freeway Mowing"
-            cboSheet.AddItem "619-033: Lane Encroachment - Freeway Mowing"
-            cboSheet.AddItem "619-041: Lane Closure/Encroachment - Parkway Mowing"
-            cboSheet.AddItem "619-050: Lane Closure/Encroachment - Two-Lane Mulching/Herbicide (2 Sheets)"
-            cboSheet.AddItem "619-051: Lane Encroachment or Shoulder Closure - Freeway Mulching/Herbicide"
-            cboSheet.AddItem "619-060: Lane Closure - Two-Lane Pavement Marking (2 Sheets)"
-            cboSheet.AddItem "619-080: Work Beyond Shoulder - All Roadways All Durations"
+            cboSheet.AddItem "619-022: Shoulder Closure/Lane Encroachment - Non-Freeway Mowing"
+            cboSheet.AddItem "619-023: Lane Closure/Encroachment - Non-Freeway Mowing/Mulching (Shoulder < 8')"
+            cboSheet.AddItem "619-024: Work Beyond Shoulder - Freeway Mowing"
+            cboSheet.AddItem "619-025: Shoulder Closure/Lane Encroachment - Freeway Mowing"
+            cboSheet.AddItem "619-026: Lane Closure - Parkway Mowing"
+            cboSheet.AddItem "619-031: Shoulder Closure/Lane Encroachment - Two-Lane Two-Way Mulching/Herbicide"
+            cboSheet.AddItem "619-032: Lane Closure/Encroachment - Non-Freeway Herbicide (Shoulder < 8')"
+            cboSheet.AddItem "619-033: Shoulder Closure - Freeway Mulching/Herbicide"
+            cboSheet.AddItem "619-034: Lane Encroachment/Lane Closure - Freeway Mulching/Herbicide"
+            cboSheet.AddItem "619-041: Shoulder Closure/Lane Encroachment - Non-Freeway Stop and Go"
+            cboSheet.AddItem "619-042: Lane Closure - Non-Freeway Stop and Go"
+            cboSheet.AddItem "619-043: Left Lane/Shoulder Closure - Freeway Stop and Go"
+            cboSheet.AddItem "619-044: Left Two Lane Closure - Freeway Stop and Go"
+            cboSheet.AddItem "619-045: Right Lane/Shoulder Closure - Freeway Stop and Go (2 Sheets)"
+            cboSheet.AddItem "619-046: Right Two Lane Closure - Freeway Stop and Go (2 Sheets)"
+            cboSheet.AddItem "619-060: Lane Closure - Non-Freeway Pavement Marking (2 Sheets)"
+            cboSheet.AddItem "619-080: Work Beyond Shoulder - All Roadways"
             cboSheet.AddItem "619-090: Temporary Road Closure - Two-Lane Two-Way"
             cboSheet.AddItem "619-091: Temporary Intersection Closure - Two-Lane Two-Way"
-        Case "101-109: Stop & Go Operations (4 sheets)"
-            cboSheet.AddItem "619-101: Right Shoulder Closure - Non-Freeway Stop and Go"
-            cboSheet.AddItem "619-102: Lane Closure - Non-Freeway Stop and Go"
-            cboSheet.AddItem "619-103: Left Lane and Shoulder Closure - Freeway Stop and Go"
-            cboSheet.AddItem "619-104: Left Two Lane and Shoulder Closure - Freeway Stop and Go"
         Case "110-200: Mobile Operations (5 sheets)"
             cboSheet.AddItem "619-110: Lane Encroachment/Shoulder Closure - Freeway Mobile (2 Sheets)"
             cboSheet.AddItem "619-111: Right Lane Closure - Freeway Mobile (2 Sheets)"
@@ -1112,7 +1137,7 @@ Private Sub PopulateSheets(categoryName As String)
             cboSheet.AddItem "619-209: Left Two Lane Closure - Freeway Short Duration"
             cboSheet.AddItem "619-211: Left Shoulder Closure on Exit Ramp - Freeway Short Duration"
             cboSheet.AddItem "619-212: Right/Left Lane Closure - Parkway Short Duration"
-        Case "301-400: Short Term Operations (25 sheets)"
+        Case "301-400: Short Term Operations (24 sheets)"
             cboSheet.AddItem "619-301: Right Shoulder Closure - Freeway Short Term"
             cboSheet.AddItem "619-302: Right Lane Closure - All Roadways Short Term"
             cboSheet.AddItem "619-303: Right (or Left) Two Lane Closure - All Roadways Short Term"
@@ -1137,7 +1162,7 @@ Private Sub PopulateSheets(categoryName As String)
             cboSheet.AddItem "619-323: Flagging Operation at Intersection - Two-Lane Short Term"
             cboSheet.AddItem "619-324: Single Lane Shift with Two Way Left Turn Lane - Two-Lane Short Term"
             cboSheet.AddItem "619-325: Double Interior Lane Closure - Multilane Two-Way Short Term"
-        Case "401-500: Intermediate Operations (17 sheets)"
+        Case "401-500: Intermediate Operations (14 sheets)"
             cboSheet.AddItem "619-401: Right Shoulder Closure - Freeway Intermediate (2 Sheets)"
             cboSheet.AddItem "619-402: Right Lane Closure - All Roadways Intermediate (2 Sheets)"
             cboSheet.AddItem "619-403: Right (or Left) Two Lane Closure - All Roadways Intermediate (2 Sheets)"
@@ -1149,8 +1174,6 @@ Private Sub PopulateSheets(categoryName As String)
             cboSheet.AddItem "619-416: Partial Exit Ramp Closure - Freeway Intermediate (2 Sheets)"
             cboSheet.AddItem "619-417: Single Lane Closure Near Entrance Ramp - Freeway Intermediate (2 Sheets)"
             cboSheet.AddItem "619-418: Single Lane Closure Near Exit Ramp - Freeway Intermediate (2 Sheets)"
-            cboSheet.AddItem "619-419: Sidewalk Detour or Diversion - Two-Lane Intermediate (2 Sheets)"
-            cboSheet.AddItem "619-420: Crosswalk Closure and Pedestrian Detour - Two-Lane Intermediate"
             cboSheet.AddItem "619-421: Flagging Operation at Intersection - Two-Lane Intermediate (2 Sheets)"
             cboSheet.AddItem "619-422: Single Lane Shift with Two Way Left Turn Lane - Two-Lane Intermediate"
             cboSheet.AddItem "619-423: Double Interior Lane Closure - Multilane Two-Way Intermediate"
@@ -1431,23 +1454,6 @@ SpacingError:
 End Sub
 
 ' ============================================================
-' PARSE UPSTREAM TAPER — converts "X:Y" flare rate + lane width to taper length
-' Formula: upstreamTaper = laneWidth × (X / Y)
-' Example: "8:1" + 12ft lane → 12 × 8 = 96 ft
-' ============================================================
-Private Function ParseUpstreamTaper(flareStr As String, laneWid As Integer) As Double
-    On Error Resume Next
-    ParseUpstreamTaper = 0
-    If flareStr = "" Then Exit Function
-    Dim parts() As String: parts = Split(flareStr, ":")
-    If UBound(parts) < 1 Then Exit Function
-    Dim num As Double: num = CDbl(Trim(parts(0)))
-    Dim den As Double: den = CDbl(Trim(parts(1)))
-    If den = 0 Then Exit Function
-    ParseUpstreamTaper = laneWid * (num / den)
-End Function
-
-' ============================================================
 ' GENERATE SPACING TABLE BASED ON MUTCD NY STANDARDS
 ' Caches computed values, then auto-populates Upstream alignment.
 ' ============================================================
@@ -1456,254 +1462,31 @@ Private Sub GenerateSpacingTable()
     Dim downstreamTaper As Double, vehicleSpace As Double
     Dim bufferSpace As Double, mergingTaper As Double
     Dim shoulderTapers As Double, advancedWarningSpacing As Double
-    Dim skipMerge As Integer, chanMerge As Integer
-    Dim skipShoulder As Integer, chanShoulder As Integer
-    Dim skipBuffer As Integer, skipRollAhead As Integer
-    Dim flareBarrierStr As String, flareBeamStr As String
     Dim skipTotal As Integer, chanTotal As Integer
+    Dim flareBarrierStr As String, flareBeamStr As String
     Dim upTaperBarrierVal As Double, upTaperBeamVal As Double
+    Dim rollAhead As Double
 
     speed = Val(Left(selectedSpeed, 2))
     laneWidth = Val(Left(cboLaneWidth.Value, 2))
 
-    If LCase(Trim(selectedRoadType)) = "non-freeway" Then
-        downstreamTaper = 50
-    Else
-        downstreamTaper = 100
-    End If
-    vehicleSpace = 50
+    ' All spacing math lives in WZTCRules.ComputeSpacing (UI-free, testable)
+    Dim sp As WZTCSpacing
+    sp = WZTCRules.ComputeSpacing(speed, laneWidth, cboShoulderWidth.Value, selectedRoadType)
 
-    Select Case speed
-        Case 25: bufferSpace = 155
-        Case 30: bufferSpace = 200
-        Case 35: bufferSpace = 250
-        Case 40: bufferSpace = 305
-        Case 45: bufferSpace = 360
-        Case 50: bufferSpace = 425
-        Case 55: bufferSpace = 495
-        Case 65: bufferSpace = 645
-        Case Else: bufferSpace = speed * 70
-    End Select
-
-    Select Case speed
-        Case 25: skipBuffer = 4
-        Case 30: skipBuffer = 5
-        Case 35: skipBuffer = 6
-        Case 40: skipBuffer = 8
-        Case 45: skipBuffer = 9
-        Case 50: skipBuffer = 11
-        Case 55: skipBuffer = 13
-        Case 65: skipBuffer = 16
-        Case Else: skipBuffer = 0
-    End Select
-
-    Select Case speed
-        Case 25
-            Select Case laneWidth
-                Case 10: mergingTaper = 120: skipMerge = 3: chanMerge = 4
-                Case 11: mergingTaper = 120: skipMerge = 3: chanMerge = 4
-                Case 12: mergingTaper = 120: skipMerge = 3: chanMerge = 4
-                Case Else: mergingTaper = 120: skipMerge = 3: chanMerge = 4
-            End Select
-        Case 30
-            Select Case laneWidth
-                Case 10: mergingTaper = 160: skipMerge = 4: chanMerge = 5
-                Case 11: mergingTaper = 160: skipMerge = 4: chanMerge = 5
-                Case 12: mergingTaper = 200: skipMerge = 5: chanMerge = 6
-                Case Else: mergingTaper = 160: skipMerge = 4: chanMerge = 5
-            End Select
-        Case 35
-            Select Case laneWidth
-                Case 10: mergingTaper = 200: skipMerge = 5: chanMerge = 6
-                Case 11: mergingTaper = 240: skipMerge = 6: chanMerge = 7
-                Case 12: mergingTaper = 240: skipMerge = 6: chanMerge = 7
-                Case Else: mergingTaper = 200: skipMerge = 5: chanMerge = 6
-            End Select
-        Case 40
-            Select Case laneWidth
-                Case 10: mergingTaper = 280: skipMerge = 7: chanMerge = 8
-                Case 11: mergingTaper = 320: skipMerge = 8: chanMerge = 9
-                Case 12: mergingTaper = 320: skipMerge = 8: chanMerge = 9
-                Case Else: mergingTaper = 280: skipMerge = 7: chanMerge = 8
-            End Select
-        Case 45
-            Select Case laneWidth
-                Case 10: mergingTaper = 440: skipMerge = 11: chanMerge = 12
-                Case 11: mergingTaper = 520: skipMerge = 13: chanMerge = 14
-                Case 12: mergingTaper = 560: skipMerge = 14: chanMerge = 15
-                Case Else: mergingTaper = 440: skipMerge = 11: chanMerge = 12
-            End Select
-        Case 50
-            Select Case laneWidth
-                Case 10: mergingTaper = 520: skipMerge = 13: chanMerge = 14
-                Case 11: mergingTaper = 560: skipMerge = 14: chanMerge = 15
-                Case 12: mergingTaper = 600: skipMerge = 15: chanMerge = 16
-                Case Else: mergingTaper = 520: skipMerge = 13: chanMerge = 14
-            End Select
-        Case 55
-            Select Case laneWidth
-                Case 10: mergingTaper = 560: skipMerge = 14: chanMerge = 15
-                Case 11: mergingTaper = 600: skipMerge = 15: chanMerge = 16
-                Case 12: mergingTaper = 680: skipMerge = 17: chanMerge = 18
-                Case Else: mergingTaper = 560: skipMerge = 14: chanMerge = 15
-            End Select
-        Case 65
-            Select Case laneWidth
-                Case 10: mergingTaper = 640: skipMerge = 16: chanMerge = 17
-                Case 11: mergingTaper = 720: skipMerge = 18: chanMerge = 19
-                Case 12: mergingTaper = 800: skipMerge = 19: chanMerge = 20
-                Case Else: mergingTaper = 640: skipMerge = 16: chanMerge = 17
-            End Select
-        Case Else
-            mergingTaper = (speed * (laneWidth) ^ 2) / 60: skipMerge = 0: chanMerge = 0
-    End Select
-
-    Select Case speed
-        Case 25
-            Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "5-7 ft":  shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "8 ft":    shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "9 ft":    shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "10 ft":   shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "11 ft":   shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "12 ft":   shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case Else:      shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-            End Select
-        Case 30
-            Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "5-7 ft":  shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "8 ft":    shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "9 ft":    shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "10 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "11 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "12 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case Else:      shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-            End Select
-        Case 35
-            Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "5-7 ft":  shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-                Case "8 ft":    shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "9 ft":    shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "10 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "11 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case "12 ft":   shoulderTapers = 80: skipShoulder = 2: chanShoulder = 3
-                Case Else:      shoulderTapers = 40: skipShoulder = 1: chanShoulder = 2
-            End Select
-        Case 40
-            Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 40:  skipShoulder = 1: chanShoulder = 2
-                Case "5-7 ft":  shoulderTapers = 80:  skipShoulder = 1: chanShoulder = 2
-                Case "8 ft":    shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-                Case "9 ft":    shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-                Case "10 ft":   shoulderTapers = 120: skipShoulder = 2: chanShoulder = 3
-                Case "11 ft":   shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "12 ft":   shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case Else:      shoulderTapers = 40:  skipShoulder = 1: chanShoulder = 2
-            End Select
-        Case 45
-            Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-                Case "5-7 ft":  shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-                Case "8 ft":    shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "9 ft":    shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "10 ft":   shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "11 ft":   shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "12 ft":   shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case Else:      shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-            End Select
-        Case 50
-            Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-                Case "5-7 ft":  shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "8 ft":    shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "9 ft":    shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "10 ft":   shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "11 ft":   shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "12 ft":   shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case Else:      shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-            End Select
-        Case 55
-            Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-                Case "5-7 ft":  shoulderTapers = 120: skipShoulder = 3: chanShoulder = 4
-                Case "8 ft":    shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "9 ft":    shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "10 ft":   shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "11 ft":   shoulderTapers = 200: skipShoulder = 5: chanShoulder = 6
-                Case "12 ft":   shoulderTapers = 200: skipShoulder = 5: chanShoulder = 6
-                Case Else:      shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-            End Select
-        Case 65
-            Select Case cboShoulderWidth.Value
-                Case "<= 4 ft": shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-                Case "5-7 ft":  shoulderTapers = 160: skipShoulder = 4: chanShoulder = 5
-                Case "8 ft":    shoulderTapers = 200: skipShoulder = 5: chanShoulder = 6
-                Case "9 ft":    shoulderTapers = 240: skipShoulder = 6: chanShoulder = 7
-                Case "10 ft":   shoulderTapers = 240: skipShoulder = 6: chanShoulder = 7
-                Case "11 ft":   shoulderTapers = 280: skipShoulder = 7: chanShoulder = 8
-                Case "12 ft":   shoulderTapers = 280: skipShoulder = 7: chanShoulder = 8
-                Case Else:      shoulderTapers = 80:  skipShoulder = 2: chanShoulder = 3
-            End Select
-        Case Else
-            shoulderTapers = speed * 0.8: skipShoulder = 0: chanShoulder = 0
-    End Select
-
-    Select Case speed
-        Case 25: advancedWarningSpacing = 515
-        Case 30: advancedWarningSpacing = 620
-        Case 35: advancedWarningSpacing = 720
-        Case 40: advancedWarningSpacing = 825
-        Case 45: advancedWarningSpacing = 930
-        Case 50: advancedWarningSpacing = 1030
-        Case 55: advancedWarningSpacing = 1135
-        Case 65: advancedWarningSpacing = 1365
-        Case Else: advancedWarningSpacing = speed * 10
-    End Select
-
-    Dim rollAhead As Double
-    Select Case speed
-        Case 25, 30, 35, 40: rollAhead = 120
-        Case 45, 50, 55:     rollAhead = 160
-        Case 65:             rollAhead = 200
-        Case Else:           rollAhead = 120
-    End Select
-
-    Dim skipRollAheadVal As Integer
-    Select Case speed
-        Case 25, 30, 35, 40: skipRollAheadVal = 3
-        Case 45, 50, 55:     skipRollAheadVal = 4
-        Case 65:             skipRollAheadVal = 5
-        Case Else:           skipRollAheadVal = 0
-    End Select
-    skipRollAhead = skipRollAheadVal
-
-    Select Case speed
-        Case 25, 30, 35: flareBarrierStr = "8:1"
-        Case 40, 45:     flareBarrierStr = "11:1"
-        Case 50:         flareBarrierStr = "14:1"
-        Case 55:         flareBarrierStr = "16:1"
-        Case 65:         flareBarrierStr = "20:1"
-        Case Else:       flareBarrierStr = ""
-    End Select
-
-    Select Case speed
-        Case 25, 30, 35: flareBeamStr = "7:1"
-        Case 40, 45:     flareBeamStr = "9:1"
-        Case 50:         flareBeamStr = "11:1"
-        Case 55:         flareBeamStr = "12:1"
-        Case 65:         flareBeamStr = "15:1"
-        Case Else:       flareBeamStr = ""
-    End Select
-
-    skipTotal = skipMerge + skipShoulder + skipBuffer + skipRollAhead
-    chanTotal = chanMerge + chanShoulder
-
-    ' Upstream taper = laneWidth × (flare numerator / flare denominator)
-    upTaperBarrierVal = ParseUpstreamTaper(flareBarrierStr, laneWidth)
-    upTaperBeamVal    = ParseUpstreamTaper(flareBeamStr, laneWidth)
+    downstreamTaper = sp.DownstreamTaper
+    vehicleSpace = sp.VehicleSpace
+    bufferSpace = sp.BufferSpace
+    mergingTaper = sp.MergingTaper
+    shoulderTapers = sp.ShoulderTaper
+    advancedWarningSpacing = sp.AdvanceWarningSpacing
+    rollAhead = sp.RollAheadDistance
+    flareBarrierStr = sp.FlareBarrier
+    flareBeamStr = sp.FlareBeam
+    upTaperBarrierVal = sp.UpTaperBarrier
+    upTaperBeamVal = sp.UpTaperBeam
+    skipTotal = sp.SkipTotal
+    chanTotal = sp.ChanTotal
 
     ' Populate spacing display textboxes
     frameSpacingValues.Controls("txtDownstreamTaper").Value = Format(downstreamTaper, "0.0")
@@ -1721,14 +1504,7 @@ Private Sub GenerateSpacingTable()
     frameSpacingValues.Controls("txtUpTaperBeam").Value = Format(upTaperBeamVal, "0.0")
 
     ' Cache values and auto-populate Upstream and Downstream alignments
-    cachedDownstreamTaper = downstreamTaper
-    cachedRollAhead = rollAhead
-    cachedVehicleSpace = vehicleSpace
-    cachedBufferSpace = bufferSpace
-    cachedMergingTaper = mergingTaper
-    cachedShoulderTapers = shoulderTapers
-    cachedUpTaperBarrier = upTaperBarrierVal
-    cachedUpTaperBeam = upTaperBeamVal
+    cachedSpacing = sp
     hasSpacingData = True
     Call AutoPopulateWZTCItems(1)
     Call AutoPopulateWZTCItems(2)

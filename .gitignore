@@ -15,3 +15,16 @@ obj/
 # Ignore system files
 Thumbs.db
 .DS_Store
+
+# WZTC agent bridge — runtime request/response/journal files (M1+)
+Bridge/*.tsv
+
+# Python MCP server (M5) — cache and local venvs, not source
+mcp-server/__pycache__/
+mcp-server/.venv/
+mcp-server/venv/
+
+# Large reference PDFs (~66MB total) — kept locally for reference, not in git
+Project Documentation/2026_1_stdsht_usc_book_3.pdf
+Project Documentation/B-2011Supplement-adopted.pdf
+Project Documentation/part6.pdf

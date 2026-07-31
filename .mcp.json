@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "wztc-designer": {
+      "command": "python",
+      "args": [
+        "c:\\repos\\microstation-vba-project\\mcp-server\\server.py"
+      ]
+    }
+  }
+}

@@ -245,7 +245,7 @@ Good reasons to add something to CLAUDE.md:
 Example additions you might make over time:
 ```markdown
 ## New Rule Added After v1.2.0
-When writing cost estimate code, always read DesignerRef.bas first — it contains
+When writing cost estimate code, always read WZTCRules.bas first — it contains
 all the spacing constants and item codes used in cost calculations.
 ```
 

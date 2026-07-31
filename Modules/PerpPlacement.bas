@@ -106,7 +106,7 @@ End Sub
 ' recorded click point, and fills pathSegs().
 ' Returns True on success.
 ' ============================================================
-Private Function BuildAlignmentPath(aIdx As Integer) As Boolean
+Public Function BuildAlignmentPath(aIdx As Integer) As Boolean
     On Error GoTo BuildErr
 
     pathSegCount = 0

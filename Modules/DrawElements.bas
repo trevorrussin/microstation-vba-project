@@ -25,7 +25,7 @@ Public currentElementIdx As Integer   ' 1-based index
 ' ============================================================
 ' ELEMENT METADATA
 ' ============================================================
-Private Function GetElementName(idx As Integer) As String
+Public Function GetElementName(idx As Integer) As String
     Select Case idx
         Case 1: GetElementName = "Work Space"
         Case 2: GetElementName = "Channelizing Devices"
@@ -36,7 +36,7 @@ Private Function GetElementName(idx As Integer) As String
     End Select
 End Function
 
-Private Function GetElementLevel(idx As Integer) As String
+Public Function GetElementLevel(idx As Integer) As String
     Select Case idx
         Case 1: GetElementLevel = "TWZWS2_P"
         Case 2: GetElementLevel = "TWZCD_P"
