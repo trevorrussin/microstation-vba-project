@@ -1,2 +1,5 @@
 mcp>=2.0.0
 pywin32
+pymupdf
+anthropic>=0.115.0
+python-dotenv

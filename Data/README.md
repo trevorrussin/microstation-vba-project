@@ -1,8 +1,9 @@
 # Data
 
-External data files read by both VBA (`Modules/WZTCSheetRegistry.bas`) and any future
-Python MCP server — deliberately kept as plain data files rather than VBA modules, since
-both sides need to read the same source (per the plan's M4 design).
+External data files read by both VBA (`Modules/WZTCSheetRegistry.bas`,
+`Modules/WZTCCommandRegistry.bas`) and the Python MCP server — deliberately
+kept as plain data files rather than VBA modules, since both sides need to
+read the same source.
 
 ## sheet-registry.tsv
 
@@ -48,8 +49,75 @@ guess from the sheet title alone — several titles look similar (e.g. every "Ri
 Closure" variant has different sign sets depending on road type and duration).
 
 **Line endings must be CRLF, not bare LF.** VBA's `Line Input #` (used by
-`WZTCSheetRegistry.ReadAllLines`) reads a bare-LF file as a single giant line instead of
-one line per row — confirmed by testing, not theoretical. Every file VBA itself writes
-(e.g. `Bridge/*.tsv` via `Print #`) is CRLF for exactly this reason. If you edit this file
-with a tool that saves LF-only (common on non-Windows editors), convert it back to CRLF
-before it'll read correctly.
+`WZTCSheetRegistry.ReadAllLines` / `WZTCCommandRegistry.ReadAllLines`) reads a bare-LF
+file as a single giant line instead of one line per row — confirmed by testing, not
+theoretical. Every file VBA itself writes (e.g. `Bridge/*.tsv` via `Print #`) is CRLF for
+exactly this reason. If you edit this file with a tool that saves LF-only (common on
+non-Windows editors), convert it back to CRLF before it'll read correctly.
+
+## command-registry.tsv
+
+Catalog of named MicroStation command **recipes** the agent may (or may not) run.
+Safety is a property of the whole call sequence, never the bare command string alone —
+the same token (e.g. `PLACE CELL ICON`) appears at both headless-safe and
+`GetInput`-dependent call sites elsewhere in this repo.
+
+Read by `Modules/WZTCCommandRegistry.bas`. The MCP tools `list_registry_commands` /
+`describe_registry_command` / `run_registry_command` surface it; `TEST_REGISTRY_COMMAND`
+exists only on the VBA side (manual IDE promotion) and is **not** exposed to the agent.
+
+### Columns
+
+```
+opName  category  safetyStatus  recipeLines  vbaFunction  requiredParams
+optionalParams  createsElements  ownElementOnly  sourceRefs  addedDate
+promotedDate  notes
+```
+
+- `category`: `keyin_recipe` (interpreted from `recipeLines`) or `direct_api`
+  (bespoke `WZTCExec` function; the row is bookkeeping/gating only — call the
+  dedicated bridge op, not `RUN_REGISTRY_COMMAND`).
+- `safetyStatus` is the enforcement gate:
+  - `verified-headless-safe` — only status `ExecuteRecipe` / `RUN_REGISTRY_COMMAND` will run
+  - `needs-testing` — catalogued, refused at execution
+  - `interactive-only-use-handoff` — known to need a live click; points at `HANDOFF`
+  - `unsafe-blocked` — confirmed activate-and-abandon; not promotable without redesign
+- `recipeLines` mini-DSL (pipe-separated): `KEYIN:text{param}` / `COMMAND:text{param}` /
+  `SETCELL:{cellName}` / `DATAPOINT:{ptX},{ptY},{ptZ}` / `RESET` / `DEFAULTCOMMAND`
+- `requiredParams` / `optionalParams`: pipe-separated param names (`level|color`)
+- `createsElements` / `ownElementOnly`: `Y`/`N`
+
+### Structural close-out guard
+
+Any recipe with a `COMMAND:` step must also include `DATAPOINT:` and `RESET`,
+regardless of `safetyStatus`. Second defense against the
+`BBMarkupProcessor.ExecuteAddDimension` / `ExecuteAddCallout` activate-and-abandon
+anti-pattern (tool armed, `Status = "Done"`, no points sent).
+
+### Promotion process (`needs-testing` → `verified-headless-safe`)
+
+1. Add a row with `safetyStatus=needs-testing` — inert by construction.
+2. Test by hand in the MicroStation VBA IDE (type the keyin, or hand-edit
+   `Bridge/request.tsv` with `TEST_REGISTRY_COMMAND` and send the keyin yourself).
+3. On success, flip `safetyStatus` to `verified-headless-safe` and fill
+   `promotedDate` / `sourceRefs`. No VBA or Python code change needed for
+   `keyin_recipe` promotions.
+
+### Seed / current inventory
+
+Built by live COM probe against this install, sourced from **outside** this
+repo as well as in-repo call sites: COD OT MicroStation Keyin Reference,
+Axiom’s 80+ two-letter key-ins, WSDOT CAE function-key notes, plus CONNECT
+long-form `ACTIVE`/`SET`/`LOCK`/`VIEW` variants. Probe results for the latest
+external batch are in `Bridge/keyin-probe-results.json`.
+
+`verified-headless-safe` = settings / view / lock / selection keyins that
+returned without hanging. `unsafe-blocked` = bare tools, dialogs, and
+precision datapoints that return fast but arm UI or need clicks.
+`needs-testing` = higher-impact file/undo keyins not batch-probed.
+`interactive-only-use-handoff` = dimensions/callouts.
+
+M1–M5 draw ops are **not** catalogued here yet — they already work via
+dedicated bridge ops.
+
+Same CRLF requirement as `sheet-registry.tsv`.

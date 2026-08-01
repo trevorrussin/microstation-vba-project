@@ -28,3 +28,25 @@ mcp-server/venv/
 Project Documentation/2026_1_stdsht_usc_book_3.pdf
 Project Documentation/B-2011Supplement-adopted.pdf
 Project Documentation/part6.pdf
+
+# M7 — FTS5 index built from the reference PDFs above (regenerate via
+# mcp-server/ingest_manuals.py); chat-panel conversation history
+Data/manual-index.sqlite
+Bridge/chat-history.json
+
+# M7 — real API key file (see mcp-server/.env.example for the template).
+# NEVER remove this line or commit the real .env.
+mcp-server/.env
+
+# Reference .ts files dropped in Project Documentation for prompt-injection
+# pattern reference only -- from a different (TypeScript/web) project, not
+# part of this repo's source.
+Project Documentation/*.ts
+
+# Regenerable key-in probe output (scripts/keyin_batch.py) -- rerun
+# `python scripts/keyin_batch.py probe` to reproduce; see scripts/README.md.
+Bridge/keyin-probe-batch.json
+Bridge/keyin-probe-results.json
+
+# Python bytecode cache, any location
+__pycache__/

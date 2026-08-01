@@ -16,6 +16,10 @@ Option Explicit
 ' executes -> file response, with a journal entry) before the
 ' full WZTCExec / WZTCQuery layers are built on top of it.
 '
+' M2-M6 have since layered query/compute/draw/handoff/undo and
+' the command-registry edit vocabulary onto the same ExecuteOp
+' dispatcher. PLACE_CELL remains the simplest end-to-end proof.
+'
 ' Trigger from MicroStation Key-in: VBA RUN [ProjectName]WZTCBridge.RunRequest
 ' Trigger externally: an automation client sends the same keyin over COM.
 ' ============================================================
@@ -25,6 +29,16 @@ Private Const REQUEST_FILE As String = BRIDGE_DIR & "request.tsv"
 Private Const RESPONSE_FILE As String = BRIDGE_DIR & "response.tsv"
 Private Const JOURNAL_FILE As String = BRIDGE_DIR & "wztc-journal.tsv"
 Private Const HANDOFF_FILE As String = BRIDGE_DIR & "deferred-handoffs.tsv"
+
+' M7 (Stage 3) -- separate file pair for the chat-driver process
+' (mcp-server/chat_driver.py), so it can hold its own COM connection to
+' MicroStation alongside an existing Claude Code MCP session without both
+' racing on the same request.tsv/response.tsv (each process's Python-side
+' reqId counter independently starts at P1 -- see bridge_client.py). Shares
+' ExecuteOp / the journal / everything else; only the request/response
+' files differ.
+Private Const CHAT_TOOL_REQUEST_FILE As String = BRIDGE_DIR & "chat-tool-request.tsv"
+Private Const CHAT_TOOL_RESPONSE_FILE As String = BRIDGE_DIR & "chat-tool-response.tsv"
 
 Private Const WZTC_CELL_LIB As String = "c:\pwworking\usny\d0119091\ny_plan_wztc.cel"
 
@@ -51,6 +65,36 @@ Public Sub RunRequest()
     Next i
 
     Call WriteLines(RESPONSE_FILE, responses, n)
+End Sub
+
+' ============================================================
+' CHAT-TOOL ENTRY POINT (M7) -- identical to RunRequest, pointed at
+' the chat-driver's own file pair instead. Trigger:
+'   VBA RUN [ProjectName]WZTCBridge.RunChatToolRequest
+' Every op still goes through the shared ExecuteOp dispatcher and the
+' shared JOURNAL_FILE, so the audit trail is identical in shape
+' regardless of which front end (this, or the file+keyin path any MCP
+' client uses) issued the op.
+' ============================================================
+Public Sub RunChatToolRequest()
+    Dim reqLines() As String
+    Dim n As Integer
+    n = ReadAllLines(CHAT_TOOL_REQUEST_FILE, reqLines)
+
+    If n = 0 Then
+        Call WriteFile(CHAT_TOOL_RESPONSE_FILE, "" & vbTab & "ERROR" & vbTab & "note=no request found or file empty")
+        Exit Sub
+    End If
+
+    Dim responses() As String
+    ReDim responses(1 To n)
+
+    Dim i As Integer
+    For i = 1 To n
+        responses(i) = ExecuteOp(reqLines(i))
+    Next i
+
+    Call WriteLines(CHAT_TOOL_RESPONSE_FILE, responses, n)
 End Sub
 
 ' ============================================================
@@ -126,6 +170,24 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = ExecGetJournal(reqId, params)
         Case "LIST_DEFERRED_HANDOFFS"
             ExecuteOpInner = ExecListDeferredHandoffs(reqId, params)
+        Case "LIST_REGISTRY_COMMANDS"
+            ExecuteOpInner = ExecListRegistryCommands(reqId, params)
+        Case "DESCRIBE_REGISTRY_COMMAND"
+            ExecuteOpInner = ExecDescribeRegistryCommand(reqId, params)
+        Case "RUN_REGISTRY_COMMAND"
+            ExecuteOpInner = ExecRunRegistryCommand(reqId, params, False)
+        Case "TEST_REGISTRY_COMMAND"
+            ' Promotion-only: bypasses needs-testing gate for exactly one
+            ' manual IDE run. Never exposed in mcp-server/server.py.
+            ExecuteOpInner = ExecRunRegistryCommand(reqId, params, True)
+        Case "MOVE_ELEMENT"
+            ExecuteOpInner = BridgeMoveElement(reqId, params)
+        Case "CHANGE_ELEMENT_LEVEL"
+            ExecuteOpInner = BridgeChangeElementLevel(reqId, params)
+        Case "EDIT_TEXT_ELEMENT"
+            ExecuteOpInner = BridgeEditTextElement(reqId, params)
+        Case "DELETE_ELEMENT"
+            ExecuteOpInner = BridgeDeleteElement(reqId, params)
         Case Else
             ExecuteOpInner = reqId & vbTab & "ERROR" & vbTab & "note=unknown op type: " & opType
     End Select
@@ -577,11 +639,15 @@ End Function
 ' its exact grouping behavior across a multi-element op (PLACE_SIGN
 ' creates 4 elements in one call) has not been verified in the IDE,
 ' and the plan explicitly flags the MARK keyin / API as unconfirmed.
-' Instead this walks the journal backward for the most recent draw
-' op that isn't already undone, reads back the elements it created
-' (createdElementIds= or elementId=), and deletes exactly those via
-' WZTCExec.ExecDeleteElementsByID — deterministic and independently
-' testable without guessing at undo-stack semantics.
+' Instead this walks the journal backward for the most recent
+' undoable op that isn't already undone:
+'   - createdElementIds= / elementId=  -> delete those elements
+'   - priorDeltaX/Y/Z=                 -> re-apply reverse move (M6)
+'   - priorLevel=                      -> restore prior level (M6)
+'   - priorText=                       -> restore prior text (M6)
+' DELETE_ELEMENT is intentionally NOT undoable (no snapshot) —
+' its response carries none of the above fields, so the walk
+' skips it and keeps looking. Same honesty pattern as HANDOFF.
 ' ============================================================
 Private Function ExecUndoLastOp(reqId As String, params As Object) As String
     On Error GoTo UErr
@@ -618,27 +684,16 @@ Private Function ExecUndoLastOp(reqId As String, params As Object) As String
             If UBound(parts) >= 3 Then
                 Dim origReqId As String: origReqId = parts(2)
                 If Not undoneSoFar.Exists(origReqId) Then
-                    Dim idsField As String: idsField = ""
-                    Dim j As Integer
-                    For j = 4 To UBound(parts)
-                        If Left(parts(j), Len("createdElementIds=")) = "createdElementIds=" Then
-                            idsField = Mid(parts(j), Len("createdElementIds=") + 1)
-                            Exit For
-                        ElseIf Left(parts(j), Len("elementId=")) = "elementId=" And idsField = "" Then
-                            idsField = Mid(parts(j), Len("elementId=") + 1)
-                        End If
-                    Next j
-                    If idsField <> "" Then
-                        Dim delResult As String
-                        delResult = WZTCExec.ExecDeleteElementsByID(idsField)
-
+                    Dim undoResult As String
+                    undoResult = TryUndoFromRespFields(parts)
+                    If undoResult <> "" Then
                         Dim fnum As Integer: fnum = FreeFile
                         Open JOURNAL_FILE For Append As #fnum
-                        Print #fnum, Now & vbTab & "UNDONE" & vbTab & origReqId & vbTab & delResult
+                        Print #fnum, Now & vbTab & "UNDONE" & vbTab & origReqId & vbTab & undoResult
                         Close #fnum
 
                         ExecUndoLastOp = reqId & vbTab & "OK" & vbTab & "undidReqId=" & origReqId & _
-                                        vbTab & "note=" & delResult
+                                        vbTab & "notUndoable=Y" & vbTab & "note=" & undoResult
                         Exit Function
                     End If
                 End If
@@ -652,6 +707,91 @@ Private Function ExecUndoLastOp(reqId As String, params As Object) As String
 
 UErr:
     ExecUndoLastOp = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Returns the Exec* result string if this RESP line is undoable,
+' or "" if it has no undoable fields (e.g. DELETE_ELEMENT, HANDOFF,
+' a query, or an ERROR response).
+Private Function TryUndoFromRespFields(parts() As String) As String
+    ' Checked first, unconditionally: UNDO_LAST_OP's own RESP line embeds
+    ' the underlying mutation's result verbatim (e.g. undoing a move emits
+    ' elementId=/priorDeltaX= just like a fresh MOVE_ELEMENT would), so
+    ' without this check a second undo_last_op call parses the first
+    ' undo's own response as itself undoable and "undoes the undo" (a
+    ' redo) instead of continuing further back through real history.
+    ' Confirmed live 2026-07-31: a 3rd undo call ping-ponged a moved
+    ' element back and forth instead of reaching the original PLACE_CELL.
+    ' ExecUndoLastOp declares notUndoable=Y on itself for exactly this.
+    Dim k As Integer
+    For k = 4 To UBound(parts)
+        If Left(parts(k), Len("notUndoable=")) = "notUndoable=" Then
+            TryUndoFromRespFields = ""
+            Exit Function
+        End If
+    Next k
+
+    Dim idsField As String: idsField = ""
+    Dim elId As String: elId = ""
+    Dim priorDX As String: priorDX = ""
+    Dim priorDY As String: priorDY = ""
+    Dim priorDZ As String: priorDZ = "0"
+    Dim priorLevel As String: priorLevel = ""
+    Dim priorText As String: priorText = ""
+    Dim hasPriorDelta As Boolean: hasPriorDelta = False
+    Dim hasPriorLevel As Boolean: hasPriorLevel = False
+    Dim hasPriorText As Boolean: hasPriorText = False
+
+    Dim j As Integer
+    For j = 4 To UBound(parts)
+        If Left(parts(j), Len("createdElementIds=")) = "createdElementIds=" Then
+            idsField = Mid(parts(j), Len("createdElementIds=") + 1)
+        ElseIf Left(parts(j), Len("elementId=")) = "elementId=" Then
+            If elId = "" Then elId = Mid(parts(j), Len("elementId=") + 1)
+            If idsField = "" Then idsField = elId
+        ElseIf Left(parts(j), Len("priorDeltaX=")) = "priorDeltaX=" Then
+            priorDX = Mid(parts(j), Len("priorDeltaX=") + 1)
+            hasPriorDelta = True
+        ElseIf Left(parts(j), Len("priorDeltaY=")) = "priorDeltaY=" Then
+            priorDY = Mid(parts(j), Len("priorDeltaY=") + 1)
+            hasPriorDelta = True
+        ElseIf Left(parts(j), Len("priorDeltaZ=")) = "priorDeltaZ=" Then
+            priorDZ = Mid(parts(j), Len("priorDeltaZ=") + 1)
+        ElseIf Left(parts(j), Len("priorLevel=")) = "priorLevel=" Then
+            priorLevel = Mid(parts(j), Len("priorLevel=") + 1)
+            hasPriorLevel = True
+        ElseIf Left(parts(j), Len("priorText=")) = "priorText=" Then
+            priorText = Mid(parts(j), Len("priorText=") + 1)
+            hasPriorText = True
+        End If
+    Next j
+
+    ' Mutation undos take priority over a bare elementId= delete when
+    ' both are present (MOVE/CHANGE_LEVEL/EDIT_TEXT all emit elementId=
+    ' plus their prior* field — undoing those means restoring state,
+    ' not deleting the element).
+    If hasPriorDelta And elId <> "" Then
+        TryUndoFromRespFields = WZTCExec.ExecMoveElementByID(CDbl(elId), _
+            CDbl(priorDX), CDbl(priorDY), CDbl(priorDZ))
+        Exit Function
+    End If
+    If hasPriorLevel And elId <> "" Then
+        TryUndoFromRespFields = WZTCExec.ExecChangeElementLevelByID(CDbl(elId), priorLevel)
+        Exit Function
+    End If
+    If hasPriorText And elId <> "" Then
+        TryUndoFromRespFields = WZTCExec.ExecEditTextByID(CDbl(elId), priorText)
+        Exit Function
+    End If
+    If idsField <> "" And Not hasPriorDelta And Not hasPriorLevel And Not hasPriorText Then
+        ' DELETE_ELEMENT responses carry elementId= of what was removed
+        ' but recreating it is impossible -- already filtered out above
+        ' via their notUndoable=Y flag, so anything reaching here is a
+        ' genuine create (createdElementIds=/elementId= from a draw op).
+        TryUndoFromRespFields = WZTCExec.ExecDeleteElementsByID(idsField)
+        Exit Function
+    End If
+
+    TryUndoFromRespFields = ""
 End Function
 
 ' ============================================================
@@ -715,19 +855,306 @@ QErr:
 End Function
 
 ' ============================================================
+' M6 — COMMAND REGISTRY OPS
+' ============================================================
+
+Private Function ExecListRegistryCommands(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    Dim safetyFilter As String: safetyFilter = ""
+    If params.Exists("safetyStatus") Then safetyFilter = CStr(params("safetyStatus"))
+    Dim rows() As String
+    rows = WZTCCommandRegistry.ListCommands(safetyFilter)
+    ExecListRegistryCommands = WriteResultRows(reqId, rows)
+    Exit Function
+QErr:
+    ExecListRegistryCommands = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function ExecDescribeRegistryCommand(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    If Not params.Exists("opName") Then
+        ExecDescribeRegistryCommand = reqId & vbTab & "ERROR" & vbTab & "note=missing opName"
+        Exit Function
+    End If
+
+    Dim row As Object
+    Set row = WZTCCommandRegistry.LookupCommand(CStr(params("opName")))
+    If row Is Nothing Then
+        ExecDescribeRegistryCommand = reqId & vbTab & "ERROR" & vbTab & _
+            "note=op not in registry: " & params("opName")
+        Exit Function
+    End If
+
+    Dim kv As String: kv = ""
+    Dim k As Variant
+    For Each k In row.Keys
+        kv = kv & vbTab & CStr(k) & "=" & CStr(row(k))
+    Next k
+    ExecDescribeRegistryCommand = reqId & vbTab & "OK" & kv
+    Exit Function
+QErr:
+    ExecDescribeRegistryCommand = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' allowNeedsTesting=True only for TEST_REGISTRY_COMMAND (manual IDE).
+Private Function ExecRunRegistryCommand(reqId As String, params As Object, _
+                                        allowNeedsTesting As Boolean) As String
+    On Error GoTo WErr
+    If Not params.Exists("opName") Then
+        ExecRunRegistryCommand = reqId & vbTab & "ERROR" & vbTab & "note=missing opName"
+        Exit Function
+    End If
+
+    Dim opName As String: opName = CStr(params("opName"))
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate(opName, allowNeedsTesting)
+    If gateMsg <> "" Then
+        ExecRunRegistryCommand = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim row As Object
+    Set row = WZTCCommandRegistry.LookupCommand(opName)
+    Dim creates As Boolean
+    creates = False
+    If Not row Is Nothing Then
+        If UCase(Trim(row("createsElements"))) = "Y" Then creates = True
+    End If
+
+    Dim beforeMaxID As Double: beforeMaxID = 0
+    If creates Then beforeMaxID = FindMaxElementID()
+
+    Dim result As String
+    result = WZTCCommandRegistry.ExecuteRecipe(opName, params, allowNeedsTesting)
+    If Left(result, 2) = "OK" And creates Then
+        result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    End If
+    ExecRunRegistryCommand = reqId & vbTab & result
+    Exit Function
+WErr:
+    ExecRunRegistryCommand = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' M6 — DIRECT-API EDIT OPS
+' ownElementOnly defaults to Y: target must appear as a
+' createdElementIds= / elementId= value in the journal, matching
+' the plan's original M6 scope ("elements the agent itself created").
+' ============================================================
+
+Private Function BridgeMoveElement(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("deltaX") And params.Exists("deltaY")) Then
+        BridgeMoveElement = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId/deltaX/deltaY"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("MOVE_ELEMENT")
+    If gateMsg <> "" Then
+        BridgeMoveElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then
+        BridgeMoveElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gate
+        Exit Function
+    End If
+
+    Dim deltaZ As Double: deltaZ = 0
+    If params.Exists("deltaZ") Then deltaZ = CDbl(params("deltaZ"))
+
+    Dim result As String
+    result = WZTCExec.ExecMoveElementByID(CDbl(params("elementId")), _
+                                          CDbl(params("deltaX")), CDbl(params("deltaY")), deltaZ)
+    BridgeMoveElement = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeMoveElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeChangeElementLevel(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("level")) Then
+        BridgeChangeElementLevel = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId/level"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("CHANGE_ELEMENT_LEVEL")
+    If gateMsg <> "" Then
+        BridgeChangeElementLevel = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then
+        BridgeChangeElementLevel = reqId & vbTab & "ERROR" & vbTab & "note=" & gate
+        Exit Function
+    End If
+
+    Dim result As String
+    result = WZTCExec.ExecChangeElementLevelByID(CDbl(params("elementId")), CStr(params("level")))
+    BridgeChangeElementLevel = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeChangeElementLevel = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeEditTextElement(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("newText")) Then
+        BridgeEditTextElement = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId/newText"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("EDIT_TEXT_ELEMENT")
+    If gateMsg <> "" Then
+        BridgeEditTextElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then
+        BridgeEditTextElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gate
+        Exit Function
+    End If
+
+    Dim result As String
+    result = WZTCExec.ExecEditTextByID(CDbl(params("elementId")), CStr(params("newText")))
+    BridgeEditTextElement = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeEditTextElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeDeleteElement(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("elementId") Then
+        BridgeDeleteElement = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("DELETE_ELEMENT")
+    If gateMsg <> "" Then
+        BridgeDeleteElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then
+        BridgeDeleteElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gate
+        Exit Function
+    End If
+
+    Dim result As String
+    result = WZTCExec.ExecDeleteElementsByID(CStr(params("elementId")))
+    ' Always declare not-undoable — no snapshot to restore. UNDO_LAST_OP
+    ' skips RESP lines carrying notUndoable=Y.
+    If Left(result, 2) = "OK" Then
+        result = result & vbTab & "notUndoable=Y" & vbTab & _
+                 "note=DELETE_ELEMENT is not undoable via UNDO_LAST_OP (no snapshot to restore)"
+    End If
+    BridgeDeleteElement = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeDeleteElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Defaults to True (ownElementOnly=Y) unless the caller explicitly
+' passes ownElementOnly=N. Expanding to "edit anything in the DGN"
+' must be an intentional opt-out, never the silent default.
+Private Function OwnElementOnlyFlag(params As Object) As Boolean
+    OwnElementOnlyFlag = True
+    If params.Exists("ownElementOnly") Then
+        Dim v As String: v = UCase(Trim(CStr(params("ownElementOnly"))))
+        If v = "N" Or v = "0" Or v = "FALSE" Then OwnElementOnlyFlag = False
+    End If
+End Function
+
+' Returns "" if the gate passes; otherwise a refusal reason.
+Private Function CheckOwnElementGate(elementId As String, ownOnly As Boolean) As String
+    If Not ownOnly Then
+        CheckOwnElementGate = ""
+        Exit Function
+    End If
+    If ElementIdInJournal(elementId) Then
+        CheckOwnElementGate = ""
+    Else
+        CheckOwnElementGate = "ownElementOnly refused: elementId " & elementId & _
+            " is not in the journal as a createdElementIds=/elementId= value " & _
+            "(agent may only edit elements it itself created; pass ownElementOnly=N to override)"
+    End If
+End Function
+
+Private Function ElementIdInJournal(elementId As String) As Boolean
+    Dim allLines() As String
+    Dim n As Integer
+    n = ReadAllLines(JOURNAL_FILE, allLines)
+    Dim want As String: want = Trim(elementId)
+    Dim i As Integer
+    For i = 1 To n
+        Dim ln As String: ln = allLines(i)
+        If InStr(ln, vbTab & "RESP" & vbTab) > 0 Then
+            Dim parts() As String: parts = Split(ln, vbTab)
+            Dim j As Integer
+            For j = 0 To UBound(parts)
+                If Left(parts(j), Len("createdElementIds=")) = "createdElementIds=" Then
+                    If IdListContains(Mid(parts(j), Len("createdElementIds=") + 1), want) Then
+                        ElementIdInJournal = True
+                        Exit Function
+                    End If
+                ElseIf Left(parts(j), Len("elementId=")) = "elementId=" Then
+                    If Trim(Mid(parts(j), Len("elementId=") + 1)) = want Then
+                        ElementIdInJournal = True
+                        Exit Function
+                    End If
+                End If
+            Next j
+        End If
+    Next i
+    ElementIdInJournal = False
+End Function
+
+Private Function IdListContains(idsCSV As String, want As String) As Boolean
+    Dim ids() As String: ids = Split(idsCSV, ",")
+    Dim i As Integer
+    For i = 0 To UBound(ids)
+        If Trim(ids(i)) = want Then
+            IdListContains = True
+            Exit Function
+        End If
+    Next i
+    IdListContains = False
+End Function
+
+' ============================================================
 ' TSV PARAM PARSING — key=val<TAB>key=val... -> Dictionary
 ' Late-bound Scripting.Dictionary: available on stock Windows
 ' (scrrun.dll) in both 32- and 64-bit hosts, unlike MSScriptControl.
+' Values may themselves contain '=' (e.g. newText=a=b) — only the
+' first '=' splits key from value; the rest is rejoined.
 ' ============================================================
 Private Function ParseParams(parts() As String) As Object
     Dim d As Object
     Set d = CreateObject("Scripting.Dictionary")
     Dim i As Integer
     For i = 2 To UBound(parts)
-        Dim kv() As String
-        kv = Split(parts(i), "=")
-        If UBound(kv) >= 1 Then
-            d(Trim(kv(0))) = Trim(kv(1))
+        Dim eqPos As Integer
+        eqPos = InStr(parts(i), "=")
+        If eqPos > 0 Then
+            d(Trim(Left(parts(i), eqPos - 1))) = Trim(Mid(parts(i), eqPos + 1))
         End If
     Next i
     Set ParseParams = d

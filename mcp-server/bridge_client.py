@@ -28,6 +28,14 @@ import win32com.client
 BRIDGE_DIR = Path(r"c:\repos\microstation-vba-project\Bridge")
 REQUEST_FILE = BRIDGE_DIR / "request.tsv"
 RESPONSE_FILE = BRIDGE_DIR / "response.tsv"
+RUN_SUB = "WZTCBridge.RunRequest"
+
+# M7 — chat_driver.py's own file pair + VBA entry point (WZTCBridge.
+# RunChatToolRequest), so it doesn't race the module-level `bridge`
+# singleton below on the same request.tsv/response.tsv.
+CHAT_TOOL_REQUEST_FILE = BRIDGE_DIR / "chat-tool-request.tsv"
+CHAT_TOOL_RESPONSE_FILE = BRIDGE_DIR / "chat-tool-response.tsv"
+CHAT_TOOL_RUN_SUB = "WZTCBridge.RunChatToolRequest"
 
 # Confirmed working VBA project name against this MicroStation install
 # (see scratchpad com_trigger_test.py). If VBA project files are ever
@@ -82,6 +90,26 @@ def _read_result_rows(result_file: str) -> list[dict[str, str]]:
 
 
 class Bridge:
+    def __init__(self, request_file: Path = REQUEST_FILE, response_file: Path = RESPONSE_FILE,
+                 run_sub: str = RUN_SUB):
+        """Defaults are the module-level paths/Sub every caller has always
+        used — the module-level `bridge` singleton below is unchanged by
+        this constructor existing. A second instance with its own file pair
+        + Sub (e.g. M7's chat_driver.py holding its own COM/keyin connection
+        alongside this server's, via WZTCBridge.RunChatToolRequest) avoids
+        two processes racing on the same request.tsv/response.tsv, since
+        each process's reqId counter independently starts at P1 (see
+        _next_req_id) — without separate files, two concurrent processes
+        could both write reqId P1 to the same request.tsv. run_sub must
+        name a VBA Sub that reads request_file/writes response_file using
+        the exact same protocol as WZTCBridge.RunRequest (currently just
+        RunRequest itself, or RunChatToolRequest for the chat-tool pair) —
+        this class has no way to verify that at runtime, it just sends
+        whatever Sub name it's given."""
+        self.request_file = request_file
+        self.response_file = response_file
+        self.run_sub = run_sub
+
     def call(self, op_type: str, **params: Any) -> dict[str, Any]:
         """Send a single op, return its parsed response as a dict with at
         least {reqId, status, note?}. When the op returned a resultFile
@@ -104,7 +132,7 @@ class Bridge:
 
         # Text-mode write: Python translates \n -> \r\n on Windows, which is
         # required (VBA's Line Input # reads a bare-LF file as one giant line).
-        REQUEST_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        self.request_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
         # COM objects are apartment-threaded: a handle obtained on one thread
         # cannot be used from another without marshaling. The MCP SDK runs
@@ -118,7 +146,7 @@ class Bridge:
         pythoncom.CoInitialize()
         try:
             app = win32com.client.GetObject(Class="MicroStationDGN.Application")
-            keyin = f"VBA RUN [{PROJECT_NAME}]WZTCBridge.RunRequest"
+            keyin = f"VBA RUN [{PROJECT_NAME}]{self.run_sub}"
             app.CadInputQueue.SendKeyin(keyin)
         finally:
             pythoncom.CoUninitialize()
@@ -142,12 +170,12 @@ class Bridge:
 
     def _read_response_with_retry(self, req_ids: list[str], timeout_s: float = 5.0) -> str:
         deadline = time.time() + timeout_s
-        text = RESPONSE_FILE.read_text(encoding="utf-8", errors="replace")
+        text = self.response_file.read_text(encoding="utf-8", errors="replace")
         if all(rid in text for rid in req_ids):
             return text
         while time.time() < deadline:
             time.sleep(0.1)
-            text = RESPONSE_FILE.read_text(encoding="utf-8", errors="replace")
+            text = self.response_file.read_text(encoding="utf-8", errors="replace")
             if all(rid in text for rid in req_ids):
                 return text
         raise BridgeError(
@@ -161,3 +189,7 @@ class Bridge:
 # Module-level singleton. Holds no COM state itself (see call_batch) — it's
 # just a convenient shared instance, not a cached connection.
 bridge = Bridge()
+
+# M7 — same, for chat_driver.py. Separate file pair + VBA Sub so it can run
+# alongside `bridge` (used by this stdio MCP server) without file collisions.
+chat_bridge = Bridge(CHAT_TOOL_REQUEST_FILE, CHAT_TOOL_RESPONSE_FILE, CHAT_TOOL_RUN_SUB)

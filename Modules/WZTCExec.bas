@@ -527,3 +527,204 @@ Public Function ExecDeleteElementsByID(idsCSV As String) As String
 DelError:
     ExecDeleteElementsByID = "ERROR" & vbTab & "note=" & Err.Description
 End Function
+
+' ============================================================
+' MOVE ELEMENT BY ID (M6)
+' Direct Element.Move + Rewrite — same pattern
+' BBMarkupProcessor.ExecuteMove already proves works, minus its
+' interactive-click fallback. deltaX/deltaY/deltaZ in design
+' units (ft). Returns priorDelta* as the reverse displacement
+' so UNDO_LAST_OP can re-apply it without needing a snapshot.
+' ============================================================
+Public Function ExecMoveElementByID(elementId As Double, _
+                                    deltaX As Double, deltaY As Double, _
+                                    Optional deltaZ As Double = 0) As String
+    On Error GoTo MoveError
+
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecMoveElementByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+
+    Dim delta As Point3d
+    delta.X = deltaX: delta.Y = deltaY: delta.Z = deltaZ
+    el.Move delta
+    el.Rewrite
+
+    ExecMoveElementByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                          "deltaX=" & deltaX & vbTab & "deltaY=" & deltaY & vbTab & "deltaZ=" & deltaZ & vbTab & _
+                          "priorDeltaX=" & (-deltaX) & vbTab & "priorDeltaY=" & (-deltaY) & vbTab & _
+                          "priorDeltaZ=" & (-deltaZ) & vbTab & _
+                          "note=moved element " & elementId
+    Exit Function
+
+MoveError:
+    ExecMoveElementByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' CHANGE ELEMENT LEVEL BY ID (M6)
+' Direct el.Level + Rewrite — same approach as
+' BBMarkupProcessor.ExecuteChangeLevel / ExecSetSignAttributes,
+' without On Error Resume Next around the mutation.
+'
+' Reading el.Level.Name back on a freshly re-scanned element is a
+' confirmed-flaky read on this install (runtime error 91) -- already
+' hit and guarded the same way in WZTCQuery.FindElementsNear (:120)
+' and flagged in Debug/DebugExecTest.bas:224-233. Confirmed live
+' 2026-07-31 via the actual MCP path: this crashed on every call
+' before the guard below was added. Writing el.Level is proven safe
+' (PerpPlacement.bas, BBMarkupProcessor); reading it back is not.
+' ============================================================
+Public Function ExecChangeElementLevelByID(elementId As Double, levelName As String) As String
+    On Error GoTo LevelError
+
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecChangeElementLevelByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+
+    Dim priorLevel As String: priorLevel = ""
+    Dim havePriorLevel As Boolean: havePriorLevel = False
+    On Error Resume Next
+    priorLevel = el.Level.Name
+    If Err.Number = 0 Then havePriorLevel = True
+    Err.Clear
+    On Error GoTo LevelError
+
+    Dim lvl As Level
+    Set lvl = Nothing
+    On Error Resume Next
+    Set lvl = ActiveDesignFile.Levels(levelName)
+    On Error GoTo LevelError
+    If lvl Is Nothing Then
+        ExecChangeElementLevelByID = "ERROR" & vbTab & "note=level not found: " & levelName
+        Exit Function
+    End If
+
+    el.Level = lvl
+    el.Rewrite
+
+    If havePriorLevel Then
+        ExecChangeElementLevelByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                                     "level=" & levelName & vbTab & "priorLevel=" & priorLevel & vbTab & _
+                                     "note=changed level " & priorLevel & " -> " & levelName
+    Else
+        ' Prior level unreadable on this install -- declare not-undoable
+        ' rather than emit a bogus/empty priorLevel= that UNDO_LAST_OP's
+        ' field scan would otherwise misread as "restore to blank level".
+        ExecChangeElementLevelByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                                     "level=" & levelName & vbTab & "notUndoable=Y" & vbTab & _
+                                     "note=changed level to " & levelName & _
+                                     " (prior level unreadable on this install -- not undoable via UNDO_LAST_OP)"
+    End If
+    Exit Function
+
+LevelError:
+    ExecChangeElementLevelByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' EDIT TEXT ELEMENT BY ID (M6)
+' Handles TextElement and TextNodeElement (first line), matching
+' BBMarkupProcessor.ExecuteEditText. Returns priorText= so
+' UNDO_LAST_OP can restore the previous string.
+'
+' priorText reads are guarded the same way ExecChangeElementLevelByID
+' guards el.Level.Name -- reading el.Level back on a freshly re-scanned
+' element is confirmed-flaky on this install (runtime error 91; see
+' that function's header), and .Text hasn't been proven safe to read
+' back either, so the same defensive pattern applies here on general
+' principle rather than waiting to hit it live.
+' ============================================================
+Public Function ExecEditTextByID(elementId As Double, newText As String) As String
+    On Error GoTo TextError
+
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecEditTextByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+
+    Dim priorText As String: priorText = ""
+    Dim havePriorText As Boolean: havePriorText = False
+
+    If el.Type = msdElementTypeText Then
+        Dim te As TextElement
+        Set te = el
+        On Error Resume Next
+        priorText = te.Text
+        If Err.Number = 0 Then havePriorText = True
+        Err.Clear
+        On Error GoTo TextError
+        te.Text = newText
+        te.Rewrite
+    ElseIf el.Type = msdElementTypeTextNode Then
+        Dim tn As TextNodeElement
+        Set tn = el
+        Dim lineEl As TextElement
+        Dim lineEnum As ElementEnumerator
+        Set lineEnum = tn.GetSubElements
+        If lineEnum.MoveNext Then
+            Set lineEl = lineEnum.Current
+            On Error Resume Next
+            priorText = lineEl.Text
+            If Err.Number = 0 Then havePriorText = True
+            Err.Clear
+            On Error GoTo TextError
+            lineEl.Text = newText
+            lineEl.Rewrite
+        Else
+            ExecEditTextByID = "ERROR" & vbTab & "note=text node has no sub-elements: " & elementId
+            Exit Function
+        End If
+        tn.Rewrite
+    Else
+        ExecEditTextByID = "ERROR" & vbTab & "note=element is not text (type " & el.Type & ")"
+        Exit Function
+    End If
+
+    If havePriorText Then
+        ExecEditTextByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                           "newText=" & newText & vbTab & "priorText=" & priorText & vbTab & _
+                           "note=edited text element " & elementId
+    Else
+        ExecEditTextByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                           "newText=" & newText & vbTab & "notUndoable=Y" & vbTab & _
+                           "note=edited text element " & elementId & _
+                           " (prior text unreadable on this install -- not undoable via UNDO_LAST_OP)"
+    End If
+    Exit Function
+
+TextError:
+    ExecEditTextByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' FIND ELEMENT BY NUMERIC ID — scan-and-match, same pattern as
+' ExecDeleteElementsByID / ExecSetSignAttributes. No direct
+' GetElementByID call exists anywhere in this codebase to reuse.
+' ============================================================
+Private Function FindElementByID(elementId As Double) As Element
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+
+    Dim el As Element
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        If ElIDAsDouble(el.ID) = elementId Then
+            Set FindElementByID = el
+            Exit Function
+        End If
+    Loop
+    Set FindElementByID = Nothing
+End Function
