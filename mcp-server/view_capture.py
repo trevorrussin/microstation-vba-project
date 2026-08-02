@@ -146,6 +146,26 @@ def _capture_hwnd(hwnd: int, out_path: str | Path | None, default_name: str,
     return dest
 
 
+def get_view_state(view_num: int = 1) -> dict:
+    """Reads the current view's center and extents via COM -- the read
+    counterpart to navigate_view() below, letting a caller compute a
+    RELATIVE zoom/pan (e.g. "zoom out 40%") instead of only being able to
+    set an absolute center/width/height. Confirmed live 2026-08-02:
+    View.Extents.X/Y are the current width/height in design units,
+    View.Center.X/Y/Z is the current center point -- exactly the shape
+    navigate_view() already writes, just read instead of written."""
+    import ms_connect
+
+    app = ms_connect.get_microstation_app()
+    v = app.ActiveDesignFile.Views(view_num)
+    ext = v.Extents
+    ctr = v.Center
+    return {
+        "centerX": ctr.X, "centerY": ctr.Y, "centerZ": ctr.Z,
+        "width": ext.X, "height": ext.Y,
+    }
+
+
 def navigate_view(x: float, y: float, width: float, height: float,
                    z: float = 0.0, view_num: int = 1,
                    settle_seconds: float = 2.0) -> None:

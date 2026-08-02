@@ -147,6 +147,15 @@ End Function
 Private Sub UserForm_Initialize()
     On Error Resume Next
 
+    ' Must be set before Left/Top below -- StartUpPosition otherwise
+    ' defaults to 2 (CenterScreen), which silently re-centers the form on
+    ' every .Show call (including UserForm_Activate's own Hide+Show
+    ' vbModeless below), undoing the dock-right positioning entirely. This
+    ' was the actual bug behind "the panel appears centered instead of
+    ' docked" -- the docking code below was already correct and already
+    ' running, just always overridden immediately after.
+    Me.StartUpPosition = 0   ' 0 = Manual -- respect the Left/Top set below
+
     Me.Caption = "WZTC Agent Chat"
     Me.Width = 620
     Me.Height = GetSystemMetrics(SM_CYSCREEN) * PIXELS_TO_POINTS - TASKBAR_MARGIN_PTS
@@ -497,6 +506,8 @@ Private Function FormatLogLine(rawLine As String, ByRef outLineType As String, B
             FormatLogLine = choiceText
         Case "FINAL"
             FormatLogLine = "[agent] " & FieldOrBlank(fields, "text")
+        Case "MODE_CHANGED"
+            FormatLogLine = "-- Switched to " & FieldOrBlank(fields, "mode") & " mode -- " & FieldOrBlank(fields, "description")
         Case "ERROR"
             FormatLogLine = "[ERROR] " & FieldOrBlank(fields, "note")
         Case Else

@@ -44,7 +44,22 @@ DEFAULT_RESULTS = ROOT / "Bridge" / "keyin-probe-batch.json"
 # Hard kill SendKeyin if it hasn't returned — user preference: don't sit on hangs.
 SENDKEYIN_TIMEOUT_SEC = 3.0
 
-SAFE_KINDS = {"settings", "view", "lock"}
+# "view" was in here until 2026-08-02: ZOOM_OUT / ZOOM_OUT_CENTERED both
+# probed OK (fast, no error) and got auto-promoted to verified-headless-safe,
+# but both actually activate a "select point to zoom about" tool and leave
+# it pending a manual click, confirmed live in the real chat agent.
+# _one_keyin() below calls SendKeyin() then immediately SendReset() with no
+# check for a pending prompt in between -- for a kind=view row that's really
+# a point-based tool (not a pure setting toggle), that SendReset() silently
+# cancels the pending state before the probe could ever detect it, so "OK,
+# 0.08s" ends up meaning nothing more than "didn't error or hang," not
+# "completed headlessly." settings/lock rows are true value toggles (no
+# tool activation possible) and don't share this failure mode -- only view
+# is excluded here. New view-kind candidates now default to needs-testing
+# regardless of probe verdict; promote them to verified-headless-safe only
+# after a human confirms in the IDE that the view actually changed with no
+# click required.
+SAFE_KINDS = {"settings", "lock"}
 UNSAFE_KINDS = {"tool", "datapoint", "dialog", "file"}
 # Never SendKeyin these — UI / file / activate-and-wait-for-click.
 SKIP_EXECUTE_KINDS = {"file", "dialog", "tool", "datapoint"}
@@ -413,6 +428,19 @@ def promote(results_path: Path, registry_path: Path, dry_run: bool = False) -> i
             status = "verified-headless-safe"
             promoted = today
             note = (notes + " " if notes else "") + f"live batch probe {today} ({dt}s)"
+        elif kind == "view" and verdict in ("OK", "SLOW"):
+            # A fast/clean SendKeyin return is not proof a view-kind row is
+            # actually non-interactive -- see SAFE_KINDS comment above.
+            # Always needs-testing; promote to verified-headless-safe only
+            # after manual IDE confirmation that the view changed with no
+            # click required.
+            status = "needs-testing"
+            promoted = ""
+            note = (notes + " " if notes else "") + (
+                f"batch probe {today} ({dt}s, verdict={verdict}) — kind=view always "
+                "needs-testing regardless of probe verdict; confirm manually in the "
+                "IDE that this completes with no click before promoting"
+            )
         elif verdict in ("UNSAFE", "OK", "HANG") and kind in UNSAFE_KINDS:
             # OK+unsafe kind still blocked; UNSAFE/HANG same
             status = "unsafe-blocked"

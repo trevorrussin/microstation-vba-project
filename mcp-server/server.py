@@ -131,6 +131,19 @@ def capture_window(title_substring: str) -> Image:
     return Image(path=result["path"])
 
 
+@mcp.tool()
+def adjust_view(zoom_out_percent: float = 0, pan_x: float = 0, pan_y: float = 0,
+                 view_num: int = 1) -> dict:
+    """Zoom and/or pan the current MicroStation view by an EXACT amount,
+    via COM (View.Center/Extents), not a key-in -- completes headlessly
+    with no manual click, unlike the ZOOM_*/PAN_VIEW_* command-registry
+    key-ins (all disabled 2026-08-02: confirmed to silently wait on a
+    datapoint click that never arrives when driven headlessly). See
+    wztc_ops.adjust_view for the full parameter semantics."""
+    return wztc_ops.adjust_view(zoom_out_percent=zoom_out_percent, pan_x=pan_x, pan_y=pan_y,
+                                 view_num=view_num)
+
+
 # ============================================================== Compute
 
 @mcp.tool()

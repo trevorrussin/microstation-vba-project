@@ -28,6 +28,13 @@ import view_capture
 
 _bridge = None
 
+# list_registry_commands' hard cap on rows returned -- see that function's
+# docstring. Data/command-registry.tsv has ~1800 rows (~1600
+# verified-headless-safe); an unfiltered call was measured live costing
+# ~240K input tokens (~$0.75) on a single turn once an agent actually
+# started using this tool for view/settings control (2026-08-02).
+MAX_LISTED_ROWS = 40
+
 
 def set_bridge(bridge) -> None:
     """Must be called once before any function below — e.g.
@@ -133,6 +140,56 @@ def capture_window(title_substring: str) -> dict:
     MicroStation's main frame that capture_view() targets. Same OS-level
     mechanism as capture_view; see view_capture.py. Returns {"path": ...}."""
     return {"path": str(view_capture.capture_window(title_substring))}
+
+
+def adjust_view(zoom_out_percent: float = 0, pan_x: float = 0, pan_y: float = 0,
+                 view_num: int = 1) -> dict:
+    """Zoom and/or pan the current MicroStation view by an EXACT amount.
+    This is the reliable replacement for the ZOOM_*/PAN_VIEW_* command-
+    registry key-ins -- ALL of those are now needs-testing (disabled)
+    because they silently activate a tool and wait for a manual datapoint
+    click that never arrives when driven headlessly (confirmed live
+    2026-08-02 on ZOOM_OUT, ZOOM_OUT_CENTERED, ZOOM_HALF; the rest of the
+    family downgraded precautionarily, same pattern). This function sets
+    View.Center/Extents directly via COM instead (view_capture.navigate_view
+    -- does NOT go through WZTCBridge/CadInputQueue, so it can't hang and
+    has no journal entry), which completes headlessly with no click
+    needed, and unlike any registry zoom key-in it supports an exact
+    percentage.
+
+    zoom_out_percent: e.g. 40 zooms OUT so ~40% more area becomes visible
+    (new width/height = current * 1.40). Negative zooms IN (e.g. -40 =
+    40% less area, current * 0.60). Must be > -100. 0 = no zoom change.
+    pan_x / pan_y: shift the view center by this many design units (the
+    file's working units, typically feet) in the model's X/Y direction.
+    0 = no pan. Positive pan_x moves the visible center east/right,
+    positive pan_y moves it north/up (standard model-space convention).
+
+    Takes ~2 seconds to settle before returning (MicroStation's repaint
+    isn't synchronous with the property write) -- call capture_view or
+    the chat agent's view_drawing afterward to see the result."""
+    state = view_capture.get_view_state(view_num=view_num)
+
+    scale = 1.0 + (zoom_out_percent / 100.0)
+    if scale <= 0:
+        return {"status": "ERROR",
+                "note": f"zoom_out_percent={zoom_out_percent} would produce a non-positive "
+                        "scale factor -- must be greater than -100."}
+
+    new_width = state["width"] * scale
+    new_height = state["height"] * scale
+    new_center_x = state["centerX"] + pan_x
+    new_center_y = state["centerY"] + pan_y
+
+    view_capture.navigate_view(new_center_x, new_center_y, new_width, new_height,
+                                z=state["centerZ"], view_num=view_num)
+
+    return {
+        "status": "OK",
+        "previousWidth": state["width"], "previousHeight": state["height"],
+        "newWidth": new_width, "newHeight": new_height,
+        "centerX": new_center_x, "centerY": new_center_y,
+    }
 
 
 # ============================================================== Compute
@@ -503,17 +560,41 @@ def list_deferred_handoffs() -> list[dict]:
 
 # ============================================================ Registry / Edit (M6)
 
-def list_registry_commands(safety_status: str = "") -> list[dict]:
+def list_registry_commands(safety_status: str = "", opname_contains: str = "") -> list[dict]:
     """List MicroStation command recipes in Data/command-registry.tsv.
     Optional safety_status filter (e.g. 'verified-headless-safe',
     'needs-testing', 'interactive-only-use-handoff'). Only
     verified-headless-safe rows can be executed via run_registry_command;
-    interactive-only rows point at handoff() instead."""
+    interactive-only rows point at handoff() instead.
+
+    opname_contains narrows to opNames containing this substring
+    (case-insensitive) -- e.g. 'ZOOM', 'PAN', 'LEVEL'. Strongly
+    recommended: this registry has ~1800 rows (~1600
+    verified-headless-safe), and returning them all costs real tokens --
+    an unfiltered call was measured live at ~240K input tokens (~$0.75)
+    for a single turn. If you have any idea what the command name might
+    contain, pass it here rather than listing everything. If the
+    (post-filter) result set still exceeds MAX_LISTED_ROWS, only the
+    first that many come back, with a note appended -- narrow further
+    with opname_contains rather than assuming you've seen every match."""
     params = {}
     if safety_status:
         params["safetyStatus"] = safety_status
     resp = _ok_or_raise(_bridge.call("LIST_REGISTRY_COMMANDS", **params), "list_registry_commands")
-    return resp.get("rows", [])
+    rows = resp.get("rows", [])
+
+    if opname_contains:
+        needle = opname_contains.strip().upper()
+        rows = [r for r in rows if needle in str(r.get("opName", "")).upper()]
+
+    total = len(rows)
+    if total > MAX_LISTED_ROWS:
+        rows = rows[:MAX_LISTED_ROWS]
+        rows.append({
+            "note": f"{total} rows matched -- showing first {MAX_LISTED_ROWS}. "
+                    "Narrow further with opname_contains instead of assuming this is everything."
+        })
+    return rows
 
 
 def describe_registry_command(op_name: str) -> dict:

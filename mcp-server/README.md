@@ -166,21 +166,60 @@ guard that refuses any `COMMAND:` recipe lacking `DATAPOINT:` + `RESET`.
 ## In-MicroStation chat panel (M7)
 
 `chat_driver.py` is a persistent process holding the actual Claude Opus 5
-agent loop (`client.beta.messages.tool_runner`, adaptive thinking, every
-`wztc_ops` function + `search_reference_manual` + `ask_user` as tools) behind
-`UserForms/WZTCChatPanel.frm` — a modeless in-MicroStation dialog. "Python
-owns the brain and the hands; VBA owns only the face": the panel only polls
-`Bridge/chat-log.tsv` (via `WZTCChatTimer.bas`, a Win32 `SetTimer` loop — the
-first polling mechanism in this codebase) and appends to `Bridge/
-chat-input.tsv` on Send; every actual tool call goes through the identical
-`WZTCBridge.ExecuteOp` dispatch every other op in this repo already uses, so
-watching it work is the same visible MicroStation activity as always.
+agent loop (`client.beta.messages.tool_runner`, adaptive thinking, most
+`wztc_ops` functions plus `ask_user`/`view_drawing`/`adjust_view`/
+`web_search` as always-on "base" tools — see Session modes below for what's
+base vs. mode-gated) behind `UserForms/WZTCChatPanel.frm` — a modeless
+in-MicroStation dialog. "Python owns the brain and the hands; VBA owns only
+the face": the panel only polls `Bridge/chat-log.tsv` (via
+`WZTCChatTimer.bas`, a Win32 `SetTimer` loop — the first polling mechanism
+in this codebase) and appends to `Bridge/chat-input.tsv` on Send; every
+actual tool call goes through the identical `WZTCBridge.ExecuteOp` dispatch
+every other op in this repo already uses, so watching it work is the same
+visible MicroStation activity as always.
 
 Requires `ANTHROPIC_API_KEY` set (or an `ant auth login` profile) — picked up
 automatically by `anthropic.Anthropic()`, no code for it here. Run
 `python chat_driver.py`; it isn't auto-launched by VBA (see `Bridge/README.md`
 for why). Full protocol/file-schema docs: `Bridge/README.md` → "M7 — chat
 panel protocol".
+
+### Session modes (2026-08-02)
+
+The agent boots in **general mode** — broad MicroStation drawing/query
+capability, no domain-specific tools or rules loaded — and switches into
+**wztc mode** only once the engineer clearly starts a WZTC task, via a tool
+call the model makes itself (`enter_mode("wztc")`; `exit_mode()` returns to
+general). This is deliberately *not* a hidden classifier: the switch is
+visible in the panel transcript ("— Switched to wztc mode —", a new
+`MODE_CHANGED` chat-log line type) and the engineer can always tell which
+mode is active.
+
+Base tools (`BASE_TOOLS`, always loaded) cover general drawing/edit/query,
+the view/registry tools, journal/undo, `ask_user`/`ask_user_choice`,
+`view_drawing`, `web_search`, and `enter_mode`/`exit_mode` themselves. WZTC
+tools (`WZTC_TOOLS`, loaded only in wztc mode) are `compute_spacing`,
+`get_sheet_requirements`, `resolve_sign_code`, `place_perp_line`,
+`place_sign`, `place_workspace`, `place_element_run`, `place_cell`,
+`set_sign_attributes`, and `search_reference_manual` — plus the WZTC-only
+system-prompt rules (the engineering-judgment boundary, `road_type`
+handling, sign-code resolution). Modes **stack**, not replace: wztc mode is
+base + WZTC, so the agent never loses general drawing capability while
+doing WZTC work. `_MODE_TOOLS`/`_MODE_SYSTEM_PROMPT` are plain dicts keyed
+by mode name, and `run_turn()` reads `_SESSION_MODE` fresh on every call —
+adding a future mode (drainage, terrain, etc.) is a matter of defining its
+own tool list + prompt addendum and adding a dict entry, not restructuring.
+
+`_SESSION_MODE` is a module-level global, not persisted across a
+`chat_driver.py` restart — every fresh process starts in general mode.
+Switching modes changes both `tools` and `system` on the next
+`run_turn()` call, which invalidates the prompt-cache prefix for that one
+turn (expected and cheap for a deliberate, infrequent switch — see
+`prompt-caching.md`'s invalidation hierarchy). Verified live before
+building this: the Messages API tolerates conversation history containing
+`tool_use`/`tool_result` blocks for a tool no longer declared in the
+current request's `tools` list, so a mode switch never needs special
+handling for stale tool_use blocks from a different mode.
 
 `ask_user` is a tool, not a special stop condition — it writes an `ASK_USER`
 line and blocks (a plain polling wait, safe here since this process has no UI
@@ -211,6 +250,64 @@ screenshot uses (last-shown-wins if both fire in one turn), driven by
 type. Best-effort: a missing/gitignored PDF or an out-of-range page just
 means no image that turn, never a failed tool call — the text excerpt the
 model already has is unaffected either way.
+
+`view_drawing` (2026-08-02) is the tool that closes the gap between "the
+panel shows a screenshot" and "the agent actually sees it" — every other
+image feature (the post-turn auto-focus screenshot, the reference-manual
+page render) only ever displayed a picture to the human; the model itself
+never received one as vision input. `view_drawing` returns its screenshot
+as a real `image` content block inside the tool result (base64 PNG, same
+capture path/resize as the auto-focus screenshot), so the *next* turn the
+model actually looks at it. Deliberately agent-triggered, not automatic
+after every tool call or every turn — the system prompt tells the model to
+call it selectively (a substantial design change, or suspected errors),
+since each call costs real image tokens (~1500-2000, at
+`view_capture.MAX_LONG_EDGE`'s existing 1568px resize) and calling it after
+every small edit would pile that up fast on a long multi-step turn.
+
+`web_search` (2026-08-02) is a separate, narrowly-scoped escape valve for
+when the agent gets stuck on MicroStation's own VBA/COM API layer — not
+general internet access. `allowed_domains` hard-restricts it to
+`docs.bentley.com`, `communities.bentley.com`, and
+`bentleysystems.service-now.com` (Bentley's own documentation/KB/
+programming forum); the system prompt tells the agent it's a last resort
+for API/automation troubleshooting only, never for spacing/sign/MUTCD
+content, which stays on `compute_spacing`/`get_sheet_requirements`/
+`search_reference_manual`. `stackoverflow.com` was in the original
+allowlist but had to come out — confirmed live, Anthropic's crawler is
+blocked from it (`400 ... not accessible to our user agent`), so it would
+never have returned anything anyway. Deliberately the basic
+`web_search_20250305` tool, not the dynamic-filtering `web_search_20260209`
+variant — measured live against the same query, dynamic filtering's
+code-execution pass more than doubled real cost ($0.15 vs $0.065) for no
+quality difference on an already-narrow 3-domain allowlist. `max_uses: 3`
+caps the worst case within a single turn.
+
+`adjust_view` (2026-08-02) is the reliable replacement for the entire
+`ZOOM_*`/`PAN_VIEW_*` command-registry family, all of which are now
+`needs-testing` (disabled) — a live "zoom out 40%" request exposed that
+several of them (`ZOOM_OUT`, `ZOOM_OUT_CENTERED`, `ZOOM_HALF`) silently
+activate a MicroStation tool and leave the view waiting on a manual
+"select point" click that never arrives headlessly, despite returning
+`OK`. Root cause (confirmed by reading the code, not guessed): `scripts/
+keyin_batch.py`'s probe calls `SendKeyin` then immediately `SendReset`
+with no check for a pending prompt in between, so a fast/no-error return
+was mistaken for completion; separately, `WZTCCommandRegistry.bas`'s
+`CheckCloseOutGuard` (whose whole job is catching exactly this
+activate-and-abandon pattern) only inspects `COMMAND:` steps, not bare
+`KEYIN:` steps, so this class slipped through both the harvest-time probe
+and the runtime safety gate. `adjust_view` sidesteps the whole class by
+setting `View.Center`/`Extents` directly via COM (`view_capture.
+navigate_view`, already proven live for the auto-focus screenshot) —
+never touches `CadInputQueue`, can't leave a pending click, and supports
+an exact percentage no registry key-in could ever offer. `view_capture.
+get_view_state` is the new read-side counterpart (`View.Extents.X/Y` =
+current width/height, `View.Center` = current center) that makes the
+percentage math possible. `scripts/keyin_batch.py`'s `promote()` no
+longer auto-qualifies `kind="view"` candidates for `verified-headless-
+safe` on a clean probe return alone — future view-kind harvests default
+to `needs-testing` until a human confirms in the IDE that the action
+completes with no click.
 
 ## Eval harness (`eval_harness.py`)
 
