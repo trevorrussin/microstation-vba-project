@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Image, MCPServer
 
 import manual_search
 import wztc_ops
@@ -96,6 +96,30 @@ def classify_site_features(x: float, y: float, radius: float) -> list[dict]:
     since an unnamed obstruction is still an obstruction the agent must
     reason about."""
     return wztc_ops.classify_site_features(x, y, radius)
+
+
+# =========================================================== Observation
+
+@mcp.tool()
+def capture_view() -> Image:
+    """Screenshot the live MicroStation window and return the actual
+    image — lets the caller visually verify spacing/layout/sign placement
+    instead of only reasoning from coordinates returned by the query
+    tools. OS-level capture, not a WZTCBridge op — works regardless of
+    what's on top of the MicroStation window, but MicroStation must be
+    open. See wztc_ops.capture_view / view_capture.py."""
+    result = wztc_ops.capture_view()
+    return Image(path=result["path"])
+
+
+@mcp.tool()
+def capture_window(title_substring: str) -> Image:
+    """Screenshot any visible top-level window whose title contains
+    title_substring -- e.g. "WZTC Agent Chat" for the in-MicroStation chat
+    panel, which is a separate OS window from MicroStation's main frame
+    (capture_view targets the main frame only). See wztc_ops.capture_window."""
+    result = wztc_ops.capture_window(title_substring)
+    return Image(path=result["path"])
 
 
 # ============================================================== Compute

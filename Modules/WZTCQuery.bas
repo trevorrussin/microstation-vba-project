@@ -98,7 +98,18 @@ NextEl:
         Dim tmpD As Double: tmpD = matchDist(i)
         Dim tmpE As Element: Set tmpE = matchEl(i)
         j = i - 1
-        Do While j >= 1 And matchDist(j) > tmpD
+        ' Do While j >= 1 And matchDist(j) > tmpD -- VBA's And does NOT
+        ' short-circuit, so once j reaches 0 the loop condition still
+        ' evaluates matchDist(j) = matchDist(0), out of bounds for an
+        ' array declared (1 To matchCount). Confirmed live (2026-08-01)
+        ' as the actual "Subscript out of range" cause via checkpoint
+        ' instrumentation: only triggers when an element sorts all the
+        ' way to the front (needs j to reach 0), which no test before
+        ' today happened to exercise. Split into an unconditional `j >= 1`
+        ' loop guard plus an explicit Exit Do so matchDist(j) is only
+        ' evaluated when j is already known to be in bounds.
+        Do While j >= 1
+            If matchDist(j) <= tmpD Then Exit Do
             matchDist(j + 1) = matchDist(j)
             Set matchEl(j + 1) = matchEl(j)
             j = j - 1
@@ -107,11 +118,28 @@ NextEl:
         Set matchEl(j + 1) = tmpE
     Next i
 
-    If matchCount > 0 Then ReDim rows(0 To matchCount)
+    ' Preserve, not a plain ReDim -- rows(0) already holds the header set
+    ' at the top of this function. A plain ReDim here wiped it back to an
+    ' empty string every time matchCount > 0, and every downstream
+    ' Split(rows(0), vbTab) then produced a 1-element array instead of the
+    ' 11 expected header columns -- confirmed live as the actual cause of
+    ' "Subscript out of range" (2026-08-01): this path had never been
+    ' exercised with any real match before today, since every prior
+    ' find_elements_near call in this project's testing history queried an
+    ' area with nothing in it.
+    If matchCount > 0 Then ReDim Preserve rows(0 To matchCount)
     For i = 1 To matchCount
         Set el = matchEl(i)
         Dim lo2 As Point3d, hi2 As Point3d
+        ' Same known-flaky Range read as the first loop above (already
+        ' guarded there). Defensive: skip just this one row (left blank
+        ' in rows()) rather than losing every other match if a second
+        ' read of the same element's Range ever fails after the scan
+        ' enumerator has moved on.
+        On Error Resume Next
         lo2 = el.Range.Low: hi2 = el.Range.High
+        If Err.Number <> 0 Then Err.Clear: GoTo NextRow
+        On Error GoTo 0
         Dim cx2 As Double, cy2 As Double
         cx2 = (lo2.X + hi2.X) / 2: cy2 = (lo2.Y + hi2.Y) / 2
 
@@ -134,6 +162,7 @@ NextEl:
                   Format(cx2, "0.00") & vbTab & Format(cy2, "0.00") & vbTab & Format(matchDist(i), "0.00") & vbTab & _
                   Format(lo2.X, "0.00") & vbTab & Format(lo2.Y, "0.00") & vbTab & _
                   Format(hi2.X, "0.00") & vbTab & Format(hi2.Y, "0.00")
+NextRow:
     Next i
 
     FindElementsNear = rows

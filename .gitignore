@@ -38,6 +38,11 @@ Bridge/chat-history.json
 # NEVER remove this line or commit the real .env.
 mcp-server/.env
 
+# View-capture screenshots (may show real project/client path in the
+# MicroStation title bar) and archived chat history — runtime output, not source.
+Bridge/captures/
+Bridge/archive/
+
 # Reference .ts files dropped in Project Documentation for prompt-injection
 # pattern reference only -- from a different (TypeScript/web) project, not
 # part of this repo's source.

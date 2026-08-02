@@ -29,6 +29,7 @@ if it isn't already set as a real env var, so a system-level key always wins.
 from __future__ import annotations
 
 import json
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -48,9 +49,103 @@ BRIDGE_DIR = Path(r"c:\repos\microstation-vba-project\Bridge")
 CHAT_INPUT_FILE = BRIDGE_DIR / "chat-input.tsv"
 CHAT_LOG_FILE = BRIDGE_DIR / "chat-log.tsv"
 HISTORY_FILE = BRIDGE_DIR / "chat-history.json"
+USAGE_FILE = BRIDGE_DIR / "chat-usage.tsv"
 
-MODEL = "claude-opus-5"
+# Overridable without a code edit -- e.g. `set WZTC_CHAT_MODEL=claude-opus-5`
+# before running this script to switch back for an A/B comparison. Default
+# switched to Sonnet + medium effort 2026-08-01 after cost review; Opus
+# remains available via the env var with no code change needed.
+MODEL = os.environ.get("WZTC_CHAT_MODEL", "claude-sonnet-5")
+EFFORT = os.environ.get("WZTC_CHAT_EFFORT", "medium")
 MAX_TOKENS = 16000
+
+# Safety net, not a typical-case tuning knob: the sign-placement debugging
+# turn earlier today ran ~10 legitimate tool round-trips investigating a
+# real error; this caps a genuinely runaway loop (e.g. stuck retrying a
+# failing approach) at roughly 3x that, each round-trip being a separate
+# billed API call. Hitting this stops the tool_runner's generator loop
+# cleanly (confirmed by reading _beta_runner.py -- no exception, it just
+# stops yielding), not a crash -- run_turn below detects the resulting
+# empty final_text and substitutes a message that says so explicitly,
+# since silently returning nothing would show a blank response in the panel.
+MAX_TOOL_ITERATIONS = 30
+
+# $ per million tokens (Anthropic pricing, confirmed current). Cache write is
+# priced off the base input rate at a TTL-dependent multiplier (1.25x for a
+# 5-minute breakpoint, 2x for 1-hour); this file only ever sets ttl="1h" (see
+# run_turn), so WRITE_MULT is fixed at 2x rather than reading the TTL back out
+# of usage -- the API doesn't report which TTL a cache_creation_input_tokens
+# figure was billed at. Cache read is ~0.1x input. This is an estimate for
+# in-app visibility, not a reconciliation of the actual invoice -- check
+# https://console.anthropic.com/settings/usage for the authoritative number.
+PRICING = {
+    "claude-opus-5": {"input": 5.00, "output": 25.00},
+    "claude-sonnet-5": {"input": 3.00, "output": 15.00},
+}
+CACHE_WRITE_MULT = 2.0   # 1h TTL
+CACHE_READ_MULT = 0.1
+
+
+class UsageTracker:
+    """Accumulates token usage across the whole chat_driver.py process
+    lifetime and appends one row per API response to Bridge/chat-usage.tsv,
+    so cost is visible locally without checking the Anthropic Console.
+    Historical sessions before this existed aren't recoverable from local
+    data -- only the Console has that."""
+
+    def __init__(self):
+        self.total_cost_usd = 0.0
+
+    def record(self, usage, model: str) -> float:
+        rates = PRICING.get(model)
+        if rates is None:
+            return 0.0  # unknown model string -- don't guess a price
+
+        input_tok = getattr(usage, "input_tokens", 0) or 0
+        output_tok = getattr(usage, "output_tokens", 0) or 0
+        cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+
+        # usage.cache_creation carries the exact 5m/1h split when present --
+        # more precise than assuming every write used this file's 1h
+        # cache_control TTL. Falls back to the flat field (older SDK
+        # responses may not populate cache_creation) at the 1h rate, since
+        # 1h is the only TTL this file ever requests.
+        cache_creation = getattr(usage, "cache_creation", None)
+        if cache_creation is not None:
+            cache_write_5m = getattr(cache_creation, "ephemeral_5m_input_tokens", 0) or 0
+            cache_write_1h = getattr(cache_creation, "ephemeral_1h_input_tokens", 0) or 0
+            cache_write_cost = cache_write_5m * 1.25 + cache_write_1h * CACHE_WRITE_MULT
+            cache_write = cache_write_5m + cache_write_1h
+        else:
+            cache_write = getattr(usage, "cache_creation_input_tokens", 0) or 0
+            cache_write_cost = cache_write * CACHE_WRITE_MULT
+
+        cost = (
+            input_tok * rates["input"]
+            + output_tok * rates["output"]
+            + cache_write_cost * rates["input"]
+            + cache_read * rates["input"] * CACHE_READ_MULT
+        ) / 1_000_000
+
+        self.total_cost_usd += cost
+
+        line = "\t".join([
+            datetime.now().isoformat(sep=" ", timespec="seconds"),
+            model,
+            f"input={input_tok}",
+            f"output={output_tok}",
+            f"cacheWrite={cache_write}",
+            f"cacheRead={cache_read}",
+            f"costUsd={cost:.4f}",
+            f"runningTotalUsd={self.total_cost_usd:.4f}",
+        ])
+        with open(USAGE_FILE, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+
+        return cost
+
+
+USAGE = UsageTracker()
 
 SYSTEM_PROMPT = """You are the WZTC Designer agent, running live inside an
 engineer's MicroStation session via tool calls that make real changes to
@@ -303,6 +398,57 @@ def save_history(messages: list[dict]) -> None:
     HISTORY_FILE.write_text(json.dumps(serializable, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+# +1 for the marker this turn is about to add, +1 for the system block's own
+# marker = 4 total per request, exactly the API's hard per-request cap.
+MAX_KEPT_MESSAGE_CACHE_MARKERS = 2
+
+
+def _trim_cache_control(messages: list[dict]) -> None:
+    """Keeps only the newest MAX_KEPT_MESSAGE_CACHE_MARKERS pre-existing
+    cache_control markers in messages, stripping older ones, before the
+    caller adds one more for this turn's user message.
+
+    An earlier version of this function stripped ALL old markers down to
+    zero, keeping only the single newest one. That avoided the 4-marker
+    cap error ("A maximum of 4 blocks with cache_control may be provided")
+    but broke caching outright on this long-running conversation --
+    confirmed live, the next turn's input_tokens jumped to ~223,000
+    (essentially uncached) instead of reading from cache, at ~$1.15/turn.
+    Why: the API only finds a cache hit by walking back at most 20 content
+    blocks from a breakpoint (prompt-caching.md "20-block lookback
+    window"). With only one marker at the very end of an hours-long,
+    many-turn conversation, the nearest actual cached prefix was hundreds
+    of blocks further back -- outside that window -- so everything in
+    between got billed at full price. The original (buggy) code
+    accidentally got this part right: leaving a marker on every turn kept
+    consecutive breakpoints close together, always within reach of the
+    walk-back. Keeping a couple of recent markers instead of stripping to
+    one preserves that locality while still staying under the 4-marker
+    cap. Not a perfect guarantee against the 20-block gap on a single
+    unusually tool-call-heavy turn (this tracks marker count, not actual
+    block count) -- but a large improvement over both the original bug
+    and the first fix's regression.
+
+    Mutates messages in place. Safe to call on a mix of plain dicts (loaded
+    from chat-history.json, or a prior turn's tool_result) and raw SDK
+    content-block objects (this turn's freshly-appended assistant content,
+    not yet round-tripped through save_history) -- only dict-shaped blocks
+    can carry a cache_control key this code itself set, so non-dict blocks
+    are left untouched rather than guessed at."""
+    markers = []
+    for msg in messages:
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if isinstance(block, dict) and "cache_control" in block:
+                markers.append(block)
+
+    if len(markers) > MAX_KEPT_MESSAGE_CACHE_MARKERS:
+        for block in markers[:-MAX_KEPT_MESSAGE_CACHE_MARKERS]:
+            block.pop("cache_control", None)
+
+
 def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) -> str:
     """Run one full agentic turn (think -> act -> think -> ... -> final
     answer) for a single user message, mutating `messages` in place to
@@ -317,7 +463,11 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
     # previous turn's breakpoint and reuses it, so a multi-turn session
     # only pays full price for the newest user text, not the whole
     # accumulated history every time (prompt-caching.md "Multi-turn
-    # conversations" placement pattern).
+    # conversations" placement pattern). _trim_cache_control first keeps
+    # only a bounded window of older breakpoints -- see that function's
+    # docstring for why (both the original bug and an over-aggressive
+    # first fix are documented there).
+    _trim_cache_control(messages)
     messages.append({
         "role": "user",
         "content": [{"type": "text", "text": user_text, "cache_control": {"type": "ephemeral", "ttl": "1h"}}],
@@ -335,14 +485,27 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
         # (e.g. a multi-query search_reference_manual lookup).
         system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral", "ttl": "1h"}}],
         thinking={"type": "adaptive", "display": "summarized"},
-        output_config={"effort": "high"},
+        output_config={"effort": EFFORT},
         tools=TOOLS,
         messages=messages,
+        # Clears stale tool_result content (search excerpts, journal dumps --
+        # the actual bulky payloads, confirmed the dominant cost driver once
+        # this conversation ran long) once it's no longer the newest few
+        # turns. Leaves the tool_use calls themselves and all conversational
+        # text alone, so the record of *what was done* survives -- only the
+        # old *raw output* gets dropped. This is pruning, not summarizing;
+        # see prompt-caching.md's distinction from compaction (a different
+        # feature that summarizes instead of clearing, not used here).
+        context_management={"edits": [{"type": "clear_tool_uses_20250919"}]},
+        betas=["context-management-2025-06-27"],
+        max_iterations=MAX_TOOL_ITERATIONS,
     )
 
     final_text = ""
     for message in runner:
         messages.append({"role": "assistant", "content": message.content})
+        if message.usage is not None:
+            USAGE.record(message.usage, MODEL)
 
         for block in message.content:
             if getattr(block, "type", None) == "thinking" and getattr(block, "thinking", ""):
@@ -366,6 +529,18 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
         if message.stop_reason == "end_turn":
             final_text = "\n".join(b.text for b in message.content if getattr(b, "type", None) == "text")
 
+    if final_text == "":
+        # Loop ended without ever seeing end_turn -- either MAX_TOOL_ITERATIONS
+        # was hit mid-investigation, or some other stop condition left no
+        # final text block. Returning "" here would show a blank FINAL line
+        # in the panel with no explanation; say so explicitly instead.
+        final_text = (
+            f"[Stopped after {MAX_TOOL_ITERATIONS} tool-call round-trips without "
+            "reaching a final answer -- this is the MAX_TOOL_ITERATIONS safety "
+            "cap, not a normal completion. Check the activity pane above for "
+            "what was investigated so far; ask a narrower follow-up to continue.]"
+        )
+
     return final_text
 
 
@@ -373,7 +548,8 @@ def main() -> None:
     client = anthropic.Anthropic()
     messages = load_history()
     INPUT.skip_existing()
-    print(f"chat_driver.py running -- watching {CHAT_INPUT_FILE}, logging to {CHAT_LOG_FILE}")
+    print(f"chat_driver.py running -- model={MODEL}, effort={EFFORT}, max_iterations={MAX_TOOL_ITERATIONS}, "
+          f"watching {CHAT_INPUT_FILE}, logging to {CHAT_LOG_FILE}")
 
     while True:
         user_text = INPUT.wait_for_next()
@@ -381,6 +557,8 @@ def main() -> None:
             final_text = run_turn(client, messages, user_text)
             save_history(messages)
             LOG.final(final_text)
+            print(f"[usage] session running total: ${USAGE.total_cost_usd:.4f} "
+                  f"(see {USAGE_FILE} for the per-call breakdown)")
         except Exception as e:
             LOG.error(str(e))
 

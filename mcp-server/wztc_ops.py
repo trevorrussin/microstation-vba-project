@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+import view_capture
+
 _bridge = None
 
 
@@ -94,6 +96,30 @@ def classify_site_features(x: float, y: float, radius: float) -> list[dict]:
     reason about."""
     resp = _ok_or_raise(_bridge.call("CLASSIFY_SITE_FEATURES", x=x, y=y, radius=radius), "classify_site_features")
     return resp.get("rows", [])
+
+
+# =========================================================== Observation
+
+def capture_view() -> dict:
+    """Screenshot the live MicroStation window so the caller can actually
+    look at the current drawing (spacing, layout, sign placement) instead
+    of only reasoning from computed coordinates. OS-level capture (see
+    view_capture.py) -- does NOT go through WZTCBridge/CadInputQueue, so
+    it has no journal entry and can't hang MicroStation; the only failure
+    mode is MicroStation not being open/visible at all. Returns
+    {"path": ...} pointing at a PNG on disk; the caller (an MCP tool
+    wrapper, or chat_driver.py directly) decides how to surface the actual
+    image bytes."""
+    return {"path": str(view_capture.capture_microstation())}
+
+
+def capture_window(title_substring: str) -> dict:
+    """Screenshot any visible top-level window whose title contains
+    title_substring -- e.g. "WZTC Agent Chat" for the in-MicroStation chat
+    panel, which is its own OS window (a modeless UserForm), separate from
+    MicroStation's main frame that capture_view() targets. Same OS-level
+    mechanism as capture_view; see view_capture.py. Returns {"path": ...}."""
+    return {"path": str(view_capture.capture_window(title_substring))}
 
 
 # ============================================================== Compute

@@ -91,7 +91,11 @@ Public Function ExecPlaceSign(signNum As String, roadType As String, side As Str
 
     If SignLibrary.GetSignCount() = 0 Then Call SignLibrary.InitializeSignLibrary
     If Not SignLibrary.SignExists(signNum) Then
-        ExecPlaceSign = "ERROR" & vbTab & "note=sign not found in library: " & signNum
+        ExecPlaceSign = "ERROR" & vbTab & "note=sign not found in library: " & signNum & _
+            " -- sign numbers in SignLibrary.bas are zero-padded (e.g. W20-01 not W20-1, " & _
+            "R04-09 not R4-9) and some MUTCD numbers need a suffix for the specific variant " & _
+            "(e.g. W20-01RA for the Road/Ahead 'ROAD WORK AHEAD' face) -- check SignLibrary.bas " & _
+            "for the exact key rather than guessing a second time"
         Exit Function
     End If
 
@@ -109,10 +113,15 @@ Public Function ExecPlaceSign(signNum As String, roadType As String, side As Str
     ' Setup — identical sequence to DrawSign.DrawSignAtPerpLine
     Dim v As View
     Set v = ActiveDesignFile.Views(1)
+    ' Capture view rotation BEFORE resetting to identity, same rationale as
+    ' DrawSign.DrawSignAtPerpLine: sign face cell must match the CURRENT
+    ' VIEW's angle so it always reads upright, not a hardcoded 0.
+    Dim viewAngleDeg As Double
+    viewAngleDeg = DrawSign.ViewRotationAngleDegrees(v)
     v.Rotation = Matrix3dIdentity
     v.Redraw
     CadInputQueue.SendKeyin "ACS SET WORLD"
-    CadInputQueue.SendKeyin "ACTIVE ANGLE 0"
+    CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
     CadInputQueue.SendKeyin "LOCK ROTATION OFF"
     CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
     CadInputQueue.SendKeyin "ACTIVE COLOR 0"
@@ -123,13 +132,13 @@ Public Function ExecPlaceSign(signNum As String, roadType As String, side As Str
     pt1.X = pt1X: pt1.Y = pt1Y: pt1.Z = pt1Z
 
     ' Legacy order (DrawSign.DrawSignAtPerpLine): text label -> sign face cell -> post
-    Call DrawSign.PlaceSignFaceAndText(pt1, signNum, signSize, dir1X, dir1Y)
+    Call DrawSign.PlaceSignFaceAndText(pt1, signNum, signSize, dir1X, dir1Y, viewAngleDeg)
     Call DrawSign.DrawSignPost(pt1, dir1X, dir1Y)
 
     If bothSides Then
         Dim pt2 As Point3d
         pt2.X = pt2X: pt2.Y = pt2Y: pt2.Z = pt2Z
-        Call DrawSign.PlaceSignFaceAndText(pt2, signNum, signSize, dir2X, dir2Y)
+        Call DrawSign.PlaceSignFaceAndText(pt2, signNum, signSize, dir2X, dir2Y, viewAngleDeg)
         Call DrawSign.DrawSignPost(pt2, dir2X, dir2Y)
         Call DrawSign.DrawConnectingArc(pt1, pt2)
     End If

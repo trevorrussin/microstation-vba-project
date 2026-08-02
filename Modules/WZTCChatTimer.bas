@@ -145,38 +145,55 @@ ProcErr:
 End Sub
 
 ' ============================================================
-' FILE I/O -- same pattern as WZTCSheetRegistry.ReadAllLines /
-' WZTCCommandRegistry.ReadAllLines. Blank lines are skipped, same
-' as those, so an empty line in the chat log can't desync the
-' line-count bookkeeping against what's actually rendered.
+' FILE I/O -- ADODB.Stream at Charset "utf-8" rather than the
+' Open/Line Input# pattern WZTCSheetRegistry.ReadAllLines /
+' WZTCCommandRegistry.ReadAllLines use. Those read ASCII-only
+' data (op names, numeric params); chat-log.tsv carries Claude's
+' natural-language prose, which routinely has em-dashes and curly
+' quotes. Open/Line Input# reads the system ANSI codepage, so
+' those multi-byte UTF-8 characters split into mojibake (confirmed
+' live 2026-08-01 -- an em-dash rendered as "â€"" in the panel).
+' chat_driver.py writes this file as UTF-8, so this is the read
+' side that needs to match, not the write side.
+' Blank lines are skipped, same as the modules above, so an empty
+' line in the chat log can't desync the line-count bookkeeping
+' against what's actually rendered.
 ' ============================================================
 Private Function ReadAllLines(path As String, ByRef outLines() As String) As Long
     On Error GoTo ReadErr
-    Dim fnum As Integer: fnum = 0
     If Dir(path) = "" Then
         ReadAllLines = 0
         Exit Function
     End If
 
-    fnum = FreeFile
-    Open path For Input As #fnum
+    Dim stream As Object
+    Set stream = CreateObject("ADODB.Stream")
+    stream.Type = 2 ' adTypeText
+    stream.Charset = "utf-8"
+    stream.Open
+    stream.LoadFromFile path
+    Dim content As String
+    content = stream.ReadText(-1) ' adReadAll
+    stream.Close
+
+    Dim rawLines() As String
+    rawLines = Split(content, vbCrLf)
 
     Dim n As Long: n = 0
+    Dim i As Long
     Dim ln As String
-    Do While Not EOF(fnum)
-        Line Input #fnum, ln
+    For i = LBound(rawLines) To UBound(rawLines)
+        ln = rawLines(i)
         If Len(Trim(ln)) > 0 Then
             n = n + 1
             ReDim Preserve outLines(1 To n)
             outLines(n) = ln
         End If
-    Loop
-    Close #fnum
+    Next i
     ReadAllLines = n
     Exit Function
 
 ReadErr:
-    If fnum <> 0 Then Close #fnum
     ReadAllLines = 0
 End Function
 

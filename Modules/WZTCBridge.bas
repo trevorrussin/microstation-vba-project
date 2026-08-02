@@ -29,6 +29,7 @@ Private Const REQUEST_FILE As String = BRIDGE_DIR & "request.tsv"
 Private Const RESPONSE_FILE As String = BRIDGE_DIR & "response.tsv"
 Private Const JOURNAL_FILE As String = BRIDGE_DIR & "wztc-journal.tsv"
 Private Const HANDOFF_FILE As String = BRIDGE_DIR & "deferred-handoffs.tsv"
+Private Const CAPTURES_DIR As String = BRIDGE_DIR & "captures\"
 
 ' M7 (Stage 3) -- separate file pair for the chat-driver process
 ' (mcp-server/chat_driver.py), so it can hold its own COM connection to
@@ -188,6 +189,8 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = BridgeEditTextElement(reqId, params)
         Case "DELETE_ELEMENT"
             ExecuteOpInner = BridgeDeleteElement(reqId, params)
+        Case "CAPTURE_VIEW"
+            ExecuteOpInner = ExecCaptureView(reqId, params)
         Case Else
             ExecuteOpInner = reqId & vbTab & "ERROR" & vbTab & "note=unknown op type: " & opType
     End Select
@@ -334,6 +337,40 @@ Private Function ExecListLevels(reqId As String, params As Object) As String
     Exit Function
 QErr:
     ExecListLevels = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' CAPTURE_VIEW -- PARKED. WZTCViewCapture.CaptureView is a no-op
+' stub (see that module's header for why: MicroStation's own
+' raster-export dialog chain couldn't be driven headlessly without
+' guessing an unknown internal command, and a guess already hung
+' the VBA thread once, requiring an external WM_CLOSE to recover).
+' Always returns ERROR. Real capture moved to an OS-level
+' screenshot in mcp-server/view_capture.py, which doesn't touch
+' CadInputQueue at all and has no path to this op.
+' ============================================================
+Private Function ExecCaptureView(reqId As String, params As Object) As String
+    On Error GoTo CapError
+
+    Dim viewNum As Integer: viewNum = 1
+    If params.Exists("view") Then viewNum = CInt(params("view"))
+
+    Dim filePath As String
+    filePath = CAPTURES_DIR & "capture_" & reqId & ".png"
+
+    Dim ok As Boolean
+    ok = WZTCViewCapture.CaptureView(viewNum, filePath)
+
+    If Not ok Then
+        ExecCaptureView = reqId & vbTab & "ERROR" & vbTab & "note=capture did not produce a file at " & filePath
+        Exit Function
+    End If
+
+    ExecCaptureView = reqId & vbTab & "OK" & vbTab & "path=" & filePath
+    Exit Function
+
+CapError:
+    ExecCaptureView = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 Private Function ExecClassifySiteFeatures(reqId As String, params As Object) As String

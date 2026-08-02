@@ -115,10 +115,23 @@ Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
     ' Setup view
     Dim v As View
     Set v = ActiveDesignFile.Views(1)
+    ' Capture the view's rotation BEFORE resetting it to identity below --
+    ' the sign face cell is placed at THIS angle (see PlaceSignFaceAndText),
+    ' not derived from the alignment/perp direction, so it always reads
+    ' upright in whatever view the engineer currently has (confirmed via
+    ' live testing 2026-08-01: a direction-derived rotation is
+    ' mathematically guaranteed to flip text upside-down for some
+    ' directions -- see Legacy Files/LegacySignPlace.bas, which never
+    ' rotates the sign face cell at all, always ACTIVE ANGLE 0. Using the
+    ' view's angle instead of a hardcoded 0 generalizes that same "always
+    ' upright" intent to a rotated view instead of assuming the view is
+    ' never rotated).
+    Dim viewAngleDeg As Double
+    viewAngleDeg = ViewRotationAngleDegrees(v)
     v.Rotation = Matrix3dIdentity
     v.Redraw
     CadInputQueue.SendKeyin "ACS SET WORLD"
-    CadInputQueue.SendKeyin "ACTIVE ANGLE 0"
+    CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg   ' text label also reads upright in-view
     CadInputQueue.SendKeyin "LOCK ROTATION OFF"
 
     ' Set element properties: Default level, color 0 (white), weight 0
@@ -173,7 +186,7 @@ Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
         End If
 
         ' Legacy order: text label → sign face cell → post
-        Call PlaceSignFaceAndText(pt1, signNum, signSize, d1X, d1Y)
+        Call PlaceSignFaceAndText(pt1, signNum, signSize, d1X, d1Y, viewAngleDeg)
         Call DrawSignPost(pt1, d1X, d1Y)
 
     Else
@@ -223,10 +236,10 @@ Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
         End If
 
         ' Legacy order: text label → sign face cell → post
-        Call PlaceSignFaceAndText(pt1, signNum, signSize, dAX, dAY)
+        Call PlaceSignFaceAndText(pt1, signNum, signSize, dAX, dAY, viewAngleDeg)
         Call DrawSignPost(pt1, dAX, dAY)
 
-        Call PlaceSignFaceAndText(pt2, signNum, signSize, dBX, dBY)
+        Call PlaceSignFaceAndText(pt2, signNum, signSize, dBX, dBY, viewAngleDeg)
         Call DrawSignPost(pt2, dBX, dBY)
 
         Call DrawConnectingArc(pt1, pt2)
@@ -298,7 +311,7 @@ End Sub
 ' Text (sign number + size) is placed 70 ft from post.
 ' ============================================================
 Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As String, _
-                          dirX As Double, dirY As Double)
+                          dirX As Double, dirY As Double, viewAngleDeg As Double)
     Dim point As Point3d
 
     ' --- Text label at 70 ft: sign number (line 1) + size (line 2) ---
@@ -333,22 +346,11 @@ Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As Strin
         cellName = ""
     End If
     If Len(cellName) > 0 Then
-        ' Rotate sign face cell to match perpendicular direction.
-        ' Cells are designed with angle 0 = facing north (+Y).
-        ' Formula: active_angle = atan2(-dirX, dirY) in degrees.
-        Dim PI As Double: PI = 3.14159265358979
-        Dim signAngle As Double
-        If Abs(dirY) > 0.0001 Then
-            signAngle = Atn(-dirX / dirY)
-            If dirY < 0 Then
-                If -dirX >= 0 Then signAngle = signAngle + PI Else signAngle = signAngle - PI
-            End If
-        ElseIf dirX > 0 Then
-            signAngle = -PI / 2
-        ElseIf dirX < 0 Then
-            signAngle = PI / 2
-        End If
-        CadInputQueue.SendKeyin "ACTIVE ANGLE " & (signAngle * 180# / PI)
+        ' Sign face cell always matches the current VIEW's rotation (captured
+        ' by the caller before the view was reset to identity), not the
+        ' perpendicular/alignment direction -- see the comment in
+        ' DrawSignAtPerpLine for why a direction-derived angle was wrong.
+        CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
 
         SetCExpressionValue "tcb->activeCellUtf16", cellName, ""
         CadInputQueue.SendCommand "PLACE CELL ICON"
@@ -358,9 +360,44 @@ Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As Strin
         CadInputQueue.SendDataPoint point, 1
         CadInputQueue.SendReset
 
-        CadInputQueue.SendKeyin "ACTIVE ANGLE 0"   ' restore for subsequent operations
+        CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg   ' restore for subsequent operations
     End If
 End Sub
+
+' ============================================================
+' CURRENT VIEW ROTATION, IN DEGREES (Z-axis / plan rotation)
+' Reads the view's rotation matrix (captured BEFORE it gets reset to
+' identity) so signs can be placed at the same angle the engineer is
+' currently viewing the drawing at, per the CadInputQueue "ACTIVE ANGLE"
+' keyin convention (degrees, CCW positive).
+' ============================================================
+Public Function ViewRotationAngleDegrees(v As View) As Double
+    Dim rot As Matrix3d
+    rot = v.Rotation
+    Const PI As Double = 3.14159265358979
+    ViewRotationAngleDegrees = Atan2(rot.RowY.X, rot.RowX.X) * 180# / PI
+End Function
+
+' ============================================================
+' ATAN2 -- VBA has no built-in atan2; standard quadrant-correct
+' implementation in terms of Atn.
+' ============================================================
+Private Function Atan2(y As Double, x As Double) As Double
+    Const PI As Double = 3.14159265358979
+    If x > 0 Then
+        Atan2 = Atn(y / x)
+    ElseIf x < 0 And y >= 0 Then
+        Atan2 = Atn(y / x) + PI
+    ElseIf x < 0 And y < 0 Then
+        Atan2 = Atn(y / x) - PI
+    ElseIf x = 0 And y > 0 Then
+        Atan2 = PI / 2
+    ElseIf x = 0 And y < 0 Then
+        Atan2 = -PI / 2
+    Else
+        Atan2 = 0
+    End If
+End Function
 
 ' ============================================================
 ' DRAW ARC CONNECTING TWO SIGN POSTS (Both Sides only)

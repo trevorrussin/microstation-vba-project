@@ -3,3 +3,4 @@ pywin32
 pymupdf
 anthropic>=0.115.0
 python-dotenv
+Pillow
