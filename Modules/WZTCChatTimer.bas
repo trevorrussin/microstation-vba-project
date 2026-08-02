@@ -127,6 +127,18 @@ Public Sub ChatTimerProc(ByVal hwnd As Long, ByVal uMsg As Long, _
     Dim n As Long
     n = ReadAllLines(mWatchFile, lines)
 
+    If n < mLastLineCount Then
+        ' mWatchFile is smaller than what's already been delivered -- it was
+        ' rotated/archived externally (chat_driver.py archives an oversized
+        ' chat-log.tsv and starts a fresh one, see ChatLog._rotate_if_oversized).
+        ' Resync from scratch instead of silently missing all future lines
+        ' forever (mLastLineCount would otherwise stay stuck above the new,
+        ' smaller file's line count and "n > mLastLineCount" would never be
+        ' true again). Makes rotation safe regardless of timing -- no need to
+        ' coordinate it with the panel being closed/reopened.
+        mLastLineCount = 0
+    End If
+
     If n > mLastLineCount Then
         Dim i As Long
         For i = mLastLineCount + 1 To n

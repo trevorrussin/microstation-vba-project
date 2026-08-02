@@ -50,6 +50,13 @@ Private Const WZTC_CELL_LIB As String = "c:\pwworking\usny\d0119091\ny_plan_wztc
 ' declared between two procedures instead (confirmed live 2026-08-02).
 Private Const RESULT_POOL_SIZE As Long = 8
 
+' Bounded rotation for wztc-journal.tsv -- see RotateJournalIfOversized
+' for the full rationale. Must live here (General Declarations), not
+' next to RotateJournalIfOversized -- same rule as RESULT_POOL_SIZE
+' above, learned the hard way just now.
+Private Const JOURNAL_MAX_BYTES As Long = 2000000
+Private Const JOURNAL_KEEP_LINES As Integer = 2000
+
 ' ============================================================
 ' ENTRY POINT — reads request.tsv, executes each line in order,
 ' writes response.tsv, appends every op to the journal.
@@ -1292,4 +1299,57 @@ Private Sub AppendJournal(reqLine As String, respLine As String)
     Print #fnum, Now & vbTab & "REQ" & vbTab & reqLine
     Print #fnum, Now & vbTab & "RESP" & vbTab & respLine
     Close #fnum
+
+    Call RotateJournalIfOversized
+End Sub
+
+' ============================================================
+' KEEP wztc-journal.tsv FROM GROWING FOREVER
+' Append-only since M1; nothing ever trimmed it. Both consumers
+' (ExecUndoLastOp, ExecGetJournal) only ever need recent history --
+' ExecUndoLastOp walks backward from the end, GET_JOURNAL returns just
+' the last N lines -- so once the file passes JOURNAL_MAX_BYTES, the
+' OLDER prefix (everything before the retained tail) is moved to
+' Bridge\archive\ (never deleted) and the live file keeps only the
+' most recent JOURNAL_KEEP_LINES lines. Runs on every AppendJournal
+' call but is a no-op (one FileLen check) until the file actually
+' crosses the threshold, so no meaningful per-op cost.
+' ============================================================
+Private Sub RotateJournalIfOversized()
+    On Error GoTo RotateErr   ' rotation must never break the journal write that just succeeded
+    If FileLen(JOURNAL_FILE) < JOURNAL_MAX_BYTES Then Exit Sub
+
+    Dim allLines() As String
+    Dim n As Integer
+    n = ReadAllLines(JOURNAL_FILE, allLines)
+    If n <= JOURNAL_KEEP_LINES Then Exit Sub
+
+    Dim archiveDir As String
+    archiveDir = BRIDGE_DIR & "archive\"
+    If Dir(archiveDir, vbDirectory) = "" Then MkDir archiveDir
+
+    Dim archivePath As String
+    archivePath = archiveDir & "wztc-journal-" & Format(Now, "yyyy-mm-dd_hhnnss") & ".tsv"
+
+    Dim fnum As Integer
+    Dim i As Integer
+
+    fnum = FreeFile
+    Open archivePath For Output As #fnum
+    For i = 1 To n - JOURNAL_KEEP_LINES
+        Print #fnum, allLines(i)
+    Next i
+    Close #fnum
+
+    fnum = FreeFile
+    Open JOURNAL_FILE For Output As #fnum
+    For i = n - JOURNAL_KEEP_LINES + 1 To n
+        Print #fnum, allLines(i)
+    Next i
+    Close #fnum
+    Exit Sub
+
+RotateErr:
+    ' Best-effort: leave the journal as-is and let it retry next call
+    ' rather than risk leaving either file half-written.
 End Sub

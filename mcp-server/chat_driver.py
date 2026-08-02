@@ -50,6 +50,8 @@ CHAT_INPUT_FILE = BRIDGE_DIR / "chat-input.tsv"
 CHAT_LOG_FILE = BRIDGE_DIR / "chat-log.tsv"
 HISTORY_FILE = BRIDGE_DIR / "chat-history.json"
 USAGE_FILE = BRIDGE_DIR / "chat-usage.tsv"
+CHAT_LOG_ARCHIVE_DIR = BRIDGE_DIR / "archive"
+CHAT_LOG_MAX_BYTES = 2_000_000  # ~2MB; see ChatLog._rotate_if_oversized
 
 # Overridable without a code edit -- e.g. `set WZTC_CHAT_MODEL=claude-opus-5`
 # before running this script to switch back for an A/B comparison. Default
@@ -212,7 +214,26 @@ class ChatLog:
     def __init__(self, path: Path):
         self.path = path
 
+    def _rotate_if_oversized(self) -> None:
+        """Archive (rename, never delete) chat-log.tsv once it passes
+        CHAT_LOG_MAX_BYTES, so it doesn't grow forever across sessions --
+        it was hit 54KB after one day with nothing ever trimming it. Safe
+        to do at any time (not just process startup): WZTCChatTimer.bas's
+        polling loop now detects the file getting smaller than what it's
+        already delivered and resyncs from scratch instead of silently
+        going stale (see the n < mLastLineCount check added alongside
+        this). Best-effort -- a failed rotation just means the next write
+        appends to the still-oversized file instead of blocking it."""
+        try:
+            if self.path.exists() and self.path.stat().st_size >= CHAT_LOG_MAX_BYTES:
+                CHAT_LOG_ARCHIVE_DIR.mkdir(exist_ok=True)
+                ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                self.path.rename(CHAT_LOG_ARCHIVE_DIR / f"chat-log-{ts}.tsv")
+        except OSError:
+            pass
+
     def _write(self, line_type: str, **fields: str) -> None:
+        self._rotate_if_oversized()
         kv = "\t".join(f"{k}={_flatten(str(v))}" for k, v in fields.items())
         line = f"{datetime.now()}\t{line_type}" + (f"\t{kv}" if kv else "")
         with open(self.path, "a", encoding="utf-8", newline="\r\n") as f:
