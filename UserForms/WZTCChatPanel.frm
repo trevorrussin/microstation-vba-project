@@ -40,6 +40,15 @@ Option Explicit
 '   txtConversation  TextBox: MultiLine=True, WordWrap=True,
 '                    ScrollBars=2-fmScrollBarsVertical,
 '                    Locked=True, TabStop=False
+'   imgScreenshot    Image control (added 2026-08-02): shows the most
+'                    recent auto-captured screenshot of what the agent
+'                    just did (see chat_driver.py's _auto_focus_and_
+'                    capture -- pans/zooms the view to everything the
+'                    turn touched, then screenshots it). Set
+'                    PictureSizeMode = 3 - fmPictureSizeModeZoom in the
+'                    IDE so it scales to fit the control without
+'                    distortion; BorderStyle = 1 - fmBorderStyleSingle
+'                    looks best against the modernized panel background.
 '   txtActivity      TextBox: same settings as txtConversation
 '   txtInput         TextBox: plain single-line, as before
 '   btnSend          CommandButton, as before
@@ -60,48 +69,78 @@ End Function
 ' ============================================================
 ' INITIALIZE
 ' ============================================================
+' Modernized 2026-08-02: Segoe UI throughout (Windows' modern system UI
+' font, universally available, a plain visual upgrade over MSForms'
+' default MS Sans Serif) and a light neutral palette that visually
+' separates the three panes -- white for the actual conversation
+' (primary content), a soft blue-gray for the screenshot frame, a soft
+' gray for the activity/reasoning trace (secondary/detail content).
+' MSForms TextBox has no rich-text/per-line color support, so within a
+' single box every line shares one color -- that's a real, unavoidable
+' constraint of this UI framework, not an oversight.
 Private Sub UserForm_Initialize()
     On Error Resume Next
 
     Me.Caption = "WZTC Agent Chat"
     Me.Width = 620
-    Me.Height = 640
+    Me.Height = 700
+    Me.BackColor = RGB(244, 244, 247)
 
     If ControlExists("txtConversation") Then
         With txtConversation
-            .Top = 10: .Left = 10: .Width = 590: .Height = 300
+            .Top = 10: .Left = 10: .Width = 590: .Height = 170
             .MultiLine = True
             .WordWrap = True
             .ScrollBars = 2   ' fmScrollBarsVertical
             .Locked = True
             .TabStop = False
             .Text = ""
+            .BackColor = RGB(255, 255, 255)
+            .ForeColor = RGB(30, 30, 30)
+            .Font.Name = "Segoe UI"
+            .Font.Size = 9.5
+        End With
+    End If
+
+    If ControlExists("imgScreenshot") Then
+        With Me.Controls("imgScreenshot")
+            .Top = 188: .Left = 10: .Width = 590: .Height = 200
+            .BackColor = RGB(230, 234, 240)
+            .BorderStyle = 1   ' fmBorderStyleSingle
+            .PictureSizeMode = 3   ' fmPictureSizeModeZoom -- fit without distortion
         End With
     End If
 
     If ControlExists("txtActivity") Then
         With txtActivity
-            .Top = 320: .Left = 10: .Width = 590: .Height = 170
+            .Top = 396: .Left = 10: .Width = 590: .Height = 140
             .MultiLine = True
             .WordWrap = True
             .ScrollBars = 2   ' fmScrollBarsVertical
             .Locked = True
             .TabStop = False
             .Text = ""
+            .BackColor = RGB(248, 248, 250)
+            .ForeColor = RGB(70, 70, 75)
+            .Font.Name = "Segoe UI"
+            .Font.Size = 9
         End With
     End If
 
     If ControlExists("txtInput") Then
         With txtInput
-            .Top = 500: .Left = 10: .Width = 505: .Height = 24
+            .Top = 544: .Left = 10: .Width = 505: .Height = 24
             .Text = ""
+            .Font.Name = "Segoe UI"
+            .Font.Size = 9.5
         End With
     End If
 
     If ControlExists("btnSend") Then
         With btnSend
             .Caption = "Send"
-            .Top = 500: .Left = 520: .Width = 80: .Height = 24
+            .Top = 544: .Left = 520: .Width = 80: .Height = 24
+            .Font.Name = "Segoe UI"
             .Font.Bold = True
         End With
     End If
@@ -109,9 +148,11 @@ Private Sub UserForm_Initialize()
     If ControlExists("lblStatus") Then
         With lblStatus
             .Caption = "Ready. (If nothing responds, make sure chat_driver.py is running.)"
-            .Top = 530: .Left = 10: .Width = 590: .Height = 34
+            .Top = 574: .Left = 10: .Width = 590: .Height = 34
             .WordWrap = True
             .ForeColor = RGB(0, 100, 0)
+            .Font.Name = "Segoe UI"
+            .Font.Size = 8.5
         End With
     End If
 
@@ -135,6 +176,8 @@ Public Sub AppendChatLine(rawLine As String)
     Select Case lineType
         Case "THINKING", "TOOL_CALL", "TOOL_RESULT"
             If ControlExists("txtActivity") Then AppendTo txtActivity, display
+        Case "SCREENSHOT"
+            Call ShowScreenshot(display)   ' display holds the raw file path for this type
         Case Else
             If ControlExists("txtConversation") Then AppendTo txtConversation, display
     End Select
@@ -156,11 +199,14 @@ End Sub
 
 ' Appends display text to a read-only textbox pane, separated
 ' from the previous entry by a blank line, and scrolls it into
-' view. A TextBox has no TopIndex like a ListBox -- setting
-' SelStart past the end of .Text (with the box still Locked)
-' moves the caret there and the visible scroll position follows
-' it, which is the standard MSForms way to auto-scroll a
-' read-only multiline textbox.
+' view. Setting SelStart alone does NOT reliably scroll an
+' unfocused textbox in this MSForms host -- confirmed live
+' 2026-08-02 (txtActivity kept showing the oldest content; the
+' engineer had to scroll down manually to see new THINKING/
+' TOOL_CALL lines as the agent worked). The box must actually
+' have focus for the scroll-to-caret to visually take effect;
+' focus is returned to txtInput immediately after so typing the
+' next message isn't interrupted.
 Private Sub AppendTo(box As Object, display As String)
     If box Is Nothing Then Exit Sub
     If box.Text = "" Then
@@ -168,7 +214,12 @@ Private Sub AppendTo(box As Object, display As String)
     Else
         box.Text = box.Text & vbCrLf & vbCrLf & display
     End If
+
+    On Error Resume Next
+    box.SetFocus
     box.SelStart = Len(box.Text)
+    If ControlExists("txtInput") Then txtInput.SetFocus
+    On Error GoTo 0
 End Sub
 
 ' ============================================================
@@ -205,6 +256,10 @@ Private Function FormatLogLine(rawLine As String, ByRef outLineType As String) A
     Next i
 
     Select Case lineType
+        Case "SCREENSHOT"
+            ' Raw path, not a "[icon] text" display string -- AppendChatLine
+            ' routes this straight to ShowScreenshot instead of a textbox.
+            FormatLogLine = FieldOrBlank(fields, "path")
         Case "USER_ECHO"
             FormatLogLine = "[you] " & FieldOrBlank(fields, "text")
         Case "THINKING"
@@ -223,6 +278,22 @@ Private Function FormatLogLine(rawLine As String, ByRef outLineType As String) A
             FormatLogLine = rawLine
     End Select
 End Function
+
+' ============================================================
+' DISPLAY A SCREENSHOT THE AGENT JUST TOOK (chat_driver.py's
+' _auto_focus_and_capture, once per completed turn). LoadPicture
+' reads the PNG from Bridge/captures/; wrapped in On Error Resume
+' Next since a screenshot file that's still mid-write when this
+' fires shouldn't crash the panel -- worst case this one doesn't
+' render and the next turn's does.
+' ============================================================
+Private Sub ShowScreenshot(imgPath As String)
+    If Trim(imgPath) = "" Then Exit Sub
+    If Not ControlExists("imgScreenshot") Then Exit Sub
+    On Error Resume Next
+    Me.Controls("imgScreenshot").Picture = LoadPicture(imgPath)
+    On Error GoTo 0
+End Sub
 
 Private Function FieldOrBlank(fields As Object, key As String) As String
     If fields.Exists(key) Then

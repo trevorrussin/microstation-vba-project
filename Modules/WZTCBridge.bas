@@ -163,6 +163,8 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = ExecListLevels(reqId, params)
         Case "DESCRIBE_DRAWING_STATE"
             ExecuteOpInner = ExecDescribeDrawingState(reqId, params)
+        Case "GET_ELEMENTS_RANGE"
+            ExecuteOpInner = ExecGetElementsRange(reqId, params)
         Case "CLASSIFY_SITE_FEATURES"
             ExecuteOpInner = ExecClassifySiteFeatures(reqId, params)
         Case "COMPUTE_SPACING"
@@ -419,6 +421,88 @@ Private Function ExecDescribeDrawingState(reqId As String, params As Object) As 
     Exit Function
 QErr:
     ExecDescribeDrawingState = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' COMBINED RANGE OF SEVERAL ELEMENTS BY ID -- used by
+' chat_driver.py's post-turn auto-focus (2026-08-02): after a turn
+' places/moves elements, the caller wants one bounding box to pan
+' the view to, not per-element ranges. Required param:
+' elementIds (comma-separated). Unknown/missing IDs are silently
+' skipped, not an error -- the caller already knows which IDs it
+' created; a stale one (already deleted this turn) shouldn't blank
+' out the whole result.
+' ============================================================
+Private Function ExecGetElementsRange(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    If Not params.Exists("elementIds") Then
+        ExecGetElementsRange = reqId & vbTab & "ERROR" & vbTab & "note=missing elementIds"
+        Exit Function
+    End If
+
+    Dim idParts() As String
+    idParts = Split(params("elementIds"), ",")
+
+    Dim lowX As Double, lowY As Double, highX As Double, highY As Double
+    Dim found As Boolean: found = False
+
+    Dim i As Integer
+    For i = 0 To UBound(idParts)
+        Dim idStr As String: idStr = Trim(idParts(i))
+        If idStr <> "" And IsNumeric(idStr) Then
+            Dim el As Element
+            Set el = FindElementByIdLocal(CDbl(idStr))
+            If Not el Is Nothing Then
+                Dim rng As Range3d
+                rng = el.Range
+                If Not found Then
+                    lowX = rng.Low.X: lowY = rng.Low.Y
+                    highX = rng.High.X: highY = rng.High.Y
+                    found = True
+                Else
+                    If rng.Low.X < lowX Then lowX = rng.Low.X
+                    If rng.Low.Y < lowY Then lowY = rng.Low.Y
+                    If rng.High.X > highX Then highX = rng.High.X
+                    If rng.High.Y > highY Then highY = rng.High.Y
+                End If
+            End If
+        End If
+    Next i
+
+    If Not found Then
+        ExecGetElementsRange = reqId & vbTab & "ERROR" & vbTab & "note=none of the given elementIds were found"
+        Exit Function
+    End If
+
+    ExecGetElementsRange = reqId & vbTab & "OK" & vbTab & _
+        "lowX=" & lowX & vbTab & "lowY=" & lowY & vbTab & _
+        "highX=" & highX & vbTab & "highY=" & highY
+    Exit Function
+QErr:
+    ExecGetElementsRange = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Scan-and-match by ID -- same convention as WZTCExec.FindElementByID /
+' DrawSign's newest-element scan; no GetElementByID call exists
+' anywhere in this codebase to reuse (see those functions' own
+' comments for why).
+Private Function FindElementByIdLocal(elementId As Double) As Element
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+
+    Dim el As Element
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        If ElIDAsDouble(el.ID) = elementId Then
+            Set FindElementByIdLocal = el
+            Exit Function
+        End If
+    Loop
+    Set FindElementByIdLocal = Nothing
 End Function
 
 ' ============================================================

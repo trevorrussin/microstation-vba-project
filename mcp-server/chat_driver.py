@@ -39,6 +39,7 @@ from anthropic import beta_tool
 from dotenv import load_dotenv
 
 import manual_search
+import view_capture
 import wztc_ops
 from bridge_client import chat_bridge
 
@@ -261,6 +262,9 @@ class ChatLog:
     def tool_result(self, name: str, status: str, summary: str) -> None:
         self._write("TOOL_RESULT", name=name, status=status, summary=summary)
 
+    def screenshot(self, path: str) -> None:
+        self._write("SCREENSHOT", path=path)
+
     def ask_user(self, question: str) -> None:
         self._write("ASK_USER", question=question)
 
@@ -308,6 +312,31 @@ class InputWatcher:
 
 LOG = ChatLog(CHAT_LOG_FILE)
 INPUT = InputWatcher(CHAT_INPUT_FILE)
+
+
+_TOUCHED_ELEMENT_IDS: set[str] = set()
+
+
+def _collect_element_ids(result) -> None:
+    """Pulls any element IDs out of a tool result (createdElementIds,
+    elementIds, elementId -- the conventions already used across every
+    WZTCBridge op's response) into _TOUCHED_ELEMENT_IDS, so the post-turn
+    auto-focus/screenshot hook (see main()) knows what to pan the view to.
+    Added 2026-08-02 after feedback that the view never followed the
+    agent's work, so the engineer watching the panel saw whatever was
+    on screen before the turn started, not what changed."""
+    if not isinstance(result, dict):
+        return
+    for key in ("createdElementIds", "elementIds"):
+        val = result.get(key)
+        if val:
+            for eid in str(val).split(","):
+                eid = eid.strip()
+                if eid:
+                    _TOUCHED_ELEMENT_IDS.add(eid)
+    eid = result.get("elementId")
+    if eid not in (None, ""):
+        _TOUCHED_ELEMENT_IDS.add(str(eid).strip())
 
 
 def _summarize(result) -> str:
@@ -358,6 +387,7 @@ def _wrap_op(tool_name: str, fn):
         try:
             result = fn(**kwargs)
             LOG.tool_result(tool_name, "OK", _summarize(result))
+            _collect_element_ids(result)
             return json.dumps(result, ensure_ascii=False, default=str)
         except Exception as e:
             LOG.tool_result(tool_name, "ERROR", str(e))
@@ -495,6 +525,48 @@ def _trim_cache_control(messages: list[dict]) -> None:
             block.pop("cache_control", None)
 
 
+def _auto_focus_and_capture() -> None:
+    """After a turn touches any elements, pan/zoom the MicroStation view to
+    show everything that changed (combined bounding box, 30% margin, 10ft
+    floor so a single small sign doesn't zoom in absurdly tight) and take a
+    screenshot, so the engineer watching the panel can actually see what
+    happened instead of whatever was on screen before the turn started.
+    Runs once per completed run_turn() call (which may span several
+    ask_user rounds) -- the engineer's own choice over re-focusing after
+    every individual tool call, which would jump the view around a lot on
+    a multi-step turn. Best-effort: any failure here must never break the
+    turn's real answer, so everything is swallowed and logged as a
+    (non-fatal) ERROR line rather than raised."""
+    if not _TOUCHED_ELEMENT_IDS:
+        return
+    try:
+        ids_csv = ",".join(sorted(_TOUCHED_ELEMENT_IDS))
+        resp = chat_bridge.call("GET_ELEMENTS_RANGE", elementIds=ids_csv)
+        if resp.get("status") != "OK":
+            return
+        low_x, low_y = float(resp["lowX"]), float(resp["lowY"])
+        high_x, high_y = float(resp["highX"]), float(resp["highY"])
+        center_x = (low_x + high_x) / 2
+        center_y = (low_y + high_y) / 2
+        width = max(high_x - low_x, 10.0) * 1.3
+        height = max(high_y - low_y, 10.0) * 1.3
+        view_capture.navigate_view(center_x, center_y, width, height)
+        path = view_capture.capture_microstation()
+        # VBA's LoadPicture (used by WZTCChatPanel.ShowScreenshot) does not
+        # reliably support PNG in this MSForms host -- confirmed live
+        # 2026-08-02: the panel showed no error (LoadPicture's failure was
+        # caught by ShowScreenshot's own On Error Resume Next) but also no
+        # image, ever. BMP is LoadPicture's one universally-supported
+        # format across VBA hosts, so re-save a BMP copy specifically for
+        # the panel rather than changing the PNG capture format everyone
+        # else (me, Claude Code) relies on.
+        bmp_path = path.with_suffix(".bmp")
+        view_capture.Image.open(path).convert("RGB").save(bmp_path, format="BMP")
+        LOG.screenshot(str(bmp_path))
+    except Exception as e:
+        LOG.error(f"auto-focus/screenshot failed (non-fatal, turn result unaffected): {e}")
+
+
 def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) -> str:
     """Run one full agentic turn (think -> act -> think -> ... -> final
     answer) for a single user message, mutating `messages` in place to
@@ -504,6 +576,7 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
     the SDK's own documented pause_turn-handling pattern) -- mirroring it
     ourselves via generate_tool_call_response() is the documented way to
     persist history across separate tool_runner() calls, one per turn."""
+    _TOUCHED_ELEMENT_IDS.clear()
     # cache_control on the last block of this turn's user message: the API
     # walks backward (up to 20 content blocks) from here to find the
     # previous turn's breakpoint and reuses it, so a multi-turn session
@@ -602,6 +675,7 @@ def main() -> None:
         try:
             final_text = run_turn(client, messages, user_text)
             save_history(messages)
+            _auto_focus_and_capture()
             LOG.final(final_text)
             print(f"[usage] session running total: ${USAGE.total_cost_usd:.4f} "
                   f"(see {USAGE_FILE} for the per-call breakdown)")
