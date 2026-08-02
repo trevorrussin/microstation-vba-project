@@ -214,9 +214,17 @@ wording, not the agent.
 
 ## Known gaps / not verified yet
 
-- **Multi-session MicroStation**: `win32com.client.GetObject` attaches to
-  *a* running MicroStation instance; behavior with two sessions open is
-  unconfirmed.
+- **Multi-session MicroStation**: RESOLVED 2026-08-02. `ms_connect.
+  get_microstation_app()` (used by `bridge_client.py`, `hot_reload.py`,
+  `view_capture.py`, and the two `scripts/*_batch.py` dev tools) replaces
+  the old ambiguous `GetObject(Class=...)` attach — it enumerates every
+  Running Object Table entry matching MicroStation's CLSID and requires
+  exactly one to have the target VBA project loaded, raising a clear error
+  on 0 or 2+ matches instead of silently picking one. This closes the gap
+  that was the confirmed likely trigger for a real MicroStation crash the
+  same day (two instances running, an ambiguous attach landed on one mid-
+  test) — see `ms_connect.py`'s docstring for the incident and the ROT
+  mechanics discovered while fixing it.
 - **`get_model_context`** isn't implemented (see above).
 - **Recipe DSL interpreter** for `keyin_recipe` rows is new code — settings-
   only seeds reuse proven `SendKeyin` strings, but each promoted row should
