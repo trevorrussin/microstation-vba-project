@@ -1,0 +1,19 @@
+---
+description: Cross-tool work log — append after finishing non-trivial work
+alwaysApply: true
+---
+
+This project is also worked on from Claude Code, which cannot see Cursor's
+session history or memory. `dev-notes/agent-log.md` is the shared bridge
+between the two.
+
+After finishing a non-trivial, non-obvious piece of work in this repo
+(a real bug fix, a design decision with a non-obvious reason, a gotcha
+specific to this codebase, a dead end that shouldn't be retried), append an
+entry to `dev-notes/agent-log.md` following the format documented at the top
+of that file: a dated `## YYYY-MM-DD — Cursor — <summary>` heading followed
+by a few sentences on what changed, why, and anything surprising (especially
+root causes, not just symptoms). Reference specific files/functions.
+
+Don't log routine or self-explanatory edits — only what a future session
+(in either tool) would otherwise have to rediscover from scratch.

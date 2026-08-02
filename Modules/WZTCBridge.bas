@@ -43,6 +43,13 @@ Private Const CHAT_TOOL_RESPONSE_FILE As String = BRIDGE_DIR & "chat-tool-respon
 
 Private Const WZTC_CELL_LIB As String = "c:\pwworking\usny\d0119091\ny_plan_wztc.cel"
 
+' Bounded pool size for results_slot<N>.tsv reuse -- see the comment above
+' WriteResultRows for why. Module-level Const declarations must all live
+' here in the General Declarations section; VBA raises "Only comments may
+' appear after End Sub, End Function, or End Property" if a Const is
+' declared between two procedures instead (confirmed live 2026-08-02).
+Private Const RESULT_POOL_SIZE As Long = 8
+
 ' ============================================================
 ' ENTRY POINT — reads request.tsv, executes each line in order,
 ' writes response.tsv, appends every op to the journal.
@@ -562,13 +569,27 @@ WErr:
 End Function
 
 ' ============================================================
-' WRITE A MULTI-ROW QUERY RESULT TO Bridge\results_<reqId>.tsv
+' WRITE A MULTI-ROW QUERY RESULT TO Bridge\results_slot<N>.tsv
 ' Response line points to it and reports the data row count
 ' (header row not counted).
+'
+' Results are read-once: the caller (bridge_client.py) reads resultFile
+' immediately after getting the response and never reopens it. A unique
+' filename per reqId used to mean one new file per query call forever
+' (19+ leftover results_P*.tsv files observed after one session). Fixed
+' by reusing a small bounded pool of filenames instead -- "Open ... For
+' Output" below already truncates/overwrites, so no delete is needed
+' anywhere, and the file count on disk never grows past RESULT_POOL_SIZE.
+' Safe as long as a single batch (see WZTCBridge.RunRequest's loop over
+' request.tsv lines) never has more than RESULT_POOL_SIZE ops that each
+' produce a multi-row result -- true today (call_batch is only ever
+' invoked with one op at a time from bridge_client.py); if real
+' multi-op batching is added later, bump RESULT_POOL_SIZE well past the
+' largest expected batch size.
 ' ============================================================
 Private Function WriteResultRows(reqId As String, rows() As String) As String
     Dim resultPath As String
-    resultPath = BRIDGE_DIR & "results_" & reqId & ".tsv"
+    resultPath = BRIDGE_DIR & "results_slot" & ResultSlotFor(reqId) & ".tsv"
 
     Dim fnum As Integer: fnum = FreeFile
     Open resultPath For Output As #fnum
@@ -579,6 +600,24 @@ Private Function WriteResultRows(reqId As String, rows() As String) As String
     Close #fnum
 
     WriteResultRows = reqId & vbTab & "OK" & vbTab & "rowCount=" & UBound(rows) & vbTab & "resultFile=" & resultPath
+End Function
+
+Private Function ResultSlotFor(reqId As String) As Long
+    Dim digits As String
+    Dim c As String
+    Dim i As Integer
+    For i = 1 To Len(reqId)
+        c = Mid(reqId, i, 1)
+        If c >= "0" And c <= "9" Then digits = digits & c
+    Next i
+    If Len(digits) = 0 Then
+        ResultSlotFor = 0
+        Exit Function
+    End If
+    ' Keep only the trailing digits before converting so a long-running
+    ' reqId counter can never overflow CLng.
+    If Len(digits) > 6 Then digits = Right(digits, 6)
+    ResultSlotFor = CLng(digits) Mod RESULT_POOL_SIZE
 End Function
 
 ' ============================================================

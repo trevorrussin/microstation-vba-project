@@ -77,6 +77,20 @@ revert or overwrite it. Ask for clarification if the change is unclear.
 
 ---
 
+## Cross-Tool Work Log (Cursor + Claude Code)
+
+This project is sometimes worked on from Cursor as well as Claude Code. Neither tool can see
+the other's session history or persistent memory, so `dev-notes/agent-log.md` is a manual
+bridge: Cursor is instructed (via `.cursor/rules/agent-log.mdc`) to append an entry there after
+finishing non-trivial work; Claude Code should do the same.
+
+**Check `dev-notes/agent-log.md` whenever the user mentions work happened in Cursor** (or another
+tool) since your last session, or at the start of a session if it's been a while. Fold anything
+load-bearing into your own persistent memory the same way you would if the user had described it
+directly in chat — don't just leave it sitting in the log unprocessed.
+
+---
+
 ## Debugging Tips for This Project
 
 When the user reports a bug, ask for:
