@@ -72,6 +72,26 @@ Option Explicit
 Private Const CHAT_LOG_FILE As String = "c:\repos\microstation-vba-project\Bridge\chat-log.tsv"
 Private Const CHAT_INPUT_FILE As String = "c:\repos\microstation-vba-project\Bridge\chat-input.tsv"
 
+' ============================================================
+' DOCK TO RIGHT EDGE (2026-08-02 feedback) -- MSForms has no real docking
+' (that's MicroStation's own tool-palette framework, not available to a
+' VBA UserForm), so this is the closest equivalent: position against the
+' right edge of the screen and use its full height every time the panel
+' loads, rather than a small fixed-size floating window. GetSystemMetrics
+' returns PIXELS; UserForm Left/Top/Width/Height are all in POINTS
+' (1/72in) -- PIXELS_TO_POINTS is the standard 96-DPI (72/96) conversion.
+' ============================================================
+#If VBA7 Then
+    Private Declare PtrSafe Function GetSystemMetrics Lib "user32" (ByVal nIndex As Long) As Long
+#Else
+    Private Declare Function GetSystemMetrics Lib "user32" (ByVal nIndex As Long) As Long
+#End If
+
+Private Const SM_CXSCREEN As Long = 0
+Private Const SM_CYSCREEN As Long = 1
+Private Const PIXELS_TO_POINTS As Double = 0.75
+Private Const TASKBAR_MARGIN_PTS As Double = 40   ' leaves room for the taskbar
+
 ' Guards UserForm_Activate's self-correcting Hide+Show vbModeless below
 ' against recursion -- Show always fires Activate again, so without this
 ' the second (already-modeless) Activate would re-trigger the same
@@ -113,8 +133,32 @@ Private Sub UserForm_Initialize()
 
     Me.Caption = "WZTC Agent Chat"
     Me.Width = 620
-    Me.Height = 700
+    Me.Height = GetSystemMetrics(SM_CYSCREEN) * PIXELS_TO_POINTS - TASKBAR_MARGIN_PTS
+    Me.Left = GetSystemMetrics(SM_CXSCREEN) * PIXELS_TO_POINTS - Me.Width   ' dock to right edge
+    Me.Top = 0
     Me.BackColor = RGB(244, 244, 247)
+
+    ' Bottom-up layout: txtActivity/txtInput/btnSend/lblStatus are a fixed-
+    ' height block anchored to the bottom of whatever Me.Height turned out
+    ' to be; imgScreenshot fills everything between txtConversation and
+    ' that block. This is what makes the image box grow to use the full
+    ' docked height instead of leaving dead space below lblStatus (exactly
+    ' the space the 2026-08-02 feedback flagged as wasted under the old
+    ' fixed-position layout).
+    Const ACTIVITY_HEIGHT As Double = 140
+    Const INPUT_HEIGHT As Double = 24
+    Const STATUS_HEIGHT As Double = 34
+    Const GAP As Double = 8
+    Const GAP_SMALL As Double = 6
+    Const BOTTOM_MARGIN As Double = 8
+    Const IMG_TOP As Double = 188
+
+    Dim bottomBlockTop As Double
+    bottomBlockTop = Me.Height - (ACTIVITY_HEIGHT + GAP + INPUT_HEIGHT + GAP_SMALL + STATUS_HEIGHT + BOTTOM_MARGIN)
+
+    Dim imgHeight As Double
+    imgHeight = bottomBlockTop - GAP - IMG_TOP
+    If imgHeight < 100 Then imgHeight = 100   ' safety floor on an unexpectedly small screen
 
     If ControlExists("txtConversation") Then
         With txtConversation
@@ -134,7 +178,7 @@ Private Sub UserForm_Initialize()
 
     If ControlExists("imgScreenshot") Then
         With Me.Controls("imgScreenshot")
-            .Top = 188: .Left = 10: .Width = 590: .Height = 200
+            .Top = IMG_TOP: .Left = 10: .Width = 590: .Height = imgHeight
             .BackColor = RGB(230, 234, 240)
             .BorderStyle = 1   ' fmBorderStyleSingle
             .PictureSizeMode = 3   ' fmPictureSizeModeZoom -- fit without distortion
@@ -143,7 +187,7 @@ Private Sub UserForm_Initialize()
 
     If ControlExists("txtActivity") Then
         With txtActivity
-            .Top = 396: .Left = 10: .Width = 590: .Height = 140
+            .Top = bottomBlockTop: .Left = 10: .Width = 590: .Height = ACTIVITY_HEIGHT
             .MultiLine = True
             .WordWrap = True
             .ScrollBars = 2   ' fmScrollBarsVertical
@@ -157,9 +201,12 @@ Private Sub UserForm_Initialize()
         End With
     End If
 
+    Dim inputTop As Double
+    inputTop = bottomBlockTop + ACTIVITY_HEIGHT + GAP
+
     If ControlExists("txtInput") Then
         With txtInput
-            .Top = 544: .Left = 10: .Width = 505: .Height = 24
+            .Top = inputTop: .Left = 10: .Width = 505: .Height = INPUT_HEIGHT
             .Text = ""
             .Font.Name = "Segoe UI"
             .Font.Size = 9.5
@@ -169,7 +216,7 @@ Private Sub UserForm_Initialize()
     If ControlExists("btnSend") Then
         With btnSend
             .Caption = "Send"
-            .Top = 544: .Left = 520: .Width = 80: .Height = 24
+            .Top = inputTop: .Left = 520: .Width = 80: .Height = INPUT_HEIGHT
             .Font.Name = "Segoe UI"
             .Font.Bold = True
         End With
@@ -178,7 +225,7 @@ Private Sub UserForm_Initialize()
     If ControlExists("lblStatus") Then
         With lblStatus
             .Caption = "Ready. (If nothing responds, make sure chat_driver.py is running.)"
-            .Top = 574: .Left = 10: .Width = 590: .Height = 34
+            .Top = inputTop + INPUT_HEIGHT + GAP_SMALL: .Left = 10: .Width = 590: .Height = STATUS_HEIGHT
             .WordWrap = True
             .ForeColor = RGB(0, 100, 0)
             .Font.Name = "Segoe UI"

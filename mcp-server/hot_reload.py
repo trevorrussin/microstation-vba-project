@@ -41,8 +41,8 @@ import sys
 from pathlib import Path
 
 import pythoncom
-import win32com.client
 
+import ms_connect
 from bridge_client import PROJECT_NAME
 
 
@@ -86,13 +86,12 @@ def main() -> int:
     pythoncom.CoInitialize()
     try:
         try:
-            app = win32com.client.GetObject(Class="MicroStationDGN.Application")
+            # Deterministic attach (2026-08-02, see ms_connect.py) -- finds
+            # the one running instance that has args.project loaded rather
+            # than attaching to whichever the ROT hands back first.
+            app = ms_connect.get_microstation_app(args.project)
         except Exception as exc:
-            print(
-                f"ERROR: could not attach to a running MicroStation session: {exc}\n"
-                "Is MicroStation open?",
-                file=sys.stderr,
-            )
+            print(f"ERROR: {exc}", file=sys.stderr)
             return 1
 
         try:

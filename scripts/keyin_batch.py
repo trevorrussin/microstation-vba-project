@@ -33,9 +33,10 @@ from datetime import date
 from pathlib import Path
 
 import pythoncom
-import win32com.client
 
 ROOT = Path(r"c:\repos\microstation-vba-project")
+sys.path.insert(0, str(ROOT / "mcp-server"))
+import ms_connect  # noqa: E402 -- needs ROOT on sys.path first
 DEFAULT_CANDIDATES = ROOT / "Data" / "keyin-candidates.tsv"
 DEFAULT_REGISTRY = ROOT / "Data" / "command-registry.tsv"
 DEFAULT_RESULTS = ROOT / "Bridge" / "keyin-probe-batch.json"
@@ -154,7 +155,7 @@ def _existing_keyins(registry: Path) -> set[str]:
 def _one_keyin(keyin: str) -> int:
     """Child entrypoint: SendKeyin once on DELETE.dgn. Exit 0=ok, 2=wrong file, 1=err."""
     pythoncom.CoInitialize()
-    app = win32com.client.GetObject(Class="MicroStationDGN.Application")
+    app = ms_connect.get_microstation_app()
     try:
         active_name = app.ActiveDesignFile.Name
     except Exception as e:
@@ -235,7 +236,7 @@ def probe(candidates_path: Path, results_path: Path, skip_existing: bool) -> lis
             done_ops = set()
 
     pythoncom.CoInitialize()
-    app = win32com.client.GetObject(Class="MicroStationDGN.Application")
+    app = ms_connect.get_microstation_app()
     try:
         active_name = app.ActiveDesignFile.Name
     except Exception as e:
@@ -338,7 +339,7 @@ def probe(candidates_path: Path, results_path: Path, skip_existing: bool) -> lis
         if hint == "HANG":
             try:
                 pythoncom.CoInitialize()
-                app = win32com.client.GetObject(Class="MicroStationDGN.Application")
+                app = ms_connect.get_microstation_app()
                 try:
                     app.CadInputQueue.SendReset()
                 except Exception:

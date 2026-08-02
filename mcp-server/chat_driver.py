@@ -176,6 +176,18 @@ those values, never estimate. You decide *what* to place and *how to
 respond to a site condition* (an obstruction, a driveway); the numbers
 themselves come from those two tools.
 
+road_type ('Freeway' vs 'Non-Freeway') is per-task context, not a session
+default — it changes both compute_spacing's numbers and place_sign's actual
+sign size (SignLibrary.GetSignData picks TextLine2Freeway vs
+TextLine2NonFreeway from it). Do not silently reuse road_type (or speed/
+lane-width/shoulder-width) from an earlier placement in this conversation
+for a new or different task just because it's still in context — when the
+engineer says something like "new task" or the location clearly changed,
+confirm or re-ask these values rather than carrying them forward. Confirmed
+live 2026-08-02: silently reusing a stale Non-Freeway assumption on a later,
+unrelated placement is exactly the kind of quiet error a PE reviewing the
+journal would need to catch.
+
 get_sheet_requirements' `signs` field lists sign codes as printed on the
 sheet (e.g. "W20-1"), which is NOT the same string place_sign needs
 (SignLibrary.bas keys are zero-padded and suffixed, e.g. "W20-01RA").

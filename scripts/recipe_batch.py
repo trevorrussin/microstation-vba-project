@@ -27,6 +27,8 @@ import pythoncom
 import win32com.client
 
 ROOT = Path(r"c:\repos\microstation-vba-project")
+sys.path.insert(0, str(ROOT / "mcp-server"))
+import ms_connect  # noqa: E402 -- needs ROOT on sys.path first
 DEFAULT_CANDIDATES = ROOT / "Data" / "recipe-candidates.tsv"
 DEFAULT_REGISTRY = ROOT / "Data" / "command-registry.tsv"
 DEFAULT_RESULTS = ROOT / "Bridge" / "recipe-probe-batch.json"
@@ -112,7 +114,7 @@ def _graphical_element_count(app) -> int:
 def _one_step(step: str) -> int:
     """Child: run one recipe step on DELETE.dgn. Exit 0=ok, 2=wrong file, 1=err."""
     pythoncom.CoInitialize()
-    app = win32com.client.GetObject(Class="MicroStationDGN.Application")
+    app = ms_connect.get_microstation_app()
     try:
         active_name = app.ActiveDesignFile.Name
     except Exception as e:
@@ -246,7 +248,7 @@ def probe(candidates_path: Path, results_path: Path) -> list[dict]:
         raise SystemExit(f"no candidates in {candidates_path}")
 
     pythoncom.CoInitialize()
-    app = win32com.client.GetObject(Class="MicroStationDGN.Application")
+    app = ms_connect.get_microstation_app()
     try:
         active_name = app.ActiveDesignFile.Name
     except Exception as e:
@@ -332,7 +334,7 @@ def probe(candidates_path: Path, results_path: Path) -> list[dict]:
                     break
                 # Rebind app after subprocess
                 try:
-                    app = win32com.client.GetObject(Class="MicroStationDGN.Application")
+                    app = ms_connect.get_microstation_app()
                 except Exception as e:
                     step_err = f"COM rebind failed: {e}"
                     break

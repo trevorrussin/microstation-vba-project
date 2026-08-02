@@ -48,21 +48,33 @@ MAX_LONG_EDGE = 1568
 
 
 def _find_window(title_predicate) -> int:
-    """Returns the hwnd of the first visible window whose title satisfies
-    title_predicate(title) -> bool. Raises if none match."""
-    matches: list[int] = []
+    """Returns the hwnd of the visible window whose title satisfies
+    title_predicate(title) -> bool. Raises if none match -- and, per the
+    2026-08-02 crash incident (see ms_connect.py's docstring), also raises
+    if MORE than one matches rather than silently capturing whichever
+    happened to enumerate first. Two MicroStation windows (or two chat
+    panels) open at once is exactly the ambiguous state that led there;
+    surfacing it here is cheap insurance even though this function itself
+    doesn't touch COM."""
+    matches: list[tuple[int, str]] = []
 
     def _callback(hwnd: int, _):
         if win32gui.IsWindowVisible(hwnd):
             title = win32gui.GetWindowText(hwnd)
             if title and title_predicate(title):
-                matches.append(hwnd)
+                matches.append((hwnd, title))
         return True
 
     win32gui.EnumWindows(_callback, None)
     if not matches:
         raise RuntimeError("no visible window matched")
-    return matches[0]
+    if len(matches) > 1:
+        titles = "\n  ".join(t for _, t in matches)
+        raise RuntimeError(
+            f"{len(matches)} visible windows matched -- can't tell which one you "
+            f"mean. Close the extra one(s) first. Matches:\n  {titles}"
+        )
+    return matches[0][0]
 
 
 def _find_view_child(main_hwnd: int, view_num: int = 1) -> int | None:
@@ -159,9 +171,14 @@ def navigate_view(x: float, y: float, width: float, height: float,
     before relying on it once a 3D file is available.
     """
     import time
-    from win32com.client import gencache
 
-    app = gencache.EnsureDispatch("MicroStationDGN.Application")
+    import ms_connect
+
+    # Deterministic attach (2026-08-02, see ms_connect.py) -- finds the one
+    # running instance with the Test VBA project loaded rather than
+    # attaching to whichever the ROT hands back first; still returns an
+    # EnsureDispatch-wrapped object so Point3dFromXYZ below keeps working.
+    app = ms_connect.get_microstation_app()
     is_3d = app.ActiveModelReference.Is3D
     v = app.ActiveDesignFile.Views(view_num)
 

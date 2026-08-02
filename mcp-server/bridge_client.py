@@ -23,7 +23,8 @@ from pathlib import Path
 from typing import Any
 
 import pythoncom
-import win32com.client
+
+import ms_connect
 
 BRIDGE_DIR = Path(r"c:\repos\microstation-vba-project\Bridge")
 REQUEST_FILE = BRIDGE_DIR / "request.tsv"
@@ -145,7 +146,12 @@ class Bridge:
         # caching anything across calls.
         pythoncom.CoInitialize()
         try:
-            app = win32com.client.GetObject(Class="MicroStationDGN.Application")
+            # Deterministic attach (2026-08-02, see ms_connect.py) --
+            # GetObject(Class=...) would attach to whichever MicroStation
+            # instance the ROT happens to hand back if more than one is
+            # running; this instead requires the one instance that actually
+            # has PROJECT_NAME's VBA project loaded, or raises clearly.
+            app = ms_connect.get_microstation_app(PROJECT_NAME)
             keyin = f"VBA RUN [{PROJECT_NAME}]{self.run_sub}"
             app.CadInputQueue.SendKeyin(keyin)
         finally:
