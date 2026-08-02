@@ -956,3 +956,150 @@ Public Sub ClearLibrary()
     ReDim signLibrary(1 To 1)
 End Sub
 
+' ============================================================
+' RESOLVE SIGN CODE
+' Data/sheet-registry.tsv stores sign codes as printed on the NYSDOT
+' standard sheet (e.g. "W20-1", "R10-6L") -- a different vocabulary
+' from this library's zero-padded, message/side-suffixed keys (e.g.
+' "W20-01RA"). Bridges the two WITHOUT guessing which suffix variant
+' to use: an exact / case-insensitive / zero-padded match returns one
+' row (matchType "exact"/"normalized"); a code whose base sign has
+' multiple message/side variants (e.g. "W20-1" -> RA/RF/RM/RPM/SA/SF/
+' SM/SPM) returns every variant as a "candidate" row so the caller
+' picks based on context (desired distance message, Road vs Street)
+' or asks the engineer -- never silently defaults to one. Zero rows
+' means the sign genuinely isn't in this library yet, which is a real
+' content gap (see Data/README.md sheet-registry section), not a
+' lookup bug -- do not fabricate a CellName/size for it here.
+' ============================================================
+Public Function ResolveSignCode(rawCode As String) As String()
+    Dim rows() As String
+    Dim n As Long: n = 0
+    ReDim rows(0 To 0)
+    rows(0) = "signNumber" & vbTab & "description" & vbTab & "matchType"
+
+    If Not signLibraryInitialized Then Call InitializeSignLibrary
+
+    Dim code As String
+    code = Trim(rawCode)
+    If code = "" Then
+        ResolveSignCode = rows
+        Exit Function
+    End If
+
+    Dim sd As signData
+
+    ' 1) exact (case-sensitive)
+    If SignExists(code) Then
+        n = n + 1
+        ReDim Preserve rows(0 To n)
+        sd = GetSignData(code)
+        rows(n) = sd.SignNumber & vbTab & sd.Description & vbTab & "exact"
+        ResolveSignCode = rows
+        Exit Function
+    End If
+
+    Dim allSigns() As String
+    allSigns = GetAllSignNumbers
+    Dim i As Long
+
+    ' 2) case-insensitive exact
+    For i = LBound(allSigns) To UBound(allSigns)
+        If allSigns(i) <> "" And StrComp(code, allSigns(i), vbTextCompare) = 0 Then
+            n = n + 1
+            ReDim Preserve rows(0 To n)
+            sd = GetSignData(allSigns(i))
+            rows(n) = sd.SignNumber & vbTab & sd.Description & vbTab & "exact"
+            ResolveSignCode = rows
+            Exit Function
+        End If
+    Next i
+
+    ' 3) zero-padded stem: exact match, or every entry that extends the
+    ' stem with an uppercase suffix. A lowercase-letter continuation right
+    ' after the stem (e.g. stem "W20-05" against key "W20-05aLA") means a
+    ' different base sign ("W20-5a", not a variant of "W20-5"), so it's
+    ' excluded rather than offered as a candidate.
+    Dim stem As String
+    stem = PadNumericStem(code)
+    Dim stemLen As Long: stemLen = Len(stem)
+    Dim candidates() As String
+    Dim candCount As Long: candCount = 0
+    ReDim candidates(0 To 0)
+
+    For i = LBound(allSigns) To UBound(allSigns)
+        Dim key As String
+        key = allSigns(i)
+        If key = "" Then GoTo NextSign
+        If Len(key) < stemLen Then GoTo NextSign
+        If Left(key, stemLen) <> stem Then GoTo NextSign
+        If Len(key) > stemLen Then
+            Dim nextCh As String
+            nextCh = Mid(key, stemLen + 1, 1)
+            If nextCh >= "a" And nextCh <= "z" Then GoTo NextSign
+        End If
+        candCount = candCount + 1
+        ReDim Preserve candidates(0 To candCount)
+        candidates(candCount) = key
+NextSign:
+    Next i
+
+    For i = 1 To candCount
+        n = n + 1
+        ReDim Preserve rows(0 To n)
+        sd = GetSignData(candidates(i))
+        If candCount = 1 Then
+            rows(n) = sd.SignNumber & vbTab & sd.Description & vbTab & "normalized"
+        Else
+            rows(n) = sd.SignNumber & vbTab & sd.Description & vbTab & "candidate"
+        End If
+    Next i
+
+    ResolveSignCode = rows
+End Function
+
+' ============================================================
+' Pads the digit run immediately after the first "-" to 2 digits
+' (e.g. "W20-1" -> "W20-01", "R10-6L" -> "R10-06L"); leaves any
+' trailing letters (message/side suffix) untouched. A code with no
+' "-", or no digits right after it, is returned unchanged.
+' ============================================================
+Private Function PadNumericStem(raw As String) As String
+    Dim dashPos As Long
+    dashPos = InStr(raw, "-")
+    If dashPos = 0 Then
+        PadNumericStem = raw
+        Exit Function
+    End If
+
+    Dim prefix As String, rest As String
+    prefix = Left(raw, dashPos)   ' includes the "-"
+    rest = Mid(raw, dashPos + 1)
+
+    Dim digits As String
+    digits = ""
+    Dim i As Long
+    For i = 1 To Len(rest)
+        Dim ch As String
+        ch = Mid(rest, i, 1)
+        If ch >= "0" And ch <= "9" Then
+            digits = digits & ch
+        Else
+            Exit For
+        End If
+    Next i
+
+    If Len(digits) = 0 Then
+        PadNumericStem = raw
+        Exit Function
+    End If
+
+    Dim suffix As String
+    suffix = Mid(rest, Len(digits) + 1)
+    If Len(digits) < 2 Then
+        digits = String(2 - Len(digits), "0") & digits
+    End If
+
+    PadNumericStem = prefix & digits & suffix
+End Function
+

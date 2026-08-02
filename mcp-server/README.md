@@ -183,6 +183,35 @@ thread to keep responsive, unlike the VBA panel) until the engineer replies
 in the panel, matching the documented pattern for promoting question-asking
 to a tool call in agentic loops.
 
+## Eval harness (`eval_harness.py`)
+
+A small fixed set of scenarios that run real turns through `chat_driver.
+run_turn` and check the agent's actual tool-call trace / final answer —
+first step toward answering "did this prompt/tool/model change break
+anything" with something other than anecdote. Not a drawing-correctness
+checker (it never looks at the DGN) — that's the natural next layer, not
+this one.
+
+```bash
+python eval_harness.py                 # run every scenario
+python eval_harness.py --list           # print scenarios, no API calls
+python eval_harness.py --only sign_code_translation
+python eval_harness.py --report ../Bridge/eval-results.json
+```
+
+Real API calls (billed) and real `WZTCBridge` calls against whatever model
+is currently open — run it against `DELETE.dgn`, not a real project file,
+same as any manual panel test. Swaps in isolated stand-ins for
+`chat_driver.LOG` (writes to `Bridge/eval-log.tsv`, not the live panel's
+`chat-log.tsv`) and `chat_driver.INPUT` (a canned non-answer for `ask_user`,
+so a scenario can't hang waiting for a human to type into the real panel)
+before running — see the module docstring. First run caught a real
+methodology trap worth remembering: an early stub `ask_user` reply that said
+"use standard defaults" led the agent to actually place a sign from a
+fabricated station/alignment; rewording the stub to a neutral non-answer
+made it correctly stop and ask instead — the fix was the test's leading
+wording, not the agent.
+
 ## Known gaps / not verified yet
 
 - **Multi-session MicroStation**: `win32com.client.GetObject` attaches to
@@ -193,10 +222,13 @@ to a tool call in agentic loops.
   only seeds reuse proven `SendKeyin` strings, but each promoted row should
   still be checked against its known-good call site before trusting it in
   production sheets.
-- **`chat_driver.py`'s live agent loop is untested** — everything testable
-  without a live Anthropic API key has been verified directly (tool schema
-  generation for every wrapped function, the CRLF-safe chat-log writer, the
-  input-file polling/cursor logic), but the actual `run_turn` loop — the
-  `tool_runner` call, `generate_tool_call_response()`-based history
-  mirroring, multi-turn context across separate turns — has not yet been
-  exercised against a real API key. First live test is pending.
+- **`search_reference_manual` recall** is uneven on some reasonable queries —
+  not chased down yet, tracked as a known gap rather than fixed blind.
+- **Sheet-registry sign codes vs. SignLibrary.bas keys**: most codes as
+  printed on a 619 sheet (`get_sheet_requirements`) aren't a 1:1 string match
+  to a `SignLibrary.bas` key — `resolve_sign_code` bridges the padding/suffix
+  gap and surfaces every ambiguous variant rather than guessing one, but a
+  real chunk of sheet-registry codes (mostly R- and W1/W3/W4/W5/W7/W8/W9-
+  series and NY-custom signs) aren't in `SignLibrary.bas` at all yet — that's
+  a content gap (new sign definitions needed), not something a lookup table
+  can paper over.

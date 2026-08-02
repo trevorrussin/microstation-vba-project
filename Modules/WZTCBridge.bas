@@ -181,6 +181,8 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = BridgeSetSignAttributes(reqId, params)
         Case "GET_SHEET_REQUIREMENTS"
             ExecuteOpInner = ExecGetSheetRequirements(reqId, params)
+        Case "RESOLVE_SIGN_CODE"
+            ExecuteOpInner = ExecResolveSignCode(reqId, params)
         Case "HANDOFF"
             ExecuteOpInner = BridgeHandoff(reqId, params)
         Case "UNDO_LAST_OP"
@@ -619,6 +621,23 @@ Private Function ExecGetSheetRequirements(reqId As String, params As Object) As 
     Exit Function
 QErr:
     ExecGetSheetRequirements = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required params: code (raw sign code, e.g. "W20-1" from get_sheet_requirements'
+' signs field) -- see SignLibrary.ResolveSignCode for the matching rules.
+Private Function ExecResolveSignCode(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    If Not params.Exists("code") Then
+        ExecResolveSignCode = reqId & vbTab & "ERROR" & vbTab & "note=missing code"
+        Exit Function
+    End If
+
+    Dim rows() As String
+    rows = SignLibrary.ResolveSignCode(CStr(params("code")))
+    ExecResolveSignCode = WriteResultRows(reqId, rows)
+    Exit Function
+QErr:
+    ExecResolveSignCode = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 ' ============================================================

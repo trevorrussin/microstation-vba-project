@@ -167,6 +167,27 @@ def get_sheet_requirements(sheet_num: str) -> dict:
     return resp
 
 
+def resolve_sign_code(code: str) -> list[dict]:
+    """Translate a raw sign code as printed on a 619 sheet (from
+    get_sheet_requirements' `signs` field, e.g. 'W20-1') into
+    SignLibrary.bas's zero-padded, message/side-suffixed key that
+    place_sign actually needs (e.g. 'W20-01RA'). ALWAYS call this before
+    place_sign for a code that came from get_sheet_requirements rather
+    than one an engineer typed directly in library form already.
+
+    Returns one row per match, each with matchType:
+    - 'exact'/'normalized': a single unambiguous match — use signNumber as-is.
+    - 'candidate': the base sign has multiple message/side variants (e.g.
+      distance-to-work Ahead/Feet/Mile, or Road/Street, or Left/Right) —
+      every row is a real possibility. Do not guess between them; pick
+      based on context you already have (e.g. side of a divided highway)
+      or ask the engineer which variant.
+    - Empty list: the sign is not in SignLibrary.bas yet — a real content
+      gap, not a typo. Say so plainly rather than inventing a CellName."""
+    resp = _ok_or_raise(_bridge.call("RESOLVE_SIGN_CODE", code=code), "resolve_sign_code")
+    return resp.get("rows", [])
+
+
 # ================================================================== Draw
 # Every draw op takes an optional `reason`. It rides through untouched to
 # WZTCBridge's journal (Bridge/wztc-journal.tsv) alongside every other
@@ -190,6 +211,9 @@ def place_sign(sign_num: str, road_type: str, side: str,
     """Place a sign face + post + text label at a resolved point/direction —
     typically from station_to_point, offset along the perpendicular to dodge
     an obstruction found via find_elements_near/classify_site_features.
+    sign_num MUST be a SignLibrary.bas key (e.g. 'W20-01RA'), not a raw
+    sheet code — run it through resolve_sign_code first if it came from
+    get_sheet_requirements.
     side is 'One Side' or 'Both Sides'; pt2/dir2/pt2z are required only for
     'Both Sides' (a connecting arc is drawn between the two). This tool only
     executes — it never decides where the sign belongs; resolve the point

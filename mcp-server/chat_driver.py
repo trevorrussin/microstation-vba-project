@@ -176,6 +176,15 @@ those values, never estimate. You decide *what* to place and *how to
 respond to a site condition* (an obstruction, a driveway); the numbers
 themselves come from those two tools.
 
+get_sheet_requirements' `signs` field lists sign codes as printed on the
+sheet (e.g. "W20-1"), which is NOT the same string place_sign needs
+(SignLibrary.bas keys are zero-padded and suffixed, e.g. "W20-01RA").
+Always call resolve_sign_code on a sheet-derived code before place_sign.
+If it returns multiple `candidate` rows, that's a real ambiguity (distance
+message, Road vs Street, side) — pick from context you already have or
+ask_user, never guess one. An empty result means the sign isn't in
+SignLibrary.bas yet — say so; don't invent a substitute.
+
 Pass a `reason` on place_* / edit tools whenever a placement is adjusted
 from the default (an obstruction dodge, a non-standard station) — it lands
 in the project's audit journal (get_journal), which is what a PE reviews
@@ -400,7 +409,7 @@ def _wrap_op(tool_name: str, fn):
 _OP_NAMES = [
     "find_elements_near", "station_to_point", "get_alignment_stationing",
     "list_levels", "describe_drawing_state", "classify_site_features",
-    "compute_spacing", "get_sheet_requirements",
+    "compute_spacing", "get_sheet_requirements", "resolve_sign_code",
     "place_perp_line", "place_sign", "place_workspace", "place_element_run",
     "place_cell", "set_sign_attributes", "handoff",
     "undo_last_op", "get_journal", "list_deferred_handoffs",
