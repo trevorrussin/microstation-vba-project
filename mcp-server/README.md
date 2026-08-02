@@ -188,6 +188,21 @@ thread to keep responsive, unlike the VBA panel) until the engineer replies
 in the panel, matching the documented pattern for promoting question-asking
 to a tool call in agentic loops.
 
+`ask_user_choice` (2026-08-02) is the same pattern with real clickable
+buttons — analogous to Claude Code's own `AskUserQuestion`, used only for a
+genuine decision with 2-4 concrete options rather than every question. One
+option can be "click a point in the drawing" (`allow_point_pick=True`),
+which runs a `GetInput` click-capture from the panel's own native button-
+Click event and returns formatted `(x, y, z)` coordinates as the answer.
+Deliberately NOT built by routing a `GetInput` wait through `WZTCBridge.
+ExecuteOp` — MicroStation's COM interface has no non-blocking way to detect
+a click, and the bridge's `SendKeyin` call has no timeout of its own, so
+that would hang this whole process with no way to cancel (the same failure
+mode that already hung `WZTCViewCapture.bas` once). The engineer can always
+ignore the buttons and type a free-form reply instead — every answer path
+(button click, point pick, typing) converges on the same
+`Bridge/chat-input.tsv` append `ask_user`'s reply already uses.
+
 After every `search_reference_manual` call, the panel also shows the actual
 matched PDF page (top hit only) in `imgScreenshot`, alongside a citation
 line in the activity trace — same display mechanism the post-turn drawing
