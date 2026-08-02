@@ -161,6 +161,8 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = ExecGetAlignmentStationing(reqId, params)
         Case "LIST_LEVELS"
             ExecuteOpInner = ExecListLevels(reqId, params)
+        Case "DESCRIBE_DRAWING_STATE"
+            ExecuteOpInner = ExecDescribeDrawingState(reqId, params)
         Case "CLASSIFY_SITE_FEATURES"
             ExecuteOpInner = ExecClassifySiteFeatures(reqId, params)
         Case "COMPUTE_SPACING"
@@ -351,6 +353,16 @@ Private Function ExecListLevels(reqId As String, params As Object) As String
     Exit Function
 QErr:
     ExecListLevels = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function ExecDescribeDrawingState(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    Dim rows() As String
+    rows = WZTCQuery.DescribeDrawingState()
+    ExecDescribeDrawingState = WriteResultRows(reqId, rows)
+    Exit Function
+QErr:
+    ExecDescribeDrawingState = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 ' ============================================================

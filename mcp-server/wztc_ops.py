@@ -87,6 +87,19 @@ def list_levels() -> list[dict]:
     return resp.get("rows", [])
 
 
+def describe_drawing_state() -> dict:
+    """Inspect the active model before making any edits: 2D/3D, master/sub
+    units and resolution, annotation scale (signs/cells are auto-multiplied
+    by this — see the 2026-08-02 sign-scale fix), active level/color/line
+    style/weight, active ACS, open views (center/rotation/which is active),
+    reference attachment count, current selection count, and file metadata.
+    Call this at the start of a session and again whenever you're unsure
+    what you're working in — never assume feet, assume scale 1:1, or assume
+    nothing is selected."""
+    resp = _ok_or_raise(_bridge.call("DESCRIBE_DRAWING_STATE"), "describe_drawing_state")
+    return {row["key"]: row["value"] for row in resp.get("rows", [])}
+
+
 def classify_site_features(x: float, y: float, radius: float) -> list[dict]:
     """Classify elements near (x, y) by matching level/cell name against
     known WZTC feature names. Site data quality is mixed by design — an

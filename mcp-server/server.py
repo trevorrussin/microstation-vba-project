@@ -88,6 +88,15 @@ def list_levels() -> list[dict]:
 
 
 @mcp.tool()
+def describe_drawing_state() -> dict:
+    """Inspect the active model before making any edits: 2D/3D, units and
+    resolution, annotation scale, active level/symbology, active ACS, open
+    views, reference attachments, and current selection. Call at the start
+    of a session and whenever unsure what drawing/scale you're working in."""
+    return wztc_ops.describe_drawing_state()
+
+
+@mcp.tool()
 def classify_site_features(x: float, y: float, radius: float) -> list[dict]:
     """Classify elements near (x, y) by matching level/cell name against
     known WZTC feature names. Site data quality is mixed by design — an

@@ -104,6 +104,44 @@ def _capture_hwnd(hwnd: int, out_path: str | Path | None, default_name: str) -> 
     return dest
 
 
+def navigate_view(x: float, y: float, width: float, height: float,
+                   z: float = 0.0, view_num: int = 1,
+                   settle_seconds: float = 2.0) -> None:
+    """Point a MicroStation view at a specific model-space location before
+    calling capture_microstation() -- MicroStation's own interactive
+    fit/zoom keyins (VIEW_FIT, ZOOM_OUT, etc., via run_registry_command)
+    can't complete headlessly, they end by prompting for a datapoint click
+    that never arrives. Setting View.Center/Extents directly via COM works
+    instead, confirmed live 2026-08-02 (see the "sign face cell oversized
+    bbox" investigation), but two things matter:
+      1. Extents.Z must be 0 for a 2D model -- a nonzero Z produced a
+         completely blank render on this install's 2D DGN. This checks
+         ActiveModelReference.Is3D and branches automatically.
+      2. The repaint is NOT synchronous with the property write -- a
+         screenshot taken immediately after setting Center/Extents came
+         back blank in testing. settle_seconds (default 2.0) sleeps before
+         returning so a capture_microstation() call right after this one
+         shows the real content; the minimum safe delay wasn't narrowed
+         down further, 2.0s just confirmed to work.
+    3D branch is UNTESTED -- no 3D model exists in this project yet. For
+    3D, Extents.Z is set to max(width, height) as a reasonable depth guess
+    and camera/perspective settings are left untouched; verify this works
+    before relying on it once a 3D file is available.
+    """
+    import time
+    from win32com.client import gencache
+
+    app = gencache.EnsureDispatch("MicroStationDGN.Application")
+    is_3d = app.ActiveModelReference.Is3D
+    v = app.ActiveDesignFile.Views(view_num)
+
+    z_extent = 0.0 if not is_3d else max(width, height, 1.0)
+    v.Extents = app.Point3dFromXYZ(width, height, z_extent)
+    v.Center = app.Point3dFromXYZ(x, y, z)
+    v.Redraw()
+    time.sleep(settle_seconds)
+
+
 def capture_microstation(out_path: str | Path | None = None) -> Path:
     """Screenshots MicroStation's main frame window -- the one whose title
     ends in "- MicroStation" (confirmed live: the design file path/name is

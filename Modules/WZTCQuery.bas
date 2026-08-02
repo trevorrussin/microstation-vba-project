@@ -359,3 +359,125 @@ Private Function ElementTypeName(t As MsdElementType) As String
         Case Else:                    ElementTypeName = "OTHER"
     End Select
 End Function
+
+' ============================================================
+' DESCRIBE DRAWING STATE — model/units/scale/level/symbology/ACS/
+' view/reference/selection context, gathered once so an agent can
+' orient itself before making any edits (rather than assuming feet,
+' assuming annotation scale 1, assuming nothing is selected, etc.).
+' Added 2026-08-02 after the sign-scale investigation showed a wrong
+' assumption here (a fixed scale) causes silently-wrong placements.
+' Each row is key<TAB>value; a value left blank means that property
+' could not be read on this MicroStation version/session (guarded
+' with On Error Resume Next per item so one missing property doesn't
+' blank out the whole report).
+' ============================================================
+Public Function DescribeDrawingState() As String()
+    Dim rows() As String
+    Dim n As Integer: n = 0
+    ReDim rows(0 To 200)
+    rows(0) = "key" & vbTab & "value"
+    n = 0
+
+    Dim mr As ModelReference
+    Set mr = ActiveModelReference
+
+    ' --- Active model ---
+    n = n + 1: rows(n) = "modelName" & vbTab & SafeStr(mr.Name)
+    n = n + 1: rows(n) = "is3D" & vbTab & SafeStr(mr.Is3D)
+    n = n + 1: rows(n) = "modelType" & vbTab & SafeStr(mr.Type)   ' raw MsdModelType enum value
+
+    ' --- Units / resolution ---
+    n = n + 1: rows(n) = "masterUnitLabel" & vbTab & SafeStr(mr.MasterUnit.Label)
+    n = n + 1: rows(n) = "subUnitLabel" & vbTab & SafeStr(mr.SubUnit.Label)
+    n = n + 1: rows(n) = "subUnitsPerMasterUnit" & vbTab & SafeStr(mr.SubUnitsPerMasterUnit)
+    n = n + 1: rows(n) = "uorsPerMasterUnit" & vbTab & SafeStr(mr.UORsPerMasterUnit)
+
+    ' --- Annotation scale (see 2026-08-02 sign-scale fix -- signs and
+    ' other Annotation-class cells are auto-multiplied by this) ---
+    On Error Resume Next
+    Dim sd As SheetDefinition
+    Set sd = mr.GetSheetDefinition
+    On Error GoTo 0
+    If Not sd Is Nothing Then
+        n = n + 1: rows(n) = "annotationScaleFactor" & vbTab & SafeStr(sd.AnnotationScaleFactor)
+        n = n + 1: rows(n) = "annotationScaleEnabled" & vbTab & SafeStr(sd.IsEnabled)
+    Else
+        n = n + 1: rows(n) = "annotationScaleFactor" & vbTab & ""
+        n = n + 1: rows(n) = "annotationScaleEnabled" & vbTab & "False"
+    End If
+
+    ' --- Active level / symbology ---
+    On Error Resume Next
+    n = n + 1: rows(n) = "activeLevelName" & vbTab & SafeStr(ActiveSettings.Level.Name)
+    n = n + 1: rows(n) = "activeLevelNumber" & vbTab & SafeStr(ActiveSettings.Level.Number)
+    n = n + 1: rows(n) = "activeColor" & vbTab & SafeStr(ActiveSettings.Color)
+    n = n + 1: rows(n) = "activeLineWeight" & vbTab & SafeStr(ActiveSettings.LineWeight)
+    n = n + 1: rows(n) = "activeLineStyleName" & vbTab & SafeStr(ActiveSettings.LineStyleName)
+    On Error GoTo 0
+
+    ' --- Active ACS ---
+    On Error Resume Next
+    n = n + 1: rows(n) = "acsDefined" & vbTab & SafeStr(Application.ACSManager.IsDefined)
+    n = n + 1: rows(n) = "acsName" & vbTab & SafeStr(Application.ACSManager.Name)
+    On Error GoTo 0
+
+    ' --- View info (active/open views, center, rotation) ---
+    Dim v As View
+    Dim i As Integer
+    For i = 1 To 8
+        On Error Resume Next
+        Set v = ActiveDesignFile.Views(i)
+        On Error GoTo 0
+        If Not v Is Nothing Then
+            If v.IsOpen Then
+                n = n + 1: rows(n) = "view" & i & "Open" & vbTab & "True"
+                n = n + 1: rows(n) = "view" & i & "Active" & vbTab & SafeStr(v.IsSelected)
+                On Error Resume Next
+                n = n + 1: rows(n) = "view" & i & "CenterX" & vbTab & SafeStr(v.Center.X)
+                n = n + 1: rows(n) = "view" & i & "CenterY" & vbTab & SafeStr(v.Center.Y)
+                n = n + 1: rows(n) = "view" & i & "RotationDeg" & vbTab & SafeStr(DrawSign.ViewRotationAngleDegrees(v))
+                On Error GoTo 0
+            End If
+        End If
+        Set v = Nothing
+    Next i
+
+    ' --- Reference attachments ---
+    On Error Resume Next
+    n = n + 1: rows(n) = "referenceAttachmentCount" & vbTab & SafeStr(mr.Attachments.Count)
+    On Error GoTo 0
+
+    ' --- Selected elements ---
+    On Error Resume Next
+    Dim selCount As Long: selCount = 0
+    If mr.AnyElementsSelected Then
+        Dim oSelEnum As ElementEnumerator
+        Set oSelEnum = mr.GetSelectedElements()
+        Do While oSelEnum.MoveNext
+            selCount = selCount + 1
+        Loop
+    End If
+    On Error GoTo 0
+    n = n + 1: rows(n) = "selectedElementCount" & vbTab & CStr(selCount)
+
+    ' --- File metadata ---
+    On Error Resume Next
+    n = n + 1: rows(n) = "fileName" & vbTab & SafeStr(ActiveDesignFile.Name)
+    n = n + 1: rows(n) = "filePath" & vbTab & SafeStr(ActiveDesignFile.Path)
+    On Error GoTo 0
+
+    ReDim Preserve rows(0 To n)
+    DescribeDrawingState = rows
+End Function
+
+' Converts any COM property read to a display string, swallowing
+' errors so one unreadable property (e.g. no GCS on this file) blanks
+' just that one row instead of aborting the whole report.
+Private Function SafeStr(v As Variant) As String
+    On Error GoTo Fail
+    SafeStr = CStr(v)
+    Exit Function
+Fail:
+    SafeStr = ""
+End Function
