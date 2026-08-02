@@ -360,9 +360,119 @@ Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As Strin
         CadInputQueue.SendDataPoint point, 1
         CadInputQueue.SendReset
 
+        ' WZTC signs must always be their true real-world size (a 48"x48"
+        ' sign = 4ft x 4ft in the model) regardless of what scale a given
+        ' drawing happens to be developed at -- there is no single universal
+        ' WZTC scale, every project's drawing can differ. Sign face cells
+        ' are Annotation-class in this library, so MicroStation auto-
+        ' multiplies them by the active model's AnnotationScaleFactor at
+        ' PLACE CELL ICON time (confirmed live 2026-08-02: a placed
+        ' W20-01RA came in at Scale=960 when AnnotationScaleFactor=960,
+        ' which is why the sign face looked wildly oversized relative to
+        ' the post -- the post cell is not Annotation-class and isn't
+        ' affected). Rescale it immediately to its known nominal real-world
+        ' size from the library, regardless of what scale/factor produced
+        ' the as-placed size -- more robust than dividing out
+        ' AnnotationScaleFactor directly, which was tried first and landed
+        ' on the cell's native *authored* size (~0.6"), not its intended
+        ' real-world size (confirmed live: those are NOT the same number
+        ' in this cell library).
+        Call RescaleJustPlacedCellToTrueSize(signSize)
+
         CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg   ' restore for subsequent operations
     End If
 End Sub
+
+' ============================================================
+' RESCALE THE JUST-PLACED SIGN FACE CELL TO ITS KNOWN NOMINAL SIZE
+' Finds the cell just placed (the highest element ID in the model right
+' after PLACE CELL ICON -- no GetElementByID call exists anywhere in
+' this codebase to reuse; WZTCExec.FindElementByID uses the same
+' scan-and-match convention for the same reason), measures its actual
+' as-placed width, and scales it so that width matches the sign's real
+' nominal width -- empirical correction rather than assuming any
+' particular scale mechanism, so it's correct regardless of *why* the
+' cell came in the wrong size.
+' Caveat: measures via the element's axis-aligned Range, which only
+' equals the cell's true local width when the view/sign angle is a
+' multiple of 90 degrees (the common case). A rotated view will still
+' produce a uniformly-scaled, square, but very slightly off-target
+' result -- not chased further since exact correction would require
+' inspecting the .cel library's raw geometry, unavailable in this
+' session's toolset.
+' ============================================================
+Private Sub RescaleJustPlacedCellToTrueSize(signSize As String)
+    Dim targetWidthFt As Double
+    targetWidthFt = NominalSignWidthFeet(signSize)
+    If targetWidthFt <= 0 Then Exit Sub   ' unparseable size -- leave as placed
+
+    Dim el As Element
+    Set el = FindNewestElement()
+    If el Is Nothing Then Exit Sub
+    If Not el.IsCellElement Then Exit Sub
+
+    Dim cellEl As CellElement
+    Set cellEl = el.AsCellElement
+
+    Dim rng As Range3d
+    rng = cellEl.Range
+    Dim currentWidthFt As Double
+    currentWidthFt = rng.High.X - rng.Low.X
+    If currentWidthFt <= 0 Then Exit Sub
+
+    Dim correctionFactor As Double
+    correctionFactor = targetWidthFt / currentWidthFt
+    If Abs(correctionFactor - 1#) < 0.001 Then Exit Sub   ' already correct
+
+    Call cellEl.ScaleUniform(cellEl.Origin, correctionFactor)
+    Call cellEl.Rewrite
+End Sub
+
+' Parses the leading number out of a "NN"" x NN""" -style size string
+' (SignLibrary's signSize/TextLine2, e.g. `36" x 36"` -> 36 inches ->
+' 3.0 ft). Deliberately not SignLibrary.WidthInches/HeightInches --
+' those are hardcoded to the Non-Freeway size regardless of which road
+' type was actually used for this placement (a pre-existing SignLibrary
+' quirk unrelated to this fix), whereas signSize/TextLine2 is already
+' correctly resolved for whichever road type GetSignData was called
+' with.
+Private Function NominalSignWidthFeet(signSize As String) As Double
+    Dim quotePos As Long
+    quotePos = InStr(signSize, Chr(34))
+    If quotePos <= 1 Then
+        NominalSignWidthFeet = 0
+        Exit Function
+    End If
+    Dim numPart As String
+    numPart = Left(signSize, quotePos - 1)
+    If Not IsNumeric(numPart) Then
+        NominalSignWidthFeet = 0
+        Exit Function
+    End If
+    NominalSignWidthFeet = CDbl(numPart) / 12#
+End Function
+
+Private Function FindNewestElement() As Element
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+
+    Dim maxID As Double: maxID = -1
+    Dim el As Element
+    Dim newest As Element
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        Dim idVal As Double: idVal = ElIDAsDouble(el.ID)
+        If idVal > maxID Then
+            maxID = idVal
+            Set newest = el
+        End If
+    Loop
+    Set FindNewestElement = newest
+End Function
 
 ' ============================================================
 ' CURRENT VIEW ROTATION, IN DEGREES (Z-axis / plan rotation)
