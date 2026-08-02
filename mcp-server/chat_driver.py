@@ -212,6 +212,16 @@ choosing between several close-by candidates find_elements_near returns,
 or a site condition that needs the engineer's judgment call. Don't use it
 for routine decisions you're equipped to make on your own.
 
+When that ambiguity has a small number of concrete, nameable options (2-4),
+prefer ask_user_choice over plain ask_user — it renders real clickable
+buttons in the panel instead of making the engineer type a match for one of
+your options exactly, and if a location is one of the things at stake, set
+allow_point_pick=True so they can click it in the drawing instead of typing
+coordinates. Use it the way you'd expect a structured choice UI to be used
+selectively, not for every question — a genuine "which of these" decision,
+not routine yes/no or open-ended questions, which stay plain ask_user or
+just asking in your final text.
+
 For questions about MUTCD/NYSDOT requirements, use search_reference_manual
 and ground your answer in the returned excerpt and page citation rather
 than recollection — tell the engineer which manual and page it came from.
@@ -288,6 +298,13 @@ class ChatLog:
 
     def reference_image(self, path: str, source_name: str, heading: str, page: int) -> None:
         self._write("REFERENCE_IMAGE", path=path, source=source_name, heading=heading, page=page)
+
+    def ask_user_choice(self, question: str, options: list[dict], allow_point_pick: bool) -> None:
+        fields = {"question": question, "allowPointPick": "Y" if allow_point_pick else "N"}
+        for i, opt in enumerate(options[:4], start=1):
+            fields[f"option{i}Label"] = opt.get("label", "")
+            fields[f"option{i}Detail"] = opt.get("description", "")
+        self._write("ASK_USER_CHOICE", **fields)
 
     def ask_user(self, question: str) -> None:
         self._write("ASK_USER", question=question)
@@ -490,9 +507,32 @@ def ask_user(question: str) -> str:
     return INPUT.wait_for_next()
 
 
+@beta_tool
+def ask_user_choice(question: str, options: list[dict], allow_point_pick: bool = False) -> str:
+    """Ask the engineer to pick one of a small number of concrete options via
+    clickable buttons in the chat panel, instead of a free-form question --
+    use this the way you'd use a structured choice UI yourself: for a real
+    decision with distinct options (e.g. "which of these two sign clusters
+    did you mean"), not for every question -- plain ask_user or just asking
+    in your final text is still right for anything else. Each option is
+    {"label": short button text, "description": longer context shown in the
+    transcript}. Up to 4 options (the panel has 4 button slots -- ask a
+    narrower follow-up if you have more). Set allow_point_pick=True to also
+    show a "Click a point in the drawing" button -- if the engineer uses it,
+    the reply is formatted coordinates "(x, y, z)" instead of an option
+    label. The engineer can ALWAYS ignore the buttons and type a free-form
+    reply instead (the input box never goes away) -- treat whatever comes
+    back as the answer, whatever form it takes: an option's exact label
+    text, picked coordinates, or free text. Blocks until they respond, same
+    as ask_user."""
+    LOG.ask_user_choice(question, options, allow_point_pick)
+    return INPUT.wait_for_next()
+
+
 TOOLS = [_wrap_op(name, getattr(wztc_ops, name)) for name in _OP_NAMES]
 TOOLS.append(_wrap_op("search_reference_manual", manual_search.search))
 TOOLS.append(ask_user)
+TOOLS.append(ask_user_choice)
 
 
 def _to_jsonable(obj):

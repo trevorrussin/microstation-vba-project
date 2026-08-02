@@ -67,6 +67,22 @@ Option Explicit
 '   txtInput         TextBox: plain single-line, as before
 '   btnSend          CommandButton, as before
 '   lblStatus        Label, as before
+'   btnChoice1..4    CommandButton (added 2026-08-02): ask_user_choice's
+'                    option buttons. No Designer properties needed beyond
+'                    existing -- Top/Left/Width/Height/Font/Visible are all
+'                    set in code (UserForm_Initialize + ShowChoiceButtons),
+'                    same as imgScreenshot above. Just add with these exact
+'                    names, nothing else to configure.
+'   btnPickPoint     CommandButton (added 2026-08-02): the "click a point
+'                    in the drawing" option for ask_user_choice. Same deal
+'                    -- add with this name, code sets everything else.
+'   lblConversationHeader, lblImageHeader, lblActivityHeader,
+'   lblInputHeader   Label controls (added 2026-08-02, feedback that the
+'                    four panes needed labels): small bold captions above
+'                    txtConversation / imgScreenshot / txtActivity /
+'                    txtInput respectively. Add with these exact names,
+'                    nothing else to configure -- Caption/Top/Left/Width/
+'                    Height/Font are all set in code (UserForm_Initialize).
 ' ============================================================
 
 Private Const CHAT_LOG_FILE As String = "c:\repos\microstation-vba-project\Bridge\chat-log.tsv"
@@ -144,25 +160,44 @@ Private Sub UserForm_Initialize()
     ' that block. This is what makes the image box grow to use the full
     ' docked height instead of leaving dead space below lblStatus (exactly
     ' the space the 2026-08-02 feedback flagged as wasted under the old
-    ' fixed-position layout).
+    ' fixed-position layout). Each of the 4 sections now has a small header
+    ' Label above it (2026-08-02 feedback) -- LABEL_HEIGHT+LABEL_GAP is
+    ' folded into every section's own reserved footprint below, rather than
+    ' bolted on separately, so this stays one consistent formula.
     Const ACTIVITY_HEIGHT As Double = 140
     Const INPUT_HEIGHT As Double = 24
     Const STATUS_HEIGHT As Double = 34
     Const GAP As Double = 8
     Const GAP_SMALL As Double = 6
     Const BOTTOM_MARGIN As Double = 8
-    Const IMG_TOP As Double = 188
+    Const LABEL_HEIGHT As Double = 14
+    Const LABEL_GAP As Double = 2
 
     Dim bottomBlockTop As Double
-    bottomBlockTop = Me.Height - (ACTIVITY_HEIGHT + GAP + INPUT_HEIGHT + GAP_SMALL + STATUS_HEIGHT + BOTTOM_MARGIN)
+    bottomBlockTop = Me.Height - ((LABEL_HEIGHT + LABEL_GAP + ACTIVITY_HEIGHT) + GAP + _
+        (LABEL_HEIGHT + LABEL_GAP + INPUT_HEIGHT) + GAP_SMALL + STATUS_HEIGHT + BOTTOM_MARGIN)
+
+    Dim imgHeaderTop As Double
+    imgHeaderTop = 10 + LABEL_HEIGHT + LABEL_GAP + 170 + GAP   ' below txtConversation's header+box
+    Dim imgTop As Double
+    imgTop = imgHeaderTop + LABEL_HEIGHT + LABEL_GAP
 
     Dim imgHeight As Double
-    imgHeight = bottomBlockTop - GAP - IMG_TOP
+    imgHeight = bottomBlockTop - GAP - imgTop
     If imgHeight < 100 Then imgHeight = 100   ' safety floor on an unexpectedly small screen
+
+    If ControlExists("lblConversationHeader") Then
+        With Me.Controls("lblConversationHeader")
+            .Caption = "Conversation -- your messages and the agent's answers"
+            .Top = 10: .Left = 10: .Width = 590: .Height = LABEL_HEIGHT
+            .Font.Name = "Segoe UI": .Font.Size = 8: .Font.Bold = True
+            .ForeColor = RGB(110, 110, 115)
+        End With
+    End If
 
     If ControlExists("txtConversation") Then
         With txtConversation
-            .Top = 10: .Left = 10: .Width = 590: .Height = 170
+            .Top = 10 + LABEL_HEIGHT + LABEL_GAP: .Left = 10: .Width = 590: .Height = 170
             .MultiLine = True
             .WordWrap = True
             .ScrollBars = 2   ' fmScrollBarsVertical
@@ -176,18 +211,39 @@ Private Sub UserForm_Initialize()
         End With
     End If
 
+    If ControlExists("lblImageHeader") Then
+        With Me.Controls("lblImageHeader")
+            .Caption = "Screenshot / Reference -- what the agent just drew or looked up"
+            .Top = imgHeaderTop: .Left = 10: .Width = 590: .Height = LABEL_HEIGHT
+            .Font.Name = "Segoe UI": .Font.Size = 8: .Font.Bold = True
+            .ForeColor = RGB(110, 110, 115)
+        End With
+    End If
+
     If ControlExists("imgScreenshot") Then
         With Me.Controls("imgScreenshot")
-            .Top = IMG_TOP: .Left = 10: .Width = 590: .Height = imgHeight
+            .Top = imgTop: .Left = 10: .Width = 590: .Height = imgHeight
             .BackColor = RGB(230, 234, 240)
             .BorderStyle = 1   ' fmBorderStyleSingle
             .PictureSizeMode = 3   ' fmPictureSizeModeZoom -- fit without distortion
         End With
     End If
 
+    If ControlExists("lblActivityHeader") Then
+        With Me.Controls("lblActivityHeader")
+            .Caption = "Agent Activity -- reasoning and tool calls as it works"
+            .Top = bottomBlockTop: .Left = 10: .Width = 590: .Height = LABEL_HEIGHT
+            .Font.Name = "Segoe UI": .Font.Size = 8: .Font.Bold = True
+            .ForeColor = RGB(110, 110, 115)
+        End With
+    End If
+
+    Dim activityTop As Double
+    activityTop = bottomBlockTop + LABEL_HEIGHT + LABEL_GAP
+
     If ControlExists("txtActivity") Then
         With txtActivity
-            .Top = bottomBlockTop: .Left = 10: .Width = 590: .Height = ACTIVITY_HEIGHT
+            .Top = activityTop: .Left = 10: .Width = 590: .Height = ACTIVITY_HEIGHT
             .MultiLine = True
             .WordWrap = True
             .ScrollBars = 2   ' fmScrollBarsVertical
@@ -201,8 +257,63 @@ Private Sub UserForm_Initialize()
         End With
     End If
 
+    ' ask_user_choice option buttons (added 2026-08-02, repositioned same
+    ' day per feedback) -- overlay imgScreenshot's rectangle, vertically
+    ' CENTERED within it, rather than covering txtActivity: a pending
+    ' question shouldn't hide the agent's live reasoning trace, and there's
+    ' nothing lost by temporarily replacing whatever screenshot/reference
+    ' image is showing, which ShowChoiceButtons also hides outright (not
+    ' just visually covered) so it truly reads as "replaced," not layered
+    ' on top. Visible=False until ShowChoiceButtons turns specific ones on.
+    ' Late-bound Me.Controls(...) throughout -- see that sub's header
+    ' comment for why.
+    Const CHOICE_ROW_HEIGHT As Double = 24
+    Const CHOICE_ROW_GAP As Double = 2
+    Const CHOICE_BLOCK_ROWS As Double = 5   ' btnChoice1-4 + btnPickPoint
+    Dim choiceBlockHeight As Double
+    choiceBlockHeight = CHOICE_BLOCK_ROWS * CHOICE_ROW_HEIGHT + (CHOICE_BLOCK_ROWS - 1) * CHOICE_ROW_GAP
+    Dim choiceBlockTop As Double
+    choiceBlockTop = imgTop + (imgHeight - choiceBlockHeight) / 2
+    If choiceBlockTop < imgTop Then choiceBlockTop = imgTop   ' guard a very short image box
+
+    Dim choiceNum As Integer
+    For choiceNum = 1 To 4
+        Dim choiceCtrl As String: choiceCtrl = "btnChoice" & choiceNum
+        If ControlExists(choiceCtrl) Then
+            With Me.Controls(choiceCtrl)
+                .Top = choiceBlockTop + (choiceNum - 1) * (CHOICE_ROW_HEIGHT + CHOICE_ROW_GAP)
+                .Left = 10: .Width = 590: .Height = CHOICE_ROW_HEIGHT
+                .Visible = False
+                .Font.Name = "Segoe UI"
+                .Font.Size = 9
+            End With
+        End If
+    Next choiceNum
+    If ControlExists("btnPickPoint") Then
+        With Me.Controls("btnPickPoint")
+            .Caption = "Click a point in the drawing"
+            .Top = choiceBlockTop + 4 * (CHOICE_ROW_HEIGHT + CHOICE_ROW_GAP)
+            .Left = 10: .Width = 590: .Height = CHOICE_ROW_HEIGHT
+            .Visible = False
+            .Font.Name = "Segoe UI"
+            .Font.Bold = True
+        End With
+    End If
+
+    Dim inputHeaderTop As Double
+    inputHeaderTop = activityTop + ACTIVITY_HEIGHT + GAP
+
+    If ControlExists("lblInputHeader") Then
+        With Me.Controls("lblInputHeader")
+            .Caption = "Your Message"
+            .Top = inputHeaderTop: .Left = 10: .Width = 590: .Height = LABEL_HEIGHT
+            .Font.Name = "Segoe UI": .Font.Size = 8: .Font.Bold = True
+            .ForeColor = RGB(110, 110, 115)
+        End With
+    End If
+
     Dim inputTop As Double
-    inputTop = bottomBlockTop + ACTIVITY_HEIGHT + GAP
+    inputTop = inputHeaderTop + LABEL_HEIGHT + LABEL_GAP
 
     If ControlExists("txtInput") Then
         With txtInput
@@ -249,7 +360,8 @@ Public Sub AppendChatLine(rawLine As String)
     Dim lineType As String
     Dim display As String
     Dim imgPath As String
-    display = FormatLogLine(rawLine, lineType, imgPath)
+    Dim fields As Object
+    display = FormatLogLine(rawLine, lineType, imgPath, fields)
 
     Select Case lineType
         Case "THINKING", "TOOL_CALL", "TOOL_RESULT"
@@ -264,13 +376,16 @@ Public Sub AppendChatLine(rawLine As String)
             ' imgPath carries the raw file path separately.
             If ControlExists("txtActivity") Then AppendTo txtActivity, display
             Call ShowScreenshot(imgPath)
+        Case "ASK_USER_CHOICE"
+            If ControlExists("txtConversation") Then AppendTo txtConversation, display
+            Call ShowChoiceButtons(fields)
         Case Else
             If ControlExists("txtConversation") Then AppendTo txtConversation, display
     End Select
 
     If ControlExists("lblStatus") Then
         Select Case lineType
-            Case "ASK_USER"
+            Case "ASK_USER", "ASK_USER_CHOICE"
                 lblStatus.Caption = "Agent is waiting for your reply..."
                 lblStatus.ForeColor = RGB(180, 120, 0)
             Case "FINAL"
@@ -319,9 +434,10 @@ End Sub
 ' throughout this bridge (an unexpected line is still shown, not
 ' hidden from the engineer).
 ' ============================================================
-Private Function FormatLogLine(rawLine As String, ByRef outLineType As String, ByRef outImagePath As String) As String
+Private Function FormatLogLine(rawLine As String, ByRef outLineType As String, ByRef outImagePath As String, ByRef outFields As Object) As String
     outLineType = ""
     outImagePath = ""
+    Set outFields = Nothing
     Dim parts() As String
     parts = Split(rawLine, vbTab)
     If UBound(parts) < 1 Then
@@ -341,6 +457,7 @@ Private Function FormatLogLine(rawLine As String, ByRef outLineType As String, B
             fields(Left(parts(i), eqPos - 1)) = Mid(parts(i), eqPos + 1)
         End If
     Next i
+    Set outFields = fields
 
     Select Case lineType
         Case "SCREENSHOT"
@@ -361,6 +478,23 @@ Private Function FormatLogLine(rawLine As String, ByRef outLineType As String, B
             FormatLogLine = "   -> " & FieldOrBlank(fields, "status") & " " & FieldOrBlank(fields, "summary")
         Case "ASK_USER"
             FormatLogLine = "[agent asks] " & FieldOrBlank(fields, "question")
+        Case "ASK_USER_CHOICE"
+            Dim choiceText As String
+            choiceText = "[agent asks] " & FieldOrBlank(fields, "question")
+            Dim optNum As Integer
+            For optNum = 1 To 4
+                Dim optLabel As String: optLabel = FieldOrBlank(fields, "option" & optNum & "Label")
+                If optLabel <> "" Then
+                    Dim optDetail As String: optDetail = FieldOrBlank(fields, "option" & optNum & "Detail")
+                    choiceText = choiceText & vbCrLf & "  " & optNum & ". " & optLabel
+                    If optDetail <> "" Then choiceText = choiceText & " -- " & optDetail
+                End If
+            Next optNum
+            If FieldOrBlank(fields, "allowPointPick") = "Y" Then
+                choiceText = choiceText & vbCrLf & "  (or click 'Pick Point' to click a location in the drawing)"
+            End If
+            choiceText = choiceText & vbCrLf & "  (or just type your own reply)"
+            FormatLogLine = choiceText
         Case "FINAL"
             FormatLogLine = "[agent] " & FieldOrBlank(fields, "text")
         Case "ERROR"
@@ -386,6 +520,58 @@ Private Sub ShowScreenshot(imgPath As String)
     On Error GoTo 0
 End Sub
 
+' ============================================================
+' SHOW/HIDE THE ask_user_choice OPTION BUTTONS (added 2026-08-02,
+' repositioned same day per feedback). btnChoice1..btnChoice4 +
+' btnPickPoint overlay imgScreenshot's rectangle, centered within
+' it (Top math lives in UserForm_Initialize) -- a pending question
+' shouldn't cover the activity/reasoning trace, and there's
+' nothing lost by replacing whatever screenshot/reference image is
+' currently showing. ShowChoiceButtons hides imgScreenshot itself
+' (not just visually covering it) so it reads as truly replaced;
+' HideChoiceButtons restores it -- the underlying .Picture is
+' untouched throughout, so whatever was showing before reappears
+' as-is once the choice is resolved.
+'
+' Late-bound Me.Controls("...") throughout, not bare identifiers
+' -- these controls must be added manually in the VBA IDE Designer
+' (File Sync Protocol, CLAUDE.md; same one-time step already done
+' for imgScreenshot) and referencing a not-yet-existing control by
+' bare name fails to COMPILE, not just fails at runtime, even
+' inside a runtime ControlExists guard (hit and fixed once already
+' this session for imgScreenshot -- see Claude Code memory
+' project_chat_panel_ux_improvements.md).
+' ============================================================
+Private Sub ShowChoiceButtons(fields As Object)
+    If fields Is Nothing Then Exit Sub
+    If ControlExists("imgScreenshot") Then Me.Controls("imgScreenshot").Visible = False
+    Dim i As Integer
+    For i = 1 To 4
+        Dim ctrlName As String: ctrlName = "btnChoice" & i
+        If ControlExists(ctrlName) Then
+            Dim lbl As String: lbl = FieldOrBlank(fields, "option" & i & "Label")
+            If lbl <> "" Then
+                Me.Controls(ctrlName).Caption = lbl
+                Me.Controls(ctrlName).Visible = True
+            Else
+                Me.Controls(ctrlName).Visible = False
+            End If
+        End If
+    Next i
+    If ControlExists("btnPickPoint") Then
+        Me.Controls("btnPickPoint").Visible = (FieldOrBlank(fields, "allowPointPick") = "Y")
+    End If
+End Sub
+
+Private Sub HideChoiceButtons()
+    Dim i As Integer
+    For i = 1 To 4
+        If ControlExists("btnChoice" & i) Then Me.Controls("btnChoice" & i).Visible = False
+    Next i
+    If ControlExists("btnPickPoint") Then Me.Controls("btnPickPoint").Visible = False
+    If ControlExists("imgScreenshot") Then Me.Controls("imgScreenshot").Visible = True
+End Sub
+
 Private Function FieldOrBlank(fields As Object, key As String) As String
     If fields.Exists(key) Then
         FieldOrBlank = fields(key)
@@ -402,12 +588,29 @@ End Function
 ' too, for symmetry with everything else in this bridge).
 ' ============================================================
 Private Sub btnSend_Click()
-    On Error GoTo SendErr
     If Not ControlExists("txtInput") Then Exit Sub
 
     Dim msg As String
     msg = Trim(txtInput.Text)
     If msg = "" Then Exit Sub
+
+    Call SendTextAsReply(msg)
+    txtInput.Text = ""
+End Sub
+
+' ============================================================
+' SEND A REPLY -- shared by btnSend, the ask_user_choice option
+' buttons, and the pick-point button (added 2026-08-02). All
+' three ways of answering a pending question converge here:
+' append to Bridge/chat-input.tsv (same file/format chat_driver.
+' py's InputWatcher already polls for both the main turn loop
+' and ask_user/ask_user_choice), echo it into the transcript, and
+' clear any pending choice buttons, since any one of these three
+' paths resolves the same pending question.
+' ============================================================
+Private Sub SendTextAsReply(msg As String)
+    On Error GoTo SendErr
+    If Trim(msg) = "" Then Exit Sub
 
     Dim fnum As Integer
     fnum = FreeFile
@@ -416,7 +619,8 @@ Private Sub btnSend_Click()
     Close #fnum
 
     AppendChatLine Now & vbTab & "USER_ECHO" & vbTab & "text=" & msg
-    txtInput.Text = ""
+    Call HideChoiceButtons
+
     If ControlExists("lblStatus") Then
         lblStatus.Caption = "Waiting for the agent..."
         lblStatus.ForeColor = RGB(0, 0, 180)
@@ -426,6 +630,69 @@ Private Sub btnSend_Click()
 SendErr:
     If fnum <> 0 Then Close #fnum
     If ControlExists("lblStatus") Then lblStatus.Caption = "Send failed: " & Err.Description
+End Sub
+
+' ============================================================
+' ASK_USER_CHOICE OPTION BUTTONS -- each just sends its own
+' caption (the option's label) as the reply, exactly like typing
+' that label and hitting Send. Late-bound Me.Controls(...), see
+' the ShowChoiceButtons header comment for why.
+' ============================================================
+Private Sub btnChoice1_Click()
+    If ControlExists("btnChoice1") Then SendTextAsReply Me.Controls("btnChoice1").Caption
+End Sub
+
+Private Sub btnChoice2_Click()
+    If ControlExists("btnChoice2") Then SendTextAsReply Me.Controls("btnChoice2").Caption
+End Sub
+
+Private Sub btnChoice3_Click()
+    If ControlExists("btnChoice3") Then SendTextAsReply Me.Controls("btnChoice3").Caption
+End Sub
+
+Private Sub btnChoice4_Click()
+    If ControlExists("btnChoice4") Then SendTextAsReply Me.Controls("btnChoice4").Caption
+End Sub
+
+' ============================================================
+' PICK A POINT IN THE DRAWING -- same GetInput loop pattern
+' Modules/DrawSign.bas already uses for sign placement (~line
+' 152-166), run from a native button-Click event so it only
+' blocks this form's own VBA thread (confirmed safe in
+' production for the whole 8-step workflow), never the chat
+' bridge/Python side -- ask_user_choice's Python-side wait is a
+' plain file poll (INPUT.wait_for_next()), completely separate
+' from this click-capture. Deliberately NOT routed through
+' WZTCBridge.ExecuteOp: that path is triggered by chat_driver.py
+' via a blocking, timeout-less SendKeyin COM call, and a GetInput
+' wait inside it would hang the entire chat_driver.py process
+' with no way to cancel if the engineer doesn't click right away
+' -- confirmed via research as the same failure mode that already
+' hung a different feature once (Modules/WZTCViewCapture.bas).
+' ============================================================
+Private Sub btnPickPoint_Click()
+    On Error GoTo PickErr
+    Dim oMsg As CadInputMessage
+    CadInputQueue.SendKeyin "ECHO Click a point in the drawing"
+    CadInputQueue.SendCommand "NULL"
+    Set oMsg = CadInputQueue.GetInput
+    Do While oMsg.InputType <> msdCadInputTypeDataPoint
+        If oMsg.InputType = msdCadInputTypeReset Then
+            If ControlExists("lblStatus") Then
+                lblStatus.Caption = "Point pick cancelled -- pick an option or type your reply."
+            End If
+            Exit Sub
+        End If
+        Set oMsg = CadInputQueue.GetInput
+    Loop
+
+    Dim coordText As String
+    coordText = "(" & Format(oMsg.Point.X, "0.00") & ", " & Format(oMsg.Point.Y, "0.00") & ", " & Format(oMsg.Point.Z, "0.00") & ")"
+    SendTextAsReply coordText
+    Exit Sub
+
+PickErr:
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Point pick failed: " & Err.Description
 End Sub
 
 Private Sub txtInput_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
