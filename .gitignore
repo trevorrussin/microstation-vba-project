@@ -57,5 +57,10 @@ Bridge/keyin-probe-results.json
 # category as the keyin probe output above.
 Bridge/recipe-probe-batch.json
 
+# Regenerable eval-harness output (mcp-server/eval_harness.py) -- same
+# category as the probe outputs above; also excludes its isolated chat log.
+Bridge/eval-results*.json
+Bridge/eval-log.tsv
+
 # Python bytecode cache, any location
 __pycache__/
