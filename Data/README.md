@@ -8,16 +8,21 @@ read the same source.
 ## sheet-registry.tsv
 
 Maps a 619-series sheet number to the signs, elements, and applicability notes shown on
-that sheet. **Seeded incrementally, not exhaustive** — as of this writing it covers 6 of
-the 91 current 619 sheets (the most common Short Term scenarios: 301, 302, 303, 307, 310,
-311). An unpopulated sheet simply isn't in this file; the tool falls back to manual entry
-for those, same as before this registry existed.
+that sheet. **Covers all 91 DesignerRef catalog sheets.** Most rows are extracted from
+`2026_1_stdsht_usc_book_3.pdf` (owned `.dgn` pages). A few DesignerRef entries are **not
+in the 2026 Book 3 PDF** (or TOC-only with blank pages: 519) — those rows have empty
+`signs` and a notes flag to confirm against current NYSDOT sheets before use
+(050–051, 101–104, 204, 419–420, 519). 619-012 is the sign-size catalog (not a placement
+typical). Book 3 also lists extra sheets not in DesignerRef (e.g. 024–026, 034, 042–046)
+that are not seeded here.
 
 **Provenance:** extracted from `2026_1_stdsht_usc_book_3.pdf` (the actual January 2026
-NYSDOT Standard Sheets book), via a research agent reading the plain-text PDF dump, not
-hand-typed from memory. 619-311's row is flagged incomplete — its spacing-table page
-wasn't fully extracted and needs re-verification against the source before being trusted
-for real spacing values.
+NYSDOT Standard Sheets book) via PyMuPDF text from pages owned by each sheet's `.dgn`
+filename (see `scripts/extract_sheet_signs.py` for candidate dump). Sign lists are as
+printed on the sheet (full list). `notes` stay short on purpose: Book 3 table numbers +
+page cite (and stub/catalog flags). Full printed NOTES are not stored — PDF drawing text
+is too noisy, and long notes inflate agent token cost for little gain; use the PDF /
+`search_reference_manual` for detailed constraints.
 
 **Sign codes are as printed on the sheet** (MUTCD/NY style, e.g. `W20-1`, `NYW8-33`), not
 yet mapped to `SignLibrary.bas`'s internal zero-padded entry names (e.g. `W20-01RA`).
@@ -47,6 +52,8 @@ sheetNum  title  roadType  duration  signs  elements  notes
 To add another sheet: read its actual page range in `2026_1_stdsht_usc_book_3.pdf`, don't
 guess from the sheet title alone — several titles look similar (e.g. every "Right Lane
 Closure" variant has different sign sets depending on road type and duration).
+`python scripts/extract_sheet_signs.py 619-NNN` prints owned pages + candidate signs/tables
+for review; paste verified values into this TSV (CRLF line endings required).
 
 **Line endings must be CRLF, not bare LF.** VBA's `Line Input #` (used by
 `WZTCSheetRegistry.ReadAllLines` / `WZTCCommandRegistry.ReadAllLines`) reads a bare-LF
@@ -142,3 +149,15 @@ Phase B WZTC place ops registered as `direct_api` bookkeeping:
 `RUN_REGISTRY_COMMAND`.
 
 Same CRLF requirement as `sheet-registry.tsv`.
+
+## manual-index.sqlite
+
+Gitignored FTS5 index for `search_reference_manual` (MCP / chat agent). Built
+from the three reference PDFs under `Project Documentation/` by:
+
+```bash
+python mcp-server/ingest_manuals.py
+```
+
+If the index is missing, search returns a single `INDEX_MISSING` diagnostic hit
+instead of an empty list. Re-run ingest after PDF updates.

@@ -155,10 +155,11 @@ def compute_spacing(speed: int, lane_width: int, shoulder_width: str, road_type:
 
 def get_sheet_requirements(sheet_num: str) -> dict:
     """Look up required signs/elements for a 619-series standard sheet
-    (e.g. '619-302') from the seeded sheet registry (Data/sheet-registry.tsv
-    — currently 6 of 91 sheets). A 'found: false' result for an unseeded
-    sheet is the correct, honest answer — fall back to asking the engineer
-    for the sign/element list for that sheet rather than guessing one."""
+    (e.g. '619-302') from Data/sheet-registry.tsv (all 91 DesignerRef
+    sheets; some stubs have empty signs when not in the 2026 Book 3 PDF).
+    Check notes for stub/catalog rows. A 'found: false' result means the
+    sheet number is unknown to the registry — ask the engineer rather
+    than guessing."""
     resp = _bridge.call("GET_SHEET_REQUIREMENTS", sheetNum=sheet_num)
     if resp["status"] == "ERROR":
         return {"found": False, "note": resp.get("note", "")}

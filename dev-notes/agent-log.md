@@ -74,11 +74,11 @@ including a clean scriptable way to detect/dismiss/reset a blocking VBA
 compile-error dialog via `VBE.CommandBars` (no manual clicking, no
 guessing at dialog internals).
 
-## 2026-08-02 � Cursor � keyin probe 3s hang timeout + wave8 promote
+## 2026-08-02 � Cursor � keyin probe 3s hang timeout + wave8 promote
 
-`scripts/keyin_batch.py`: live `SendKeyin` now runs in a child process with a hard **3s** timeout (`SENDKEYIN_TIMEOUT_SEC`); hangs are recorded as `HANG` ? `unsafe-blocked` and the batch continues. Also stopped executing `tool`/`datapoint` kinds (they activate-and-wait � `TITLEBLOCK PLACE` was the wave8 forever-hang). Wave8 sparse-category harvest probed/promoted **+398** registry rows; 4 PDF embed/layers keyins hit the new timeout and were added to the skip list. Registry ~2208 / ~1959 verified.
+`scripts/keyin_batch.py`: live `SendKeyin` now runs in a child process with a hard **3s** timeout (`SENDKEYIN_TIMEOUT_SEC`); hangs are recorded as `HANG` ? `unsafe-blocked` and the batch continues. Also stopped executing `tool`/`datapoint` kinds (they activate-and-wait � `TITLEBLOCK PLACE` was the wave8 forever-hang). Wave8 sparse-category harvest probed/promoted **+398** registry rows; 4 PDF embed/layers keyins hit the new timeout and were added to the skip list. Registry ~2208 / ~1959 verified.
 
-## 2026-08-02 � Cursor � drawing recipe probe (element-delta bar)
+## 2026-08-02 � Cursor � drawing recipe probe (element-delta bar)
 
 Added `scripts/recipe_batch.py` + `Data/recipe-candidates.tsv`. Unlike settings
 `keyin_batch.py`, a drawing recipe only promotes when graphical element count
@@ -88,51 +88,120 @@ on `DELETE.dgn` increases (plus COM alive / 3s step timeout). First live results
 `+0` elements ? stays `needs-testing`. Circle/block/arc/smartline not seeded
 (no in-repo CadInputQueue sequence).
 
-## 2026-08-02 � Cursor � Phase C edit direct_api + Phase B WZTC registry rows
+## 2026-08-02 � Cursor � Phase C edit direct_api + Phase B WZTC registry rows
 
 Phase C: added `ExecCopy/Rotate/Scale/Mirror/ArrayElementByID` in
 `WZTCExec.bas` using Element API patterns live-proven on `DELETE.dgn`
-(Clone+Move, ScaleUniform, Matrix3d Z-rotate Transform, Mirror two-point) �
+(Clone+Move, ScaleUniform, Matrix3d Z-rotate Transform, Mirror two-point) �
 wired through `WZTCBridge` + MCP tools. No CadInputQueue inventing.
 Phase B: catalogued existing place bridge ops as `direct_api`
 `verified-headless-safe` rows (`PLACE_CELL` was flipped from bare
 `unsafe-blocked` COMMAND). Re-import `WZTCExec.bas` and `WZTCBridge.bas`
 in the VBA IDE before exercising the new edit ops.
 
-## 2026-08-02 � Cursor � hatch Element API + PLACE_ARC / PLACE_TEXT_LABEL
+## 2026-08-02 � Cursor � hatch Element API + PLACE_ARC / PLACE_TEXT_LABEL
 
 CadInputQueue `HATCH ICON` (Legacy twin-seed) stays unreliable headlessly
 (+0 elements on DELETE.dgn). Switched workspace hatch to
 `CreateHatchPattern1` + `ClosedElement.SetPattern(..., Matrix3dIdentity)`
-� live `HasPattern=True`. New bridge/MCP: `HATCH_ELEMENT`, `PLACE_ARC`
+� live `HasPattern=True`. New bridge/MCP: `HATCH_ELEMENT`, `PLACE_ARC`
 (placeArcModeEx=3), `PLACE_TEXT_LABEL` (TEXTEDITOR INSERT_TEXT). All three
 plus updated `PLACE_WORKSPACE` verified OK via bridge on DELETE.dgn.
 `HATCH_ICON` registry row ? `unsafe-blocked`. Hot-reloaded WZTCExec +
 WZTCBridge. Note: PrintWindow captures often omit associative hatch lines
-even when HasPattern is True � trust HasPattern / in-app view for hatch.
+even when HasPattern is True � trust HasPattern / in-app view for hatch.
 
-## 2026-08-02 � Cursor � Tier1-3 general geometry ops
+## 2026-08-02 � Cursor � Tier1-3 general geometry ops
 
 Added Element-API geometry suite to `WZTCExec` / `WZTCBridge` / MCP:
 Tier1 place (circle/ellipse/block/polyline/polygon) + symbology; Tier2
 copy-parallel (lines), crosshatch/remove-hatch, break-line, extend-line
-(recreate, not EndPoint � EndPoint assign hung VBA), fillet/complex
+(recreate, not EndPoint � EndPoint assign hung VBA), fillet/complex
 (needs-testing); Tier3 fence block + copy/move/delete contents, select/clear.
 TRIM/CHAMFER left interactive-only (no COM ConstructTrim/Chamfer).
 Live: Tier1 + symbology + copy-parallel OK on DELETE.dgn before
 `LineElement.EndPoint` hang wedged VBA `[running]`. Reset/Ctrl+Break from
-automation failed � user must interrupt VBA (or restart MicroStation), then
+automation failed � user must interrupt VBA (or restart MicroStation), then
 hot-reload and re-verify extend/fence/fillet/complex.
 
-## 2026-08-02 � Cursor � Tier1-3 live-verified + complex-string fix
+## 2026-08-02 � Cursor � Tier1-3 live-verified + complex-string fix
 
 After VBA Reset, phased live verify on DELETE.dgn: extend (recreate-line path,
 not EndPoint), break, crosshatch/remove, fence define/copy/undefine, fillet all
-OK. `CREATE_COMPLEX_STRING` initially failed compile �
+OK. `CREATE_COMPLEX_STRING` initially failed compile �
 `CreateComplexStringElement1` needs `ChainableElement()`, not `Element()`;
 fixed in `ExecCreateComplexString` via `el.AsChainableElement`, hot-reloaded,
-live OK (`partCount=2`). All Tier1�3 geometry bridge ops now
+live OK (`partCount=2`). All Tier1�3 geometry bridge ops now
 `verified-headless-safe` except TRIM/CHAMFER (still interactive-only). Gotchas:
 `scale` as a VBA local name conflicts with MicroStation `Scale` (use
-`lenScale`); PrintWindow often omits hatch lines � trust `HasPattern`;
+`lenScale`); PrintWindow often omits hatch lines � trust `HasPattern`;
 VBA `[running]`/`[break]` blocks hot-reload until Reset.
+
+## 2026-08-02 — Cursor — manual-search robustness + sheet-registry Non-Freeway wave
+
+`manual_search.py` / `ingest_manuals.py`: repo-relative index paths (no hardcoded
+`c:\repos\...`); missing index returns `heading=INDEX_MISSING` instead of silent
+`[]`; multi-token zero-hit queries retry with OR then quoted phrase (fixes
+`lane closure` + `source=supplement` empties under FTS5 AND). Re-ingest embeds
+`619-NNN` into stdsht page headings. `sheet-registry.tsv` grown 6→19 sheets:
+fixed 619-311 (Book 3 p.81-82 tables 311-01..05); added Non-Freeway–first
+080/201–203/308–309/312–314/317 plus Short Term 304–306. Helper
+`scripts/extract_sheet_signs.py` dumps candidates from sheet-owned `.dgn` pages
+only. Live bridge: `get_sheet_requirements('619-201')` found=True; unseeded
+still found=False.
+
+## 2026-08-02 — Cursor — sheet-registry batch 2 (Short Term remainder + Intermediate)
+
+Grew `sheet-registry.tsv` 19→38. Added general notes/legend (010–011), Short
+Duration freeway (205–207), remaining common Short Term (315–316, 318–319,
+321–325), and Intermediate starters (401–403, 407, 410). Skipped 619-012
+(full sign catalog, not a placement typical), 619-101/102 (in DesignerRef but
+no Book 3 owned pages), and multi-sheet barrier 001 (no `.dgn` text ownership).
+Signs from sheet-owned `.dgn` pages only. Live bridge OK for 205/322/407;
+101 still found=false.
+
+## 2026-08-02 — Cursor — sheet-registry batch 3 (fill most remaining Book 3)
+
+Grew `sheet-registry.tsv` 38→80. Added detail/general (001–006), mowing/special
+(021–023, 031–033, 041, 060, 090–091), Mobile (110–114), remaining Short Duration
+(208–209, 211–212), remaining Intermediate (412, 414–418, 421–423), and Long Term
+(501–504, 517–518, 520, 523–524). Still unseeded (~11): 012 catalog; 050–051 /
+101–104 / 204 / 419–420 / 519 not present (or not owned) in Book 3 PDF text.
+503 seeded with Detour element but empty signs (drawing text unreadable to
+extractor). Live spot-check via bridge after write.
+
+## 2026-08-02 — Cursor — sheet-registry last-row miss was off-by-one
+
+Root cause of `619-524` not found was not Line Input dropping the last
+line: `ReadAllLines` returned it fine (`last=619-524`), but
+`GetSheetRequirements` / `ListRegisteredSheets` looped `For i = 2 To n`
+and read `lines(i - 1)`, so the last 1-based data row `lines(n)` was never
+examined (sentinel after 524 had made 524 become `lines(n-1)` and appear
+to "fix" it). Corrected to `lines(i)`. Kept ADODB.Stream whole-file read.
+Verified live: 524/523/001/201 found; 101 still correctly unseeded.
+
+## 2026-08-02 — Cursor — sheet-registry complete for DesignerRef (91/91)
+
+Seeded remaining 11 DesignerRef sheets: 012 (sign catalog, empty signs on
+purpose), plus stubs for sheets absent from 2026 Book 3 PDF (050-051,
+101-104, 204, 419-420) and 519 (TOC listed, p.149-150 blank). Stubs keep
+title/roadType/duration but empty signs with an explicit confirm-against-
+current-sheet note — no invented sign lists. Live: 012/101/204/519/524 all
+found=True. Book 3 extras not in DesignerRef (024-026, 034, 042-046) still
+unseeded.
+
+## 2026-08-02 — Cursor — restore full signs + sheet NOTES into registry
+
+Rebuilt all 80 complete `sheet-registry.tsv` rows without the old ~255-char
+truncation: full PDF sign lists again (e.g. 619-502 now includes W20-1 /
+W24-1bL/R). `notes` now append instructional NOTES text extracted from Book 3
+pages (numbered note bodies + key SHALL/SHOULD lines) after the table/page
+cite, separated by `||`. Cap ~1800 chars per notes field. Stubs/012 unchanged.
+Live bridge OK for 502/307 with long notes.
+
+## 2026-08-02 — Cursor — trim sheet-registry notes to cites only
+
+Removed noisy PDF NOTES bodies from complete rows; `notes` are back to short
+table/page cites (e.g. `Tables 502-01..502-05; Book 3 p.138-139`). Full sign
+lists kept. Stub/catalog notes unchanged. Rationale: drawing-text NOTES were
+fragmented and inflated tool-result tokens for little agent benefit.

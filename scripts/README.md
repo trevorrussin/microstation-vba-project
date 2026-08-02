@@ -138,3 +138,9 @@ Do **not** invent CadInputQueue sequences — copy `Legacy Files/` or `WZTCExec.
 Circle/block/arc/smartline stay blocked until a proven in-repo sequence exists.
 Hatch is seeded but may need shape association / pattern settings before it
 promotes (see latest `recipe-probe-batch.json`).
+
+## Sheet registry extraction helper
+
+`python scripts/extract_sheet_signs.py [619-NNN ...]` dumps Book 3 owned pages +
+candidate signs/tables for extending `Data/sheet-registry.tsv`. Review against
+the PDF; do not paste blindly.

@@ -533,9 +533,11 @@ def search_reference_manual(query: str, source: str = "", max_results: int = 10)
     requirements in these excerpts rather than recollection; include the
     page citation (page_start/page_end) in the answer so the engineer can
     verify against the actual manual. source optionally narrows to one of
-    'part6' | 'supplement' | 'stdsht' (empty searches all three). An empty
-    result means either no match, or the index hasn't been built yet (run
-    ingest_manuals.py) — not necessarily "nothing exists on this topic"."""
+    'part6' | 'supplement' | 'stdsht' (empty searches all three). If the
+    index is missing, returns one hit with heading INDEX_MISSING (run
+    ingest_manuals.py). Multi-word queries that miss under FTS5 AND are
+    retried with OR / phrase matching. A genuine empty list means no
+    match after those retries — not "manuals unavailable"."""
     return manual_search.search(query, source=source, max_results=max_results)
 
 

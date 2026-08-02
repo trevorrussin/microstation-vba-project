@@ -28,8 +28,11 @@ from pathlib import Path
 
 import fitz  # PyMuPDF
 
-DOCS_DIR = Path(r"c:\repos\microstation-vba-project\Project Documentation")
-INDEX_PATH = Path(r"c:\repos\microstation-vba-project\Data\manual-index.sqlite")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+DOCS_DIR = _REPO_ROOT / "Project Documentation"
+INDEX_PATH = _REPO_ROOT / "Data" / "manual-index.sqlite"
+
+SHEET_NUM_RE = re.compile(r"619-\d{3}")
 
 # (source key, filename, chunk mode) -- source key is what search_reference_manual's
 # `source` filter matches against.
@@ -105,14 +108,19 @@ def chunk_by_section(doc: fitz.Document) -> list[dict]:
 
 
 def chunk_by_page(doc: fitz.Document) -> list[dict]:
+    """One chunk per page. For stdsht drawings, embed the first 619-NNN
+    found on the page into the heading so citations read clearly
+    (e.g. '619-310 page 79') even though FTS still matches body text."""
     chunks = []
     for page_idx in range(len(doc)):
         text = doc[page_idx].get_text().strip()
         if not text:
             continue
         page_no = page_idx + 1
+        m = SHEET_NUM_RE.search(text)
+        heading = f"{m.group(0)} page {page_no}" if m else f"page {page_no}"
         chunks.append({
-            "heading": f"page {page_no}",
+            "heading": heading,
             "text": text,
             "page_start": page_no,
             "page_end": page_no,

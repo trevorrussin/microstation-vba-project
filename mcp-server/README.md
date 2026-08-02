@@ -79,9 +79,19 @@ To remove: `claude mcp remove wztc-designer`.
 `search_reference_manual` doesn't touch `WZTCBridge` at all — it's a local
 FTS5 full-text search (`Data/manual-index.sqlite`) over the three NYSDOT/MUTCD
 reference PDFs in `Project Documentation/`, built by `ingest_manuals.py`
-(run it once, and again any time the source PDFs change). Ground
-engineer-facing questions about MUTCD/NYSDOT requirements in the returned
-excerpt + page citation, not recollection.
+(run it once, and again any time the source PDFs change). Both the PDFs and
+the sqlite index are gitignored — a fresh clone needs:
+
+```bash
+# place part6.pdf, B-2011Supplement-adopted.pdf, 2026_1_stdsht_usc_book_3.pdf
+# under Project Documentation/, then:
+python mcp-server/ingest_manuals.py
+```
+
+If the index is missing, the tool returns one hit with `heading=INDEX_MISSING`
+instead of a silent empty list. Multi-word queries that miss under FTS5 AND
+are retried with OR / phrase matching. Ground engineer-facing questions about
+MUTCD/NYSDOT requirements in the returned excerpt + page citation, not recollection.
 
 **Not exposed — by design:** `test_registry_command`. That VBA op bypasses the
 `needs-testing` gate for exactly one manual IDE promotion run. Reachable only

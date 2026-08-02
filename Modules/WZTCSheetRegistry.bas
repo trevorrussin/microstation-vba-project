@@ -10,11 +10,11 @@ Option Explicit
 ' Read-only, no CadInputQueue, no SharedState mutation -- same
 ' category of module as WZTCQuery.bas.
 '
-' Seeded incrementally: only 6 of 91 current 619 sheets are in
-' the data file as of this writing (see Data/README.md). A sheet
-' not found here is not an error -- GetSheetRequirements returns
+' Covers all 91 DesignerRef sheets (see Data/README.md). Some rows are
+' stubs with empty signs when the sheet is not in the 2026 Book 3 PDF.
+' A sheet not found here is not an error -- GetSheetRequirements returns
 ' a clear "not in registry" result so the caller can fall back to
-' manual entry, exactly like every other sheet already works today.
+' manual entry.
 ' ============================================================
 
 Private Const REGISTRY_FILE As String = "c:\repos\microstation-vba-project\Data\sheet-registry.tsv"
@@ -39,17 +39,18 @@ Public Function GetSheetRequirements(sheetNum As String) As String()
         Exit Function
     End If
 
+    ' lines() is 1-based: lines(1)=header, lines(2..n)=data rows.
     Dim wantSheet As String: wantSheet = Trim(sheetNum)
     Dim i As Integer
-    For i = 2 To n   ' line 1 is the header, data starts at line 2
+    For i = 2 To n
         Dim fields() As String
-        fields = Split(lines(i - 1), vbTab)
+        fields = Split(lines(i), vbTab)
         If UBound(fields) >= 0 Then
             If Trim(fields(0)) = wantSheet Then
                 ReDim rows(0 To 1)
                 rows(0) = "sheetNum" & vbTab & "title" & vbTab & "roadType" & vbTab & _
                           "duration" & vbTab & "signs" & vbTab & "elements" & vbTab & "notes"
-                rows(1) = lines(i - 1)
+                rows(1) = lines(i)
                 GetSheetRequirements = rows
                 Exit Function
             End If
@@ -85,7 +86,7 @@ Public Function ListRegisteredSheets() As String()
     Dim i As Integer
     For i = 2 To n
         Dim fields() As String
-        fields = Split(lines(i - 1), vbTab)
+        fields = Split(lines(i), vbTab)
         If UBound(fields) >= 1 Then
             rows(i - 1) = fields(0) & vbTab & fields(1)
         End If
@@ -94,34 +95,46 @@ Public Function ListRegisteredSheets() As String()
 End Function
 
 ' ============================================================
-' FILE I/O HELPER — same pattern as WZTCBridge.ReadAllLines
+' FILE I/O HELPER — ADODB.Stream whole-file read
 ' ============================================================
 Private Function ReadAllLines(path As String, ByRef outLines() As String) As Integer
     On Error GoTo ReadErr
-    Dim fnum As Integer: fnum = 0
     If Dir(path) = "" Then
         ReadAllLines = 0
         Exit Function
     End If
 
-    fnum = FreeFile
-    Open path For Input As #fnum
+    ' Same approach as WZTCChatTimer: whole-file read via ADODB.Stream.
+    ' Avoids Do While Not EOF + Line Input # quirks on this VBA host.
+    Dim stream As Object
+    Set stream = CreateObject("ADODB.Stream")
+    stream.Type = 2 ' adTypeText
+    stream.Charset = "utf-8"
+    stream.Open
+    stream.LoadFromFile path
+    Dim content As String
+    content = stream.ReadText(-1) ' adReadAll
+    stream.Close
+
+    content = Replace(content, vbCrLf, vbLf)
+    content = Replace(content, vbCr, vbLf)
+    Dim parts() As String
+    parts = Split(content, vbLf)
 
     Dim n As Integer: n = 0
-    Dim ln As String
-    Do While Not EOF(fnum)
-        Line Input #fnum, ln
+    Dim i As Integer
+    For i = LBound(parts) To UBound(parts)
+        Dim ln As String
+        ln = parts(i)
         If Len(Trim(ln)) > 0 Then
             n = n + 1
             ReDim Preserve outLines(1 To n)
             outLines(n) = ln
         End If
-    Loop
-    Close #fnum
+    Next i
     ReadAllLines = n
     Exit Function
 
 ReadErr:
-    If fnum <> 0 Then Close #fnum
     ReadAllLines = 0
 End Function
