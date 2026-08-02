@@ -2,11 +2,25 @@ Option Explicit
 
 ' ============================================================
 ' WZTCChatPanel (M7) -- in-MicroStation agent chat panel.
-' Modeless. Launch via Modules/Launcher.bas:LaunchChatPanel --
-' NOT via F5 on this form's designer/code window in the VBA IDE.
-' F5 on a UserForm runs an implicit Show with no argument, which
-' defaults to vbModal and blocks clicking anywhere else until
-' the form closes (this was the "can't click out" symptom).
+' Modeless. Prefer launching via Modules/Launcher.bas:LaunchChatPanel
+' (explicit Show vbModeless) over F5 on this form's designer/code
+' window in the VBA IDE -- F5 on a UserForm runs an implicit Show
+' with no argument, which defaults to vbModal and disables
+' MicroStation's main window (and everything else) until the form
+' closes (the "can't click anything in MicroStation" symptom,
+' confirmed live 2026-08-02).
+'
+' UserForm_Activate below makes this self-correcting either way: the
+' first time the form activates, it unconditionally hides and
+' re-Shows itself vbModeless, then never repeats. If it was already
+' modeless (the Launcher path), this is a harmless no-op flicker; if
+' it came up modal (F5), Me.Hide unblocks the implicit modal Show
+' call (Hide, unlike Unload, lets a blocked Show return while
+' keeping the form loaded) and the immediate Show vbModeless
+' re-displays it non-blocking. There's no way to detect *how* Show
+' was called from inside the form itself, so this always runs rather
+' than branching on it -- simpler than it sounds, and confirmed not
+' to recurse (see the mForcedModeless guard).
 '
 ' Thin by design: this form has zero knowledge of the Anthropic
 ' API or the agent loop. It only does three things --
@@ -57,6 +71,22 @@ Option Explicit
 
 Private Const CHAT_LOG_FILE As String = "c:\repos\microstation-vba-project\Bridge\chat-log.tsv"
 Private Const CHAT_INPUT_FILE As String = "c:\repos\microstation-vba-project\Bridge\chat-input.tsv"
+
+' Guards UserForm_Activate's self-correcting Hide+Show vbModeless below
+' against recursion -- Show always fires Activate again, so without this
+' the second (already-modeless) Activate would re-trigger the same
+' Hide+Show forever.
+Private mForcedModeless As Boolean
+
+' ============================================================
+' ACTIVATE -- see the header comment above for why this exists.
+' ============================================================
+Private Sub UserForm_Activate()
+    If mForcedModeless Then Exit Sub
+    mForcedModeless = True
+    Me.Hide
+    Me.Show vbModeless
+End Sub
 
 Private Function ControlExists(ctrlName As String) As Boolean
     On Error Resume Next

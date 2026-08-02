@@ -65,8 +65,35 @@ def _find_window(title_predicate) -> int:
     return matches[0]
 
 
-def _capture_hwnd(hwnd: int, out_path: str | Path | None, default_name: str) -> Path:
-    """Shared PrintWindow -> resize -> save path for any window handle."""
+def _find_view_child(main_hwnd: int, view_num: int = 1) -> int | None:
+    """Locates the MStnChild window for a specific view (titled e.g. "View 1,
+    left lane closure") inside MicroStation's main frame. Its top edge is
+    exactly where the per-view mini-toolbar (fit/zoom/pan icons + the view
+    title itself) begins -- i.e. exactly where the app-level ribbon/toolbar
+    rows above it end. Confirmed live via EnumChildWindows (2026-08-02):
+    main frame top toolbar row ("TBxBg2(0)") ends and "View 1, ..." begins
+    at the same y. Returns None if not found (e.g. that view isn't open),
+    so callers can fall back to an uncropped capture rather than erroring."""
+    prefix = f"View {view_num},"
+    matches: list[int] = []
+
+    def _callback(hwnd: int, _):
+        if win32gui.GetWindowText(hwnd).startswith(prefix):
+            matches.append(hwnd)
+        return True
+
+    win32gui.EnumChildWindows(main_hwnd, _callback, None)
+    return matches[0] if matches else None
+
+
+def _capture_hwnd(hwnd: int, out_path: str | Path | None, default_name: str,
+                   crop_top_px: int = 0) -> Path:
+    """Shared PrintWindow -> crop -> resize -> save path for any window
+    handle. crop_top_px removes that many pixels off the top of the raw
+    capture (before the MAX_LONG_EDGE resize, so the pixel count is measured
+    against the real window, not a scaled-down copy) -- see
+    _find_view_child for why this is how the top toolbar/ribbon gets
+    excluded from a MicroStation capture."""
     left, top, right, bottom = win32gui.GetWindowRect(hwnd)
     width, height = right - left, bottom - top
 
@@ -86,6 +113,9 @@ def _capture_hwnd(hwnd: int, out_path: str | Path | None, default_name: str) -> 
         bmp_bits = save_bitmap.GetBitmapBits(True)
         img = Image.frombuffer(
             "RGB", (bmp_info["bmWidth"], bmp_info["bmHeight"]), bmp_bits, "raw", "BGRX", 0, 1)
+
+        if crop_top_px > 0:
+            img = img.crop((0, min(crop_top_px, img.height - 1), img.width, img.height))
 
         long_edge = max(img.size)
         if long_edge > MAX_LONG_EDGE:
@@ -142,16 +172,31 @@ def navigate_view(x: float, y: float, width: float, height: float,
     time.sleep(settle_seconds)
 
 
-def capture_microstation(out_path: str | Path | None = None) -> Path:
+def capture_microstation(out_path: str | Path | None = None, view_num: int = 1,
+                          crop_toolbar: bool = True) -> Path:
     """Screenshots MicroStation's main frame window -- the one whose title
     ends in "- MicroStation" (confirmed live: the design file path/name is
     the rest of the title, e.g. "...DELETE.dgn [2D - V8 DGN] -
     MicroStation"). Does NOT include separate top-level windows like the
     WZTC chat panel -- use capture_window() for those. Returns the path
     written; defaults to Bridge/captures/capture_live.png (fixed name,
-    overwritten each call)."""
+    overwritten each call).
+
+    crop_toolbar (default True, per 2026-08-02 feedback) crops off the
+    app-level title bar/ribbon/toolbar rows above view_num's view, keeping
+    everything from that view's own mini-toolbar down through the bottom
+    toolbar/status area -- what's actually useful to see (the drawing +
+    what tool/settings are active), not chrome that never changes. Falls
+    back to an uncropped capture if that view's child window can't be
+    found (e.g. it isn't open) rather than erroring."""
     hwnd = _find_window(lambda t: t.endswith("- MicroStation"))
-    return _capture_hwnd(hwnd, out_path, "capture_live.png")
+    crop_top_px = 0
+    if crop_toolbar:
+        main_top = win32gui.GetWindowRect(hwnd)[1]
+        view_hwnd = _find_view_child(hwnd, view_num)
+        if view_hwnd is not None:
+            crop_top_px = max(0, win32gui.GetWindowRect(view_hwnd)[1] - main_top)
+    return _capture_hwnd(hwnd, out_path, "capture_live.png", crop_top_px=crop_top_px)
 
 
 def capture_window(title_substring: str, out_path: str | Path | None = None) -> Path:
