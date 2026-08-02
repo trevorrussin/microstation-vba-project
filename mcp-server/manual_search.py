@@ -13,11 +13,21 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = _REPO_ROOT / "Data" / "manual-index.sqlite"
+DOCS_DIR = _REPO_ROOT / "Project Documentation"
 
 SOURCE_NAMES = {
     "part6": "MUTCD Part 6 (Temporary Traffic Control)",
     "supplement": "NYS MUTCD Supplement",
     "stdsht": "NYSDOT Standard Detail Sheets",
+}
+
+# Duplicated from ingest_manuals.py's SOURCES (rather than imported) to keep
+# this read-only search module decoupled from that one-time ingestion
+# script -- same pattern as each file already keeping its own _REPO_ROOT.
+_SOURCE_FILES = {
+    "part6": "part6.pdf",
+    "supplement": "B-2011Supplement-adopted.pdf",
+    "stdsht": "2026_1_stdsht_usc_book_3.pdf",
 }
 
 _SELECT = (
@@ -125,3 +135,45 @@ def search(query: str, source: str = "", max_results: int = 10) -> list[dict]:
         conn.close()
 
     return _rows_to_dicts(rows)
+
+
+def render_page_image(source: str, page_num: int, out_path: str | Path, dpi: int = 150) -> Path:
+    """Renders one page (1-based, matching a search() hit's page_start) of
+    the given source manual to a PNG at out_path -- lets a caller show the
+    actual manual/sheet page an answer is grounded in, not just the text
+    excerpt (2026-08-02 feedback: "could the image show the reference it
+    pulled the info from, like the drawing screenshot does").
+
+    Only renders page_start, not the full page_start..page_end span --
+    that's the page the matched chunk actually starts on, and stitching a
+    multi-page span into one image is unneeded complexity for what's meant
+    to be a quick visual aid alongside the text excerpt, not a full-chunk
+    reproduction.
+
+    Raises FileNotFoundError if that source's PDF isn't present locally
+    (gitignored for size, see Data/README.md) or ValueError for an unknown
+    source / out-of-range page -- callers treat this as best-effort and
+    catch broadly, so raising precisely here is more useful than silently
+    swallowing the problem."""
+    import fitz  # PyMuPDF -- already a dependency, see ingest_manuals.py
+
+    filename = _SOURCE_FILES.get(source)
+    if filename is None:
+        raise ValueError(f"unknown source {source!r} -- expected one of {sorted(_SOURCE_FILES)}")
+    pdf_path = DOCS_DIR / filename
+    if not pdf_path.exists():
+        raise FileNotFoundError(
+            f"{pdf_path} not found -- reference PDFs are gitignored locally, see Data/README.md"
+        )
+
+    doc = fitz.open(pdf_path)
+    try:
+        if not (1 <= page_num <= len(doc)):
+            raise ValueError(f"page {page_num} out of range for {filename} ({len(doc)} pages)")
+        pix = doc[page_num - 1].get_pixmap(dpi=dpi)
+        out_path = Path(out_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        pix.save(str(out_path))
+    finally:
+        doc.close()
+    return out_path

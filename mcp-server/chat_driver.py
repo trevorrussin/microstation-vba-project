@@ -286,6 +286,9 @@ class ChatLog:
     def screenshot(self, path: str) -> None:
         self._write("SCREENSHOT", path=path)
 
+    def reference_image(self, path: str, source_name: str, heading: str, page: int) -> None:
+        self._write("REFERENCE_IMAGE", path=path, source=source_name, heading=heading, page=page)
+
     def ask_user(self, question: str) -> None:
         self._write("ASK_USER", question=question)
 
@@ -360,6 +363,36 @@ def _collect_element_ids(result) -> None:
         _TOUCHED_ELEMENT_IDS.add(str(eid).strip())
 
 
+def _show_reference_image(tool_name: str, result) -> None:
+    """After a search_reference_manual call, render the top hit's actual
+    PDF page and log it so the panel shows the manual/sheet page an answer
+    is grounded in -- not just the text excerpt (2026-08-02 feedback,
+    same session as _auto_focus_and_capture). Best-effort and non-fatal,
+    same pattern as that function: a missing/gitignored PDF, an
+    out-of-range page, or any rendering hiccup is purely a lost visual
+    aid, never a reason to fail the turn or hide the text excerpt the
+    model already has."""
+    if tool_name != "search_reference_manual":
+        return
+    if not isinstance(result, list) or not result:
+        return
+    hit = result[0]
+    if hit.get("heading") == "INDEX_MISSING":
+        return
+    try:
+        png_path = manual_search.render_page_image(
+            hit["source"], int(hit["page_start"]),
+            BRIDGE_DIR / "captures" / "reference_live.png",
+        )
+        # BMP copy for the same reason _auto_focus_and_capture makes one --
+        # LoadPicture doesn't reliably support PNG in this MSForms host.
+        bmp_path = png_path.with_suffix(".bmp")
+        view_capture.Image.open(png_path).convert("RGB").save(bmp_path, format="BMP")
+        LOG.reference_image(str(bmp_path), hit.get("source_name", hit["source"]), hit.get("heading", ""), hit["page_start"])
+    except Exception as e:
+        LOG.error(f"reference-image render failed (non-fatal, text excerpt still stands): {e}")
+
+
 def _summarize(result) -> str:
     """Short one-line summary of a tool result for the TOOL_RESULT log
     line -- the full result already went to the model; this is just for
@@ -409,6 +442,7 @@ def _wrap_op(tool_name: str, fn):
             result = fn(**kwargs)
             LOG.tool_result(tool_name, "OK", _summarize(result))
             _collect_element_ids(result)
+            _show_reference_image(tool_name, result)
             return json.dumps(result, ensure_ascii=False, default=str)
         except Exception as e:
             LOG.tool_result(tool_name, "ERROR", str(e))

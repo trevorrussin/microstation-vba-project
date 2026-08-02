@@ -248,13 +248,22 @@ End Sub
 Public Sub AppendChatLine(rawLine As String)
     Dim lineType As String
     Dim display As String
-    display = FormatLogLine(rawLine, lineType)
+    Dim imgPath As String
+    display = FormatLogLine(rawLine, lineType, imgPath)
 
     Select Case lineType
         Case "THINKING", "TOOL_CALL", "TOOL_RESULT"
             If ControlExists("txtActivity") Then AppendTo txtActivity, display
         Case "SCREENSHOT"
             Call ShowScreenshot(display)   ' display holds the raw file path for this type
+        Case "REFERENCE_IMAGE"
+            ' Unlike SCREENSHOT, this one shows in BOTH panes: a citation
+            ' line in the activity trace (so there's a readable record even
+            ' without looking at the image) and the actual manual/sheet
+            ' page in imgScreenshot -- display is the citation text here,
+            ' imgPath carries the raw file path separately.
+            If ControlExists("txtActivity") Then AppendTo txtActivity, display
+            Call ShowScreenshot(imgPath)
         Case Else
             If ControlExists("txtConversation") Then AppendTo txtConversation, display
     End Select
@@ -310,8 +319,9 @@ End Sub
 ' throughout this bridge (an unexpected line is still shown, not
 ' hidden from the engineer).
 ' ============================================================
-Private Function FormatLogLine(rawLine As String, ByRef outLineType As String) As String
+Private Function FormatLogLine(rawLine As String, ByRef outLineType As String, ByRef outImagePath As String) As String
     outLineType = ""
+    outImagePath = ""
     Dim parts() As String
     parts = Split(rawLine, vbTab)
     If UBound(parts) < 1 Then
@@ -337,6 +347,10 @@ Private Function FormatLogLine(rawLine As String, ByRef outLineType As String) A
             ' Raw path, not a "[icon] text" display string -- AppendChatLine
             ' routes this straight to ShowScreenshot instead of a textbox.
             FormatLogLine = FieldOrBlank(fields, "path")
+        Case "REFERENCE_IMAGE"
+            outImagePath = FieldOrBlank(fields, "path")
+            FormatLogLine = "[reference] " & FieldOrBlank(fields, "source") & " -- " & _
+                             FieldOrBlank(fields, "heading") & " (page " & FieldOrBlank(fields, "page") & ")"
         Case "USER_ECHO"
             FormatLogLine = "[you] " & FieldOrBlank(fields, "text")
         Case "THINKING"
