@@ -14,6 +14,10 @@ Option Explicit
 '   needs-testing                — catalogued, refused at execution
 '   interactive-only-use-handoff — points caller at HANDOFF / forms
 '   unsafe-blocked               — confirmed activate-and-abandon
+'   external-app-blocked         — integrates with ProjectWise/DWG/IFC/
+'                                   DMS or similar; policy-withheld from
+'                                   every agent (2026-08-02), not a
+'                                   technical finding -- still catalogued
 '
 ' Zero GetInput calls anywhere in this module — same invariant as
 ' WZTCExec.bas. Structural close-out guard: any recipe with a
@@ -172,6 +176,12 @@ Public Function CheckSafetyGate(opName As String, _
         Case "unsafe-blocked"
             CheckSafetyGate = "op '" & opName & "' is unsafe-blocked (confirmed " & _
                 "activate-and-abandon). Not promotable without a redesign. " & row("notes")
+        Case "external-app-blocked"
+            CheckSafetyGate = "op '" & opName & "' integrates with an external application, " & _
+                "format, or document-management service (ProjectWise, DWG/AutoCAD interop, IFC, " & _
+                "DMS, etc.) and is deliberately withheld from every agent for now -- a policy " & _
+                "decision (2026-08-02), not a technical safety finding. Still catalogued in the " & _
+                "registry for reference. See registry notes: " & row("notes")
         Case Else
             CheckSafetyGate = "op '" & opName & "' has unknown safetyStatus='" & status & "'"
     End Select

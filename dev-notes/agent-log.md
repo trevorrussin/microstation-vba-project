@@ -73,3 +73,66 @@ memory `feedback-vba-compile-error-recovery` for the full incident,
 including a clean scriptable way to detect/dismiss/reset a blocking VBA
 compile-error dialog via `VBE.CommandBars` (no manual clicking, no
 guessing at dialog internals).
+
+## 2026-08-02 — Cursor — keyin probe 3s hang timeout + wave8 promote
+
+`scripts/keyin_batch.py`: live `SendKeyin` now runs in a child process with a hard **3s** timeout (`SENDKEYIN_TIMEOUT_SEC`); hangs are recorded as `HANG` ? `unsafe-blocked` and the batch continues. Also stopped executing `tool`/`datapoint` kinds (they activate-and-wait — `TITLEBLOCK PLACE` was the wave8 forever-hang). Wave8 sparse-category harvest probed/promoted **+398** registry rows; 4 PDF embed/layers keyins hit the new timeout and were added to the skip list. Registry ~2208 / ~1959 verified.
+
+## 2026-08-02 — Cursor — drawing recipe probe (element-delta bar)
+
+Added `scripts/recipe_batch.py` + `Data/recipe-candidates.tsv`. Unlike settings
+`keyin_batch.py`, a drawing recipe only promotes when graphical element count
+on `DELETE.dgn` increases (plus COM alive / 3s step timeout). First live results:
+`PLACE_LINE` and `PLACE_SHAPE_CONSTRAINED` ? `verified-headless-safe`;
+`HATCH_ICON` (Legacy two-identical-seed pattern) completed without hang but
+`+0` elements ? stays `needs-testing`. Circle/block/arc/smartline not seeded
+(no in-repo CadInputQueue sequence).
+
+## 2026-08-02 — Cursor — Phase C edit direct_api + Phase B WZTC registry rows
+
+Phase C: added `ExecCopy/Rotate/Scale/Mirror/ArrayElementByID` in
+`WZTCExec.bas` using Element API patterns live-proven on `DELETE.dgn`
+(Clone+Move, ScaleUniform, Matrix3d Z-rotate Transform, Mirror two-point) —
+wired through `WZTCBridge` + MCP tools. No CadInputQueue inventing.
+Phase B: catalogued existing place bridge ops as `direct_api`
+`verified-headless-safe` rows (`PLACE_CELL` was flipped from bare
+`unsafe-blocked` COMMAND). Re-import `WZTCExec.bas` and `WZTCBridge.bas`
+in the VBA IDE before exercising the new edit ops.
+
+## 2026-08-02 — Cursor — hatch Element API + PLACE_ARC / PLACE_TEXT_LABEL
+
+CadInputQueue `HATCH ICON` (Legacy twin-seed) stays unreliable headlessly
+(+0 elements on DELETE.dgn). Switched workspace hatch to
+`CreateHatchPattern1` + `ClosedElement.SetPattern(..., Matrix3dIdentity)`
+— live `HasPattern=True`. New bridge/MCP: `HATCH_ELEMENT`, `PLACE_ARC`
+(placeArcModeEx=3), `PLACE_TEXT_LABEL` (TEXTEDITOR INSERT_TEXT). All three
+plus updated `PLACE_WORKSPACE` verified OK via bridge on DELETE.dgn.
+`HATCH_ICON` registry row ? `unsafe-blocked`. Hot-reloaded WZTCExec +
+WZTCBridge. Note: PrintWindow captures often omit associative hatch lines
+even when HasPattern is True — trust HasPattern / in-app view for hatch.
+
+## 2026-08-02 — Cursor — Tier1-3 general geometry ops
+
+Added Element-API geometry suite to `WZTCExec` / `WZTCBridge` / MCP:
+Tier1 place (circle/ellipse/block/polyline/polygon) + symbology; Tier2
+copy-parallel (lines), crosshatch/remove-hatch, break-line, extend-line
+(recreate, not EndPoint — EndPoint assign hung VBA), fillet/complex
+(needs-testing); Tier3 fence block + copy/move/delete contents, select/clear.
+TRIM/CHAMFER left interactive-only (no COM ConstructTrim/Chamfer).
+Live: Tier1 + symbology + copy-parallel OK on DELETE.dgn before
+`LineElement.EndPoint` hang wedged VBA `[running]`. Reset/Ctrl+Break from
+automation failed — user must interrupt VBA (or restart MicroStation), then
+hot-reload and re-verify extend/fence/fillet/complex.
+
+## 2026-08-02 — Cursor — Tier1-3 live-verified + complex-string fix
+
+After VBA Reset, phased live verify on DELETE.dgn: extend (recreate-line path,
+not EndPoint), break, crosshatch/remove, fence define/copy/undefine, fillet all
+OK. `CREATE_COMPLEX_STRING` initially failed compile —
+`CreateComplexStringElement1` needs `ChainableElement()`, not `Element()`;
+fixed in `ExecCreateComplexString` via `el.AsChainableElement`, hot-reloaded,
+live OK (`partCount=2`). All Tier1–3 geometry bridge ops now
+`verified-headless-safe` except TRIM/CHAMFER (still interactive-only). Gotchas:
+`scale` as a VBA local name conflicts with MicroStation `Scale` (use
+`lenScale`); PrintWindow often omits hatch lines — trust `HasPattern`;
+VBA `[running]`/`[break]` blocks hot-reload until Reset.

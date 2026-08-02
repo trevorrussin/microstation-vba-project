@@ -1,0 +1,86 @@
+opName	keyin	kind	requiredParams	source	notes
+MARKUP_DISPLAY_ON	MARKUP DISPLAY ON	settings		wave8 markup/export	markup display
+MARKUP_DISPLAY_OFF	MARKUP DISPLAY OFF	settings		wave8 markup/export	
+SET_MARKUP_ON	SET MARKUP ON	settings		wave8 markup/export	
+SET_MARKUP_OFF	SET MARKUP OFF	settings		wave8 markup/export	
+MARKUP_SHOWPREVIEW	MARKUP SHOWPREVIEW	settings		wave8 markup/export	docs Markups dialog; may need selection
+MARKUP_HIDEPREVIEW	MARKUP HIDEPREVIEW	settings		wave8 markup/export	
+MARKUP_REVIEWMODE	MARKUP REVIEWMODE	settings		wave8 markup/export	overlay review mode
+ACTIVE_LINKAGE_NONE	ACTIVE LINKAGE NONE	settings		wave8 markup/export	Database Dialog linkage mode
+ACTIVE_LINKAGE_NEW	ACTIVE LINKAGE NEW	settings		wave8 markup/export	
+ACTIVE_LINKAGE_DUPLICATE	ACTIVE LINKAGE DUPLICATE	settings		wave8 markup/export	
+ACTIVE_LINKAGE_INFORMATION	ACTIVE LINKAGE INFORMATION	settings		wave8 markup/export	
+FORMS_ON	FORMS ON	settings		wave8 markup/export	database screen forms
+FORMS_OFF	FORMS OFF	settings		wave8 markup/export	
+SET_CONFIRM_ON	SET CONFIRM ON	settings		wave8 markup/export	confirm rows when attaching
+SET_CONFIRM_OFF	SET CONFIRM OFF	settings		wave8 markup/export	
+SET_DATABASE_ON	SET DATABASE ON	settings		wave8 markup/export	
+SET_DATABASE_OFF	SET DATABASE OFF	settings		wave8 markup/export	
+REPORT_TABLE_ON	REPORT TABLE ON	settings		wave8 markup/export	report display - not SQL execute
+REPORT_TABLE_OFF	REPORT TABLE OFF	settings		wave8 markup/export	
+PRINT_PDF_EMBEDFONTS_ON	PRINT PDF EMBED FONTS ON	settings		wave8 markup/export	PDF option toggle only
+PRINT_PDF_EMBEDFONTS_OFF	PRINT PDF EMBED FONTS OFF	settings		wave8 markup/export	
+PRINT_PDF_LAYERS_ON	PRINT PDF LAYERS ON	settings		wave8 markup/export	optional content / layers
+PRINT_PDF_LAYERS_OFF	PRINT PDF LAYERS OFF	settings		wave8 markup/export	
+PRINT_PDF_BOOKMARKS_ON	PRINT PDF BOOKMARKS ON	settings		wave8 markup/export	
+PRINT_PDF_BOOKMARKS_OFF	PRINT PDF BOOKMARKS OFF	settings		wave8 markup/export	
+PRINT_PDF_SEARCHABLE_ON	PRINT PDF SEARCHABLE ON	settings		wave8 markup/export	
+PRINT_PDF_SEARCHABLE_OFF	PRINT PDF SEARCHABLE OFF	settings		wave8 markup/export	
+PRINT_PDF_GEOPDF_ON	PRINT PDF GEOPDF ON	settings		wave8 markup/export	
+PRINT_PDF_GEOPDF_OFF	PRINT PDF GEOPDF OFF	settings		wave8 markup/export	
+PRINT_PLOTTO3D_ON	PRINT PLOTTO3D ON	settings		wave8 markup/export	Print Dialog PDF 3D option
+PRINT_PLOTTO3D_OFF	PRINT PLOTTO3D OFF	settings		wave8 markup/export	
+PRINT_RASTERIZED_ON	PRINT RASTERIZED ON	settings		wave8 markup/export	
+PRINT_RASTERIZED_OFF	PRINT RASTERIZED OFF	settings		wave8 markup/export	
+PRINT_AUTOCENTER_ON	PRINT AUTOCENTER ON	settings		wave8 markup/export	docs PRINT AUTOCENTER
+PRINT_AUTOCENTER_OFF	PRINT AUTOCENTER OFF	settings		wave8 markup/export	
+PRINT_ATTRIBUTES_BORDER_ON	PRINT ATTRIBUTES BORDER ON	settings		wave8 markup/export	docs Print Dialog key-ins
+PRINT_ATTRIBUTES_BORDER_OFF	PRINT ATTRIBUTES BORDER OFF	settings		wave8 markup/export	
+EXPORT_VISIBLE_EDGES_ON	EXPORT VISIBLE EDGES ON	settings		wave8 markup/export	option flag only - not file export execute
+EXPORT_VISIBLE_EDGES_OFF	EXPORT VISIBLE EDGES OFF	settings		wave8 markup/export	
+SET_EXPORT_2D_ON	SET EXPORT 2D ON	settings		wave8 markup/export	export option toggle
+SET_EXPORT_2D_OFF	SET EXPORT 2D OFF	settings		wave8 markup/export	
+PUBLISHDGN_RIGHT_EXPORT_ON	PUBLISHDGN RIGHT EXPORT ON	settings		wave8 markup/export	rights toggle - not PUBLISH execute
+PUBLISHDGN_RIGHT_EXPORT_OFF	PUBLISHDGN RIGHT EXPORT OFF	settings		wave8 markup/export	
+PUBLISHDGN_CACHEVISIBLEEDGES_ON	PUBLISHDGN CACHEVISIBLEEDGES ON	settings		wave8 markup/export	CVE cache option flag
+PUBLISHDGN_CACHEVISIBLEEDGES_OFF	PUBLISHDGN CACHEVISIBLEEDGES OFF	settings		wave8 markup/export	
+POINTCLOUD_PUBLISHOPTION_EXCLUDE	POINTCLOUD PUBLISHOPTION EXCLUDE	settings		wave8 markup/export	publish option enum
+ANIMATION_PREVIEW_ON	ANIMATION PREVIEW ON	settings		wave8 markup/export	
+ANIMATION_PREVIEW_OFF	ANIMATION PREVIEW OFF	settings		wave8 markup/export	
+VIEW_CAMERA_ON	VIEW CAMERA ON	view		wave8 markup/export	
+VIEW_CAMERA_OFF	VIEW CAMERA OFF	view		wave8 markup/export	
+LIGHTING_ON	LIGHTING ON	settings		wave8 markup/export	
+LIGHTING_OFF	LIGHTING OFF	settings		wave8 markup/export	
+MATERIALS_ON	MATERIALS ON	settings		wave8 markup/export	
+MATERIALS_OFF	MATERIALS OFF	settings		wave8 markup/export	
+ITEMTYPE_DISPLAY_ON	ITEM TYPE DISPLAY ON	settings		wave8 markup/export	itemtype display extras
+ITEMTYPE_DISPLAY_OFF	ITEM TYPE DISPLAY OFF	settings		wave8 markup/export	
+SET_ITEMTYPE_DISPLAY_ON	SET ITEM TYPE DISPLAY ON	settings		wave8 markup/export	
+SET_ITEMTYPE_DISPLAY_OFF	SET ITEM TYPE DISPLAY OFF	settings		wave8 markup/export	
+SET_TAG_DISPLAY_ON	SET TAG DISPLAY ON	settings		wave8 markup/export	tag display extras
+SET_TAG_DISPLAY_OFF	SET TAG DISPLAY OFF	settings		wave8 markup/export	
+SET_TAGS_ON	SET TAGS ON	settings		wave8 markup/export	
+SET_TAGS_OFF	SET TAGS OFF	settings		wave8 markup/export	
+GEOGRAPHIC_DISPLAY_ON	GEOGRAPHIC DISPLAY ON	settings		wave8 markup/export	geographic display extras
+GEOGRAPHIC_DISPLAY_OFF	GEOGRAPHIC DISPLAY OFF	settings		wave8 markup/export	
+SET_GEOGRAPHIC_ON	SET GEOGRAPHIC ON	settings		wave8 markup/export	
+SET_GEOGRAPHIC_OFF	SET GEOGRAPHIC OFF	settings		wave8 markup/export	
+SET_ACSDISPLAY_ON	SET ACSDISPLAY ON	settings		wave8 markup/export	docs ACS triad display
+SET_ACSDISPLAY_OFF	SET ACSDISPLAY OFF	settings		wave8 markup/export	
+COORDINATE_READOUT_MASTER	COORDINATE READOUT MASTER	settings		wave8 markup/export	
+WORKSET_SHOW	WORKSET SHOW	settings		wave8 markup/export	non-destructive workset preference
+WORKSET_LIST	WORKSET LIST	settings		wave8 markup/export	
+WORKSPACE_SHOW	WORKSPACE SHOW	settings		wave8 markup/export	
+WORKSPACE_LIST	WORKSPACE LIST	settings		wave8 markup/export	
+WORKSET_PROPERTIES_REFRESH	WORKSET PROPERTIES REFRESH	settings		wave8 markup/export	refresh only - not assign/create
+PRINT_EXECUTE	PRINT EXECUTE	file		wave8 markup/export	negative - execute family
+PUBLISHDGN_PUBLISH_FORCE	PUBLISHDGN PUBLISH FORCE	file		wave8 markup/export	negative - skip PUBLISHDGN PUBLISH
+PRINTORGANIZER_DIALOG	PRINTORGANIZER DIALOG	dialog		wave8 markup/export	negative - PRINTORGANIZER family
+IPLOT_EXECUTE	IPLOT EXECUTE	file		wave8 markup/export	negative - IPLOT family
+EXPORT_VISIBLE_EDGES	EXPORT VISIBLE EDGES	file		wave8 markup/export	negative - file export execute not option flag
+EXPORT_DIALOG	EXPORT DIALOG	dialog		wave8 markup/export	negative
+PDF_PUBLISH	PDF PUBLISH	file		wave8 markup/export	negative
+MARKUP_DIALOG_OPEN	MARKUP DIALOG OPEN	dialog		wave8 markup/export	negative - dialog manager
+DIALOG_DATABASE	DIALOG DATABASE	dialog		wave8 markup/export	negative - not linkage settings
+DIALOG_PROJECTWISE	DIALOG PROJECTWISE	dialog		wave8 markup/export	negative ProjectWise
+PROJECTWISE_CHECKOUT	PROJECTWISE CHECKOUT	file		wave8 markup/export	negative never probe

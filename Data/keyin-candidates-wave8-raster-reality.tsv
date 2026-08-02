@@ -1,0 +1,92 @@
+opName	keyin	kind	requiredParams	source	notes
+RASTER_SNAP_ON	RASTER SNAP ON	settings		wave8 raster/reality	raster snappable
+RASTER_SNAP_OFF	RASTER SNAP OFF	settings		wave8 raster/reality	
+RASTER_INVERT_ON	RASTER INVERT ON	settings		wave8 raster/reality	monochrome invert
+RASTER_INVERT_OFF	RASTER INVERT OFF	settings		wave8 raster/reality	
+SET_RASTER_INVERT_ON	SET RASTER INVERT ON	settings		wave8 raster/reality	
+SET_RASTER_INVERT_OFF	SET RASTER INVERT OFF	settings		wave8 raster/reality	
+RASTER_TRANSPARENCY_ON	RASTER TRANSPARENCY ON	settings		wave8 raster/reality	
+RASTER_TRANSPARENCY_OFF	RASTER TRANSPARENCY OFF	settings		wave8 raster/reality	
+SET_RASTER_TRANSPARENCY_ON	SET RASTER TRANSPARENCY ON	settings		wave8 raster/reality	
+SET_RASTER_TRANSPARENCY_OFF	SET RASTER TRANSPARENCY OFF	settings		wave8 raster/reality	
+RASTER_PRIORITY_0	RASTER PRIORITY 0	settings		wave8 raster/reality	display priority
+RASTER_PRIORITY_100	RASTER PRIORITY 100	settings		wave8 raster/reality	
+SET_RASTER_PRIORITY_0	SET RASTER PRIORITY 0	settings		wave8 raster/reality	
+SET_RASTER_PRIORITY_100	SET RASTER PRIORITY 100	settings		wave8 raster/reality	
+RASTER_DISPLAY_ON	RASTER DISPLAY ON	view		wave8 raster/reality	
+RASTER_DISPLAY_OFF	RASTER DISPLAY OFF	view		wave8 raster/reality	
+SET_RASTERREF_ON	SET RASTER REF ON	settings		wave8 raster/reality	
+SET_RASTERREF_OFF	SET RASTER REF OFF	settings		wave8 raster/reality	
+RASTER_MONOCHROME_ON	RASTER MONOCHROME ON	settings		wave8 raster/reality	
+RASTER_MONOCHROME_OFF	RASTER MONOCHROME OFF	settings		wave8 raster/reality	
+RASTER_CLIP_ON	RASTER CLIP ON	settings		wave8 raster/reality	
+RASTER_CLIP_OFF	RASTER CLIP OFF	settings		wave8 raster/reality	
+RASTER_PRINT_ON	RASTER PRINT ON	settings		wave8 raster/reality	print flag
+RASTER_PRINT_OFF	RASTER PRINT OFF	settings		wave8 raster/reality	
+RASTER_LOCATE_ON	RASTER LOCATE ON	settings		wave8 raster/reality	
+RASTER_LOCATE_OFF	RASTER LOCATE OFF	settings		wave8 raster/reality	
+POINTCLOUD_DISPLAY_ON	POINTCLOUD DISPLAY ON	view		wave8 raster/reality	
+POINTCLOUD_DISPLAY_OFF	POINTCLOUD DISPLAY OFF	view		wave8 raster/reality	
+POINT_CLOUD_DISPLAY_ON	POINT CLOUD DISPLAY ON	view		wave8 raster/reality	spaced form
+POINT_CLOUD_DISPLAY_OFF	POINT CLOUD DISPLAY OFF	view		wave8 raster/reality	
+SET_POINT_CLOUD_ON	SET POINT CLOUD ON	settings		wave8 raster/reality	
+SET_POINT_CLOUD_OFF	SET POINT CLOUD OFF	settings		wave8 raster/reality	
+POINTCLOUD_SNAP_ON	POINTCLOUD SNAP ON	settings		wave8 raster/reality	
+POINTCLOUD_SNAP_OFF	POINTCLOUD SNAP OFF	settings		wave8 raster/reality	
+POINT_CLOUD_SNAP_ON	POINT CLOUD SNAP ON	settings		wave8 raster/reality	
+POINT_CLOUD_SNAP_OFF	POINT CLOUD SNAP OFF	settings		wave8 raster/reality	
+POINTCLOUD_LOCATE_ON	POINTCLOUD LOCATE ON	settings		wave8 raster/reality	
+POINTCLOUD_LOCATE_OFF	POINTCLOUD LOCATE OFF	settings		wave8 raster/reality	
+POINTCLOUD_DENSITY_10	POINTCLOUD DENSITY 10	settings		wave8 raster/reality	documented low (1-100)
+POINTCLOUD_DENSITY_60	POINTCLOUD DENSITY 60	settings		wave8 raster/reality	documented medium
+POINTCLOUD_DENSITY_100	POINTCLOUD DENSITY 100	settings		wave8 raster/reality	documented high
+POINT_CLOUD_DENSITY_10	POINT CLOUD DENSITY 10	settings		wave8 raster/reality	spaced density
+POINT_CLOUD_DENSITY_60	POINT CLOUD DENSITY 60	settings		wave8 raster/reality	
+POINT_CLOUD_DENSITY_100	POINT CLOUD DENSITY 100	settings		wave8 raster/reality	
+SET_POINTCLOUD_DENSITY_HIGH	SET POINTCLOUD DENSITY HIGH	settings		wave8 raster/reality	named density
+SET_POINTCLOUD_DENSITY_MEDIUM	SET POINTCLOUD DENSITY MEDIUM	settings		wave8 raster/reality	
+SET_POINTCLOUD_DENSITY_LOW	SET POINTCLOUD DENSITY LOW	settings		wave8 raster/reality	
+POINT_CLOUD_COLOR_BY_RGB	POINT CLOUD COLOR BY RGB	settings		wave8 raster/reality	stylization
+POINT_CLOUD_COLOR_BY_INTENSITY	POINT CLOUD COLOR BY INTENSITY	settings		wave8 raster/reality	
+POINT_CLOUD_COLOR_BY_ELEVATION	POINT CLOUD COLOR BY ELEVATION	settings		wave8 raster/reality	
+POINT_CLOUD_COLOR_BY_CLASSIFICATION	POINT CLOUD COLOR BY CLASSIFICATION	settings		wave8 raster/reality	
+POINT_CLOUD_CLASSIFICATION_ON	POINT CLOUD CLASSIFICATION ON	settings		wave8 raster/reality	
+POINT_CLOUD_CLASSIFICATION_OFF	POINT CLOUD CLASSIFICATION OFF	settings		wave8 raster/reality	
+POINTCLOUD_STYLIZATION_RGB	POINTCLOUD STYLIZATION RGB	settings		wave8 raster/reality	alt stylization token
+POINTCLOUD_STYLIZATION_INTENSITY	POINTCLOUD STYLIZATION INTENSITY	settings		wave8 raster/reality	
+POINTCLOUD_ANCHORED_ON	POINTCLOUD ANCHORED ON	settings		wave8 raster/reality	
+POINTCLOUD_ANCHORED_OFF	POINTCLOUD ANCHORED OFF	settings		wave8 raster/reality	
+REALITYMESH_DISPLAY_ON	REALITYMESH DISPLAY ON	view		wave8 raster/reality	
+REALITYMESH_DISPLAY_OFF	REALITYMESH DISPLAY OFF	view		wave8 raster/reality	
+REALITY_MESH_DISPLAY_ON	REALITY MESH DISPLAY ON	view		wave8 raster/reality	spaced form
+REALITY_MESH_DISPLAY_OFF	REALITY MESH DISPLAY OFF	view		wave8 raster/reality	
+SET_REALITY_MESH_ON	SET REALITY MESH ON	settings		wave8 raster/reality	
+SET_REALITY_MESH_OFF	SET REALITY MESH OFF	settings		wave8 raster/reality	
+REALITY_MESH_SNAP_ON	REALITY MESH SNAP ON	settings		wave8 raster/reality	
+REALITY_MESH_SNAP_OFF	REALITY MESH SNAP OFF	settings		wave8 raster/reality	
+REALITY_MESH_LOCATE_ON	REALITY MESH LOCATE ON	settings		wave8 raster/reality	
+REALITY_MESH_LOCATE_OFF	REALITY MESH LOCATE OFF	settings		wave8 raster/reality	
+REALITY_MESH_TRANSPARENCY_ON	REALITY MESH TRANSPARENCY ON	settings		wave8 raster/reality	
+REALITY_MESH_TRANSPARENCY_OFF	REALITY MESH TRANSPARENCY OFF	settings		wave8 raster/reality	
+MESH_DISPLAY_ON	MESH DISPLAY ON	view		wave8 raster/reality	
+MESH_DISPLAY_OFF	MESH DISPLAY OFF	view		wave8 raster/reality	
+SET_MESH_FACETS_ON	SET MESH FACETS ON	settings		wave8 raster/reality	facets (not FACET EDGES)
+SET_MESH_FACETS_OFF	SET MESH FACETS OFF	settings		wave8 raster/reality	
+MESH_FACETS_ON	MESH FACETS ON	view		wave8 raster/reality	
+MESH_FACETS_OFF	MESH FACETS OFF	view		wave8 raster/reality	
+SOLID_DISPLAY_ON	SOLID DISPLAY ON	view		wave8 raster/reality	
+SOLID_DISPLAY_OFF	SOLID DISPLAY OFF	view		wave8 raster/reality	
+FEATURE_SOLID_DISPLAY_ON	FEATURE SOLID DISPLAY ON	view		wave8 raster/reality	
+FEATURE_SOLID_DISPLAY_OFF	FEATURE SOLID DISPLAY OFF	view		wave8 raster/reality	
+SET_FEATURE_SOLIDS_ON	SET FEATURE SOLIDS ON	settings		wave8 raster/reality	
+SET_FEATURE_SOLIDS_OFF	SET FEATURE SOLIDS OFF	settings		wave8 raster/reality	
+SET_FEATURE_SOLID_ON	SET FEATURE SOLID ON	settings		wave8 raster/reality	
+SET_FEATURE_SOLID_OFF	SET FEATURE SOLID OFF	settings		wave8 raster/reality	
+DIALOG_RASTER	DIALOG RASTER	dialog		wave8 raster/reality	negative — Raster Manager
+DIALOG_POINTCLOUD	DIALOG POINTCLOUD	dialog		wave8 raster/reality	negative — Point Clouds dialog
+POINTCLOUD_DIALOG_OPEN	POINTCLOUD DIALOG OPEN	dialog		wave8 raster/reality	negative — documented dialog key-in
+MRMESH_DIALOG_OPEN	MRMESH DIALOG OPEN	dialog		wave8 raster/reality	negative — Reality Mesh dialog
+ATTACH_RASTER	ATTACH RASTER	file		wave8 raster/reality	negative — file attach
+MRMESH_ATTACH	MRMESH ATTACH	file		wave8 raster/reality	negative — documented attach
+PLACE_RASTER_BOUNDARY	PLACE RASTER BOUNDARY	tool		wave8 raster/reality	negative — placement tool
+CLIP_POINTCLOUD	CLIP POINTCLOUD	tool		wave8 raster/reality	negative — clip tool needs pick

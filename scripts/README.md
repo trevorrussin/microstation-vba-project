@@ -13,6 +13,11 @@ MicroStation has thousands of key-ins. We grow `Data/command-registry.tsv` in
 One MicroStation session cannot safely accept parallel key-in bursts (tool
 state races). Harvest widely; probe once.
 
+**Hang policy:** each live `SendKeyin` runs in a child process with a **3 second**
+hard timeout. If it doesn't return, the child is killed, the key-in is recorded
+as `HANG` → `unsafe-blocked`, and the batch continues. `tool` / `datapoint` /
+`dialog` / `file` kinds are never executed (activate-and-wait or UI).
+
 ## Files
 
 | File | Role |
@@ -96,6 +101,40 @@ Do **not** launch multiple probe processes against the same MicroStation.
 ## What this does not automate
 
 - Full Help Key-in Index dump (no COM export found on this install)
-- Headless **drawing** recipes (`COMMAND` + `DATAPOINT` + `RESET`) — those
-  still need geometry assertions, same bar as M1–M5
 - `UNDO` / `COMPRESS` / file open — leave `needs-testing` or omit from batches
+
+---
+
+# Drawing recipe probe (geometry bar)
+
+Settings probes only prove a key-in returns. Drawing tools need a full
+`COMMAND` + `DATAPOINT` + `RESET` recipe and proof that **geometry appeared**.
+
+| File | Role |
+|---|---|
+| `Data/recipe-candidates.tsv` | Recipe queue with sample params |
+| `scripts/recipe_batch.py` | Probe + promote |
+| `Bridge/recipe-probe-batch.json` | Latest recipe probe results |
+
+```bash
+# MicroStation must have DELETE.dgn active
+python scripts/recipe_batch.py run
+```
+
+**Pass bar:** graphical element count increases by `expectedNewElements` (default 1),
+COM stays alive, recipe completes within 3s/step. Fast COM OK without a new
+element is `NO_ELEMENT` → stays `needs-testing`.
+
+Candidate columns:
+
+```
+opName  recipeLines  requiredParams  sampleParams  expectedNewElements  source  notes
+```
+
+`sampleParams` example: `x1=100|y1=100|x2=110|y2=100` — substituted into `{x1}` etc.
+in `recipeLines` for the live probe. The registry row keeps placeholders.
+
+Do **not** invent CadInputQueue sequences — copy `Legacy Files/` or `WZTCExec.bas`.
+Circle/block/arc/smartline stay blocked until a proven in-repo sequence exists.
+Hatch is seeded but may need shape association / pattern settings before it
+promotes (see latest `recipe-probe-batch.json`).

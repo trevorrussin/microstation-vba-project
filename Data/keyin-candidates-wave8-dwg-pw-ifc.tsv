@@ -1,0 +1,87 @@
+opName	keyin	kind	requiredParams	source	notes
+DWG_SETTINGS_OPEN	DWG SETTINGS OPEN	dialog		wave8 dwg/pw/ifc	Bentley Help: Open DWG Settings File dialog; optional filename
+DWG_SETTINGS_SAVEAS	DWG SETTINGS SAVEAS	dialog		wave8 dwg/pw/ifc	Bentley Help: save DWG options to .dws; optional FILENAME
+DWG_UNITS	DWG UNITS	dialog		wave8 dwg/pw/ifc	Bentley Communities KB: Design Center units for open DWG
+DWG_WORKMODE_ON	DWG WORKMODE ON	settings		wave8 dwg/pw/ifc	uncertain; usually MS_WORKMODE=DWG
+DWG_WORKMODE_OFF	DWG WORKMODE OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_AXISLOCK_FROM_ORTHOMODE_ON	SET DWG AXISLOCK FROM ORTHOMODE ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_AXISLOCK_FROM_ORTHOMODE
+SET_DWG_AXISLOCK_FROM_ORTHOMODE_OFF	SET DWG AXISLOCK FROM ORTHOMODE OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_DISCARD_INVALID_ON	SET DWG DISCARD INVALID ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_DISCARD_INVALID
+SET_DWG_DISCARD_INVALID_OFF	SET DWG DISCARD INVALID OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_ATTRIBUTE_AS_TAG_ON	SET DWG ATTRIBUTE AS TAG ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_ATTRIBUTE_AS_TAG
+SET_DWG_ATTRIBUTE_AS_TAG_OFF	SET DWG ATTRIBUTE AS TAG OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_GRAPHIC_GROUP_ATTRIBUTES_ON	SET DWG GRAPHIC GROUP ATTRIBUTES ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_GRAPHIC_GROUP_ATTRIBUTES
+SET_DWG_GRAPHIC_GROUP_ATTRIBUTES_OFF	SET DWG GRAPHIC GROUP ATTRIBUTES OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_MAP_XREF_NAMES_ON	SET DWG MAP XREF NAMES ON	settings		wave8 dwg/pw/ifc	uncertain; Map Logical Names to XRef Block Names
+SET_DWG_MAP_XREF_NAMES_OFF	SET DWG MAP XREF NAMES OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_SEED_GLOBAL_ORIGIN_ON	SET DWG SEED GLOBAL ORIGIN ON	settings		wave8 dwg/pw/ifc	uncertain; Use Seed File Global Origin
+SET_DWG_SEED_GLOBAL_ORIGIN_OFF	SET DWG SEED GLOBAL ORIGIN OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_REFERENCE_CONVERT_ON	SET DWG REFERENCE CONVERT ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_REFERENCE_CONVERT
+SET_DWG_REFERENCE_CONVERT_OFF	SET DWG REFERENCE CONVERT OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_PRESERVE_SETTINGS_ON	SET DWG PRESERVE SETTINGS ON	settings		wave8 dwg/pw/ifc	uncertain; Preserve MicroStation Settings
+SET_DWG_PRESERVE_SETTINGS_OFF	SET DWG PRESERVE SETTINGS OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_LEVEL_OVERRIDES_ON	SET DWG LEVEL OVERRIDES ON	settings		wave8 dwg/pw/ifc	uncertain; Use Level Symbology Overrides
+SET_DWG_LEVEL_OVERRIDES_OFF	SET DWG LEVEL OVERRIDES OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_DROP_LINESTYLES_ON	SET DWG DROP LINESTYLES ON	settings		wave8 dwg/pw/ifc	uncertain; Drop Unsupported LineStyles
+SET_DWG_DROP_LINESTYLES_OFF	SET DWG DROP LINESTYLES OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_DROP_DIMENSIONS_ON	SET DWG DROP DIMENSIONS ON	settings		wave8 dwg/pw/ifc	uncertain; Drop Unsupported Dimensions
+SET_DWG_DROP_DIMENSIONS_OFF	SET DWG DROP DIMENSIONS OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_TRUE_COLOR_ON	SET DWG TRUE COLOR ON	settings		wave8 dwg/pw/ifc	uncertain; Create True Color From DGN Color Indices
+SET_DWG_TRUE_COLOR_OFF	SET DWG TRUE COLOR OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_UCS_FROM_ACS_ON	SET DWG UCS FROM ACS ON	settings		wave8 dwg/pw/ifc	uncertain; Set UCS from Current ACS
+SET_DWG_UCS_FROM_ACS_OFF	SET DWG UCS FROM ACS OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_FORCE_ZERO_Z_ON	SET DWG FORCE ZERO Z ON	settings		wave8 dwg/pw/ifc	uncertain; Force Zero Z-Coordinate
+SET_DWG_FORCE_ZERO_Z_OFF	SET DWG FORCE ZERO Z OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_APPLICATION_DATA_ON	SET DWG APPLICATION DATA ON	settings		wave8 dwg/pw/ifc	uncertain; Save Application Data
+SET_DWG_APPLICATION_DATA_OFF	SET DWG APPLICATION DATA OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_EXPORT_EMPTY_ITEMTYPES_ON	SET DWG EXPORT EMPTY ITEMTYPES ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_EXPORT_EMPTYITEMTYPEPROPERTIES
+SET_DWG_EXPORT_EMPTY_ITEMTYPES_OFF	SET DWG EXPORT EMPTY ITEMTYPES OFF	settings		wave8 dwg/pw/ifc	uncertain
+REFERENCE_SET_IGNOREWHENNESTING_ON	REFERENCE SET IGNOREWHENNESTING=ON	settings		wave8 dwg/pw/ifc	Bentley Help REFERENCE SET; DWG live nesting
+REFERENCE_SET_IGNOREWHENNESTING_OFF	REFERENCE SET IGNOREWHENNESTING=OFF	settings		wave8 dwg/pw/ifc	may need file_spec
+SET_DWG_PROXYGRAPHICS_ON	SET DWG PROXYGRAPHICS ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_PROXYSHOW pattern
+SET_DWG_PROXYGRAPHICS_OFF	SET DWG PROXYGRAPHICS OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_PROXY_IMAGE_ON	SET DWG PROXY IMAGE ON	settings		wave8 dwg/pw/ifc	uncertain; Show Proxy Image
+SET_DWG_PROXY_BOX_ON	SET DWG PROXY BOX ON	settings		wave8 dwg/pw/ifc	uncertain; Show Proxy Box
+SET_DWG_ENTITY_HANDLES_ON	SET DWG ENTITY HANDLES ON	settings		wave8 dwg/pw/ifc	uncertain; DWG entity handle persistence
+SET_DWG_ENTITY_HANDLES_OFF	SET DWG ENTITY HANDLES OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_OLELINKS_ON	SET DWG OLELINKS ON	settings		wave8 dwg/pw/ifc	uncertain; DWG OLE link round-trip
+SET_DWG_OLELINKS_OFF	SET DWG OLELINKS OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_OLE_DISPLAY_ON	SET OLE DISPLAY ON	view		wave8 dwg/pw/ifc	uncertain; OLE object display toggle
+SET_OLE_DISPLAY_OFF	SET OLE DISPLAY OFF	view		wave8 dwg/pw/ifc	uncertain
+TITLEBLOCK_UPDATENOW	TITLEBLOCK UPDATENOW	settings		wave8 dwg/pw/ifc	Bentley PW Help: refresh titleblock attrs from PW DB
+TITLEBLOCK_UPDATEDMS	TITLEBLOCK UPDATEDMS	settings		wave8 dwg/pw/ifc	Bentley PW Help: push edited tags to PW DB
+DMS_REF_RELOAD	DMS REF RELOAD	dialog		wave8 dwg/pw/ifc	Bentley PW Help: may open Select Documents to Reload
+IFC_DISPLAY_ON	IFC DISPLAY ON	settings		wave8 dwg/pw/ifc	uncertain; IFC attach/display toggle
+IFC_DISPLAY_OFF	IFC DISPLAY OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_IFC_ON	SET IFC ON	settings		wave8 dwg/pw/ifc	uncertain
+SET_IFC_OFF	SET IFC OFF	settings		wave8 dwg/pw/ifc	uncertain
+BIM_DISPLAY_ON	BIM DISPLAY ON	settings		wave8 dwg/pw/ifc	uncertain
+BIM_DISPLAY_OFF	BIM DISPLAY OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_BIM_ON	SET BIM ON	settings		wave8 dwg/pw/ifc	uncertain
+SET_BIM_OFF	SET BIM OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_SHARECELL_ON	SET SHARECELL ON	settings		wave8 dwg/pw/ifc	Bentley Help Cell Library Dialog
+SET_SHARECELL_OFF	SET SHARECELL OFF	settings		wave8 dwg/pw/ifc	Bentley Help
+SET_SHARECELL_TOGGLE	SET SHARECELL TOGGLE	settings		wave8 dwg/pw/ifc	Bentley Help SET SHARECELL TOGGLE
+DETACH_LIBRARY	DETACH LIBRARY	settings		wave8 dwg/pw/ifc	Bentley Help; detaches attached cell library
+DGNLIB_UPDATE_LEVELS	DGNLIB UPDATE LEVELS	settings		wave8 dwg/pw/ifc	Bentley Help: sync levels from DGNLIB
+DGNLIB_UPDATE_LEVELS_ALL	DGNLIB UPDATE LEVELS ALL	settings		wave8 dwg/pw/ifc	Bentley Help Level Manager
+DGNLIB_UPDATE_LEVELS_BYLEVELSYMBOLOGY	DGNLIB UPDATE LEVELS BYLEVELSYMBOLOGY	settings		wave8 dwg/pw/ifc	Bentley Help
+DGNLIB_UPDATE_LEVELS_OVERRIDESYMBOLOGY	DGNLIB UPDATE LEVELS OVERRIDESYMBOLOGY	settings		wave8 dwg/pw/ifc	Bentley Help
+DGNLIB_UPDATE_TEXTSTYLES	DGNLIB UPDATE TEXTSTYLES	settings		wave8 dwg/pw/ifc	Bentley Help Building DGN Libraries
+DGNLIB_UPDATE_DIMSTYLES	DGNLIB UPDATE DIMSTYLES	settings		wave8 dwg/pw/ifc	Bentley Help Building DGN Libraries
+DGNLIB_UPDATE_MLINESTYLES	DGNLIB UPDATE MLINESTYLES	settings		wave8 dwg/pw/ifc	Bentley Help Building DGN Libraries
+DGNLIB_UPDATE_DETAILINGSYMBOLSTYLES	DGNLIB UPDATE DETAILINGSYMBOLSTYLES	settings		wave8 dwg/pw/ifc	Bentley Help Building DGN Libraries
+DGNLIB_UPDATE_TEMPLATES	DGNLIB UPDATE TEMPLATES	settings		wave8 dwg/pw/ifc	Bentley Help Building DGN Libraries
+DGNLIB_UPDATE_ALL	DGNLIB UPDATE ALL	settings		wave8 dwg/pw/ifc	Bentley Help; all listed DGNLIB resource types
+ACTIVE_CELL_RELATIVE_ON	ACTIVE CELL RELATIVE ON	settings		wave8 dwg/pw/ifc	cell relative placement; AR= pattern
+ACTIVE_CELL_RELATIVE_OFF	ACTIVE CELL RELATIVE OFF	settings		wave8 dwg/pw/ifc	cell relative placement
+OLECNTR_EDIT	OLECNTR EDIT	dialog		wave8 dwg/pw/ifc	negative; Bentley Help Links dialog
+OLECNTR_INSERT	OLECNTR INSERT	dialog		wave8 dwg/pw/ifc	negative; Bentley Help Insert Object
+TITLEBLOCK_MODIFY	TITLEBLOCK MODIFY	dialog		wave8 dwg/pw/ifc	negative; PW Document Properties
+TITLEBLOCK_PLACE	TITLEBLOCK PLACE	tool		wave8 dwg/pw/ifc	negative; places titleblock cell
+DMS_OPEN_DOCUMENT	DMS OPEN DOCUMENT	file		wave8 dwg/pw/ifc	negative never probe; PW File>Open
+DMS_UPDATE_SERVERCOPY	DMS UPDATE SERVERCOPY	file		wave8 dwg/pw/ifc	negative; Update Server Copy
+DMS_REFRESH_LOCALCOPY	DMS REFRESH LOCALCOPY	file		wave8 dwg/pw/ifc	negative; Refresh Local Copy
+IFC_EXPORTBYITWIN	IFC EXPORTBYITWIN	file		wave8 dwg/pw/ifc	negative; Bentley IFC export by iTwin
+IFCOUT	IFCOUT	file		wave8 dwg/pw/ifc	negative; IFC export family
+ATTACH_LIBRARY_DIALOG	ATTACH LIBRARY	file		wave8 dwg/pw/ifc	negative; attach cell library dialog risk

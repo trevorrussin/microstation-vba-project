@@ -218,14 +218,11 @@ End Function
 ' ExecPlaceElementRun. Shape is closed by repeating the first
 ' vertex as the final data point, matching Legacy Files/LegacyElements.bas.
 '
-' The hatch seed point is COMPUTED (FindInteriorPoint below), not
-' clicked. DrawElements.bas's comment explains why the production
-' code leaves this to a user click: "avoids centroid issues with
-' non-convex shapes." FindInteriorPoint solves that properly with a
-' horizontal-scanline / widest-even-odd-span method instead of a
-' naive centroid, so it holds up on L-shaped and other non-convex
-' work areas -- but it has only been checked against the test shapes
-' in DebugExecTest.bas, not a large sample of real project geometry.
+' Hatch uses ClosedElement.SetPattern + CreateHatchPattern1 (Element API),
+' not CadInputQueue HATCH ICON — live DELETE.dgn probes 2026-08-02 showed
+' HATCH ICON completing with +0 elements / no reliable pattern. Associative
+' hatch attaches to the shape (HasPattern=True); it does not add a new
+' graphical element ID.
 ' ============================================================
 Public Function ExecPlaceWorkspace(verticesTSV As String) As String
     On Error GoTo WsError
@@ -248,6 +245,9 @@ Public Function ExecPlaceWorkspace(verticesTSV As String) As String
         If UBound(coords) >= 2 Then vz(i) = CDbl(coords(2)) Else vz(i) = 0
     Next i
 
+    Dim beforeMaxID As Double
+    beforeMaxID = ScanMaxElementID()
+
     CadInputQueue.SendCommand "ACTIVE LEVEL ""TWZWS2_P"""
     CadInputQueue.SendCommand "ACTIVE COLOR 6"
     CadInputQueue.SendCommand "ACTIVE WEIGHT 2"
@@ -265,30 +265,208 @@ Public Function ExecPlaceWorkspace(verticesTSV As String) As String
     CadInputQueue.SendReset
     CommandState.StartDefaultCommand
 
-    Dim seedX As Double, seedY As Double
-    If Not FindInteriorPoint(vx, vy, n, seedX, seedY) Then
+    Dim shapeEl As Element
+    Set shapeEl = FindNewestClosedElementAbove(beforeMaxID)
+    If shapeEl Is Nothing Then
         ExecPlaceWorkspace = "OK" & vbTab & "vertexCount=" & n & vbTab & _
-            "note=shape placed but hatch skipped -- could not compute an interior point " & _
-            "(degenerate or self-intersecting boundary?)"
+            "note=shape placed but hatch skipped -- could not find new closed element"
         Exit Function
     End If
 
-    Dim hatchPt As Point3d
-    hatchPt.X = seedX: hatchPt.Y = seedY: hatchPt.Z = vz(0)
-
-    CadInputQueue.SendCommand "HATCH ICON"
-    CadInputQueue.SendDataPoint hatchPt, 1
-    CadInputQueue.SendDataPoint hatchPt, 1   ' same point twice -- matches LegacyElements.bas
-    CadInputQueue.SendReset
-    CommandState.StartDefaultCommand
+    Dim hatchNote As String
+    hatchNote = ApplyHatchPatternToClosed(shapeEl, 10#, 45#)
 
     ExecPlaceWorkspace = "OK" & vbTab & "vertexCount=" & n & vbTab & _
-                         "hatchSeedX=" & Format(seedX, "0.00") & vbTab & "hatchSeedY=" & Format(seedY, "0.00") & vbTab & _
-                         "note=placed work space shape and hatch"
+                         "elementId=" & CStr(ElIDAsDouble(shapeEl.ID)) & vbTab & _
+                         "note=placed work space shape; " & hatchNote
     Exit Function
 
 WsError:
     ExecPlaceWorkspace = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' HATCH A CLOSED ELEMENT BY ID — CreateHatchPattern1 + SetPattern
+' with Matrix3dIdentity. Live-proven on DELETE.dgn (HasPattern=True).
+' spacing in master units; angleDeg in degrees (converted to radians).
+' ============================================================
+Public Function ExecHatchClosedElementByID(elementId As Double, _
+                                           Optional spacing As Double = 10#, _
+                                           Optional angleDeg As Double = 45#) As String
+    On Error GoTo HatchErr
+
+    If spacing <= 0 Then
+        ExecHatchClosedElementByID = "ERROR" & vbTab & "note=spacing must be > 0"
+        Exit Function
+    End If
+
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecHatchClosedElementByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+
+    Dim note As String
+    note = ApplyHatchPatternToClosed(el, spacing, angleDeg)
+    If Left(note, 5) = "ERROR" Then
+        ExecHatchClosedElementByID = "ERROR" & vbTab & "note=" & Mid(note, 7)
+        Exit Function
+    End If
+
+    ExecHatchClosedElementByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                                 "spacing=" & spacing & vbTab & "angleDeg=" & angleDeg & vbTab & _
+                                 "note=" & note
+    Exit Function
+
+HatchErr:
+    ExecHatchClosedElementByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' PLACE ARC (3-point / placeArcModeEx=3) — sequence from
+' LegacySignPlace.bas / DrawSign.bas, live-verified +1 element on
+' DELETE.dgn 2026-08-02. Point order: start, end, bulge.
+' ============================================================
+Public Function ExecPlaceArc3Point(x1 As Double, y1 As Double, _
+                                   x2 As Double, y2 As Double, _
+                                   x3 As Double, y3 As Double, _
+                                   Optional z As Double = 0) As String
+    On Error GoTo ArcErr
+
+    CadInputQueue.SendCommand "PLACE ARC ICON"
+    SetCExpressionValue "tcb->msToolSettings.igen.placeArcModeEx", 3, "CONSGEOM"
+    CadInputQueue.SendCommand "PLACE ARC ICON"
+
+    Dim pt As Point3d
+    pt.X = x1: pt.Y = y1: pt.Z = z
+    CadInputQueue.SendDataPoint pt, 1
+    pt.X = x2: pt.Y = y2: pt.Z = z
+    CadInputQueue.SendDataPoint pt, 1
+    pt.X = x3: pt.Y = y3: pt.Z = z
+    CadInputQueue.SendDataPoint pt, 1
+
+    CadInputQueue.SendReset
+    CommandState.StartDefaultCommand
+
+    ExecPlaceArc3Point = "OK" & vbTab & _
+                         "x1=" & x1 & vbTab & "y1=" & y1 & vbTab & _
+                         "x2=" & x2 & vbTab & "y2=" & y2 & vbTab & _
+                         "x3=" & x3 & vbTab & "y3=" & y3 & vbTab & _
+                         "note=placed 3-point arc (placeArcModeEx=3)"
+    Exit Function
+
+ArcErr:
+    ExecPlaceArc3Point = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' PLACE TEXT LABEL via TEXTEDITOR PLACE + INSERT_TEXT — same
+' path as LegacySignPlace / LegacyPrototype (single line). Live
+' verified +1 element on DELETE.dgn 2026-08-02.
+' ============================================================
+Public Function ExecPlaceTextLabel(text As String, x As Double, y As Double, _
+                                   Optional z As Double = 0) As String
+    On Error GoTo TxtErr
+
+    If Trim(text) = "" Then
+        ExecPlaceTextLabel = "ERROR" & vbTab & "note=text is empty"
+        Exit Function
+    End If
+
+    CadInputQueue.SendCommand "TEXTEDITOR PLACE"
+    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & text & """"
+
+    Dim pt As Point3d
+    pt.X = x: pt.Y = y: pt.Z = z
+    CadInputQueue.SendDataPoint pt, 1
+
+    CadInputQueue.SendReset
+    CommandState.StartDefaultCommand
+
+    ExecPlaceTextLabel = "OK" & vbTab & "x=" & x & vbTab & "y=" & y & vbTab & _
+                         "text=" & text & vbTab & "note=placed text label"
+    Exit Function
+
+TxtErr:
+    ExecPlaceTextLabel = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Returns a short note string; prefix "ERROR:" on failure.
+Private Function ApplyHatchPatternToClosed(el As Element, spacing As Double, angleDeg As Double) As String
+    On Error GoTo ApplyErr
+
+    Dim closed As ClosedElement
+    Set closed = el.AsClosedElement
+    If closed Is Nothing Then
+        ApplyHatchPatternToClosed = "ERROR:element is not a closed shape"
+        Exit Function
+    End If
+
+    Dim angRad As Double
+    angRad = angleDeg * Atn(1) * 4# / 180#
+
+    Dim hatch As HatchPattern
+    Set hatch = CreateHatchPattern1(spacing, angRad)
+    hatch.Color = el.Color
+    hatch.LineWeight = el.LineWeight
+
+    closed.SetPattern hatch, Matrix3dIdentity
+    el.Rewrite
+
+    If closed.HasPattern Then
+        ApplyHatchPatternToClosed = "hatch applied (HasPattern=True spacing=" & spacing & " angleDeg=" & angleDeg & ")"
+    Else
+        ApplyHatchPatternToClosed = "ERROR:SetPattern completed but HasPattern=False"
+    End If
+    Exit Function
+
+ApplyErr:
+    ApplyHatchPatternToClosed = "ERROR:" & Err.Description
+End Function
+
+Private Function ScanMaxElementID() As Double
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Dim maxID As Double: maxID = 0
+    Dim el As Element
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        Dim idVal As Double: idVal = ElIDAsDouble(el.ID)
+        If idVal > maxID Then maxID = idVal
+    Loop
+    ScanMaxElementID = maxID
+End Function
+
+Private Function FindNewestClosedElementAbove(beforeMaxID As Double) As Element
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+
+    Dim best As Element
+    Dim bestID As Double: bestID = beforeMaxID
+    Dim el As Element
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        Dim idVal As Double: idVal = ElIDAsDouble(el.ID)
+        If idVal > bestID Then
+            On Error Resume Next
+            Dim c As ClosedElement
+            Set c = el.AsClosedElement
+            If Err.Number = 0 And Not c Is Nothing Then
+                Set best = el
+                bestID = idVal
+            End If
+            Err.Clear
+            On Error GoTo 0
+        End If
+    Loop
+    Set FindNewestClosedElementAbove = best
 End Function
 
 ' ============================================================
@@ -712,6 +890,850 @@ Public Function ExecEditTextByID(elementId As Double, newText As String) As Stri
 
 TextError:
     ExecEditTextByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' COPY ELEMENT BY ID (Phase C) — Clone + Move + AddElement.
+' Live-proven on DELETE.dgn via COM (Element.Clone / .Move /
+' ActiveModelReference.AddElement). Not a CadInputQueue recipe.
+' ============================================================
+Public Function ExecCopyElementByID(elementId As Double, _
+                                    deltaX As Double, deltaY As Double, _
+                                    Optional deltaZ As Double = 0) As String
+    On Error GoTo CopyError
+
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecCopyElementByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+
+    Dim c As Element
+    Set c = el.Clone
+
+    Dim delta As Point3d
+    delta.X = deltaX: delta.Y = deltaY: delta.Z = deltaZ
+    c.Move delta
+    ActiveModelReference.AddElement c
+
+    Dim newId As Double
+    newId = ElIDAsDouble(c.ID)
+
+    ExecCopyElementByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                          "newElementId=" & CStr(newId) & vbTab & _
+                          "deltaX=" & deltaX & vbTab & "deltaY=" & deltaY & vbTab & "deltaZ=" & deltaZ & vbTab & _
+                          "note=copied element " & elementId & " -> " & newId
+    Exit Function
+
+CopyError:
+    ExecCopyElementByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' ROTATE ELEMENT BY ID (Phase C) — Matrix3d Z-axis rotation about
+' a fixed point + Element.Transform. Live-proven on DELETE.dgn.
+' angleDeg in degrees (converted to radians here).
+' ============================================================
+Public Function ExecRotateElementByID(elementId As Double, _
+                                      originX As Double, originY As Double, _
+                                      angleDeg As Double, _
+                                      Optional originZ As Double = 0) As String
+    On Error GoTo RotError
+
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecRotateElementByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+
+    Dim origin As Point3d
+    origin.X = originX: origin.Y = originY: origin.Z = originZ
+
+    Dim angRad As Double
+    angRad = angleDeg * Atn(1) * 4# / 180#
+
+    Dim m As Matrix3d
+    m = Matrix3dFromAxisAndRotationAngle(2, angRad)
+
+    Dim t As Transform3d
+    t = Transform3dFromMatrix3dAndFixedPoint3d(m, origin)
+
+    el.Transform t
+    el.Rewrite
+
+    ExecRotateElementByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                            "originX=" & originX & vbTab & "originY=" & originY & vbTab & _
+                            "angleDeg=" & angleDeg & vbTab & _
+                            "priorAngleDeg=" & (-angleDeg) & vbTab & _
+                            "note=rotated element " & elementId & " by " & angleDeg & " deg"
+    Exit Function
+
+RotError:
+    ExecRotateElementByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' SCALE ELEMENT BY ID (Phase C) — Element.ScaleUniform about a
+' point. Same API DrawSign.bas already uses on cell elements.
+' ============================================================
+Public Function ExecScaleElementByID(elementId As Double, _
+                                     originX As Double, originY As Double, _
+                                     scaleFactor As Double, _
+                                     Optional originZ As Double = 0) As String
+    On Error GoTo ScaleError
+
+    If scaleFactor = 0 Then
+        ExecScaleElementByID = "ERROR" & vbTab & "note=scaleFactor must be non-zero"
+        Exit Function
+    End If
+
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecScaleElementByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+
+    Dim origin As Point3d
+    origin.X = originX: origin.Y = originY: origin.Z = originZ
+
+    el.ScaleUniform origin, scaleFactor
+    el.Rewrite
+
+    ExecScaleElementByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                           "originX=" & originX & vbTab & "originY=" & originY & vbTab & _
+                           "scaleFactor=" & scaleFactor & vbTab & _
+                           "priorScaleFactor=" & (1# / scaleFactor) & vbTab & _
+                           "note=scaled element " & elementId & " by " & scaleFactor
+    Exit Function
+
+ScaleError:
+    ExecScaleElementByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' MIRROR ELEMENT BY ID (Phase C) — Element.Mirror about the axis
+' through (x1,y1)-(x2,y2). Live-proven on DELETE.dgn (two-point form).
+' ============================================================
+Public Function ExecMirrorElementByID(elementId As Double, _
+                                      x1 As Double, y1 As Double, _
+                                      x2 As Double, y2 As Double, _
+                                      Optional z1 As Double = 0, _
+                                      Optional z2 As Double = 0) As String
+    On Error GoTo MirrorError
+
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecMirrorElementByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+
+    Dim p1 As Point3d, p2 As Point3d
+    p1.X = x1: p1.Y = y1: p1.Z = z1
+    p2.X = x2: p2.Y = y2: p2.Z = z2
+
+    el.Mirror p1, p2
+    el.Rewrite
+
+    ExecMirrorElementByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                            "x1=" & x1 & vbTab & "y1=" & y1 & vbTab & _
+                            "x2=" & x2 & vbTab & "y2=" & y2 & vbTab & _
+                            "note=mirrored element " & elementId & _
+                            " (re-run same mirror to undo)"
+    Exit Function
+
+MirrorError:
+    ExecMirrorElementByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' ARRAY ELEMENT BY ID (Phase C) — rectangular copies via repeated
+' Clone+Move (same as ExecCopyElementByID). count = number of NEW
+' copies (not including the original). spacing along X/Y in ft.
+' ============================================================
+Public Function ExecArrayElementByID(elementId As Double, _
+                                     count As Integer, _
+                                     spacingX As Double, spacingY As Double) As String
+    On Error GoTo ArrayError
+
+    If count < 1 Then
+        ExecArrayElementByID = "ERROR" & vbTab & "note=count must be >= 1"
+        Exit Function
+    End If
+
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecArrayElementByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+
+    Dim newIds As String: newIds = ""
+    Dim i As Integer
+    For i = 1 To count
+        Dim c As Element
+        Set c = el.Clone
+        Dim delta As Point3d
+        delta.X = spacingX * i: delta.Y = spacingY * i: delta.Z = 0
+        c.Move delta
+        ActiveModelReference.AddElement c
+        If newIds <> "" Then newIds = newIds & ","
+        newIds = newIds & CStr(ElIDAsDouble(c.ID))
+    Next i
+
+    ExecArrayElementByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                           "count=" & count & vbTab & _
+                           "spacingX=" & spacingX & vbTab & "spacingY=" & spacingY & vbTab & _
+                           "newElementIds=" & newIds & vbTab & _
+                           "note=arrayed " & count & " copies of " & elementId
+    Exit Function
+
+ArrayError:
+    ExecArrayElementByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' GENERAL GEOMETRY (Tier 1-3) — Element API / Fence COM.
+' Prefer Create*Element + Rewrite over CadInputQueue tools.
+' ============================================================
+
+Public Function ExecPlaceCircle(cx As Double, cy As Double, radius As Double, _
+                                Optional z As Double = 0) As String
+    On Error GoTo E
+    If radius <= 0 Then
+        ExecPlaceCircle = "ERROR" & vbTab & "note=radius must be > 0"
+        Exit Function
+    End If
+    Dim origin As Point3d
+    origin.X = cx: origin.Y = cy: origin.Z = z
+    Dim el As EllipseElement
+    Set el = CreateEllipseElement2(Nothing, origin, radius, radius, Matrix3dIdentity)
+    el.Color = ActiveSettings.Color
+    el.LineWeight = ActiveSettings.LineWeight
+    ActiveModelReference.AddElement el
+    el.Rewrite
+    ExecPlaceCircle = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(el.ID)) & vbTab & _
+                      "cx=" & cx & vbTab & "cy=" & cy & vbTab & "radius=" & radius & vbTab & _
+                      "note=placed circle (CreateEllipseElement2)"
+    Exit Function
+E:
+    ExecPlaceCircle = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecPlaceEllipse(cx As Double, cy As Double, _
+                                 primaryRadius As Double, secondaryRadius As Double, _
+                                 Optional angleDeg As Double = 0, Optional z As Double = 0) As String
+    On Error GoTo E
+    If primaryRadius <= 0 Or secondaryRadius <= 0 Then
+        ExecPlaceEllipse = "ERROR" & vbTab & "note=radii must be > 0"
+        Exit Function
+    End If
+    Dim origin As Point3d
+    origin.X = cx: origin.Y = cy: origin.Z = z
+    Dim rot As Matrix3d
+    If angleDeg = 0 Then
+        rot = Matrix3dIdentity
+    Else
+        rot = Matrix3dFromAxisAndRotationAngle(2, angleDeg * Atn(1) * 4# / 180#)
+    End If
+    Dim el As EllipseElement
+    Set el = CreateEllipseElement2(Nothing, origin, primaryRadius, secondaryRadius, rot)
+    el.Color = ActiveSettings.Color
+    el.LineWeight = ActiveSettings.LineWeight
+    ActiveModelReference.AddElement el
+    el.Rewrite
+    ExecPlaceEllipse = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(el.ID)) & vbTab & _
+                       "note=placed ellipse"
+    Exit Function
+E:
+    ExecPlaceEllipse = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecPlaceBlock(x1 As Double, y1 As Double, x2 As Double, y2 As Double, _
+                               Optional z As Double = 0) As String
+    On Error GoTo E
+    Dim pts(0 To 3) As Point3d
+    pts(0).X = x1: pts(0).Y = y1: pts(0).Z = z
+    pts(1).X = x2: pts(1).Y = y1: pts(1).Z = z
+    pts(2).X = x2: pts(2).Y = y2: pts(2).Z = z
+    pts(3).X = x1: pts(3).Y = y2: pts(3).Z = z
+    Dim el As ShapeElement
+    Set el = CreateShapeElement1(Nothing, pts)
+    el.Color = ActiveSettings.Color
+    el.LineWeight = ActiveSettings.LineWeight
+    ActiveModelReference.AddElement el
+    el.Rewrite
+    ExecPlaceBlock = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(el.ID)) & vbTab & _
+                     "note=placed block/rectangle"
+    Exit Function
+E:
+    ExecPlaceBlock = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecPlacePolyline(verticesTSV As String) As String
+    On Error GoTo E
+    Dim pts() As Point3d
+    Dim n As Integer
+    n = ParseVerticesTSV(verticesTSV, pts)
+    If n < 2 Then
+        ExecPlacePolyline = "ERROR" & vbTab & "note=polyline needs at least 2 vertices"
+        Exit Function
+    End If
+    Dim el As LineElement
+    Set el = CreateLineElement1(Nothing, pts)
+    el.Color = ActiveSettings.Color
+    el.LineWeight = ActiveSettings.LineWeight
+    ActiveModelReference.AddElement el
+    el.Rewrite
+    ExecPlacePolyline = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(el.ID)) & vbTab & _
+                        "vertexCount=" & n & vbTab & "note=placed polyline"
+    Exit Function
+E:
+    ExecPlacePolyline = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecPlacePolygon(cx As Double, cy As Double, radius As Double, sides As Integer, _
+                                 Optional z As Double = 0) As String
+    On Error GoTo E
+    If radius <= 0 Or sides < 3 Then
+        ExecPlacePolygon = "ERROR" & vbTab & "note=need radius>0 and sides>=3"
+        Exit Function
+    End If
+    Dim pts() As Point3d
+    ReDim pts(0 To sides - 1)
+    Dim i As Integer
+    Dim twoPi As Double: twoPi = Atn(1) * 8#
+    For i = 0 To sides - 1
+        Dim ang As Double: ang = twoPi * i / sides
+        pts(i).X = cx + radius * Cos(ang)
+        pts(i).Y = cy + radius * Sin(ang)
+        pts(i).Z = z
+    Next i
+    Dim el As ShapeElement
+    Set el = CreateShapeElement1(Nothing, pts)
+    el.Color = ActiveSettings.Color
+    el.LineWeight = ActiveSettings.LineWeight
+    ActiveModelReference.AddElement el
+    el.Rewrite
+    ExecPlacePolygon = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(el.ID)) & vbTab & _
+                       "sides=" & sides & vbTab & "note=placed regular polygon"
+    Exit Function
+E:
+    ExecPlacePolygon = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecChangeElementSymbology(elementId As Double, _
+                                           Optional color As Long = -1, _
+                                           Optional weight As Long = -1, _
+                                           Optional lineStyleIndex As Long = -999) As String
+    On Error GoTo E
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecChangeElementSymbology = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+    Dim priorColor As Long: priorColor = el.Color
+    Dim priorWeight As Long: priorWeight = el.LineWeight
+    If color >= 0 Then el.Color = color
+    If weight >= 0 Then el.LineWeight = weight
+    If lineStyleIndex <> -999 Then
+        On Error Resume Next
+        el.LineStyle = ActiveDesignFile.LineStyles(lineStyleIndex)
+        On Error GoTo E
+    End If
+    el.Rewrite
+    ExecChangeElementSymbology = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                                 "priorColor=" & priorColor & vbTab & "priorWeight=" & priorWeight & vbTab & _
+                                 "note=updated symbology"
+    Exit Function
+E:
+    ExecChangeElementSymbology = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Perpendicular offset copy of a LINE (type 3). distance>0 = left of
+' start->end direction in XY; <0 = right.
+Public Function ExecCopyParallelLineByID(elementId As Double, distance As Double) As String
+    On Error GoTo E
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecCopyParallelLineByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+    Dim le As LineElement
+    Set le = el.AsLineElement
+    If le Is Nothing Then
+        ExecCopyParallelLineByID = "ERROR" & vbTab & "note=element is not a line"
+        Exit Function
+    End If
+    Dim s As Point3d, ept As Point3d
+    s = le.StartPoint: ept = le.EndPoint
+    Dim dx As Double, dy As Double, lineLen As Double
+    dx = ept.X - s.X: dy = ept.Y - s.Y
+    lineLen = Sqr(dx * dx + dy * dy)
+    If lineLen = 0 Then
+        ExecCopyParallelLineByID = "ERROR" & vbTab & "note=zero-length line"
+        Exit Function
+    End If
+    Dim ox As Double, oy As Double
+    ox = -dy / lineLen * distance
+    oy = dx / lineLen * distance
+    Dim c As Element
+    Set c = el.Clone()
+    Dim delta As Point3d
+    delta.X = ox: delta.Y = oy: delta.Z = 0
+    c.Move delta
+    ActiveModelReference.AddElement c
+    ExecCopyParallelLineByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                               "newElementId=" & CStr(ElIDAsDouble(c.ID)) & vbTab & _
+                               "distance=" & distance & vbTab & "note=copy-parallel of line"
+    Exit Function
+E:
+    ExecCopyParallelLineByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecCrossHatchClosedElementByID(elementId As Double, _
+                                                Optional spacing As Double = 10#, _
+                                                Optional angleDeg As Double = 45#) As String
+    On Error GoTo E
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecCrossHatchClosedElementByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+    Dim closed As ClosedElement
+    Set closed = el.AsClosedElement
+    If closed Is Nothing Then
+        ExecCrossHatchClosedElementByID = "ERROR" & vbTab & "note=not a closed element"
+        Exit Function
+    End If
+    Dim a1 As Double, a2 As Double
+    a1 = angleDeg * Atn(1) * 4# / 180#
+    a2 = a1 + Atn(1) * 2#   ' +90 deg
+    Dim pat As Object
+    Set pat = CreateCrossHatchPattern(spacing, spacing, a1, a2)
+    On Error Resume Next
+    pat.Color = el.Color
+    pat.LineWeight = el.LineWeight
+    On Error GoTo E
+    closed.SetPattern pat, Matrix3dIdentity
+    el.Rewrite
+    ExecCrossHatchClosedElementByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                                      "HasPattern=" & IIf(closed.HasPattern, "Y", "N") & vbTab & _
+                                      "note=crosshatch applied"
+    Exit Function
+E:
+    ExecCrossHatchClosedElementByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecRemoveHatchByID(elementId As Double) As String
+    On Error GoTo E
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecRemoveHatchByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+    Dim closed As ClosedElement
+    Set closed = el.AsClosedElement
+    If closed Is Nothing Then
+        ExecRemoveHatchByID = "ERROR" & vbTab & "note=not a closed element"
+        Exit Function
+    End If
+    If closed.HasPattern Then closed.RemovePattern
+    el.Rewrite
+    ExecRemoveHatchByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                          "HasPattern=" & IIf(closed.HasPattern, "Y", "N") & vbTab & _
+                          "note=hatch removed"
+    Exit Function
+E:
+    ExecRemoveHatchByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecBreakLineAtPoint(elementId As Double, x As Double, y As Double, _
+                                     Optional z As Double = 0) As String
+    On Error GoTo E
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecBreakLineAtPoint = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+    Dim le As LineElement
+    Set le = el.AsLineElement
+    If le Is Nothing Then
+        ExecBreakLineAtPoint = "ERROR" & vbTab & "note=element is not a line"
+        Exit Function
+    End If
+    Dim s As Point3d, ept As Point3d, mid As Point3d
+    s = le.StartPoint: ept = le.EndPoint
+    mid.X = x: mid.Y = y: mid.Z = z
+    Dim c1 As LineElement, c2 As LineElement
+    Set c1 = CreateLineElement2(Nothing, s, mid)
+    Set c2 = CreateLineElement2(Nothing, mid, ept)
+    c1.Color = el.Color: c1.LineWeight = el.LineWeight
+    c2.Color = el.Color: c2.LineWeight = el.LineWeight
+    On Error Resume Next
+    c1.Level = el.Level: c2.Level = el.Level
+    On Error GoTo E
+    ActiveModelReference.AddElement c1
+    ActiveModelReference.AddElement c2
+    c1.Rewrite: c2.Rewrite
+    ActiveModelReference.RemoveElement el
+    ExecBreakLineAtPoint = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                           "newElementIds=" & CStr(ElIDAsDouble(c1.ID)) & "," & CStr(ElIDAsDouble(c2.ID)) & vbTab & _
+                           "note=broke line into two segments"
+    Exit Function
+E:
+    ExecBreakLineAtPoint = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecExtendLineToLength(elementId As Double, newLength As Double) As String
+    On Error GoTo E
+    If newLength <= 0 Then
+        ExecExtendLineToLength = "ERROR" & vbTab & "note=newLength must be > 0"
+        Exit Function
+    End If
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecExtendLineToLength = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+
+    ' Prefer VertexList — LineElement.StartPoint/EndPoint + RemoveElement
+    ' hung the VBA thread on this install during live verify.
+    Dim vl As VertexList
+    Set vl = el.AsVertexList
+    If vl Is Nothing Then
+        ExecExtendLineToLength = "ERROR" & vbTab & "note=element has no VertexList"
+        Exit Function
+    End If
+    Dim verts() As Point3d
+    verts = vl.GetVertices()
+    If UBound(verts) < 1 Then
+        ExecExtendLineToLength = "ERROR" & vbTab & "note=need at least 2 vertices"
+        Exit Function
+    End If
+    Dim s As Point3d, ept As Point3d
+    s = verts(LBound(verts))
+    ept = verts(UBound(verts))
+    Dim dx As Double, dy As Double, dz As Double, lineLen As Double
+    dx = ept.X - s.X: dy = ept.Y - s.Y: dz = ept.Z - s.Z
+    lineLen = Sqr(dx * dx + dy * dy + dz * dz)
+    If lineLen = 0 Then
+        ExecExtendLineToLength = "ERROR" & vbTab & "note=zero-length line"
+        Exit Function
+    End If
+    Dim lenScale As Double: lenScale = newLength / lineLen
+    Dim newEnd As Point3d
+    newEnd.X = s.X + dx * lenScale
+    newEnd.Y = s.Y + dy * lenScale
+    newEnd.Z = s.Z + dz * lenScale
+
+    Dim neu As LineElement
+    Set neu = CreateLineElement2(Nothing, s, newEnd)
+    neu.Color = el.Color
+    neu.LineWeight = el.LineWeight
+    On Error Resume Next
+    neu.Level = el.Level
+    On Error GoTo E
+    ActiveModelReference.AddElement neu
+    neu.Rewrite
+
+    ' Delete original via proven scan-remove helper path
+    Dim delNote As String
+    delNote = ExecDeleteElementsByID(CStr(elementId))
+    If Left(delNote, 2) <> "OK" Then
+        ExecExtendLineToLength = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                                 "newElementId=" & CStr(ElIDAsDouble(neu.ID)) & vbTab & _
+                                 "priorLength=" & lineLen & vbTab & "newLength=" & newLength & vbTab & _
+                                 "note=extended but could not delete original: " & delNote
+        Exit Function
+    End If
+
+    ExecExtendLineToLength = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                             "newElementId=" & CStr(ElIDAsDouble(neu.ID)) & vbTab & _
+                             "priorLength=" & lineLen & vbTab & "newLength=" & newLength & vbTab & _
+                             "note=recreated line at new length from start"
+    Exit Function
+E:
+    ExecExtendLineToLength = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecFilletTwoElements(elementId1 As Double, elementId2 As Double, _
+                                      radius As Double, pickX As Double, pickY As Double, _
+                                      Optional pickZ As Double = 0) As String
+    On Error GoTo E
+    If radius <= 0 Then
+        ExecFilletTwoElements = "ERROR" & vbTab & "note=radius must be > 0"
+        Exit Function
+    End If
+    Dim el1 As Element, el2 As Element
+    Set el1 = FindElementByID(elementId1)
+    Set el2 = FindElementByID(elementId2)
+    If el1 Is Nothing Or el2 Is Nothing Then
+        ExecFilletTwoElements = "ERROR" & vbTab & "note=one or both elements not found"
+        Exit Function
+    End If
+    Dim trav As TraversableElement
+    Set trav = el1.AsTraversableElement
+    If trav Is Nothing Then
+        ExecFilletTwoElements = "ERROR" & vbTab & "note=element1 not traversable"
+        Exit Function
+    End If
+    Dim pick As Point3d
+    pick.X = pickX: pick.Y = pickY: pick.Z = pickZ
+    Dim arc As ArcElement
+    Set arc = trav.ConstructFillet(el2, Nothing, radius, pick, Matrix3dIdentity)
+    If arc Is Nothing Then
+        ExecFilletTwoElements = "ERROR" & vbTab & "note=ConstructFillet returned Nothing"
+        Exit Function
+    End If
+    arc.Color = ActiveSettings.Color
+    arc.LineWeight = ActiveSettings.LineWeight
+    ActiveModelReference.AddElement arc
+    arc.Rewrite
+    ExecFilletTwoElements = "OK" & vbTab & "elementId1=" & CStr(elementId1) & vbTab & _
+                            "elementId2=" & CStr(elementId2) & vbTab & _
+                            "newElementId=" & CStr(ElIDAsDouble(arc.ID)) & vbTab & _
+                            "note=fillet arc created (source lines not auto-trimmed)"
+    Exit Function
+E:
+    ExecFilletTwoElements = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecCreateComplexString(elementIdsCSV As String) As String
+    On Error GoTo E
+    Dim idStrs() As String
+    idStrs = Split(elementIdsCSV, ",")
+    If UBound(idStrs) < 0 Then
+        ExecCreateComplexString = "ERROR" & vbTab & "note=no element IDs"
+        Exit Function
+    End If
+
+    ' CreateComplexStringElement1 requires ChainableElement(), not Element()
+    ' (Bentley / geo-sol sample pattern).
+    Dim chainables() As ChainableElement
+    ReDim chainables(0 To UBound(idStrs))
+    Dim i As Integer, n As Integer: n = 0
+    For i = 0 To UBound(idStrs)
+        Dim s As String: s = Trim(idStrs(i))
+        If s <> "" Then
+            Dim el As Element
+            Set el = FindElementByID(CDbl(s))
+            If el Is Nothing Then
+                ExecCreateComplexString = "ERROR" & vbTab & "note=element not found: " & s
+                Exit Function
+            End If
+            Dim ch As ChainableElement
+            Set ch = el.AsChainableElement
+            If ch Is Nothing Then
+                ExecCreateComplexString = "ERROR" & vbTab & _
+                    "note=element " & s & " is not chainable (need line/arc/curve/etc.)"
+                Exit Function
+            End If
+            Set chainables(n) = ch
+            n = n + 1
+        End If
+    Next i
+    If n < 1 Then
+        ExecCreateComplexString = "ERROR" & vbTab & "note=need at least 1 chainable element"
+        Exit Function
+    End If
+    ReDim Preserve chainables(0 To n - 1)
+
+    Dim cs As ComplexStringElement
+    Set cs = CreateComplexStringElement1(chainables)
+    ActiveModelReference.AddElement cs
+    cs.Rewrite
+
+    ExecCreateComplexString = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(cs.ID)) & vbTab & _
+                              "partCount=" & n & vbTab & _
+                              "note=complex string created (source elements left in place)"
+    Exit Function
+E:
+    ExecCreateComplexString = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecPlaceFenceBlock(x1 As Double, y1 As Double, x2 As Double, y2 As Double, _
+                                    Optional z As Double = 0, Optional viewNum As Integer = 1) As String
+    On Error GoTo E
+    Dim pts(0 To 3) As Point3d
+    pts(0).X = x1: pts(0).Y = y1: pts(0).Z = z
+    pts(1).X = x2: pts(1).Y = y1: pts(1).Z = z
+    pts(2).X = x2: pts(2).Y = y2: pts(2).Z = z
+    pts(3).X = x1: pts(3).Y = y2: pts(3).Z = z
+    Dim f As Fence
+    Set f = ActiveDesignFile.Fence
+    f.DefineFromModelPoints viewNum, pts
+    ExecPlaceFenceBlock = "OK" & vbTab & "IsDefined=" & IIf(f.IsDefined, "Y", "N") & vbTab & _
+                          "note=fence defined from block corners"
+    Exit Function
+E:
+    ExecPlaceFenceBlock = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecFenceUndefine() As String
+    On Error GoTo E
+    ActiveDesignFile.Fence.Undefine
+    ExecFenceUndefine = "OK" & vbTab & "note=fence undefined"
+    Exit Function
+E:
+    ExecFenceUndefine = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecFenceCopyContents(deltaX As Double, deltaY As Double, _
+                                      Optional deltaZ As Double = 0) As String
+    On Error GoTo E
+    Dim f As Fence
+    Set f = ActiveDesignFile.Fence
+    If Not f.IsDefined Then
+        ExecFenceCopyContents = "ERROR" & vbTab & "note=no fence defined"
+        Exit Function
+    End If
+    Dim ee As ElementEnumerator
+    Set ee = f.GetContents()
+    Dim delta As Point3d
+    delta.X = deltaX: delta.Y = deltaY: delta.Z = deltaZ
+    Dim newIds As String: newIds = ""
+    Dim n As Integer: n = 0
+    Do While ee.MoveNext
+        Dim c As Element
+        Set c = ee.Current.Clone()
+        c.Move delta
+        ActiveModelReference.AddElement c
+        If newIds <> "" Then newIds = newIds & ","
+        newIds = newIds & CStr(ElIDAsDouble(c.ID))
+        n = n + 1
+    Loop
+    ExecFenceCopyContents = "OK" & vbTab & "copied=" & n & vbTab & "createdElementIds=" & newIds & vbTab & _
+                            "note=copied fence contents"
+    Exit Function
+E:
+    ExecFenceCopyContents = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecFenceMoveContents(deltaX As Double, deltaY As Double, _
+                                      Optional deltaZ As Double = 0) As String
+    On Error GoTo E
+    Dim f As Fence
+    Set f = ActiveDesignFile.Fence
+    If Not f.IsDefined Then
+        ExecFenceMoveContents = "ERROR" & vbTab & "note=no fence defined"
+        Exit Function
+    End If
+    Dim ee As ElementEnumerator
+    Set ee = f.GetContents()
+    Dim delta As Point3d
+    delta.X = deltaX: delta.Y = deltaY: delta.Z = deltaZ
+    Dim n As Integer: n = 0
+    Dim ids As String: ids = ""
+    Do While ee.MoveNext
+        Dim el As Element
+        Set el = ee.Current
+        el.Move delta
+        el.Rewrite
+        If ids <> "" Then ids = ids & ","
+        ids = ids & CStr(ElIDAsDouble(el.ID))
+        n = n + 1
+    Loop
+    ExecFenceMoveContents = "OK" & vbTab & "moved=" & n & vbTab & "elementIds=" & ids & vbTab & _
+                            "priorDeltaX=" & (-deltaX) & vbTab & "priorDeltaY=" & (-deltaY) & vbTab & _
+                            "note=moved fence contents"
+    Exit Function
+E:
+    ExecFenceMoveContents = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecFenceDeleteContents() As String
+    On Error GoTo E
+    Dim f As Fence
+    Set f = ActiveDesignFile.Fence
+    If Not f.IsDefined Then
+        ExecFenceDeleteContents = "ERROR" & vbTab & "note=no fence defined"
+        Exit Function
+    End If
+    Dim ee As ElementEnumerator
+    Set ee = f.GetContents()
+    Dim n As Integer: n = 0
+    Dim ids As String: ids = ""
+    ' Collect first — enumerator may invalidate on remove
+    Dim toKill As Object
+    Set toKill = CreateObject("Scripting.Dictionary")
+    Do While ee.MoveNext
+        Dim idVal As Double: idVal = ElIDAsDouble(ee.Current.ID)
+        toKill(CStr(idVal)) = True
+        If ids <> "" Then ids = ids & ","
+        ids = ids & CStr(idVal)
+    Loop
+    Dim k As Variant
+    For Each k In toKill.Keys
+        Dim el As Element
+        Set el = FindElementByID(CDbl(k))
+        If Not el Is Nothing Then
+            ActiveModelReference.RemoveElement el
+            n = n + 1
+        End If
+    Next k
+    ExecFenceDeleteContents = "OK" & vbTab & "deleted=" & n & vbTab & "elementIds=" & ids & vbTab & _
+                              "notUndoable=Y" & vbTab & "note=deleted fence contents"
+    Exit Function
+E:
+    ExecFenceDeleteContents = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecSelectElementByID(elementId As Double, Optional clearFirst As Boolean = True) As String
+    On Error GoTo E
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    If el Is Nothing Then
+        ExecSelectElementByID = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+    If clearFirst Then ActiveModelReference.UnselectAllElements
+    ActiveModelReference.SelectElement el, True
+    ExecSelectElementByID = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
+                            "AnyElementsSelected=" & IIf(ActiveModelReference.AnyElementsSelected, "Y", "N") & vbTab & _
+                            "note=element selected"
+    Exit Function
+E:
+    ExecSelectElementByID = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Public Function ExecClearSelection() As String
+    On Error GoTo E
+    ActiveModelReference.UnselectAllElements
+    ExecClearSelection = "OK" & vbTab & "note=selection cleared"
+    Exit Function
+E:
+    ExecClearSelection = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' verticesTSV: pipe-separated "x,y,z" — fills pts() 0-based, returns count
+Private Function ParseVerticesTSV(verticesTSV As String, ByRef pts() As Point3d) As Integer
+    Dim parts() As String
+    parts = Split(verticesTSV, "|")
+    Dim n As Integer: n = UBound(parts) + 1
+    If n < 1 Then
+        ParseVerticesTSV = 0
+        Exit Function
+    End If
+    ReDim pts(0 To n - 1)
+    Dim i As Integer
+    For i = 0 To n - 1
+        Dim coords() As String
+        coords = Split(parts(i), ",")
+        pts(i).X = CDbl(coords(0))
+        pts(i).Y = CDbl(coords(1))
+        If UBound(coords) >= 2 Then pts(i).Z = CDbl(coords(2)) Else pts(i).Z = 0
+    Next i
+    ParseVerticesTSV = n
 End Function
 
 ' ============================================================

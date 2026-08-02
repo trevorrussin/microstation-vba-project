@@ -400,6 +400,13 @@ End Sub
 ' result -- not chased further since exact correction would require
 ' inspecting the .cel library's raw geometry, unavailable in this
 ' session's toolset.
+' Handles BOTH plain cells (IsCellElement) and shared cells
+' (IsSharedCellElement) -- confirmed live 2026-08-02 that PLACE CELL
+' ICON can produce either depending on session state, and the two are
+' NOT interchangeable via AsCellElement (a shared cell's AsCellElement
+' throws). Range/ScaleUniform/Rewrite are on the base Element interface
+' directly (no cast needed); only .Origin requires the type-specific
+' cast, so that's the only place this branches.
 ' ============================================================
 Private Sub RescaleJustPlacedCellToTrueSize(signSize As String)
     Dim targetWidthFt As Double
@@ -409,13 +416,18 @@ Private Sub RescaleJustPlacedCellToTrueSize(signSize As String)
     Dim el As Element
     Set el = FindNewestElement()
     If el Is Nothing Then Exit Sub
-    If Not el.IsCellElement Then Exit Sub
 
-    Dim cellEl As CellElement
-    Set cellEl = el.AsCellElement
+    Dim origin As Point3d
+    If el.IsCellElement Then
+        origin = el.AsCellElement.Origin
+    ElseIf el.IsSharedCellElement Then
+        origin = el.AsSharedCellElement.Origin
+    Else
+        Exit Sub   ' not a cell of any kind -- nothing to rescale
+    End If
 
     Dim rng As Range3d
-    rng = cellEl.Range
+    rng = el.Range
     Dim currentWidthFt As Double
     currentWidthFt = rng.High.X - rng.Low.X
     If currentWidthFt <= 0 Then Exit Sub
@@ -424,8 +436,8 @@ Private Sub RescaleJustPlacedCellToTrueSize(signSize As String)
     correctionFactor = targetWidthFt / currentWidthFt
     If Abs(correctionFactor - 1#) < 0.001 Then Exit Sub   ' already correct
 
-    Call cellEl.ScaleUniform(cellEl.Origin, correctionFactor)
-    Call cellEl.Rewrite
+    Call el.ScaleUniform(origin, correctionFactor)
+    Call el.Rewrite
 End Sub
 
 ' Parses the leading number out of a "NN"" x NN""" -style size string

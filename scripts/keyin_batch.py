@@ -25,6 +25,8 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
+import sys
 import time
 from collections import Counter
 from datetime import date
@@ -38,10 +40,13 @@ DEFAULT_CANDIDATES = ROOT / "Data" / "keyin-candidates.tsv"
 DEFAULT_REGISTRY = ROOT / "Data" / "command-registry.tsv"
 DEFAULT_RESULTS = ROOT / "Bridge" / "keyin-probe-batch.json"
 
+# Hard kill SendKeyin if it hasn't returned — user preference: don't sit on hangs.
+SENDKEYIN_TIMEOUT_SEC = 3.0
+
 SAFE_KINDS = {"settings", "view", "lock"}
 UNSAFE_KINDS = {"tool", "datapoint", "dialog", "file"}
-# Never SendKeyin these — side effects too large (open file, reload refs, etc.)
-SKIP_EXECUTE_KINDS = {"file", "dialog"}  # never SendKeyin — open UI / mutate files
+# Never SendKeyin these — UI / file / activate-and-wait-for-click.
+SKIP_EXECUTE_KINDS = {"file", "dialog", "tool", "datapoint"}
 
 # Scratch file only — never probe against a real project DGN.
 REQUIRED_TEST_DGN = "DELETE.dgn"
@@ -67,6 +72,8 @@ SKIP_EXECUTE_KEYIN_RES = (
     re.compile(r"^IPLOT\b"),
     re.compile(r"^BATCHPROCESS\b"),
     re.compile(r"^PRINT\s+(VIEW|SCALE|PAPERSIZE|ORIENTATION|AREA|PENMAP|RASTER|REFERENCE|MONOCHROME|GRAYSCALE|TRUECOLOR|COLLATE|COPIES|DRIVER|DESTINATION|EXECUTE|SUBMIT)\b"),
+    # PDF option toggles hung SendKeyin for full timeout in wave8
+    re.compile(r"^PDF\s+(EMBED\s+FONTS|LAYERS)\b"),
     # OpenRoads/civil display often hangs without civil apps loaded
     re.compile(r"^CIVIL\s+DISPLAY\b"),
     re.compile(r"^VIEW\s+CIVIL\b"),
@@ -113,11 +120,11 @@ def _read_tsv_rows(path: Path) -> list[dict[str, str]]:
         lines.append(line)
     if not lines:
         return []
-    header = lines[0].split("\t")
+    header = [h.strip().strip("\r") for h in lines[0].split("\t")]
     rows = []
     for line in lines[1:]:
-        cols = line.split("\t")
-        row = {header[i]: (cols[i] if i < len(cols) else "") for i in range(len(header))}
+        cols = [c.strip("\r") for c in line.split("\t")]
+        row = {header[i]: (cols[i].strip() if i < len(cols) else "") for i in range(len(header))}
         rows.append(row)
     return rows
 
@@ -144,6 +151,60 @@ def _existing_keyins(registry: Path) -> set[str]:
     return found
 
 
+def _one_keyin(keyin: str) -> int:
+    """Child entrypoint: SendKeyin once on DELETE.dgn. Exit 0=ok, 2=wrong file, 1=err."""
+    pythoncom.CoInitialize()
+    app = win32com.client.GetObject(Class="MicroStationDGN.Application")
+    try:
+        active_name = app.ActiveDesignFile.Name
+    except Exception as e:
+        print(f"no design file: {e}", flush=True)
+        return 2
+    if active_name.upper() != REQUIRED_TEST_DGN.upper():
+        print(f"wrong file: {active_name}", flush=True)
+        return 2
+    q = app.CadInputQueue
+    try:
+        q.SendKeyin(keyin)
+        try:
+            q.SendReset()
+        except Exception:
+            pass
+        try:
+            app.CommandState.StartDefaultCommand()
+        except Exception:
+            pass
+    except Exception as e:
+        print(f"err:{e}", flush=True)
+        return 1
+    return 0
+
+
+def _sendkeyin_subprocess(keyin: str, timeout: float = SENDKEYIN_TIMEOUT_SEC) -> tuple[str, float, str]:
+    """
+    Run SendKeyin in a child process so a hang can be hard-killed.
+    Returns (verdict_hint, dt, err) where verdict_hint is OK|ERR|HANG|WRONG_FILE.
+    """
+    t0 = time.perf_counter()
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()), "_one_keyin", keyin],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        dt = time.perf_counter() - t0
+        err = (proc.stderr or proc.stdout or "").strip()[:120]
+        if proc.returncode == 0:
+            return "OK", dt, err
+        if proc.returncode == 2:
+            return "WRONG_FILE", dt, err or "not DELETE.dgn"
+        return "ERR", dt, err or f"exit {proc.returncode}"
+    except subprocess.TimeoutExpired:
+        dt = time.perf_counter() - t0
+        return "HANG", dt, f"SendKeyin exceeded {timeout}s — skipped"
+
+
 def probe(candidates_path: Path, results_path: Path, skip_existing: bool) -> list[dict]:
     candidates = _read_tsv_rows(candidates_path)
     if not candidates:
@@ -152,6 +213,26 @@ def probe(candidates_path: Path, results_path: Path, skip_existing: bool) -> lis
     registry = DEFAULT_REGISTRY
     known_ops = _existing_op_names(registry)
     known_keyins = _existing_keyins(registry)
+
+    # Resume: keep prior results for ops already probed this wave.
+    results: list[dict] = []
+    done_ops: set[str] = set()
+    if results_path.exists():
+        try:
+            prior = json.loads(results_path.read_text(encoding="utf-8"))
+            if isinstance(prior, list):
+                for r in prior:
+                    op = (r.get("opName") or "").strip()
+                    src = (r.get("source") or "")
+                    # Only resume wave8-ish / current candidates sources — drop stale wave7 file.
+                    if op and src and not src.startswith("wave7"):
+                        results.append(r)
+                        done_ops.add(op)
+                if done_ops:
+                    print(f"resuming with {len(done_ops)} prior results", flush=True)
+        except Exception:
+            results = []
+            done_ops = set()
 
     pythoncom.CoInitialize()
     app = win32com.client.GetObject(Class="MicroStationDGN.Application")
@@ -168,15 +249,19 @@ def probe(candidates_path: Path, results_path: Path, skip_existing: bool) -> lis
             f"required scratch file is '{REQUIRED_TEST_DGN}'. "
             f"Switch to DELETE.dgn (e.g. c:\\pwworking\\usny\\d0119562\\DELETE.dgn) and retry."
         )
-    print(f"probing against {app.ActiveDesignFile.FullName}")
-    q = app.CadInputQueue
+    print(
+        f"probing against {app.ActiveDesignFile.FullName} "
+        f"(SendKeyin timeout={SENDKEYIN_TIMEOUT_SEC}s)",
+        flush=True,
+    )
 
-    results: list[dict] = []
     for row in candidates:
         op = (row.get("opName") or "").strip()
         keyin = (row.get("keyin") or "").strip()
         kind = (row.get("kind") or "settings").strip().lower()
         if not op or not keyin:
+            continue
+        if op in done_ops:
             continue
         if skip_existing and (op in known_ops or keyin.upper() in known_keyins):
             results.append({
@@ -185,7 +270,8 @@ def probe(candidates_path: Path, results_path: Path, skip_existing: bool) -> lis
                 "source": row.get("source", ""), "notes": row.get("notes", ""),
                 "verdict": "SKIP_EXISTS", "dt": 0.0, "err": "",
             })
-            print(f"SKIP    exists  {op}")
+            done_ops.add(op)
+            print(f"SKIP    exists  {op}", flush=True)
             continue
 
         if kind in SKIP_EXECUTE_KINDS:
@@ -196,7 +282,8 @@ def probe(candidates_path: Path, results_path: Path, skip_existing: bool) -> lis
                 "verdict": "UNSAFE", "dt": 0.0,
                 "err": f"not executed — kind={kind}",
             })
-            print(f"UNSAFE  skip-exec [{kind:9}] {op}")
+            done_ops.add(op)
+            print(f"UNSAFE  skip-exec [{kind:9}] {op}", flush=True)
             continue
 
         skip_reason = _should_skip_execute_keyin(keyin)
@@ -207,35 +294,27 @@ def probe(candidates_path: Path, results_path: Path, skip_existing: bool) -> lis
                 "source": row.get("source", ""), "notes": row.get("notes", ""),
                 "verdict": "UNSAFE", "dt": 0.0, "err": skip_reason,
             })
-            print(f"UNSAFE  skip-exec [crashrisk] {op}  |  {keyin}")
+            done_ops.add(op)
+            print(f"UNSAFE  skip-exec [crashrisk] {op}  |  {keyin}", flush=True)
             continue
 
-        t0 = time.perf_counter()
-        err = ""
-        try:
-            # Must call SendKeyin on this thread — COM is STA; a worker-thread
-            # timeout wrapper returns instant bogus errors and can poison the
-            # apartment. Hang risk is handled by skip-exec for dialog/file and
-            # by keeping batches free of known-blocking keyins.
-            q.SendKeyin(keyin)
-            try:
-                q.SendReset()
-            except Exception:
-                pass
-            try:
-                app.CommandState.StartDefaultCommand()
-            except Exception as e2:
-                err = f"neutralize:{e2}"
-        except Exception as e:
-            err = str(e)
-        dt = time.perf_counter() - t0
-        hard_err = bool(err) and not err.startswith("neutralize")
+        hint, dt, err = _sendkeyin_subprocess(keyin, SENDKEYIN_TIMEOUT_SEC)
+
+        if hint == "WRONG_FILE":
+            results_path.parent.mkdir(parents=True, exist_ok=True)
+            results_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
+            raise SystemExit(
+                f"Active file is no longer {REQUIRED_TEST_DGN} ({err}). "
+                f"Partial results written to {results_path}."
+            )
 
         if kind in UNSAFE_KINDS:
             verdict = "UNSAFE"
-        elif hard_err:
+        elif hint == "HANG":
+            verdict = "HANG"
+        elif hint == "ERR":
             verdict = "ERR"
-        elif dt > 8:
+        elif dt > SENDKEYIN_TIMEOUT_SEC:
             verdict = "SLOW"
         else:
             verdict = "OK"
@@ -247,10 +326,32 @@ def probe(candidates_path: Path, results_path: Path, skip_existing: bool) -> lis
             "verdict": verdict, "dt": round(dt, 3), "err": err[:120],
         }
         results.append(rec)
-        print(f"{verdict:8} {dt:6.3f}s  [{kind:9}] {op}  |  {keyin}")
+        done_ops.add(op)
+        print(f"{verdict:8} {dt:6.3f}s  [{kind:9}] {op}  |  {keyin}", flush=True)
+
+        # Checkpoint often so a hang/kill still leaves a promotable partial.
+        if len(results) % 10 == 0:
+            results_path.parent.mkdir(parents=True, exist_ok=True)
+            results_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
+
+        # Re-bind COM after a hang — child kill can leave the session sticky.
+        if hint == "HANG":
+            try:
+                pythoncom.CoInitialize()
+                app = win32com.client.GetObject(Class="MicroStationDGN.Application")
+                try:
+                    app.CadInputQueue.SendReset()
+                except Exception:
+                    pass
+                try:
+                    app.CommandState.StartDefaultCommand()
+                except Exception:
+                    pass
+            except Exception as e:
+                print(f"WARN    post-hang reset failed: {e}", flush=True)
 
         if not _ms_alive(app):
-            print(f"FATAL   MicroStation COM died after {op} — stopping batch")
+            print(f"FATAL   MicroStation COM died after {op} — stopping batch", flush=True)
             rec["err"] = (rec.get("err") or "") + " | COM dead after this keyin"
             results_path.parent.mkdir(parents=True, exist_ok=True)
             results_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
@@ -262,8 +363,8 @@ def probe(candidates_path: Path, results_path: Path, skip_existing: bool) -> lis
     results_path.parent.mkdir(parents=True, exist_ok=True)
     results_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
     counts = Counter(r["verdict"] for r in results)
-    print("---")
-    print(dict(counts), "wrote", results_path)
+    print("---", flush=True)
+    print(dict(counts), "wrote", results_path, flush=True)
     return results
 
 
@@ -311,11 +412,17 @@ def promote(results_path: Path, registry_path: Path, dry_run: bool = False) -> i
             status = "verified-headless-safe"
             promoted = today
             note = (notes + " " if notes else "") + f"live batch probe {today} ({dt}s)"
-        elif verdict in ("UNSAFE", "OK") and kind in UNSAFE_KINDS:
-            # OK+unsafe kind still blocked; UNSAFE same
+        elif verdict in ("UNSAFE", "OK", "HANG") and kind in UNSAFE_KINDS:
+            # OK+unsafe kind still blocked; UNSAFE/HANG same
             status = "unsafe-blocked"
             promoted = ""
             note = (notes + " " if notes else "") + f"batch probe {today}: kind={kind}, not promotable"
+        elif verdict == "HANG":
+            status = "unsafe-blocked"
+            promoted = ""
+            note = (notes + " " if notes else "") + (
+                f"batch probe {today}: hung >{SENDKEYIN_TIMEOUT_SEC}s — skipped"
+            )
         elif verdict == "SLOW" and kind in SAFE_KINDS:
             status = "needs-testing"
             promoted = ""
@@ -357,6 +464,13 @@ def promote(results_path: Path, registry_path: Path, dry_run: bool = False) -> i
 
 
 def main() -> None:
+    # Child mode for hard-killable SendKeyin (must stay before argparse required subcommands).
+    if len(sys.argv) >= 2 and sys.argv[1] == "_one_keyin":
+        keyin = " ".join(sys.argv[2:]).strip()
+        if not keyin:
+            raise SystemExit(1)
+        raise SystemExit(_one_keyin(keyin))
+
     ap = argparse.ArgumentParser(description="Batch probe / promote MicroStation key-ins")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

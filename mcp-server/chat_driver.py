@@ -369,13 +369,26 @@ def _wrap_op(tool_name: str, fn):
 
 _OP_NAMES = [
     "find_elements_near", "station_to_point", "get_alignment_stationing",
-    "list_levels", "classify_site_features",
+    "list_levels", "describe_drawing_state", "classify_site_features",
     "compute_spacing", "get_sheet_requirements",
     "place_perp_line", "place_sign", "place_workspace", "place_element_run",
     "place_cell", "set_sign_attributes", "handoff",
     "undo_last_op", "get_journal", "list_deferred_handoffs",
     "list_registry_commands", "describe_registry_command", "run_registry_command",
     "move_element", "change_element_level", "edit_text_element", "delete_element",
+    # Added 2026-08-02 -- these existed in wztc_ops.py/server.py (the MCP
+    # interface) but were never added here, so the actual chat agent could
+    # not call any of them despite server.py exposing them. Found live
+    # while testing: the agent noticed describe_drawing_state wasn't
+    # actually callable even though the system prompt told it to use it.
+    "hatch_element", "place_arc", "place_text_label",
+    "place_circle", "place_ellipse", "place_block", "place_polyline", "place_polygon",
+    "change_element_symbology", "copy_parallel", "crosshatch_element", "remove_hatch",
+    "break_line", "extend_line", "fillet_elements", "create_complex_string",
+    "place_fence_block", "fence_undefine", "fence_copy_contents",
+    "fence_move_contents", "fence_delete_contents",
+    "select_element", "clear_selection",
+    "copy_element", "rotate_element", "scale_element", "mirror_element", "array_element",
 ]
 
 

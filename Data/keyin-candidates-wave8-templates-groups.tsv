@@ -1,0 +1,90 @@
+﻿opName	keyin	kind	requiredParams	source	notes
+LOCK_TEMPLATEASSOCIATION_ON	LOCK TEMPLATEASSOCIATION ON	lock		wave8 templates/groups	docs: Element Template Association lock
+LOCK_TEMPLATEASSOCIATION_OFF	LOCK TEMPLATEASSOCIATION OFF	lock		wave8 templates/groups	docs: unlock template association
+LOCK_TEMPLATEASSOCIATION_TOGGLE	LOCK TEMPLATEASSOCIATION TOGGLE	lock		wave8 templates/groups	toggle association lock
+TEMPLATE_ACTIVE	TEMPLATE ACTIVE {group\name}	settings	group\name	wave8 templates/groups	docs: TEMPLATE ACTIVE TemplateGroup\TemplateName
+TEMPLATE_APPLY	TEMPLATE APPLY	settings		wave8 templates/groups	apply active template to selection
+TEMPLATE_CLEAR	TEMPLATE CLEAR	settings		wave8 templates/groups	clear active element template
+TEMPLATE_OVERRIDE_ON	TEMPLATE OVERRIDE ON	settings		wave8 templates/groups	allow attribute overrides vs template
+TEMPLATE_OVERRIDE_OFF	TEMPLATE OVERRIDE OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_APPLY	ELEMENT TEMPLATE APPLY	settings		wave8 templates/groups	apply template symbology to elements
+ELEMENT_TEMPLATE_CLEAR	ELEMENT TEMPLATE CLEAR	settings		wave8 templates/groups	clear active template association
+ELEMENT_TEMPLATE_LOCK_ON	ELEMENT TEMPLATE LOCK ON	lock		wave8 templates/groups	alt association lock spelling
+ELEMENT_TEMPLATE_LOCK_OFF	ELEMENT TEMPLATE LOCK OFF	lock		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYLEVEL_ON	ELEMENT TEMPLATE ACTIVE BYLEVEL ON	settings		wave8 templates/groups	active bylevel from template
+ELEMENT_TEMPLATE_ACTIVE_BYLEVEL_OFF	ELEMENT TEMPLATE ACTIVE BYLEVEL OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYCOLOR_ON	ELEMENT TEMPLATE ACTIVE BYCOLOR ON	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYCOLOR_OFF	ELEMENT TEMPLATE ACTIVE BYCOLOR OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYWEIGHT_ON	ELEMENT TEMPLATE ACTIVE BYWEIGHT ON	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYWEIGHT_OFF	ELEMENT TEMPLATE ACTIVE BYWEIGHT OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYSTYLE_ON	ELEMENT TEMPLATE ACTIVE BYSTYLE ON	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYSTYLE_OFF	ELEMENT TEMPLATE ACTIVE BYSTYLE OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_OVERRIDE_LEVEL_ON	ELEMENT TEMPLATE OVERRIDE LEVEL ON	settings		wave8 templates/groups	override level from template
+ELEMENT_TEMPLATE_OVERRIDE_LEVEL_OFF	ELEMENT TEMPLATE OVERRIDE LEVEL OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_OVERRIDE_COLOR_ON	ELEMENT TEMPLATE OVERRIDE COLOR ON	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_OVERRIDE_COLOR_OFF	ELEMENT TEMPLATE OVERRIDE COLOR OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_OVERRIDE_WEIGHT_ON	ELEMENT TEMPLATE OVERRIDE WEIGHT ON	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_OVERRIDE_WEIGHT_OFF	ELEMENT TEMPLATE OVERRIDE WEIGHT OFF	settings		wave8 templates/groups	
+NAMED_GROUP_HILITE_TOGGLE	NAMED GROUP HILITE TOGGLE	settings		wave8 templates/groups	toggle named group hilite
+NAMED_GROUP_SELECT	NAMED GROUP SELECT	settings		wave8 templates/groups	add group members to selection
+NAMED_GROUP_ADD_TO_SELECTION	NAMED GROUP ADD TO SELECTION	settings		wave8 templates/groups	Named Groups dialog Add to Selection
+NAMED_GROUP_REMOVE_FROM_SELECTION	NAMED GROUP REMOVE FROM SELECTION	settings		wave8 templates/groups	
+NAMED_GROUP_SET_DISPLAYSET	NAMED GROUP SET DISPLAYSET	settings		wave8 templates/groups	put named group into displayset
+NAMED_GROUP_ADD_TO_DISPLAYSET	NAMED GROUP ADD TO DISPLAYSET	settings		wave8 templates/groups	
+NAMED_GROUP_REMOVE_FROM_DISPLAYSET	NAMED GROUP REMOVE FROM DISPLAYSET	settings		wave8 templates/groups	
+SET_NAMEDGROUP_DISPLAY_ON	SET NAMEDGROUP DISPLAY ON	view		wave8 templates/groups	view-attr style named group display
+SET_NAMEDGROUP_DISPLAY_OFF	SET NAMEDGROUP DISPLAY OFF	view		wave8 templates/groups	
+SELECT_BYNAMEDGROUP	SELECT BYNAMEDGROUP {name}	settings	name	wave8 templates/groups	docs: SELECT BYNAMEDGROUP
+SET_DISPLAYSET_ON	SET DISPLAYSET ON	view		wave8 templates/groups	docs: SET DISPLAYSET ON|OFF|TOGGLE
+SET_DISPLAYSET_OFF	SET DISPLAYSET OFF	view		wave8 templates/groups	
+SET_DISPLAYSET_TOGGLE	SET DISPLAYSET TOGGLE	view		wave8 templates/groups	
+DISPLAYSET_SET	DISPLAYSET SET	settings		wave8 templates/groups	isolate selection as displayset
+DISPLAYSET_ISOLATE	DISPLAYSET ISOLATE	settings		wave8 templates/groups	isolate synonym candidate
+DISPLAYSET_ADD_SELECTION	DISPLAYSET ADD SELECTION	settings		wave8 templates/groups	community: displayset add selection
+DISPLAYSET_REMOVE_SELECTION	DISPLAYSET REMOVE SELECTION	settings		wave8 templates/groups	community: displayset remove selection
+DISPLAYSET_ADD_FENCE	DISPLAYSET ADD FENCE	settings		wave8 templates/groups	add fence contents to displayset
+DISPLAYSET_FROM_NAMEDGROUP	DISPLAYSET FROM NAMEDGROUP	settings		wave8 templates/groups	build displayset from named group
+VIEW_CLIP_VISIBLE_ON	VIEW CLIP VISIBLE ON	view		wave8 templates/groups	docs: VIEW CLIP VISIBLE ON|OFF|TOGGLE
+VIEW_CLIP_VISIBLE_OFF	VIEW CLIP VISIBLE OFF	view		wave8 templates/groups	show/hide clip volume element
+VIEW_CLIP_VISIBLE_TOGGLE	VIEW CLIP VISIBLE TOGGLE	view		wave8 templates/groups	
+VIEW_CLIP_CLEAR	VIEW CLIP CLEAR	view		wave8 templates/groups	docs: clear clip volume from view
+SET_CLIPVOLUME_ON	SET CLIPVOLUME ON	view		wave8 templates/groups	docs: SET CLIPVOLUME ON|OFF|TOGGLE
+SET_CLIPVOLUME_OFF	SET CLIPVOLUME OFF	view		wave8 templates/groups	
+SET_CLIPVOLUME_TOGGLE	SET CLIPVOLUME TOGGLE	view		wave8 templates/groups	
+CLIP_MASK_CLEAR	CLIP MASK CLEAR	view		wave8 templates/groups	clear clip mask from view
+CLIP_MASK_APPLY_ON	CLIP MASK APPLY ON	view		wave8 templates/groups	enable applied clip mask
+CLIP_MASK_APPLY_OFF	CLIP MASK APPLY OFF	view		wave8 templates/groups	
+VIEW_MASK_VISIBLE_ON	VIEW MASK VISIBLE ON	view		wave8 templates/groups	show/hide clip mask element
+VIEW_MASK_VISIBLE_OFF	VIEW MASK VISIBLE OFF	view		wave8 templates/groups	
+SET_CLIPMASK_ON	SET CLIPMASK ON	view		wave8 templates/groups	view attribute clip mask toggle
+SET_CLIPMASK_OFF	SET CLIPMASK OFF	view		wave8 templates/groups	
+NAMED_BOUNDARY_HILITE_ON	NAMED BOUNDARY HILITE ON	settings		wave8 templates/groups	hilite named boundaries in view
+NAMED_BOUNDARY_HILITE_OFF	NAMED BOUNDARY HILITE OFF	settings		wave8 templates/groups	
+DRAWINGBOUNDARY_HILITEALL_ON	DRAWINGBOUNDARY HILITEALL ON	settings		wave8 templates/groups	docs: highlight all drawing boundaries
+DRAWINGBOUNDARY_HILITEALL_OFF	DRAWINGBOUNDARY HILITEALL OFF	settings		wave8 templates/groups	
+DRAWING_BOUNDARY_ANNOTATION_DISPLAY_ON	DRAWING BOUNDARY ANNOTATION DISPLAY ON	settings		wave8 templates/groups	detailing style annotation display
+DRAWING_BOUNDARY_ANNOTATION_DISPLAY_OFF	DRAWING BOUNDARY ANNOTATION DISPLAY OFF	settings		wave8 templates/groups	
+DRAWING_BOUNDARY_BOUNDARY_DISPLAY_ON	DRAWING BOUNDARY BOUNDARY DISPLAY ON	settings		wave8 templates/groups	detailing style boundary display
+DRAWING_BOUNDARY_BOUNDARY_DISPLAY_OFF	DRAWING BOUNDARY BOUNDARY DISPLAY OFF	settings		wave8 templates/groups	
+SECTION_CALL_DISPLAY_ON	SECTION CALL DISPLAY ON	settings		wave8 templates/groups	section callout graphics display
+SECTION_CALL_DISPLAY_OFF	SECTION CALL DISPLAY OFF	settings		wave8 templates/groups	
+DETAIL_CALL_DISPLAY_ON	DETAIL CALL DISPLAY ON	settings		wave8 templates/groups	detail callout graphics display
+DETAIL_CALL_DISPLAY_OFF	DETAIL CALL DISPLAY OFF	settings		wave8 templates/groups	
+DETAILING_SYMBOL_DISPLAY_ON	DETAILING SYMBOL DISPLAY ON	settings		wave8 templates/groups	all detailing symbols display
+DETAILING_SYMBOL_DISPLAY_OFF	DETAILING SYMBOL DISPLAY OFF	settings		wave8 templates/groups	
+SET_SECTION_CALLOUTS_ON	SET SECTION CALLOUTS ON	settings		wave8 templates/groups	SET form of section callouts
+SET_SECTION_CALLOUTS_OFF	SET SECTION CALLOUTS OFF	settings		wave8 templates/groups	
+SET_DETAIL_CALLOUTS_ON	SET DETAIL CALLOUTS ON	settings		wave8 templates/groups	
+SET_DETAIL_CALLOUTS_OFF	SET DETAIL CALLOUTS OFF	settings		wave8 templates/groups	
+SHEET_INDEX_AUTO_ON	SHEET INDEX AUTO ON	settings		wave8 templates/groups	auto-update sheet index settings
+SHEET_INDEX_AUTO_OFF	SHEET INDEX AUTO OFF	settings		wave8 templates/groups	
+SHEET_INDEX_FOLDER_DISPLAY_ON	SHEET INDEX FOLDER DISPLAY ON	settings		wave8 templates/groups	sheet index folder tree display
+SHEET_INDEX_FOLDER_DISPLAY_OFF	SHEET INDEX FOLDER DISPLAY OFF	settings		wave8 templates/groups	
+NAMED_GROUP_CREATE	NAMED GROUP CREATE	tool		wave8 templates/groups	negative: create is interactive tool
+GROUP_ADD	GROUP ADD	tool		wave8 templates/groups	negative: docs GROUP ADD tool
+VIEW_CLIP_ICON	VIEW CLIP ICON	tool		wave8 templates/groups	negative: docs apply clip volume tool
+VIEW_MASK_ICON	VIEW MASK ICON	tool		wave8 templates/groups	negative: docs apply clip mask tool
+PLACE_DRAWING_BOUNDARY	PLACE DRAWING BOUNDARY	tool		wave8 templates/groups	negative: placement tool
+TEMPLATE_DIALOG	TEMPLATE DIALOG	dialog		wave8 templates/groups	negative: docs TEMPLATE DIALOG
+DIALOG_DETAILINGSYMBOLSTYLE_OPEN	DIALOG DETAILINGSYMBOLSTYLE OPEN	dialog		wave8 templates/groups	negative: docs dialog open
+EXPORT_ELEMENT_TEMPLATES	EXPORT ELEMENT TEMPLATES	file		wave8 templates/groups	negative: file export not settings

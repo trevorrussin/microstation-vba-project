@@ -199,12 +199,68 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = ExecRunRegistryCommand(reqId, params, True)
         Case "MOVE_ELEMENT"
             ExecuteOpInner = BridgeMoveElement(reqId, params)
+        Case "COPY_ELEMENT"
+            ExecuteOpInner = BridgeCopyElement(reqId, params)
+        Case "ROTATE_ELEMENT"
+            ExecuteOpInner = BridgeRotateElement(reqId, params)
+        Case "SCALE_ELEMENT"
+            ExecuteOpInner = BridgeScaleElement(reqId, params)
+        Case "MIRROR_ELEMENT"
+            ExecuteOpInner = BridgeMirrorElement(reqId, params)
+        Case "ARRAY_ELEMENT"
+            ExecuteOpInner = BridgeArrayElement(reqId, params)
         Case "CHANGE_ELEMENT_LEVEL"
             ExecuteOpInner = BridgeChangeElementLevel(reqId, params)
         Case "EDIT_TEXT_ELEMENT"
             ExecuteOpInner = BridgeEditTextElement(reqId, params)
         Case "DELETE_ELEMENT"
             ExecuteOpInner = BridgeDeleteElement(reqId, params)
+        Case "HATCH_ELEMENT"
+            ExecuteOpInner = BridgeHatchElement(reqId, params)
+        Case "PLACE_ARC"
+            ExecuteOpInner = BridgePlaceArc(reqId, params)
+        Case "PLACE_TEXT_LABEL"
+            ExecuteOpInner = BridgePlaceTextLabel(reqId, params)
+        Case "PLACE_CIRCLE"
+            ExecuteOpInner = BridgeGeomPlaceCircle(reqId, params)
+        Case "PLACE_ELLIPSE"
+            ExecuteOpInner = BridgeGeomPlaceEllipse(reqId, params)
+        Case "PLACE_BLOCK"
+            ExecuteOpInner = BridgeGeomPlaceBlock(reqId, params)
+        Case "PLACE_POLYLINE"
+            ExecuteOpInner = BridgeGeomPlacePolyline(reqId, params)
+        Case "PLACE_POLYGON"
+            ExecuteOpInner = BridgeGeomPlacePolygon(reqId, params)
+        Case "CHANGE_ELEMENT_SYMBOLOGY"
+            ExecuteOpInner = BridgeGeomChangeSymbology(reqId, params)
+        Case "COPY_PARALLEL"
+            ExecuteOpInner = BridgeGeomCopyParallel(reqId, params)
+        Case "CROSSHATCH_ELEMENT"
+            ExecuteOpInner = BridgeGeomCrossHatch(reqId, params)
+        Case "REMOVE_HATCH"
+            ExecuteOpInner = BridgeGeomRemoveHatch(reqId, params)
+        Case "BREAK_LINE"
+            ExecuteOpInner = BridgeGeomBreakLine(reqId, params)
+        Case "EXTEND_LINE"
+            ExecuteOpInner = BridgeGeomExtendLine(reqId, params)
+        Case "FILLET_ELEMENTS"
+            ExecuteOpInner = BridgeGeomFillet(reqId, params)
+        Case "CREATE_COMPLEX_STRING"
+            ExecuteOpInner = BridgeGeomComplexString(reqId, params)
+        Case "PLACE_FENCE_BLOCK"
+            ExecuteOpInner = BridgeGeomPlaceFence(reqId, params)
+        Case "FENCE_UNDEFINE"
+            ExecuteOpInner = BridgeGeomFenceUndefine(reqId, params)
+        Case "FENCE_COPY_CONTENTS"
+            ExecuteOpInner = BridgeGeomFenceCopy(reqId, params)
+        Case "FENCE_MOVE_CONTENTS"
+            ExecuteOpInner = BridgeGeomFenceMove(reqId, params)
+        Case "FENCE_DELETE_CONTENTS"
+            ExecuteOpInner = BridgeGeomFenceDelete(reqId, params)
+        Case "SELECT_ELEMENT"
+            ExecuteOpInner = BridgeGeomSelect(reqId, params)
+        Case "CLEAR_SELECTION"
+            ExecuteOpInner = BridgeGeomClearSelection(reqId, params)
         Case "CAPTURE_VIEW"
             ExecuteOpInner = ExecCaptureView(reqId, params)
         Case Else
@@ -585,6 +641,417 @@ Private Function BridgeSetSignAttributes(reqId As String, params As Object) As S
     Exit Function
 WErr:
     BridgeSetSignAttributes = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: elementId. Optional: spacing, angleDeg, ownElementOnly
+Private Function BridgeHatchElement(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("elementId") Then
+        BridgeHatchElement = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("HATCH_ELEMENT")
+    If gateMsg <> "" Then
+        BridgeHatchElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then
+        BridgeHatchElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gate
+        Exit Function
+    End If
+
+    Dim spacing As Double: spacing = 10#
+    Dim angleDeg As Double: angleDeg = 45#
+    If params.Exists("spacing") Then spacing = CDbl(params("spacing"))
+    If params.Exists("angleDeg") Then angleDeg = CDbl(params("angleDeg"))
+
+    Dim result As String
+    result = WZTCExec.ExecHatchClosedElementByID(CDbl(params("elementId")), spacing, angleDeg)
+    BridgeHatchElement = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeHatchElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: x1,y1,x2,y2,x3,y3. Optional: z
+Private Function BridgePlaceArc(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("x1") And params.Exists("y1") And _
+            params.Exists("x2") And params.Exists("y2") And _
+            params.Exists("x3") And params.Exists("y3")) Then
+        BridgePlaceArc = reqId & vbTab & "ERROR" & vbTab & "note=missing x1/y1/x2/y2/x3/y3"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("PLACE_ARC")
+    If gateMsg <> "" Then
+        BridgePlaceArc = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim z As Double: z = 0
+    If params.Exists("z") Then z = CDbl(params("z"))
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlaceArc3Point(CDbl(params("x1")), CDbl(params("y1")), _
+                                         CDbl(params("x2")), CDbl(params("y2")), _
+                                         CDbl(params("x3")), CDbl(params("y3")), z)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgePlaceArc = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgePlaceArc = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: text, x, y. Optional: z
+Private Function BridgePlaceTextLabel(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("text") And params.Exists("x") And params.Exists("y")) Then
+        BridgePlaceTextLabel = reqId & vbTab & "ERROR" & vbTab & "note=missing text/x/y"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("PLACE_TEXT_LABEL")
+    If gateMsg <> "" Then
+        BridgePlaceTextLabel = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim z As Double: z = 0
+    If params.Exists("z") Then z = CDbl(params("z"))
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlaceTextLabel(CStr(params("text")), CDbl(params("x")), CDbl(params("y")), z)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgePlaceTextLabel = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgePlaceTextLabel = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGateOrEmpty(opName As String) As String
+    BridgeGateOrEmpty = WZTCCommandRegistry.CheckSafetyGate(opName)
+End Function
+
+Private Function BridgeGeomPlaceCircle(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("cx") And params.Exists("cy") And params.Exists("radius")) Then
+        BridgeGeomPlaceCircle = reqId & vbTab & "ERROR" & vbTab & "note=missing cx/cy/radius": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("PLACE_CIRCLE")
+    If g <> "" Then BridgeGeomPlaceCircle = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim z As Double: If params.Exists("z") Then z = CDbl(params("z"))
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlaceCircle(CDbl(params("cx")), CDbl(params("cy")), CDbl(params("radius")), z)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgeGeomPlaceCircle = reqId & vbTab & result: Exit Function
+WErr: BridgeGeomPlaceCircle = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomPlaceEllipse(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("cx") And params.Exists("cy") And params.Exists("primaryRadius") And params.Exists("secondaryRadius")) Then
+        BridgeGeomPlaceEllipse = reqId & vbTab & "ERROR" & vbTab & "note=missing cx/cy/primaryRadius/secondaryRadius": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("PLACE_ELLIPSE")
+    If g <> "" Then BridgeGeomPlaceEllipse = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim ang As Double, z As Double
+    If params.Exists("angleDeg") Then ang = CDbl(params("angleDeg"))
+    If params.Exists("z") Then z = CDbl(params("z"))
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlaceEllipse(CDbl(params("cx")), CDbl(params("cy")), CDbl(params("primaryRadius")), CDbl(params("secondaryRadius")), ang, z)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgeGeomPlaceEllipse = reqId & vbTab & result: Exit Function
+WErr: BridgeGeomPlaceEllipse = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomPlaceBlock(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("x1") And params.Exists("y1") And params.Exists("x2") And params.Exists("y2")) Then
+        BridgeGeomPlaceBlock = reqId & vbTab & "ERROR" & vbTab & "note=missing x1/y1/x2/y2": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("PLACE_BLOCK")
+    If g <> "" Then BridgeGeomPlaceBlock = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim z As Double: If params.Exists("z") Then z = CDbl(params("z"))
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlaceBlock(CDbl(params("x1")), CDbl(params("y1")), CDbl(params("x2")), CDbl(params("y2")), z)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgeGeomPlaceBlock = reqId & vbTab & result: Exit Function
+WErr: BridgeGeomPlaceBlock = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomPlacePolyline(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("verticesTSV") Then
+        BridgeGeomPlacePolyline = reqId & vbTab & "ERROR" & vbTab & "note=missing verticesTSV": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("PLACE_POLYLINE")
+    If g <> "" Then BridgeGeomPlacePolyline = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlacePolyline(CStr(params("verticesTSV")))
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgeGeomPlacePolyline = reqId & vbTab & result: Exit Function
+WErr: BridgeGeomPlacePolyline = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomPlacePolygon(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("cx") And params.Exists("cy") And params.Exists("radius") And params.Exists("sides")) Then
+        BridgeGeomPlacePolygon = reqId & vbTab & "ERROR" & vbTab & "note=missing cx/cy/radius/sides": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("PLACE_POLYGON")
+    If g <> "" Then BridgeGeomPlacePolygon = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim z As Double: If params.Exists("z") Then z = CDbl(params("z"))
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlacePolygon(CDbl(params("cx")), CDbl(params("cy")), CDbl(params("radius")), CInt(params("sides")), z)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgeGeomPlacePolygon = reqId & vbTab & result: Exit Function
+WErr: BridgeGeomPlacePolygon = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomChangeSymbology(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("elementId") Then
+        BridgeGeomChangeSymbology = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("CHANGE_ELEMENT_SYMBOLOGY")
+    If g <> "" Then BridgeGeomChangeSymbology = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String: gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then BridgeGeomChangeSymbology = reqId & vbTab & "ERROR" & vbTab & "note=" & gate: Exit Function
+    Dim color As Long: color = -1
+    Dim weight As Long: weight = -1
+    Dim ls As Long: ls = -999
+    If params.Exists("color") Then color = CLng(params("color"))
+    If params.Exists("weight") Then weight = CLng(params("weight"))
+    If params.Exists("lineStyleIndex") Then ls = CLng(params("lineStyleIndex"))
+    BridgeGeomChangeSymbology = reqId & vbTab & WZTCExec.ExecChangeElementSymbology(CDbl(params("elementId")), color, weight, ls)
+    Exit Function
+WErr: BridgeGeomChangeSymbology = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomCopyParallel(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("distance")) Then
+        BridgeGeomCopyParallel = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId/distance": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("COPY_PARALLEL")
+    If g <> "" Then BridgeGeomCopyParallel = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String: gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then BridgeGeomCopyParallel = reqId & vbTab & "ERROR" & vbTab & "note=" & gate: Exit Function
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecCopyParallelLineByID(CDbl(params("elementId")), CDbl(params("distance")))
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgeGeomCopyParallel = reqId & vbTab & result: Exit Function
+WErr: BridgeGeomCopyParallel = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomCrossHatch(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("elementId") Then
+        BridgeGeomCrossHatch = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("CROSSHATCH_ELEMENT")
+    If g <> "" Then BridgeGeomCrossHatch = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String: gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then BridgeGeomCrossHatch = reqId & vbTab & "ERROR" & vbTab & "note=" & gate: Exit Function
+    Dim spacing As Double: spacing = 10#: Dim ang As Double: ang = 45#
+    If params.Exists("spacing") Then spacing = CDbl(params("spacing"))
+    If params.Exists("angleDeg") Then ang = CDbl(params("angleDeg"))
+    BridgeGeomCrossHatch = reqId & vbTab & WZTCExec.ExecCrossHatchClosedElementByID(CDbl(params("elementId")), spacing, ang)
+    Exit Function
+WErr: BridgeGeomCrossHatch = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomRemoveHatch(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("elementId") Then
+        BridgeGeomRemoveHatch = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("REMOVE_HATCH")
+    If g <> "" Then BridgeGeomRemoveHatch = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String: gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then BridgeGeomRemoveHatch = reqId & vbTab & "ERROR" & vbTab & "note=" & gate: Exit Function
+    BridgeGeomRemoveHatch = reqId & vbTab & WZTCExec.ExecRemoveHatchByID(CDbl(params("elementId")))
+    Exit Function
+WErr: BridgeGeomRemoveHatch = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomBreakLine(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("x") And params.Exists("y")) Then
+        BridgeGeomBreakLine = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId/x/y": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("BREAK_LINE")
+    If g <> "" Then BridgeGeomBreakLine = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String: gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then BridgeGeomBreakLine = reqId & vbTab & "ERROR" & vbTab & "note=" & gate: Exit Function
+    Dim z As Double: If params.Exists("z") Then z = CDbl(params("z"))
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecBreakLineAtPoint(CDbl(params("elementId")), CDbl(params("x")), CDbl(params("y")), z)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgeGeomBreakLine = reqId & vbTab & result: Exit Function
+WErr: BridgeGeomBreakLine = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomExtendLine(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("newLength")) Then
+        BridgeGeomExtendLine = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId/newLength": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("EXTEND_LINE")
+    If g <> "" Then BridgeGeomExtendLine = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String: gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then BridgeGeomExtendLine = reqId & vbTab & "ERROR" & vbTab & "note=" & gate: Exit Function
+    BridgeGeomExtendLine = reqId & vbTab & WZTCExec.ExecExtendLineToLength(CDbl(params("elementId")), CDbl(params("newLength")))
+    Exit Function
+WErr: BridgeGeomExtendLine = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomFillet(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId1") And params.Exists("elementId2") And params.Exists("radius") And params.Exists("pickX") And params.Exists("pickY")) Then
+        BridgeGeomFillet = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId1/elementId2/radius/pickX/pickY": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("FILLET_ELEMENTS")
+    If g <> "" Then BridgeGeomFillet = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId1")), ownOnly)
+    If gate = "" Then gate = CheckOwnElementGate(CStr(params("elementId2")), ownOnly)
+    If gate <> "" Then BridgeGeomFillet = reqId & vbTab & "ERROR" & vbTab & "note=" & gate: Exit Function
+    Dim pz As Double: If params.Exists("pickZ") Then pz = CDbl(params("pickZ"))
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecFilletTwoElements(CDbl(params("elementId1")), CDbl(params("elementId2")), CDbl(params("radius")), CDbl(params("pickX")), CDbl(params("pickY")), pz)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgeGeomFillet = reqId & vbTab & result: Exit Function
+WErr: BridgeGeomFillet = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomComplexString(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("elementIds") Then
+        BridgeGeomComplexString = reqId & vbTab & "ERROR" & vbTab & "note=missing elementIds": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("CREATE_COMPLEX_STRING")
+    If g <> "" Then BridgeGeomComplexString = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecCreateComplexString(CStr(params("elementIds")))
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgeGeomComplexString = reqId & vbTab & result: Exit Function
+WErr: BridgeGeomComplexString = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomPlaceFence(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("x1") And params.Exists("y1") And params.Exists("x2") And params.Exists("y2")) Then
+        BridgeGeomPlaceFence = reqId & vbTab & "ERROR" & vbTab & "note=missing x1/y1/x2/y2": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("PLACE_FENCE_BLOCK")
+    If g <> "" Then BridgeGeomPlaceFence = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim z As Double: If params.Exists("z") Then z = CDbl(params("z"))
+    Dim vn As Integer: vn = 1: If params.Exists("viewNum") Then vn = CInt(params("viewNum"))
+    BridgeGeomPlaceFence = reqId & vbTab & WZTCExec.ExecPlaceFenceBlock(CDbl(params("x1")), CDbl(params("y1")), CDbl(params("x2")), CDbl(params("y2")), z, vn)
+    Exit Function
+WErr: BridgeGeomPlaceFence = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomFenceUndefine(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    Dim g As String: g = BridgeGateOrEmpty("FENCE_UNDEFINE")
+    If g <> "" Then BridgeGeomFenceUndefine = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    BridgeGeomFenceUndefine = reqId & vbTab & WZTCExec.ExecFenceUndefine()
+    Exit Function
+WErr: BridgeGeomFenceUndefine = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomFenceCopy(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("deltaX") And params.Exists("deltaY")) Then
+        BridgeGeomFenceCopy = reqId & vbTab & "ERROR" & vbTab & "note=missing deltaX/deltaY": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("FENCE_COPY_CONTENTS")
+    If g <> "" Then BridgeGeomFenceCopy = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim dz As Double: If params.Exists("deltaZ") Then dz = CDbl(params("deltaZ"))
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecFenceCopyContents(CDbl(params("deltaX")), CDbl(params("deltaY")), dz)
+    If Left(result, 2) = "OK" And InStr(result, "createdElementIds=") = 0 Then
+        result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    End If
+    BridgeGeomFenceCopy = reqId & vbTab & result: Exit Function
+WErr: BridgeGeomFenceCopy = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomFenceMove(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("deltaX") And params.Exists("deltaY")) Then
+        BridgeGeomFenceMove = reqId & vbTab & "ERROR" & vbTab & "note=missing deltaX/deltaY": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("FENCE_MOVE_CONTENTS")
+    If g <> "" Then BridgeGeomFenceMove = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim dz As Double: If params.Exists("deltaZ") Then dz = CDbl(params("deltaZ"))
+    BridgeGeomFenceMove = reqId & vbTab & WZTCExec.ExecFenceMoveContents(CDbl(params("deltaX")), CDbl(params("deltaY")), dz)
+    Exit Function
+WErr: BridgeGeomFenceMove = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomFenceDelete(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    Dim g As String: g = BridgeGateOrEmpty("FENCE_DELETE_CONTENTS")
+    If g <> "" Then BridgeGeomFenceDelete = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    BridgeGeomFenceDelete = reqId & vbTab & WZTCExec.ExecFenceDeleteContents()
+    Exit Function
+WErr: BridgeGeomFenceDelete = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomSelect(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("elementId") Then
+        BridgeGeomSelect = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId": Exit Function
+    End If
+    Dim g As String: g = BridgeGateOrEmpty("SELECT_ELEMENT")
+    If g <> "" Then BridgeGeomSelect = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    Dim clearFirst As Boolean: clearFirst = True
+    If params.Exists("clearFirst") Then
+        If UCase(CStr(params("clearFirst"))) = "N" Or CStr(params("clearFirst")) = "0" Then clearFirst = False
+    End If
+    BridgeGeomSelect = reqId & vbTab & WZTCExec.ExecSelectElementByID(CDbl(params("elementId")), clearFirst)
+    Exit Function
+WErr: BridgeGeomSelect = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeGeomClearSelection(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    Dim g As String: g = BridgeGateOrEmpty("CLEAR_SELECTION")
+    If g <> "" Then BridgeGeomClearSelection = reqId & vbTab & "ERROR" & vbTab & "note=" & g: Exit Function
+    BridgeGeomClearSelection = reqId & vbTab & WZTCExec.ExecClearSelection()
+    Exit Function
+WErr: BridgeGeomClearSelection = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 ' ============================================================
@@ -1069,6 +1536,195 @@ Private Function BridgeMoveElement(reqId As String, params As Object) As String
     Exit Function
 WErr:
     BridgeMoveElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeCopyElement(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("deltaX") And params.Exists("deltaY")) Then
+        BridgeCopyElement = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId/deltaX/deltaY"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("COPY_ELEMENT")
+    If gateMsg <> "" Then
+        BridgeCopyElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then
+        BridgeCopyElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gate
+        Exit Function
+    End If
+
+    Dim deltaZ As Double: deltaZ = 0
+    If params.Exists("deltaZ") Then deltaZ = CDbl(params("deltaZ"))
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecCopyElementByID(CDbl(params("elementId")), _
+                                          CDbl(params("deltaX")), CDbl(params("deltaY")), deltaZ)
+    If Left(result, 2) = "OK" Then
+        result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    End If
+    BridgeCopyElement = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeCopyElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeRotateElement(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("originX") And _
+            params.Exists("originY") And params.Exists("angleDeg")) Then
+        BridgeRotateElement = reqId & vbTab & "ERROR" & vbTab & _
+            "note=missing elementId/originX/originY/angleDeg"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("ROTATE_ELEMENT")
+    If gateMsg <> "" Then
+        BridgeRotateElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then
+        BridgeRotateElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gate
+        Exit Function
+    End If
+
+    Dim originZ As Double: originZ = 0
+    If params.Exists("originZ") Then originZ = CDbl(params("originZ"))
+
+    Dim result As String
+    result = WZTCExec.ExecRotateElementByID(CDbl(params("elementId")), _
+                                            CDbl(params("originX")), CDbl(params("originY")), _
+                                            CDbl(params("angleDeg")), originZ)
+    BridgeRotateElement = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeRotateElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeScaleElement(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("originX") And _
+            params.Exists("originY") And params.Exists("scaleFactor")) Then
+        BridgeScaleElement = reqId & vbTab & "ERROR" & vbTab & _
+            "note=missing elementId/originX/originY/scaleFactor"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("SCALE_ELEMENT")
+    If gateMsg <> "" Then
+        BridgeScaleElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then
+        BridgeScaleElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gate
+        Exit Function
+    End If
+
+    Dim originZ As Double: originZ = 0
+    If params.Exists("originZ") Then originZ = CDbl(params("originZ"))
+
+    Dim result As String
+    result = WZTCExec.ExecScaleElementByID(CDbl(params("elementId")), _
+                                           CDbl(params("originX")), CDbl(params("originY")), _
+                                           CDbl(params("scaleFactor")), originZ)
+    BridgeScaleElement = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeScaleElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeMirrorElement(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("x1") And params.Exists("y1") And _
+            params.Exists("x2") And params.Exists("y2")) Then
+        BridgeMirrorElement = reqId & vbTab & "ERROR" & vbTab & _
+            "note=missing elementId/x1/y1/x2/y2"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("MIRROR_ELEMENT")
+    If gateMsg <> "" Then
+        BridgeMirrorElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then
+        BridgeMirrorElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gate
+        Exit Function
+    End If
+
+    Dim z1 As Double: z1 = 0
+    Dim z2 As Double: z2 = 0
+    If params.Exists("z1") Then z1 = CDbl(params("z1"))
+    If params.Exists("z2") Then z2 = CDbl(params("z2"))
+
+    Dim result As String
+    result = WZTCExec.ExecMirrorElementByID(CDbl(params("elementId")), _
+                                            CDbl(params("x1")), CDbl(params("y1")), _
+                                            CDbl(params("x2")), CDbl(params("y2")), z1, z2)
+    BridgeMirrorElement = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeMirrorElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function BridgeArrayElement(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("elementId") And params.Exists("count") And _
+            params.Exists("spacingX") And params.Exists("spacingY")) Then
+        BridgeArrayElement = reqId & vbTab & "ERROR" & vbTab & _
+            "note=missing elementId/count/spacingX/spacingY"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("ARRAY_ELEMENT")
+    If gateMsg <> "" Then
+        BridgeArrayElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim ownOnly As Boolean: ownOnly = OwnElementOnlyFlag(params)
+    Dim gate As String
+    gate = CheckOwnElementGate(CStr(params("elementId")), ownOnly)
+    If gate <> "" Then
+        BridgeArrayElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gate
+        Exit Function
+    End If
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecArrayElementByID(CDbl(params("elementId")), _
+                                           CInt(params("count")), _
+                                           CDbl(params("spacingX")), CDbl(params("spacingY")))
+    If Left(result, 2) = "OK" Then
+        result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    End If
+    BridgeArrayElement = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeArrayElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 Private Function BridgeChangeElementLevel(reqId As String, params As Object) As String

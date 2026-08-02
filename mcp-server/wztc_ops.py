@@ -208,13 +208,189 @@ def place_sign(sign_num: str, road_type: str, side: str,
 
 
 def place_workspace(vertices: list[list[float]], reason: str = "") -> dict:
-    """Place the work space boundary shape + hatch. vertices is an ordered
-    list of [x, y, z] points describing the boundary — do not repeat the
-    first point to close it, that's handled automatically. Interior hatch
-    seed point is computed to handle non-convex (e.g. L-shaped) boundaries
-    correctly, not a naive centroid."""
+    """Place the work space boundary shape + associative hatch.
+    vertices is an ordered list of [x, y, z] points — do not repeat the
+    first point to close it. Hatch uses CreateHatchPattern1 + SetPattern
+    (Element API), not CadInputQueue HATCH ICON."""
     verts_tsv = "|".join(f"{p[0]},{p[1]},{p[2] if len(p) > 2 else 0}" for p in vertices)
     return _ok_or_raise(_bridge.call("PLACE_WORKSPACE", verticesTSV=verts_tsv, reason=reason), "place_workspace")
+
+
+def hatch_element(element_id: str, spacing: float = 10.0, angle_deg: float = 45.0,
+                  own_element_only: bool = True, reason: str = "") -> dict:
+    """Apply associative hatch to an existing closed shape by element ID.
+    Does not create a new element — sets HasPattern on the shape. spacing
+    is in master units; angle_deg in degrees."""
+    return _ok_or_raise(
+        _bridge.call("HATCH_ELEMENT", elementId=element_id, spacing=spacing,
+                     angleDeg=angle_deg, ownElementOnly=own_element_only, reason=reason),
+        "hatch_element")
+
+
+def place_arc(x1: float, y1: float, x2: float, y2: float, x3: float, y3: float,
+              z: float = 0.0, reason: str = "") -> dict:
+    """Place a 3-point arc (placeArcModeEx=3). Point order: start, end, bulge."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_ARC", x1=x1, y1=y1, x2=x2, y2=y2, x3=x3, y3=y3, z=z, reason=reason),
+        "place_arc")
+
+
+def place_text_label(text: str, x: float, y: float, z: float = 0.0, reason: str = "") -> dict:
+    """Place a single-line text label via TEXTEDITOR PLACE + INSERT_TEXT."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_TEXT_LABEL", text=text, x=x, y=y, z=z, reason=reason),
+        "place_text_label")
+
+
+def place_circle(cx: float, cy: float, radius: float, z: float = 0.0, reason: str = "") -> dict:
+    """Place a circle (CreateEllipseElement2 with equal radii)."""
+    return _ok_or_raise(_bridge.call("PLACE_CIRCLE", cx=cx, cy=cy, radius=radius, z=z, reason=reason), "place_circle")
+
+
+def place_ellipse(cx: float, cy: float, primary_radius: float, secondary_radius: float,
+                  angle_deg: float = 0.0, z: float = 0.0, reason: str = "") -> dict:
+    """Place an ellipse via CreateEllipseElement2."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_ELLIPSE", cx=cx, cy=cy, primaryRadius=primary_radius,
+                     secondaryRadius=secondary_radius, angleDeg=angle_deg, z=z, reason=reason),
+        "place_ellipse")
+
+
+def place_block(x1: float, y1: float, x2: float, y2: float, z: float = 0.0, reason: str = "") -> dict:
+    """Place an axis-aligned rectangle (CreateShapeElement1)."""
+    return _ok_or_raise(_bridge.call("PLACE_BLOCK", x1=x1, y1=y1, x2=x2, y2=y2, z=z, reason=reason), "place_block")
+
+
+def place_polyline(vertices: list[list[float]], reason: str = "") -> dict:
+    """Place an open polyline. vertices is [[x,y,z?], ...]."""
+    verts_tsv = "|".join(f"{p[0]},{p[1]},{p[2] if len(p) > 2 else 0}" for p in vertices)
+    return _ok_or_raise(_bridge.call("PLACE_POLYLINE", verticesTSV=verts_tsv, reason=reason), "place_polyline")
+
+
+def place_polygon(cx: float, cy: float, radius: float, sides: int, z: float = 0.0, reason: str = "") -> dict:
+    """Place a regular n-gon centered at (cx,cy)."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_POLYGON", cx=cx, cy=cy, radius=radius, sides=sides, z=z, reason=reason),
+        "place_polygon")
+
+
+def change_element_symbology(element_id: str, color: int | None = None, weight: int | None = None,
+                             line_style_index: int | None = None, own_element_only: bool = True,
+                             reason: str = "") -> dict:
+    """Set element color and/or line weight (and optional linestyle index)."""
+    params = {"elementId": element_id, "ownElementOnly": ("Y" if own_element_only else "N"), "reason": reason}
+    if color is not None:
+        params["color"] = color
+    if weight is not None:
+        params["weight"] = weight
+    if line_style_index is not None:
+        params["lineStyleIndex"] = line_style_index
+    return _ok_or_raise(_bridge.call("CHANGE_ELEMENT_SYMBOLOGY", **params), "change_element_symbology")
+
+
+def copy_parallel(element_id: str, distance: float, own_element_only: bool = True, reason: str = "") -> dict:
+    """Perpendicular offset-copy of a LINE. distance>0 = left of start->end."""
+    return _ok_or_raise(
+        _bridge.call("COPY_PARALLEL", elementId=element_id, distance=distance,
+                     ownElementOnly=("Y" if own_element_only else "N"), reason=reason),
+        "copy_parallel")
+
+
+def crosshatch_element(element_id: str, spacing: float = 10.0, angle_deg: float = 45.0,
+                       own_element_only: bool = True, reason: str = "") -> dict:
+    """Apply crosshatch pattern to a closed element."""
+    return _ok_or_raise(
+        _bridge.call("CROSSHATCH_ELEMENT", elementId=element_id, spacing=spacing, angleDeg=angle_deg,
+                     ownElementOnly=("Y" if own_element_only else "N"), reason=reason),
+        "crosshatch_element")
+
+
+def remove_hatch(element_id: str, own_element_only: bool = True, reason: str = "") -> dict:
+    """Remove associative hatch/pattern from a closed element."""
+    return _ok_or_raise(
+        _bridge.call("REMOVE_HATCH", elementId=element_id,
+                     ownElementOnly=("Y" if own_element_only else "N"), reason=reason),
+        "remove_hatch")
+
+
+def break_line(element_id: str, x: float, y: float, z: float = 0.0,
+               own_element_only: bool = True, reason: str = "") -> dict:
+    """Break a line into two segments at (x,y)."""
+    return _ok_or_raise(
+        _bridge.call("BREAK_LINE", elementId=element_id, x=x, y=y, z=z,
+                     ownElementOnly=("Y" if own_element_only else "N"), reason=reason),
+        "break_line")
+
+
+def extend_line(element_id: str, new_length: float, own_element_only: bool = True, reason: str = "") -> dict:
+    """Set line length from start point (extend or shorten)."""
+    return _ok_or_raise(
+        _bridge.call("EXTEND_LINE", elementId=element_id, newLength=new_length,
+                     ownElementOnly=("Y" if own_element_only else "N"), reason=reason),
+        "extend_line")
+
+
+def fillet_elements(element_id1: str, element_id2: str, radius: float,
+                    pick_x: float, pick_y: float, pick_z: float = 0.0,
+                    own_element_only: bool = True, reason: str = "") -> dict:
+    """Create a fillet arc between two elements (sources not auto-trimmed)."""
+    return _ok_or_raise(
+        _bridge.call("FILLET_ELEMENTS", elementId1=element_id1, elementId2=element_id2,
+                     radius=radius, pickX=pick_x, pickY=pick_y, pickZ=pick_z,
+                     ownElementOnly=("Y" if own_element_only else "N"), reason=reason),
+        "fillet_elements")
+
+
+def create_complex_string(element_ids: list[str], reason: str = "") -> dict:
+    """Create a complex string from existing chainable element IDs."""
+    return _ok_or_raise(
+        _bridge.call("CREATE_COMPLEX_STRING", elementIds=",".join(element_ids), reason=reason),
+        "create_complex_string")
+
+
+def place_fence_block(x1: float, y1: float, x2: float, y2: float, z: float = 0.0,
+                      view_num: int = 1, reason: str = "") -> dict:
+    """Define a rectangular fence from corner points."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_FENCE_BLOCK", x1=x1, y1=y1, x2=x2, y2=y2, z=z, viewNum=view_num, reason=reason),
+        "place_fence_block")
+
+
+def fence_undefine(reason: str = "") -> dict:
+    """Clear the current fence definition."""
+    return _ok_or_raise(_bridge.call("FENCE_UNDEFINE", reason=reason), "fence_undefine")
+
+
+def fence_copy_contents(delta_x: float, delta_y: float, delta_z: float = 0.0, reason: str = "") -> dict:
+    """Clone+Move every element inside the current fence."""
+    return _ok_or_raise(
+        _bridge.call("FENCE_COPY_CONTENTS", deltaX=delta_x, deltaY=delta_y, deltaZ=delta_z, reason=reason),
+        "fence_copy_contents")
+
+
+def fence_move_contents(delta_x: float, delta_y: float, delta_z: float = 0.0, reason: str = "") -> dict:
+    """Move every element inside the current fence."""
+    return _ok_or_raise(
+        _bridge.call("FENCE_MOVE_CONTENTS", deltaX=delta_x, deltaY=delta_y, deltaZ=delta_z, reason=reason),
+        "fence_move_contents")
+
+
+def fence_delete_contents(reason: str = "") -> dict:
+    """Delete every element inside the current fence (not undoable)."""
+    return _ok_or_raise(_bridge.call("FENCE_DELETE_CONTENTS", reason=reason), "fence_delete_contents")
+
+
+def select_element(element_id: str, clear_first: bool = True, reason: str = "") -> dict:
+    """Add an element to the selection set (optionally clearing first)."""
+    return _ok_or_raise(
+        _bridge.call("SELECT_ELEMENT", elementId=element_id,
+                     clearFirst=("Y" if clear_first else "N"), reason=reason),
+        "select_element")
+
+
+def clear_selection(reason: str = "") -> dict:
+    """Clear the model selection set."""
+    return _ok_or_raise(_bridge.call("CLEAR_SELECTION", reason=reason), "clear_selection")
 
 
 def place_element_run(element_idx: int, vertices: list[list[float]], reason: str = "") -> dict:
@@ -348,6 +524,62 @@ def move_element(element_id: str, delta_x: float, delta_y: float, delta_z: float
                      deltaZ=delta_z, ownElementOnly=("Y" if own_element_only else "N"),
                      reason=reason),
         "move_element")
+
+
+def copy_element(element_id: str, delta_x: float, delta_y: float, delta_z: float = 0,
+                  own_element_only: bool = True, reason: str = "") -> dict:
+    """Copy an element by ID (Clone + Move). Returns newElementId /
+    createdElementIds. own_element_only defaults True."""
+    return _ok_or_raise(
+        _bridge.call("COPY_ELEMENT", elementId=element_id, deltaX=delta_x, deltaY=delta_y,
+                     deltaZ=delta_z, ownElementOnly=("Y" if own_element_only else "N"),
+                     reason=reason),
+        "copy_element")
+
+
+def rotate_element(element_id: str, origin_x: float, origin_y: float, angle_deg: float,
+                    origin_z: float = 0, own_element_only: bool = True, reason: str = "") -> dict:
+    """Rotate an element about (origin_x, origin_y) by angle_deg (Z axis).
+    Response includes priorAngleDeg for undo_last_op."""
+    return _ok_or_raise(
+        _bridge.call("ROTATE_ELEMENT", elementId=element_id, originX=origin_x, originY=origin_y,
+                     originZ=origin_z, angleDeg=angle_deg,
+                     ownElementOnly=("Y" if own_element_only else "N"), reason=reason),
+        "rotate_element")
+
+
+def scale_element(element_id: str, origin_x: float, origin_y: float, scale_factor: float,
+                   origin_z: float = 0, own_element_only: bool = True, reason: str = "") -> dict:
+    """Uniform-scale an element about a point (Element.ScaleUniform).
+    Response includes priorScaleFactor (1/factor) for undo."""
+    return _ok_or_raise(
+        _bridge.call("SCALE_ELEMENT", elementId=element_id, originX=origin_x, originY=origin_y,
+                     originZ=origin_z, scaleFactor=scale_factor,
+                     ownElementOnly=("Y" if own_element_only else "N"), reason=reason),
+        "scale_element")
+
+
+def mirror_element(element_id: str, x1: float, y1: float, x2: float, y2: float,
+                    z1: float = 0, z2: float = 0, own_element_only: bool = True,
+                    reason: str = "") -> dict:
+    """Mirror an element about the axis through (x1,y1)-(x2,y2).
+    Re-run the same mirror to undo."""
+    return _ok_or_raise(
+        _bridge.call("MIRROR_ELEMENT", elementId=element_id, x1=x1, y1=y1, x2=x2, y2=y2,
+                     z1=z1, z2=z2, ownElementOnly=("Y" if own_element_only else "N"),
+                     reason=reason),
+        "mirror_element")
+
+
+def array_element(element_id: str, count: int, spacing_x: float, spacing_y: float,
+                   own_element_only: bool = True, reason: str = "") -> dict:
+    """Create `count` copies offset by i*(spacing_x, spacing_y).
+    Returns newElementIds / createdElementIds."""
+    return _ok_or_raise(
+        _bridge.call("ARRAY_ELEMENT", elementId=element_id, count=count,
+                     spacingX=spacing_x, spacingY=spacing_y,
+                     ownElementOnly=("Y" if own_element_only else "N"), reason=reason),
+        "array_element")
 
 
 def change_element_level(element_id: str, level: str, own_element_only: bool = True,

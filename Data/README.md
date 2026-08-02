@@ -96,12 +96,20 @@ anti-pattern (tool armed, `Status = "Done"`, no points sent).
 
 ### Promotion process (`needs-testing` → `verified-headless-safe`)
 
-1. Add a row with `safetyStatus=needs-testing` — inert by construction.
-2. Test by hand in the MicroStation VBA IDE (type the keyin, or hand-edit
-   `Bridge/request.tsv` with `TEST_REGISTRY_COMMAND` and send the keyin yourself).
-3. On success, flip `safetyStatus` to `verified-headless-safe` and fill
-   `promotedDate` / `sourceRefs`. No VBA or Python code change needed for
-   `keyin_recipe` promotions.
+**Settings / view / lock** (no geometry): live COM via `scripts/keyin_batch.py` —
+fast return without hang → `verified-headless-safe`.
+
+**Drawing recipes** (`COMMAND` + `DATAPOINT` + `RESET`):
+
+1. Add a row (or candidate in `Data/recipe-candidates.tsv`) with placeholders
+   and `createsElements=Y`.
+2. Probe on **`DELETE.dgn`** with `python scripts/recipe_batch.py run`.
+3. **Pass bar:** graphical element count increases by the expected amount,
+   COM alive, no step hang (3s/step). Then `safetyStatus` flips to
+   `verified-headless-safe` automatically.
+4. Hand IDE / `TEST_REGISTRY_COMMAND` remains available for one-off debugging.
+
+Bare `COMMAND:` rows without datapoints stay `unsafe-blocked` (activate-and-abandon).
 
 ### Seed / current inventory
 
@@ -109,15 +117,28 @@ Built by live COM probe against this install, sourced from **outside** this
 repo as well as in-repo call sites: COD OT MicroStation Keyin Reference,
 Axiom’s 80+ two-letter key-ins, WSDOT CAE function-key notes, plus CONNECT
 long-form `ACTIVE`/`SET`/`LOCK`/`VIEW` variants. Probe results for the latest
-external batch are in `Bridge/keyin-probe-results.json`.
+external batch are in `Bridge/keyin-probe-results.json`. Drawing-recipe probe
+results are in `Bridge/recipe-probe-batch.json`.
 
-`verified-headless-safe` = settings / view / lock / selection keyins that
-returned without hanging. `unsafe-blocked` = bare tools, dialogs, and
-precision datapoints that return fast but arm UI or need clicks.
-`needs-testing` = higher-impact file/undo keyins not batch-probed.
+`verified-headless-safe` = settings/view/lock that returned without hanging,
+**or** drawing recipes that created geometry under `recipe_batch.py`.
+`unsafe-blocked` = bare tools, dialogs, and precision datapoints that return
+fast but arm UI or need clicks.
+`needs-testing` = higher-impact / incomplete recipes (e.g. hatch pending
+association) not yet element-delta verified.
 `interactive-only-use-handoff` = dimensions/callouts.
 
-M1–M5 draw ops are **not** catalogued here yet — they already work via
-dedicated bridge ops.
+M1–M5 draw ops also work via dedicated bridge ops (`WZTCExec`); registry
+`direct_api` rows gate those. First verified keyin drawing recipes:
+`PLACE_LINE`, `PLACE_SHAPE_CONSTRAINED`.
+
+Phase C edit ops (also `direct_api`, Element API — not CadInputQueue recipes):
+`COPY_ELEMENT`, `ROTATE_ELEMENT`, `SCALE_ELEMENT`, `MIRROR_ELEMENT`,
+`ARRAY_ELEMENT` (plus existing `MOVE_ELEMENT` / `DELETE_ELEMENT` / …).
+
+Phase B WZTC place ops registered as `direct_api` bookkeeping:
+`PLACE_CELL`, `PLACE_SIGN`, `PLACE_PERP_LINE`, `PLACE_ELEMENT_RUN`,
+`PLACE_WORKSPACE`, `SET_SIGN_ATTRIBUTES` — call their bridge tools, not
+`RUN_REGISTRY_COMMAND`.
 
 Same CRLF requirement as `sheet-registry.tsv`.

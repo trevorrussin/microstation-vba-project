@@ -191,12 +191,159 @@ def place_sign(sign_num: str, road_type: str, side: str,
 
 @mcp.tool()
 def place_workspace(vertices: list[list[float]], reason: str = "") -> dict:
-    """Place the work space boundary shape + hatch. vertices is an ordered
-    list of [x, y, z] points describing the boundary — do not repeat the
-    first point to close it, that's handled automatically. Interior hatch
-    seed point is computed to handle non-convex (e.g. L-shaped) boundaries
-    correctly, not a naive centroid."""
+    """Place the work space boundary shape + associative hatch.
+    vertices is an ordered list of [x, y, z] points — do not repeat the
+    first point to close it. Hatch uses Element API SetPattern."""
     return wztc_ops.place_workspace(vertices, reason)
+
+
+@mcp.tool()
+def hatch_element(element_id: str, spacing: float = 10.0, angle_deg: float = 45.0,
+                  own_element_only: bool = True, reason: str = "") -> dict:
+    """Apply associative hatch to an existing closed shape by element ID.
+    Does not create a new element. spacing in master units; angle_deg in degrees."""
+    return wztc_ops.hatch_element(element_id, spacing, angle_deg, own_element_only, reason)
+
+
+@mcp.tool()
+def place_arc(x1: float, y1: float, x2: float, y2: float, x3: float, y3: float,
+              z: float = 0.0, reason: str = "") -> dict:
+    """Place a 3-point arc (placeArcModeEx=3). Point order: start, end, bulge."""
+    return wztc_ops.place_arc(x1, y1, x2, y2, x3, y3, z, reason)
+
+
+@mcp.tool()
+def place_text_label(text: str, x: float, y: float, z: float = 0.0, reason: str = "") -> dict:
+    """Place a single-line text label via TEXTEDITOR PLACE + INSERT_TEXT."""
+    return wztc_ops.place_text_label(text, x, y, z, reason)
+
+
+@mcp.tool()
+def place_circle(cx: float, cy: float, radius: float, z: float = 0.0, reason: str = "") -> dict:
+    """Place a circle (equal-radius ellipse Element API)."""
+    return wztc_ops.place_circle(cx, cy, radius, z, reason)
+
+
+@mcp.tool()
+def place_ellipse(cx: float, cy: float, primary_radius: float, secondary_radius: float,
+                  angle_deg: float = 0.0, z: float = 0.0, reason: str = "") -> dict:
+    """Place an ellipse."""
+    return wztc_ops.place_ellipse(cx, cy, primary_radius, secondary_radius, angle_deg, z, reason)
+
+
+@mcp.tool()
+def place_block(x1: float, y1: float, x2: float, y2: float, z: float = 0.0, reason: str = "") -> dict:
+    """Place an axis-aligned rectangle."""
+    return wztc_ops.place_block(x1, y1, x2, y2, z, reason)
+
+
+@mcp.tool()
+def place_polyline(vertices: list[list[float]], reason: str = "") -> dict:
+    """Place an open polyline from [[x,y,z?], ...]."""
+    return wztc_ops.place_polyline(vertices, reason)
+
+
+@mcp.tool()
+def place_polygon(cx: float, cy: float, radius: float, sides: int, z: float = 0.0, reason: str = "") -> dict:
+    """Place a regular n-gon."""
+    return wztc_ops.place_polygon(cx, cy, radius, sides, z, reason)
+
+
+@mcp.tool()
+def change_element_symbology(element_id: str, color: int | None = None, weight: int | None = None,
+                             line_style_index: int | None = None, own_element_only: bool = True,
+                             reason: str = "") -> dict:
+    """Change element color/weight/(optional linestyle)."""
+    return wztc_ops.change_element_symbology(element_id, color, weight, line_style_index, own_element_only, reason)
+
+
+@mcp.tool()
+def copy_parallel(element_id: str, distance: float, own_element_only: bool = True, reason: str = "") -> dict:
+    """Perpendicular offset-copy of a LINE."""
+    return wztc_ops.copy_parallel(element_id, distance, own_element_only, reason)
+
+
+@mcp.tool()
+def crosshatch_element(element_id: str, spacing: float = 10.0, angle_deg: float = 45.0,
+                       own_element_only: bool = True, reason: str = "") -> dict:
+    """Apply crosshatch to a closed element."""
+    return wztc_ops.crosshatch_element(element_id, spacing, angle_deg, own_element_only, reason)
+
+
+@mcp.tool()
+def remove_hatch(element_id: str, own_element_only: bool = True, reason: str = "") -> dict:
+    """Remove associative hatch from a closed element."""
+    return wztc_ops.remove_hatch(element_id, own_element_only, reason)
+
+
+@mcp.tool()
+def break_line(element_id: str, x: float, y: float, z: float = 0.0,
+               own_element_only: bool = True, reason: str = "") -> dict:
+    """Break a line into two at (x,y)."""
+    return wztc_ops.break_line(element_id, x, y, z, own_element_only, reason)
+
+
+@mcp.tool()
+def extend_line(element_id: str, new_length: float, own_element_only: bool = True, reason: str = "") -> dict:
+    """Set line length from start (extend or shorten)."""
+    return wztc_ops.extend_line(element_id, new_length, own_element_only, reason)
+
+
+@mcp.tool()
+def fillet_elements(element_id1: str, element_id2: str, radius: float,
+                    pick_x: float, pick_y: float, pick_z: float = 0.0,
+                    own_element_only: bool = True, reason: str = "") -> dict:
+    """Create fillet arc between two elements (no auto-trim)."""
+    return wztc_ops.fillet_elements(element_id1, element_id2, radius, pick_x, pick_y, pick_z, own_element_only, reason)
+
+
+@mcp.tool()
+def create_complex_string(element_ids: list[str], reason: str = "") -> dict:
+    """Create a complex string from element IDs."""
+    return wztc_ops.create_complex_string(element_ids, reason)
+
+
+@mcp.tool()
+def place_fence_block(x1: float, y1: float, x2: float, y2: float, z: float = 0.0,
+                      view_num: int = 1, reason: str = "") -> dict:
+    """Define a rectangular fence."""
+    return wztc_ops.place_fence_block(x1, y1, x2, y2, z, view_num, reason)
+
+
+@mcp.tool()
+def fence_undefine(reason: str = "") -> dict:
+    """Clear the fence."""
+    return wztc_ops.fence_undefine(reason)
+
+
+@mcp.tool()
+def fence_copy_contents(delta_x: float, delta_y: float, delta_z: float = 0.0, reason: str = "") -> dict:
+    """Copy elements inside the fence by delta."""
+    return wztc_ops.fence_copy_contents(delta_x, delta_y, delta_z, reason)
+
+
+@mcp.tool()
+def fence_move_contents(delta_x: float, delta_y: float, delta_z: float = 0.0, reason: str = "") -> dict:
+    """Move elements inside the fence by delta."""
+    return wztc_ops.fence_move_contents(delta_x, delta_y, delta_z, reason)
+
+
+@mcp.tool()
+def fence_delete_contents(reason: str = "") -> dict:
+    """Delete elements inside the fence (not undoable)."""
+    return wztc_ops.fence_delete_contents(reason)
+
+
+@mcp.tool()
+def select_element(element_id: str, clear_first: bool = True, reason: str = "") -> dict:
+    """Select an element by ID."""
+    return wztc_ops.select_element(element_id, clear_first, reason)
+
+
+@mcp.tool()
+def clear_selection(reason: str = "") -> dict:
+    """Clear the selection set."""
+    return wztc_ops.clear_selection(reason)
 
 
 @mcp.tool()
@@ -309,6 +456,44 @@ def move_element(element_id: str, delta_x: float, delta_y: float, delta_z: float
     session's journal as something the agent created. Response includes
     priorDeltaX/Y for undo_last_op."""
     return wztc_ops.move_element(element_id, delta_x, delta_y, delta_z, own_element_only, reason)
+
+
+@mcp.tool()
+def copy_element(element_id: str, delta_x: float, delta_y: float, delta_z: float = 0,
+                 own_element_only: bool = True, reason: str = "") -> dict:
+    """Copy an element by ID (Clone + Move). Returns newElementId."""
+    return wztc_ops.copy_element(element_id, delta_x, delta_y, delta_z, own_element_only, reason)
+
+
+@mcp.tool()
+def rotate_element(element_id: str, origin_x: float, origin_y: float, angle_deg: float,
+                   origin_z: float = 0, own_element_only: bool = True, reason: str = "") -> dict:
+    """Rotate an element about a point by angle_deg (Z axis)."""
+    return wztc_ops.rotate_element(element_id, origin_x, origin_y, angle_deg,
+                                   origin_z, own_element_only, reason)
+
+
+@mcp.tool()
+def scale_element(element_id: str, origin_x: float, origin_y: float, scale_factor: float,
+                  origin_z: float = 0, own_element_only: bool = True, reason: str = "") -> dict:
+    """Uniform-scale an element about a point."""
+    return wztc_ops.scale_element(element_id, origin_x, origin_y, scale_factor,
+                                  origin_z, own_element_only, reason)
+
+
+@mcp.tool()
+def mirror_element(element_id: str, x1: float, y1: float, x2: float, y2: float,
+                   z1: float = 0, z2: float = 0, own_element_only: bool = True,
+                   reason: str = "") -> dict:
+    """Mirror an element about the axis through (x1,y1)-(x2,y2)."""
+    return wztc_ops.mirror_element(element_id, x1, y1, x2, y2, z1, z2, own_element_only, reason)
+
+
+@mcp.tool()
+def array_element(element_id: str, count: int, spacing_x: float, spacing_y: float,
+                  own_element_only: bool = True, reason: str = "") -> dict:
+    """Create count copies offset by i*(spacing_x, spacing_y)."""
+    return wztc_ops.array_element(element_id, count, spacing_x, spacing_y, own_element_only, reason)
 
 
 @mcp.tool()

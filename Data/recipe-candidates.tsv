@@ -1,0 +1,14 @@
+opName	recipeLines	requiredParams	sampleParams	expectedNewElements	source	notes
+
+
+
+PLACE_LINE	COMMAND:PLACE LINE CONSTRAINED|DATAPOINT:{x1},{y1}|DATAPOINT:{x2},{y2}|RESET	x1|y1|x2|y2	x1=100|y1=100|x2=110|y2=100	1	DrawSign.bas DrawSignPost;WZTCExec.ExecPlaceElementRun	Guinea pig — two-point PLACE LINE CONSTRAINED
+
+
+
+PLACE_SHAPE_CONSTRAINED	COMMAND:PLACE SHAPE CONSTRAINED|DATAPOINT:{x1},{y1}|DATAPOINT:{x2},{y2}|DATAPOINT:{x3},{y3}|DATAPOINT:{x4},{y4}|DATAPOINT:{x1},{y1}|RESET	x1|y1|x2|y2|x3|y3|x4|y4	x1=200|y1=200|x2=220|y2=200|x3=220|y3=220|x4=200|y4=220	1	WZTCExec.ExecPlaceWorkspace;LegacyElements.bas	Closed quad — repeat first vertex then RESET
+
+
+
+# HATCH_ICON removed from candidates — CadInputQueue path blocked; use HATCH_ELEMENT direct_api
+

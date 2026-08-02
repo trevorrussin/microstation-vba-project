@@ -1,1268 +1,413 @@
-opName	keyin	kind	requiredParams	source	notes
-
-ACTIVE_CELL_SCALE_1	ACTIVE CELL SCALE 1	settings		wave7 seed	
-
-ACTIVE_CELL_SCALE_2	ACTIVE CELL SCALE 2	settings		wave7 seed	
-
-ACTIVE_CELL_ANGLE_0	ACTIVE CELL ANGLE 0	settings		wave7 seed	
-
-ACTIVE_CELL_ANGLE_90	ACTIVE CELL ANGLE 90	settings		wave7 seed	
-
-AS_1	AS=1	settings		wave7 seed	active cell scale legacy
-
-AA_CELL_0	AA=0	settings		wave7 seed	may collide AA= angle — probe OK either way
-
-ACTIVE_POINT_SCALE_1	ACTIVE POINT SCALE 1	settings		wave7 seed	
-
-ACTIVE_TERMINATOR_SCALE_1	ACTIVE TERMINATOR SCALE 1	settings		wave7 seed	
-
-SHARED_CELL_ON	SHARED CELL ON	settings		wave7 seed	
-
-SHARED_CELL_OFF	SHARED CELL OFF	settings		wave7 seed	
-
-SET_SHARED_CELL_ON	SET SHARED CELL ON	settings		wave7 seed	
-
-SET_SHARED_CELL_OFF	SET SHARED CELL OFF	settings		wave7 seed	
-
-ACTIVE_FONT_ENGINEERING	ACTIVE FONT ENGINEERING	settings		wave7 seed	
-
-ACTIVE_FONT_STANDARD	ACTIVE FONT STANDARD	settings		wave7 seed	
-
-ACTIVE_TEXT_JUST_LEFT	ACTIVE TEXT JUST LEFT	settings		wave7 seed	
-
-ACTIVE_TEXT_JUST_CENTER	ACTIVE TEXT JUST CENTER	settings		wave7 seed	
-
-ACTIVE_TEXT_JUST_RIGHT	ACTIVE TEXT JUST RIGHT	settings		wave7 seed	
-
-TX_1	TX=1	settings		wave7 seed	text size legacy
-
-TH_1	TH=1	settings		wave7 seed	text height legacy
-
-TW_1	TW=1	settings		wave7 seed	text width legacy
-
-ACTIVE_TEXTSTYLE_LIST	ACTIVE TEXTSTYLE LIST	settings		wave7 seed	
-
-TEXTSTYLE_LIST	TEXTSTYLE LIST	settings		wave7 seed	
-
-SET_TEXT_NODE_ON	SET TEXT NODE ON	settings		wave7 seed	
-
-SET_TEXT_NODE_OFF	SET TEXT NODE OFF	settings		wave7 seed	
-
-DIMENSION_ASSOCIATION_ON	DIMENSION ASSOCIATION ON	settings		wave7 seed	
-
-DIMENSION_ASSOCIATION_OFF	DIMENSION ASSOCIATION OFF	settings		wave7 seed	
-
-SET_DIMENSION_ASSOCIATION_ON	SET DIMENSION ASSOCIATION ON	settings		wave7 seed	
-
-SET_DIMENSION_ASSOCIATION_OFF	SET DIMENSION ASSOCIATION OFF	settings		wave7 seed	
-
-DIMENSION_WITNESS_ON	DIMENSION WITNESS ON	settings		wave7 seed	
-
-DIMENSION_WITNESS_OFF	DIMENSION WITNESS OFF	settings		wave7 seed	
-
-DIMENSION_ARROWS_ON	DIMENSION ARROWS ON	settings		wave7 seed	
-
-DIMENSION_ARROWS_OFF	DIMENSION ARROWS OFF	settings		wave7 seed	
-
-DIMENSION_TEXT_ABOVE	DIMENSION TEXT ABOVE	settings		wave7 seed	
-
-DIMENSION_TEXT_INLINE	DIMENSION TEXT INLINE	settings		wave7 seed	
-
-ACTIVE_DIMENSION_STYLE_LIST	ACTIVE DIMENSION STYLE LIST	settings		wave7 seed	
-
-DIMSTYLE_LIST	DIMSTYLE LIST	settings		wave7 seed	
-
-MEASURE_DISPLAY_ON	MEASURE DISPLAY ON	view		wave7 seed	
-
-MEASURE_DISPLAY_OFF	MEASURE DISPLAY OFF	view		wave7 seed	
-
-SET_MEASURE_ACCUMULATE_ON	SET MEASURE ACCUMULATE ON	settings		wave7 seed	
-
-SET_MEASURE_ACCUMULATE_OFF	SET MEASURE ACCUMULATE OFF	settings		wave7 seed	
-
-SOLIDS_ON	SOLIDS ON	view		wave7 seed	
-
-SOLIDS_OFF	SOLIDS OFF	view		wave7 seed	
-
-SURFACES_ON	SURFACES ON	view		wave7 seed	
-
-SURFACES_OFF	SURFACES OFF	view		wave7 seed	
-
-MESHES_ON	MESHES ON	view		wave7 seed	
-
-MESHES_OFF	MESHES OFF	view		wave7 seed	
-
-FEATURES_DISPLAY_ON	FEATURES DISPLAY ON	view		wave7 seed	
-
-FEATURES_DISPLAY_OFF	FEATURES DISPLAY OFF	view		wave7 seed	
-
-SET_FEATURES_ON	SET FEATURES ON	settings		wave7 seed	
-
-SET_FEATURES_OFF	SET FEATURES OFF	settings		wave7 seed	
-
-GROUPS_DISPLAY_ON	GROUPS DISPLAY ON	view		wave7 seed	
-
-GROUPS_DISPLAY_OFF	GROUPS DISPLAY OFF	view		wave7 seed	
-
-COMPLEX_ON	COMPLEX ON	view		wave7 seed	
-
-COMPLEX_OFF	COMPLEX OFF	view		wave7 seed	
-
-ELEMENT_INFO_ON	ELEMENT INFO ON	settings		wave7 seed	
-
-ELEMENT_INFO_OFF	ELEMENT INFO OFF	settings		wave7 seed	
-
-PROPERTIES_DISPLAY_ON	PROPERTIES DISPLAY ON	view		wave7 seed	
-
-PROPERTIES_DISPLAY_OFF	PROPERTIES DISPLAY OFF	view		wave7 seed	
-
-PUBLISH_SETTINGS	PUBLISH SETTINGS	dialog		wave7 seed	negative
-
-DIALOG_PUBLISH	DIALOG PUBLISH	dialog		wave7 seed	negative
-
-DIALOG_PRINT_ORGANIZER	DIALOG PRINT ORGANIZER	dialog		wave7 seed	negative
-
-EXPORT_VISIBLE_EDGES	EXPORT VISIBLE EDGES	file		wave7 seed	negative
-
-SAVE_AS	SAVE AS	file		wave7 seed	negative
-
-PLACE_DIMENSION_LINEAR	PLACE DIMENSION LINEAR	tool		wave7 seed	negative
-
-PLACE_TEXT	PLACE TEXT	tool		wave7 seed	negative
-
-PLACE_NOTE	PLACE NOTE	tool		wave7 seed	negative
-
-PLACE_CELL	PLACE CELL	tool		wave7 seed	negative
-
-MEASURE_DISTANCE	MEASURE DISTANCE	tool		wave7 seed	negative
-
-MEASURE_ANGLE	MEASURE ANGLE	tool		wave7 seed	negative
-
-MEASURE_AREA	MEASURE AREA	tool		wave7 seed	negative
-
-CONSTRUCT_EXTRUDE	CONSTRUCT EXTRUDE	tool		wave7 seed	negative
-
-BOOLEAN_UNION	BOOLEAN UNION	tool		wave7 seed	negative
-
-CIVIL_GEOMETRY_ON	CIVIL GEOMETRY ON	view		wave7 seed	may need ORD
-
-CIVIL_GEOMETRY_OFF	CIVIL GEOMETRY OFF	view		wave7 seed	
-
-ALIGNMENT_DISPLAY_ON	ALIGNMENT DISPLAY ON	view		wave7 seed	
-
-ALIGNMENT_DISPLAY_OFF	ALIGNMENT DISPLAY OFF	view		wave7 seed	
-
-PROFILE_DISPLAY_ON	PROFILE DISPLAY ON	view		wave7 seed	
-
-PROFILE_DISPLAY_OFF	PROFILE DISPLAY OFF	view		wave7 seed	
-
-CORRIDOR_DISPLAY_ON	CORRIDOR DISPLAY ON	view		wave7 seed	
-
-CORRIDOR_DISPLAY_OFF	CORRIDOR DISPLAY OFF	view		wave7 seed	
-
-FEATURE_DEFINITION_DISPLAY_ON	FEATURE DEFINITION DISPLAY ON	view		wave7 seed	
-
-FEATURE_DEFINITION_DISPLAY_OFF	FEATURE DEFINITION DISPLAY OFF	view		wave7 seed	
-
-CIVIL_LABELS_ON	CIVIL LABELS ON	view		wave7 seed	
-
-CIVIL_LABELS_OFF	CIVIL LABELS OFF	view		wave7 seed	
-
-OPENROADS_ON	OPENROADS ON	settings		wave7 seed	
-
-OPENROADS_OFF	OPENROADS OFF	settings		wave7 seed	
-
-DIALOG_CIVIL	DIALOG CIVIL	dialog		wave7 seed	negative
-
-PLACE_CIVIL_GEOMETRY	PLACE CIVIL GEOMETRY	tool		wave7 seed	negative
-
-IFC_EXPORT	IFC EXPORT	file		wave7 seed	negative
-
-PDF_PUBLISH	PDF PUBLISH	file		wave7 seed	negative
-
-MEASURE_UNITS_MASTER	MEASURE UNITS MASTER	settings		wave7 measure/dim/text/cell	measure label master units
-
-MEASURE_UNITS_SUB	MEASURE UNITS SUB	settings		wave7 measure/dim/text/cell	measure label sub units
-
-MEASURE_UNITS_WORKING	MEASURE UNITS WORKING	settings		wave7 measure/dim/text/cell	measure label working units
-
-MEASURE_UNITS_STORAGE	MEASURE UNITS STORAGE	settings		wave7 measure/dim/text/cell	measure label storage units
-
-MEASURE_UNITS_DEGREES	MEASURE UNITS DEGREES	settings		wave7 measure/dim/text/cell	angle measure display units
-
-MEASURE_UNITS_LENGTH	MEASURE UNITS LENGTH	settings		wave7 measure/dim/text/cell	length measure display units
-
-MEASURE_DELTA_ON	MEASURE DELTA ON	settings		wave7 measure/dim/text/cell	show delta in measure readout
-
-MEASURE_DELTA_OFF	MEASURE DELTA OFF	settings		wave7 measure/dim/text/cell	hide delta in measure readout
-
-MEASURE_DYNAMIC_ON	MEASURE DYNAMIC ON	settings		wave7 measure/dim/text/cell	dynamic measure readout on
-
-MEASURE_DYNAMIC_OFF	MEASURE DYNAMIC OFF	settings		wave7 measure/dim/text/cell	dynamic measure readout off
-
-MEASURE_LABEL_ON	MEASURE LABEL ON	settings		wave7 measure/dim/text/cell	show measure label
-
-MEASURE_LABEL_OFF	MEASURE LABEL OFF	settings		wave7 measure/dim/text/cell	hide measure label
-
-MEASURE_COORDINATES_ON	MEASURE COORDINATES ON	settings		wave7 measure/dim/text/cell	show coordinates in measure
-
-MEASURE_COORDINATES_OFF	MEASURE COORDINATES OFF	settings		wave7 measure/dim/text/cell	hide coordinates in measure
-
-DIMENSION_UNITS_DEGREES	DIMENSION UNITS DEGREES	settings		wave7 measure/dim/text/cell	dimension angle units
-
-DIMENSION_UNITS_LENGTH	DIMENSION UNITS LENGTH	settings		wave7 measure/dim/text/cell	dimension length units
-
-ACTIVE_DIMENSIONSTYLE	ACTIVE DIMENSIONSTYLE {styleName}	settings	styleName	wave7 measure/dim/text/cell	set active dimension style
-
-DIM_EQ	DIM={styleName}	settings	styleName	wave7 measure/dim/text/cell	two-letter active dim style
-
-DIMENSION_STYLE	DIMENSION STYLE {styleName}	settings	styleName	wave7 measure/dim/text/cell	set dimension style long form
-
-DIMENSION_LEVEL_ACTIVE	DIMENSION LEVEL ACTIVE	settings		wave7 measure/dim/text/cell	dimension on active level
-
-DIMENSION_AXIS_ARBITRARY	DIMENSION AXIS ARBITRARY	settings		wave7 measure/dim/text/cell	dimension axis arbitrary
-
-DIMENSION_AXIS_DRAWING	DIMENSION AXIS DRAWING	settings		wave7 measure/dim/text/cell	dimension axis drawing
-
-DIMENSION_AXIS_TRUE	DIMENSION AXIS TRUE	settings		wave7 measure/dim/text/cell	dimension axis true
-
-DIMENSION_AXIS_VIEW	DIMENSION AXIS VIEW	settings		wave7 measure/dim/text/cell	dimension axis view
-
-DIMENSION_EXTENSION_ON	DIMENSION EXTENSION ON	settings		wave7 measure/dim/text/cell	extension lines on
-
-DIMENSION_EXTENSION_OFF	DIMENSION EXTENSION OFF	settings		wave7 measure/dim/text/cell	extension lines off
-
-DIMENSION_TERMINATOR_OPEN	DIMENSION TERMINATOR OPEN	settings		wave7 measure/dim/text/cell	open terminators
-
-DIMENSION_TERMINATOR_FILLED	DIMENSION TERMINATOR FILLED	settings		wave7 measure/dim/text/cell	filled terminators
-
-DIMENSION_TEXT_BELOW	DIMENSION TEXT BELOW	settings		wave7 measure/dim/text/cell	dimension text below line
-
-DIMENSION_TEXT_OUTSIDE	DIMENSION TEXT OUTSIDE	settings		wave7 measure/dim/text/cell	dimension text outside
-
-DIMENSION_TEXT_INSIDE	DIMENSION TEXT INSIDE	settings		wave7 measure/dim/text/cell	dimension text inside
-
-DIMENSION_TOLERANCE_ON	DIMENSION TOLERANCE ON	settings		wave7 measure/dim/text/cell	show dimension tolerance
-
-DIMENSION_TOLERANCE_OFF	DIMENSION TOLERANCE OFF	settings		wave7 measure/dim/text/cell	hide dimension tolerance
-
-DIMENSION_OFFSET	DIMENSION OFFSET {offset}	settings	offset	wave7 measure/dim/text/cell	dimension line offset
-
-DIMENSION_SYMMETRICAL_ON	DIMENSION SYMMETRICAL ON	settings		wave7 measure/dim/text/cell	symmetrical dimensioning on
-
-DIMENSION_SYMMETRICAL_OFF	DIMENSION SYMMETRICAL OFF	settings		wave7 measure/dim/text/cell	symmetrical dimensioning off
-
-DIMENSION_TEXT_HEIGHT	DIMENSION TEXT HEIGHT {height}	settings	height	wave7 measure/dim/text/cell	active dimension text height
-
-DIMENSION_FONT	DIMENSION FONT {font}	settings	font	wave7 measure/dim/text/cell	active dimension font
-
-DIMSTYLE_SHOWSECONDARYUNITS_ON	DIMENSION STYLE SETTINGS SHOWSECONDARYUNITS ON	settings		wave7 measure/dim/text/cell	show secondary dim units
-
-DIMSTYLE_SHOWSECONDARYUNITS_OFF	DIMENSION STYLE SETTINGS SHOWSECONDARYUNITS OFF	settings		wave7 measure/dim/text/cell	hide secondary dim units
-
-DIMSTYLE_SHOWPRIMARYUNITS_ON	DIMENSION STYLE SETTINGS SHOWPRIMARYUNITS ON	settings		wave7 measure/dim/text/cell	show primary dim units
-
-DIMSTYLE_SHOWPRIMARYUNITS_OFF	DIMENSION STYLE SETTINGS SHOWPRIMARYUNITS OFF	settings		wave7 measure/dim/text/cell	hide primary dim units
-
-ACTIVE_DIMENSION_LEVEL	ACTIVE DIMENSION LEVEL {level}	settings	level	wave7 measure/dim/text/cell	dimension element level
-
-DIMENSION_ARROW_SIZE	DIMENSION ARROW SIZE {size}	settings	size	wave7 measure/dim/text/cell	dimension arrow size
-
-ACTIVE_TXUNDERLINE_ON	ACTIVE TXUNDERLINE ON	settings		wave7 measure/dim/text/cell	text underline on
-
-ACTIVE_TXOVERLINE_ON	ACTIVE TXOVERLINE ON	settings		wave7 measure/dim/text/cell	text overline on
-
-ACTIVE_TXFRACTIONS_ON	ACTIVE TXFRACTIONS ON	settings		wave7 measure/dim/text/cell	stacked fractions on
-
-TEXT_JUSTIFICATION_TOP	TEXT JUSTIFICATION TOP	settings		wave7 measure/dim/text/cell	text justify top
-
-TEXT_JUSTIFICATION_BOTTOM	TEXT JUSTIFICATION BOTTOM	settings		wave7 measure/dim/text/cell	text justify bottom
-
-TEXT_JUSTIFICATION_MIDDLE	TEXT JUSTIFICATION MIDDLE	settings		wave7 measure/dim/text/cell	text justify middle
-
-TEXT_JUSTIFICATION_FULL	TEXT JUSTIFICATION FULL	settings		wave7 measure/dim/text/cell	text justify full
-
-TEXT_NODE_JUSTIFICATION_TOP	TEXT NODE JUSTIFICATION TOP	settings		wave7 measure/dim/text/cell	text node justify top
-
-TEXT_NODE_JUSTIFICATION_BOTTOM	TEXT NODE JUSTIFICATION BOTTOM	settings		wave7 measure/dim/text/cell	text node justify bottom
-
-TEXT_NODE_JUSTIFICATION_MIDDLE	TEXT NODE JUSTIFICATION MIDDLE	settings		wave7 measure/dim/text/cell	text node justify middle
-
-TEXT_UNDERLINE_ON	TEXT UNDERLINE ON	settings		wave7 measure/dim/text/cell	underline on
-
-TEXT_UNDERLINE_OFF	TEXT UNDERLINE OFF	settings		wave7 measure/dim/text/cell	underline off
-
-TEXT_OVERLINE_ON	TEXT OVERLINE ON	settings		wave7 measure/dim/text/cell	overline on
-
-TEXT_OVERLINE_OFF	TEXT OVERLINE OFF	settings		wave7 measure/dim/text/cell	overline off
-
-TEXT_FRACTION_ON	TEXT FRACTION ON	settings		wave7 measure/dim/text/cell	fraction formatting on
-
-TEXT_FRACTION_OFF	TEXT FRACTION OFF	settings		wave7 measure/dim/text/cell	fraction formatting off
-
-TEXT_ROTATE	TEXT ROTATE {angleDeg}	settings	angleDeg	wave7 measure/dim/text/cell	text rotation angle
-
-ACTIVE_TXROTATION	ACTIVE TXROTATION {angleDeg}	settings	angleDeg	wave7 measure/dim/text/cell	active text rotation
-
-ACTIVE_TXLINESPACING	ACTIVE TXLINESPACING {spacing}	settings	spacing	wave7 measure/dim/text/cell	line spacing
-
-ACTIVE_TXINTERCHARSPACING	ACTIVE TXINTERCHARSPACING {spacing}	settings	spacing	wave7 measure/dim/text/cell	intercharacter spacing
-
-TEXT_STYLE_APPLY	TEXT STYLE APPLY	settings		wave7 measure/dim/text/cell	apply active text style
-
-TEXT_STYLE_UPDATE	TEXT STYLE UPDATE	settings		wave7 measure/dim/text/cell	update text to active style
-
-TT_EQ	TT={styleName}	settings	styleName	wave7 measure/dim/text/cell	two-letter active text style
-
-TJ_EQ	TJ={justification}	settings	justification	wave7 measure/dim/text/cell	two-letter text justification
-
-TEXT_EDITOR_JUSTIFICATION_LEFT	TEXT EDITOR JUSTIFICATION LEFT	settings		wave7 measure/dim/text/cell	text editor default justify left
-
-LEADER_ARROW_ON	LEADER ARROW ON	settings		wave7 measure/dim/text/cell	leader arrow on
-
-LEADER_ARROW_OFF	LEADER ARROW OFF	settings		wave7 measure/dim/text/cell	leader arrow off
-
-LEADER_DOGLEG_ON	LEADER DOGLEG ON	settings		wave7 measure/dim/text/cell	leader dogleg on
-
-LEADER_DOGLEG_OFF	LEADER DOGLEG OFF	settings		wave7 measure/dim/text/cell	leader dogleg off
-
-LEADER_HORIZONTAL_ON	LEADER HORIZONTAL ON	settings		wave7 measure/dim/text/cell	horizontal leader segment on
-
-LEADER_HORIZONTAL_OFF	LEADER HORIZONTAL OFF	settings		wave7 measure/dim/text/cell	horizontal leader segment off
-
-NOTE_FRAME_ON	NOTE FRAME ON	settings		wave7 measure/dim/text/cell	note frame on
-
-NOTE_FRAME_OFF	NOTE FRAME OFF	settings		wave7 measure/dim/text/cell	note frame off
-
-NOTE_JUSTIFICATION_LEFT	NOTE JUSTIFICATION LEFT	settings		wave7 measure/dim/text/cell	note text justify left
-
-ACTIVE_CELL_ZSCALE	ACTIVE CELL ZSCALE {scale}	settings	scale	wave7 measure/dim/text/cell	active cell Z scale
-
-CELL_TRUE_SCALE_ON	CELL TRUE SCALE ON	settings		wave7 measure/dim/text/cell	true scale placement on
-
-CELL_TRUE_SCALE_OFF	CELL TRUE SCALE OFF	settings		wave7 measure/dim/text/cell	true scale placement off
-
-PLACE_AS_SHARED_CELL_ON	PLACE AS SHARED CELL ON	settings		wave7 measure/dim/text/cell	place cells as shared on
-
-PLACE_AS_SHARED_CELL_OFF	PLACE AS SHARED CELL OFF	settings		wave7 measure/dim/text/cell	place cells as shared off
-
-CELL_INTERACTIVE_ON	CELL INTERACTIVE ON	settings		wave7 measure/dim/text/cell	interactive cell scale/rotate on
-
-CELL_INTERACTIVE_OFF	CELL INTERACTIVE OFF	settings		wave7 measure/dim/text/cell	interactive cell scale/rotate off
-
-ACTIVE_CELL_RELATIVE_ON	ACTIVE CELL RELATIVE ON	settings		wave7 measure/dim/text/cell	place cell relative level mode on
-
-MEASURE_ELEMENT	MEASURE ELEMENT	tool		wave7 measure/dim/text/cell	negative
-
-MEASURE_LOCATION	MEASURE LOCATION	tool		wave7 measure/dim/text/cell	negative
-
-DIALOG_DIMENSIONSTYLE	DIALOG DIMENSIONSTYLE	dialog		wave7 measure/dim/text/cell	negative
-
-DIALOG_TEXTSTYLE	DIALOG TEXTSTYLE	dialog		wave7 measure/dim/text/cell	negative
-
-PLACE_LEADER	PLACE LEADER	tool		wave7 measure/dim/text/cell	negative
-
-TEXTEDITOR_PLACE_TEXT	TEXTEDITOR PLACE TEXT	tool		wave7 measure/dim/text/cell	negative
-
-DIALOG_MEASURE	DIALOG MEASURE	dialog		wave7 measure/dim/text/cell	negative
-
-SET_SOLIDS_ON	SET SOLIDS ON	settings		wave7 solids/features	alternate plural solid class display
-
-SET_SOLIDS_OFF	SET SOLIDS OFF	settings		wave7 solids/features	
-
-SET_SURFACES_ON	SET SURFACES ON	settings		wave7 solids/features	
-
-SET_SURFACES_OFF	SET SURFACES OFF	settings		wave7 solids/features	
-
-SET_MESHES_ON	SET MESHES ON	settings		wave7 solids/features	
-
-SET_MESHES_OFF	SET MESHES OFF	settings		wave7 solids/features	
-
-SOLID_DISPLAY_ON	SOLID DISPLAY ON	view		wave7 solids/features	singular solid element display
-
-SOLID_DISPLAY_OFF	SOLID DISPLAY OFF	view		wave7 solids/features	
-
-SURFACE_DISPLAY_ON	SURFACE DISPLAY ON	view		wave7 solids/features	
-
-SURFACE_DISPLAY_OFF	SURFACE DISPLAY OFF	view		wave7 solids/features	
-
-MESH_DISPLAY_ON	MESH DISPLAY ON	view		wave7 solids/features	
-
-MESH_DISPLAY_OFF	MESH DISPLAY OFF	view		wave7 solids/features	
-
-SMARTSOLID_ON	SMARTSOLID ON	view		wave7 solids/features	SmartSolid element display
-
-SMARTSOLID_OFF	SMARTSOLID OFF	view		wave7 solids/features	
-
-SET_SMARTSOLID_ON	SET SMARTSOLID ON	settings		wave7 solids/features	
-
-SET_SMARTSOLID_OFF	SET SMARTSOLID OFF	settings		wave7 solids/features	
-
-SMART_SOLID_ON	SMART SOLID ON	view		wave7 solids/features	alternate spacing
-
-SMART_SOLID_OFF	SMART SOLID OFF	view		wave7 solids/features	
-
-BREP_ON	BREP ON	view		wave7 solids/features	B-rep solid display
-
-BREP_OFF	BREP OFF	view		wave7 solids/features	
-
-SET_BREP_ON	SET BREP ON	settings		wave7 solids/features	
-
-SET_BREP_OFF	SET BREP OFF	settings		wave7 solids/features	
-
-POLYFACE_ON	POLYFACE ON	view		wave7 solids/features	polyface mesh display
-
-POLYFACE_OFF	POLYFACE OFF	view		wave7 solids/features	
-
-SET_POLYFACE_ON	SET POLYFACE ON	settings		wave7 solids/features	
-
-SET_POLYFACE_OFF	SET POLYFACE OFF	settings		wave7 solids/features	
-
-SOLID_EDGES_ON	SOLID EDGES ON	view		wave7 solids/features	solid edge display toggle
-
-SOLID_EDGES_OFF	SOLID EDGES OFF	view		wave7 solids/features	
-
-SURFACE_EDGES_ON	SURFACE EDGES ON	view		wave7 solids/features	
-
-SURFACE_EDGES_OFF	SURFACE EDGES OFF	view		wave7 solids/features	
-
-MESH_EDGES_ON	MESH EDGES ON	view		wave7 solids/features	
-
-MESH_EDGES_OFF	MESH EDGES OFF	view		wave7 solids/features	
-
-SET_SOLID_EDGES_ON	SET SOLID EDGES ON	settings		wave7 solids/features	
-
-SET_SOLID_EDGES_OFF	SET SOLID EDGES OFF	settings		wave7 solids/features	
-
-FACET_EDGES_ON	FACET EDGES ON	view		wave7 solids/features	facet edge display
-
-FACET_EDGES_OFF	FACET EDGES OFF	view		wave7 solids/features	
-
-SET_FACET_EDGES_ON	SET FACET EDGES ON	settings		wave7 solids/features	
-
-SET_FACET_EDGES_OFF	SET FACET EDGES OFF	settings		wave7 solids/features	
-
-HIDDEN_EDGES_ON	HIDDEN EDGES ON	view		wave7 solids/features	3D hidden edge display
-
-HIDDEN_EDGES_OFF	HIDDEN EDGES OFF	view		wave7 solids/features	
-
-VISIBLE_EDGES_ON	VISIBLE EDGES ON	view		wave7 solids/features	
-
-VISIBLE_EDGES_OFF	VISIBLE EDGES OFF	view		wave7 solids/features	
-
-SOLID_FACES_ON	SOLID FACES ON	view		wave7 solids/features	solid face display
-
-SOLID_FACES_OFF	SOLID FACES OFF	view		wave7 solids/features	
-
-SURFACE_FACES_ON	SURFACE FACES ON	view		wave7 solids/features	
-
-SURFACE_FACES_OFF	SURFACE FACES OFF	view		wave7 solids/features	
-
-FEATURE_DISPLAY_ON	FEATURE DISPLAY ON	view		wave7 solids/features	parametric feature display
-
-FEATURE_DISPLAY_OFF	FEATURE DISPLAY OFF	view		wave7 solids/features	
-
-SET_FEATURE_DISPLAY_ON	SET FEATURE DISPLAY ON	settings		wave7 solids/features	
-
-SET_FEATURE_DISPLAY_OFF	SET FEATURE DISPLAY OFF	settings		wave7 solids/features	
-
-FEATURE_ICONS_ON	FEATURE ICONS ON	view		wave7 solids/features	feature icon overlay
-
-FEATURE_ICONS_OFF	FEATURE ICONS OFF	view		wave7 solids/features	
-
-SET_FEATURE_ICONS_ON	SET FEATURE ICONS ON	settings		wave7 solids/features	
-
-SET_FEATURE_ICONS_OFF	SET FEATURE ICONS OFF	settings		wave7 solids/features	
-
-FEATURE_INPUTS_ON	FEATURE INPUTS ON	view		wave7 solids/features	show feature input elements
-
-FEATURE_INPUTS_OFF	FEATURE INPUTS OFF	view		wave7 solids/features	
-
-SET_FEATURE_INPUTS_ON	SET FEATURE INPUTS ON	settings		wave7 solids/features	
-
-SET_FEATURE_INPUTS_OFF	SET FEATURE INPUTS OFF	settings		wave7 solids/features	
-
-FEATURE_PROFILES_ON	FEATURE PROFILES ON	view		wave7 solids/features	show extrusion/revolve profiles
-
-FEATURE_PROFILES_OFF	FEATURE PROFILES OFF	view		wave7 solids/features	
-
-SET_FEATURE_PROFILES_ON	SET FEATURE PROFILES ON	settings		wave7 solids/features	
-
-SET_FEATURE_PROFILES_OFF	SET FEATURE PROFILES OFF	settings		wave7 solids/features	
-
-PARAMETRIC_FEATURES_ON	PARAMETRIC FEATURES ON	view		wave7 solids/features	parametric feature solids display
-
-PARAMETRIC_FEATURES_OFF	PARAMETRIC FEATURES OFF	view		wave7 solids/features	
-
-SET_PARAMETRIC_FEATURES_ON	SET PARAMETRIC FEATURES ON	settings		wave7 solids/features	
-
-SET_PARAMETRIC_FEATURES_OFF	SET PARAMETRIC FEATURES OFF	settings		wave7 solids/features	
-
-SOURCE_FEATURES_DISPLAY_ON	SOURCE FEATURES DISPLAY ON	view		wave7 solids/features	Properties pane source features
-
-SOURCE_FEATURES_DISPLAY_OFF	SOURCE FEATURES DISPLAY OFF	view		wave7 solids/features	
-
-CALCULATED_FEATURES_DISPLAY_ON	CALCULATED FEATURES DISPLAY ON	view		wave7 solids/features	Properties pane calculated features
-
-CALCULATED_FEATURES_DISPLAY_OFF	CALCULATED FEATURES DISPLAY OFF	view		wave7 solids/features	
-
-FEATURE_SUPPRESSION_ON	FEATURE SUPPRESSION ON	settings		wave7 solids/features	enable feature suppression mode
-
-FEATURE_SUPPRESSION_OFF	FEATURE SUPPRESSION OFF	settings		wave7 solids/features	
-
-FEATURE_GEOMETRY_ON	FEATURE GEOMETRY ON	view		wave7 solids/features	feature geometry display
-
-FEATURE_GEOMETRY_OFF	FEATURE GEOMETRY OFF	view		wave7 solids/features	
-
-FEATURE_LABELS_ON	FEATURE LABELS ON	view		wave7 solids/features	feature label display
-
-FEATURE_LABELS_OFF	FEATURE LABELS OFF	view		wave7 solids/features	
-
-ACTIVE_EXTRUDE_DISTANCE	ACTIVE EXTRUDE DISTANCE {distance}	settings	distance	wave7 solids/features	extrude tool distance setting
-
-ACTIVE_EXTRUDE_THICKNESS	ACTIVE EXTRUDE THICKNESS {thickness}	settings	thickness	wave7 solids/features	wall thickness setting
-
-ACTIVE_EXTRUDE_DRAFT_ANGLE	ACTIVE EXTRUDE DRAFT ANGLE {angle}	settings	angle	wave7 solids/features	draft angle setting
-
-ACTIVE_PROJECTION_DISTANCE	ACTIVE PROJECTION DISTANCE {distance}	settings	distance	wave7 solids/features	projection solid distance
-
-ACTIVE_THICKNESS	ACTIVE THICKNESS {thickness}	settings	thickness	wave7 solids/features	general thickness active setting
-
-ACTIVE_DRAFT_ANGLE	ACTIVE DRAFT ANGLE {angle}	settings	angle	wave7 solids/features	general draft angle active setting
-
-EXTRUDE_KEEP_ORIGINAL_ON	EXTRUDE KEEP ORIGINAL ON	settings		wave7 solids/features	retain profile after extrude
-
-EXTRUDE_KEEP_ORIGINAL_OFF	EXTRUDE KEEP ORIGINAL OFF	settings		wave7 solids/features	
-
-EXTRUDE_PARAMETRIC_ON	EXTRUDE PARAMETRIC ON	settings		wave7 solids/features	create parametric extrusion
-
-EXTRUDE_PARAMETRIC_OFF	EXTRUDE PARAMETRIC OFF	settings		wave7 solids/features	
-
-EXTRUDE_ORTHOGONAL_ON	EXTRUDE ORTHOGONAL ON	settings		wave7 solids/features	orthogonal extrusion
-
-EXTRUDE_ORTHOGONAL_OFF	EXTRUDE ORTHOGONAL OFF	settings		wave7 solids/features	
-
-EXTRUDE_BOTH_DIRECTIONS_ON	EXTRUDE BOTH DIRECTIONS ON	settings		wave7 solids/features	bidirectional extrusion
-
-EXTRUDE_BOTH_DIRECTIONS_OFF	EXTRUDE BOTH DIRECTIONS OFF	settings		wave7 solids/features	
-
-BOOLEAN_PARAMETRIC_ON	BOOLEAN PARAMETRIC ON	settings		wave7 solids/features	parametric boolean result
-
-BOOLEAN_PARAMETRIC_OFF	BOOLEAN PARAMETRIC OFF	settings		wave7 solids/features	
-
-BOOLEAN_KEEP_ORIGINAL_ON	BOOLEAN KEEP ORIGINAL ON	settings		wave7 solids/features	retain operands after boolean
-
-BOOLEAN_KEEP_ORIGINAL_OFF	BOOLEAN KEEP ORIGINAL OFF	settings		wave7 solids/features	
-
-SET_VARIABLES_ON	SET VARIABLES ON	settings		wave7 solids/features	SET-form variable display
-
-SET_VARIABLES_OFF	SET VARIABLES OFF	settings		wave7 solids/features	
-
-SET_EXPRESSIONS_ON	SET EXPRESSIONS ON	settings		wave7 solids/features	SET-form expression display
-
-SET_EXPRESSIONS_OFF	SET EXPRESSIONS OFF	settings		wave7 solids/features	
-
-SET_PARAMETRIC_ON	SET PARAMETRIC ON	settings		wave7 solids/features	SET-form parametric display
-
-SET_PARAMETRIC_OFF	SET PARAMETRIC OFF	settings		wave7 solids/features	
-
-CONSTRAINT_LABELS_ON	CONSTRAINT LABELS ON	view		wave7 solids/features	constraint label overlay
-
-CONSTRAINT_LABELS_OFF	CONSTRAINT LABELS OFF	view		wave7 solids/features	
-
-VARIABLE_LABELS_ON	VARIABLE LABELS ON	view		wave7 solids/features	variable label overlay
-
-VARIABLE_LABELS_OFF	VARIABLE LABELS OFF	view		wave7 solids/features	
-
-EXPRESSION_LABELS_ON	EXPRESSION LABELS ON	view		wave7 solids/features	expression label overlay
-
-EXPRESSION_LABELS_OFF	EXPRESSION LABELS OFF	view		wave7 solids/features	
-
-CONSTRAINT_DIMENSIONS_ON	CONSTRAINT DIMENSIONS ON	view		wave7 solids/features	constraint dimension display
-
-CONSTRAINT_DIMENSIONS_OFF	CONSTRAINT DIMENSIONS OFF	view		wave7 solids/features	
-
-VARIABLE_DISPLAY_ON	VARIABLE DISPLAY ON	view		wave7 solids/features	variable value overlay
-
-VARIABLE_DISPLAY_OFF	VARIABLE DISPLAY OFF	view		wave7 solids/features	
-
-EXPRESSION_DISPLAY_ON	EXPRESSION DISPLAY ON	view		wave7 solids/features	expression value overlay
-
-EXPRESSION_DISPLAY_OFF	EXPRESSION DISPLAY OFF	view		wave7 solids/features	
-
-LOCK_VARIABLES_ON	LOCK VARIABLES ON	lock		wave7 solids/features	lock variable editing
-
-LOCK_VARIABLES_OFF	LOCK VARIABLES OFF	lock		wave7 solids/features	
-
-LOCK_EXPRESSIONS_ON	LOCK EXPRESSIONS ON	lock		wave7 solids/features	lock expression editing
-
-LOCK_EXPRESSIONS_OFF	LOCK EXPRESSIONS OFF	lock		wave7 solids/features	
-
-DRIVEN_DIMENSIONS_ON	DRIVEN DIMENSIONS ON	view		wave7 solids/features	show constraint-driven dimensions
-
-DRIVEN_DIMENSIONS_OFF	DRIVEN DIMENSIONS OFF	view		wave7 solids/features	
-
-GRAPHICGROUP_DISPLAY_ON	GRAPHICGROUP DISPLAY ON	view		wave7 solids/features	graphic group highlight display
-
-GRAPHICGROUP_DISPLAY_OFF	GRAPHICGROUP DISPLAY OFF	view		wave7 solids/features	
-
-GGROUP_DISPLAY_ON	GGROUP DISPLAY ON	view		wave7 solids/features	legacy graphic group display
-
-GGROUP_DISPLAY_OFF	GGROUP DISPLAY OFF	view		wave7 solids/features	
-
-SET_GRAPHICGROUP_ON	SET GRAPHICGROUP ON	settings		wave7 solids/features	graphic group class display
-
-SET_GRAPHICGROUP_OFF	SET GRAPHICGROUP OFF	settings		wave7 solids/features	
-
-GRAPHIC_GROUP_ON	GRAPHIC GROUP ON	view		wave7 solids/features	alternate spacing
-
-GRAPHIC_GROUP_OFF	GRAPHIC GROUP OFF	view		wave7 solids/features	
-
-SET_GROUP_ON	SET GROUP ON	settings		wave7 solids/features	generic group class display
-
-SET_GROUP_OFF	SET GROUP OFF	settings		wave7 solids/features	
-
-SET_NAMEDGROUP_ON	SET NAMEDGROUP ON	settings		wave7 solids/features	named group class display
-
-SET_NAMEDGROUP_OFF	SET NAMEDGROUP OFF	settings		wave7 solids/features	
-
-NAMED_GROUP_DISPLAY_ON	NAMED GROUP DISPLAY ON	view		wave7 solids/features	alternate named group display
-
-NAMED_GROUP_DISPLAY_OFF	NAMED GROUP DISPLAY OFF	view		wave7 solids/features	
-
-GROUP_HIERARCHY_ON	GROUP HIERARCHY ON	view		wave7 solids/features	show group hierarchy in display
-
-GROUP_HIERARCHY_OFF	GROUP HIERARCHY OFF	view		wave7 solids/features	
-
-COMPLEX_CHAIN_ON	COMPLEX CHAIN ON	view		wave7 solids/features	complex chain element display
-
-COMPLEX_CHAIN_OFF	COMPLEX CHAIN OFF	view		wave7 solids/features	
-
-COMPLEX_SHAPE_ON	COMPLEX SHAPE ON	view		wave7 solids/features	complex shape element display
-
-COMPLEX_SHAPE_OFF	COMPLEX SHAPE OFF	view		wave7 solids/features	
-
-SET_COMPLEX_CHAIN_ON	SET COMPLEX CHAIN ON	settings		wave7 solids/features	
-
-SET_COMPLEX_CHAIN_OFF	SET COMPLEX CHAIN OFF	settings		wave7 solids/features	
-
-SET_COMPLEX_SHAPE_ON	SET COMPLEX SHAPE ON	settings		wave7 solids/features	
-
-SET_COMPLEX_SHAPE_OFF	SET COMPLEX SHAPE OFF	settings		wave7 solids/features	
-
-SET_ELEMENT_INFO_ON	SET ELEMENT INFO ON	settings		wave7 solids/features	SET-form element info display
-
-SET_ELEMENT_INFO_OFF	SET ELEMENT INFO OFF	settings		wave7 solids/features	
-
-ELEMENT_INFO_DISPLAY_ON	ELEMENT INFO DISPLAY ON	view		wave7 solids/features	element info overlay
-
-ELEMENT_INFO_DISPLAY_OFF	ELEMENT INFO DISPLAY OFF	view		wave7 solids/features	
-
-SET_PROPERTIES_ON	SET PROPERTIES ON	settings		wave7 solids/features	SET-form properties panel data
-
-SET_PROPERTIES_OFF	SET PROPERTIES OFF	settings		wave7 solids/features	
-
-PROPERTIES_ON	PROPERTIES ON	view		wave7 solids/features	properties data display
-
-PROPERTIES_OFF	PROPERTIES OFF	view		wave7 solids/features	
-
-ELEMENT_ATTRIBUTES_ON	ELEMENT ATTRIBUTES ON	view		wave7 solids/features	element attribute overlay
-
-ELEMENT_ATTRIBUTES_OFF	ELEMENT ATTRIBUTES OFF	view		wave7 solids/features	
-
-SET_ELEMENT_ATTRIBUTES_ON	SET ELEMENT ATTRIBUTES ON	settings		wave7 solids/features	
-
-SET_ELEMENT_ATTRIBUTES_OFF	SET ELEMENT ATTRIBUTES OFF	settings		wave7 solids/features	
-
-RAW_DATA_ON	RAW DATA ON	view		wave7 solids/features	raw element data display
-
-RAW_DATA_OFF	RAW DATA OFF	view		wave7 solids/features	
-
-SET_RAW_DATA_ON	SET RAW DATA ON	settings		wave7 solids/features	
-
-SET_RAW_DATA_OFF	SET RAW DATA OFF	settings		wave7 solids/features	
-
-EXTENDED_DATA_ON	EXTENDED DATA ON	view		wave7 solids/features	extended element data display
-
-EXTENDED_DATA_OFF	EXTENDED DATA OFF	view		wave7 solids/features	
-
-SET_EXTENDED_ON	SET EXTENDED ON	settings		wave7 solids/features	
-
-SET_EXTENDED_OFF	SET EXTENDED OFF	settings		wave7 solids/features	
-
-MODELER_PROJECTION	MODELER PROJECTION	tool		wave7 solids/features	negative
-
-MODELER_BOOLEAN_UNION	MODELER BOOLEAN UNION	tool		wave7 solids/features	negative
-
-MODELER_BOOLEAN_SUBTRACT	MODELER BOOLEAN SUBTRACT	tool		wave7 solids/features	negative
-
-MODELER_BOOLEAN_INTERSECT	MODELER BOOLEAN INTERSECT	tool		wave7 solids/features	negative
-
-CONSTRUCT_SURFACE_PROJECTIONSOLID	CONSTRUCT SURFACE PROJECTIONSOLID	tool		wave7 solids/features	negative
-
-BOOLEAN_SUBTRACT	BOOLEAN SUBTRACT	tool		wave7 solids/features	negative
-
-BOOLEAN_INTERSECT	BOOLEAN INTERSECT	tool		wave7 solids/features	negative
-
-DIALOG_PROPERTIES_OPEN	DIALOG PROPERTIES OPEN	dialog		wave7 solids/features	negative
-
-DIALOG_FEATURE_MANAGER	DIALOG FEATURE MANAGER	dialog		wave7 solids/features	negative
-
-DIALOG_ELEMENT_INFO	DIALOG ELEMENT INFO	dialog		wave7 solids/features	negative
-
-PUBLISHDGN_RESET	PUBLISHDGN RESET	settings		wave7 publish/export	Restore default publish iModel dialog settings
-
-PUBLISHDGN_LOADSETTINGSFILE	PUBLISHDGN LOADSETTINGSFILE	settings	file_path	wave7 publish/export	Load publish settings from XML file
-
-PUBLISHDGN_PACKAGE	PUBLISHDGN PACKAGE	settings	package_filename	wave7 publish/export	Enable single-package mode; optional output path
-
-PUBLISHDGN_DOCUMENT_ADD	PUBLISHDGN DOCUMENT ADD	settings	path|filename	wave7 publish/export	Add document to embed in packaged iModel
-
-PUBLISHDGN_DOCUMENT_CLEARALL	PUBLISHDGN DOCUMENT CLEARALL	settings		wave7 publish/export	Clear embedded documents list
-
-PUBLISHDGN_PROTECTION_EVERYONE	PUBLISHDGN PROTECTION EVERYONE	settings		wave7 publish/export	Set package protection to everyone
-
-PUBLISHDGN_PROTECTION_PASSWORD	PUBLISHDGN PROTECTION PASSWORD	settings	password	wave7 publish/export	Set package protection to password
-
-PUBLISHDGN_CERTIFICATE	PUBLISHDGN CERTIFICATE	settings	certificate_name|filename	wave7 publish/export	Set package protection certificate
-
-PUBLISHDGN_RIGHT_EXPORT_ON	PUBLISHDGN RIGHT EXPORT ON	settings		wave7 publish/export	Grant export right on packaged iModel
-
-PUBLISHDGN_RIGHT_EXPORT_OFF	PUBLISHDGN RIGHT EXPORT OFF	settings		wave7 publish/export	Deny export right on packaged iModel
-
-PUBLISHDGN_RIGHT_PRINT_ON	PUBLISHDGN RIGHT PRINT ON	settings		wave7 publish/export	Grant print right on packaged iModel
-
-PUBLISHDGN_RIGHT_PRINT_OFF	PUBLISHDGN RIGHT PRINT OFF	settings		wave7 publish/export	Deny print right on packaged iModel
-
-PUBLISHDGN_EXPIRES	PUBLISHDGN EXPIRES	settings	YYYY/MM/DD	wave7 publish/export	Set package expiration date
-
-PUBLISHDGN_REMOVEIMODELS_ON	PUBLISHDGN REMOVEIMODELS ON	settings		wave7 publish/export	Remove intermediate iModels when packaging
-
-PUBLISHDGN_REMOVEIMODELS_OFF	PUBLISHDGN REMOVEIMODELS OFF	settings		wave7 publish/export	Keep intermediate iModels when packaging
-
-PUBLISHDGN_CACHEVISIBLEEDGES_ON	PUBLISHDGN CACHEVISIBLEEDGES ON	settings		wave7 publish/export	Cache visible edges for 3D attachments
-
-PUBLISHDGN_CACHEVISIBLEEDGES_OFF	PUBLISHDGN CACHEVISIBLEEDGES OFF	settings		wave7 publish/export	Do not cache visible edges for 3D attachments
-
-PUBLISHDGN_ACCEPTOUTOFDATECACHES_ON	PUBLISHDGN ACCEPTOUTOFDATECACHES ON	settings		wave7 publish/export	Retain out-of-date cached visible edges
-
-PUBLISHDGN_ACCEPTOUTOFDATECACHES_OFF	PUBLISHDGN ACCEPTOUTOFDATECACHES OFF	settings		wave7 publish/export	Reprocess out-of-date cached visible edges
-
-PUBLISHDGN_PUBLISHDESIGNLINKS_ON	PUBLISHDGN PUBLISHDESIGNLINKS ON	settings		wave7 publish/export	Include linked design files in publish
-
-PUBLISHDGN_PUBLISHDISPLAYEDATTACHMENTSONLY_ON	PUBLISHDGN PUBLISHDISPLAYEDATTACHMENTSONLY ON	settings		wave7 publish/export	Publish displayed attachments only
-
-PUBLISHDGN_PUBLISHDISPLAYEDATTACHMENTSONLY_OFF	PUBLISHDGN PUBLISHDISPLAYEDATTACHMENTSONLY OFF	settings		wave7 publish/export	Publish all attachments not just displayed
-
-PUBLISHDGN_FORCEREPUBLISH_ON	PUBLISHDGN FORCEREPUBLISH ON	settings		wave7 publish/export	Force republish even if source unchanged
-
-PUBLISHDGN_FORCEREPUBLISH_OFF	PUBLISHDGN FORCEREPUBLISH OFF	settings		wave7 publish/export	Skip republish when source unchanged
-
-PUBLISHDGN_PUBLISH_ACTIVEVIEW	PUBLISHDGN PUBLISH ACTIVEVIEW	settings		wave7 publish/export	Set publish scope to active view content
-
-PUBLISHDGN_PUBLISH_VIEW	PUBLISHDGN PUBLISH VIEW	settings	view_number	wave7 publish/export	Set publish scope to specified view
-
-PUBLISHDGN_PUBLISH_SAVEDVIEW	PUBLISHDGN PUBLISH SAVEDVIEW	settings	saved_view_name	wave7 publish/export	Set publish scope to saved view
-
-PUBLISHDGN_DIALOG_NORESET	PUBLISHDGN DIALOG NORESET	settings		wave7 publish/export	Open publish dialog without resetting settings
-
-POINTCLOUD_PUBLISHOPTION_EXCLUDE	POINTCLOUD PUBLISHOPTION EXCLUDE	settings		wave7 publish/export	Exclude point clouds from published iModel
-
-POINTCLOUD_PUBLISHOPTION_KEEPORIGINAL	POINTCLOUD PUBLISHOPTION KEEPORIGINAL	settings		wave7 publish/export	Keep original point cloud references
-
-POINTCLOUD_PUBLISHOPTION_REDUCESIZE	POINTCLOUD PUBLISHOPTION REDUCESIZE	settings		wave7 publish/export	Reduce point cloud size in package
-
-RASTER_PUBLISHOPTION_EXCLUDE	RASTER PUBLISHOPTION EXCLUDE	settings		wave7 publish/export	Exclude raster attachments from published iModel
-
-RASTER_PUBLISHOPTION_KEEPORIGINAL	RASTER PUBLISHOPTION KEEPORIGINAL	settings		wave7 publish/export	Keep original raster references
-
-RASTER_PUBLISHOPTION_REDUCESIZE	RASTER PUBLISHOPTION REDUCESIZE	settings		wave7 publish/export	Reduce raster size in package
-
-PRINTORGANIZER_NEW	PRINTORGANIZER NEW	settings		wave7 publish/export	Create new print set in Print Organizer
-
-PRINTORGANIZER_ACTIVEFOLDER	PRINTORGANIZER ACTIVEFOLDER	settings	folder_name	wave7 publish/export	Set active folder in print set
-
-PRINTORGANIZER_ADD_ACTIVEFILE	PRINTORGANIZER ADD ACTIVEFILE	settings	printstyle_name	wave7 publish/export	Add active file as print definition
-
-PRINTORGANIZER_ADD_FILE	PRINTORGANIZER ADD FILE	settings	filename|printstyle_name	wave7 publish/export	Add file as print definition
-
-PRINTORGANIZER_ADD_FOLDER	PRINTORGANIZER ADD FOLDER	settings	folder_name	wave7 publish/export	Add folder to print set hierarchy
-
-PRINTORGANIZER_ADD_MODEL	PRINTORGANIZER ADD MODEL	settings	filename|model_name|printstyle_name	wave7 publish/export	Add specific model as print definition
-
-PRINTORGANIZER_APPLYPRINTSTYLE_ALL	PRINTORGANIZER APPLYPRINTSTYLE ALL	settings	printstyle_name	wave7 publish/export	Apply print style to all definitions
-
-PRINTORGANIZER_APPLYPRINTSTYLE_SELECTION	PRINTORGANIZER APPLYPRINTSTYLE SELECTION	settings	printstyle_name	wave7 publish/export	Apply print style to selected definitions
-
-PRINTORGANIZER_CLEARSELECTION	PRINTORGANIZER CLEARSELECTION	settings		wave7 publish/export	Clear Print Organizer selection set
-
-PRINTORGANIZER_DELETE_ALL	PRINTORGANIZER DELETE ALL	settings		wave7 publish/export	Delete all items from print set
-
-PRINTORGANIZER_DELETE_SELECTION	PRINTORGANIZER DELETE SELECTION	settings		wave7 publish/export	Delete selected items from print set
-
-PRINTORGANIZER_EXIT	PRINTORGANIZER EXIT	settings		wave7 publish/export	Close Print Organizer session
-
-PRINTORGANIZER_FINDREPLACE_ALL	PRINTORGANIZER FINDREPLACE ALL	settings	old_string|new_string	wave7 publish/export	Find and replace paths in all print definitions
-
-PRINTORGANIZER_FINDREPLACE_SELECTION	PRINTORGANIZER FINDREPLACE SELECTION	settings	old_string|new_string	wave7 publish/export	Find and replace paths in selected definitions
-
-PRINTORGANIZER_OUTPUTFILENAME	PRINTORGANIZER OUTPUTFILENAME	settings	expression_name	wave7 publish/export	Set output filename expression for definitions
-
-PRINTORGANIZER_PRINTCOPIES	PRINTORGANIZER PRINTCOPIES	settings	copies	wave7 publish/export	Set number of print copies
-
-PRINTORGANIZER_PRINTDESTINATION	PRINTORGANIZER PRINTDESTINATION	settings	destination	wave7 publish/export	Set print destination path or share
-
-PRINTORGANIZER_PRINTERDRIVER	PRINTORGANIZER PRINTERDRIVER	settings	pltcfg_filename	wave7 publish/export	Set printer driver configuration file
-
-PRINTORGANIZER_PRINTERNAME	PRINTORGANIZER PRINTERNAME	settings	printer_name	wave7 publish/export	Set Windows printer name
-
-PRINTORGANIZER_PRINTTO_DEVICE	PRINTORGANIZER PRINTTO DEVICE	settings		wave7 publish/export	Set print target to device
-
-PRINTORGANIZER_PRINTTO_FILE	PRINTORGANIZER PRINTTO FILE	settings		wave7 publish/export	Set print target to file
-
-PRINTORGANIZER_PRINTTO_IPSERVER	PRINTORGANIZER PRINTTO IPSERVER	settings		wave7 publish/export	Set print target to IP server
-
-PRINTORGANIZER_PRINTTO_METAFILE	PRINTORGANIZER PRINTTO METAFILE	settings		wave7 publish/export	Set print target to metafile
-
-PRINTORGANIZER_RENAMEPRINTDEF_ALL	PRINTORGANIZER RENAMEPRINTDEF ALL	settings	expression_name	wave7 publish/export	Rename all print definitions
-
-PRINTORGANIZER_RENAMEPRINTDEF_SELECTION	PRINTORGANIZER RENAMEPRINTDEF SELECTION	settings	expression_name	wave7 publish/export	Rename selected print definitions
-
-PRINTORGANIZER_ROOTFOLDER	PRINTORGANIZER ROOTFOLDER	settings		wave7 publish/export	Make root folder active in print set
-
-PRINTORGANIZER_SELECT_EXACTNAME	PRINTORGANIZER SELECT EXACTNAME	settings	name	wave7 publish/export	Select print definition by exact name match
-
-PRINTORGANIZER_SELECT_INDEX	PRINTORGANIZER SELECT INDEX	settings	index	wave7 publish/export	Select print definition by folder index
-
-PRINTORGANIZER_SELECT_NAME	PRINTORGANIZER SELECT NAME	settings	name	wave7 publish/export	Select print definition by regex name match
-
-PRINTORGANIZER_SETPRINTDEFNAME	PRINTORGANIZER SETPRINTDEFNAME	settings	string	wave7 publish/export	Set name of selected print definition
-
-PRINTORGANIZER_SUBMITAS_SINGLE	PRINTORGANIZER SUBMITAS SINGLE	settings		wave7 publish/export	Submit print job as single output file
-
-PRINTORGANIZER_SUBMITAS_SEPARATE	PRINTORGANIZER SUBMITAS SEPARATE	settings		wave7 publish/export	Submit print job as separate output files
-
-PRINTORGANIZER_PRINTSTYLE_PAPERSIZEPRINTER	PRINTORGANIZER PRINTSTYLE PAPERSIZEPRINTER	settings	pltcfg_filename|windows_printer_name	wave7 publish/export	Set paper size source for print style editor
-
-PRINT_VIEW	PRINT VIEW	settings	view_number	wave7 publish/export	Set print source view number
-
-PRINT_SCALE	PRINT SCALE	settings	scale	wave7 publish/export	Set print scale factor
-
-PRINT_PAPERSIZE	PRINT PAPERSIZE	settings	paper_size	wave7 publish/export	Set print paper size name
-
-PRINT_ORIENTATION_PORTRAIT	PRINT ORIENTATION PORTRAIT	settings		wave7 publish/export	Set print orientation to portrait
-
-PRINT_ORIENTATION_LANDSCAPE	PRINT ORIENTATION LANDSCAPE	settings		wave7 publish/export	Set print orientation to landscape
-
-PRINT_AREA_VIEW	PRINT AREA VIEW	settings		wave7 publish/export	Set print area from view
-
-PRINT_AREA_FENCE	PRINT AREA FENCE	settings		wave7 publish/export	Set print area from fence
-
-PRINT_AREA_SHEET	PRINT AREA SHEET	settings		wave7 publish/export	Set print area from sheet model
-
-PRINT_PENMAP_ON	PRINT PENMAP ON	settings		wave7 publish/export	Enable pen map for print
-
-PRINT_PENMAP_OFF	PRINT PENMAP OFF	settings		wave7 publish/export	Disable pen map for print
-
-PRINT_RASTER_ON	PRINT RASTER ON	settings		wave7 publish/export	Include raster attachments in print
-
-PRINT_RASTER_OFF	PRINT RASTER OFF	settings		wave7 publish/export	Exclude raster attachments from print
-
-PRINT_REFERENCE_ON	PRINT REFERENCE ON	settings		wave7 publish/export	Include reference attachments in print
-
-PRINT_REFERENCE_OFF	PRINT REFERENCE OFF	settings		wave7 publish/export	Exclude reference attachments from print
-
-PRINT_MONOCHROME_ON	PRINT MONOCHROME ON	settings		wave7 publish/export	Print in monochrome mode
-
-PRINT_MONOCHROME_OFF	PRINT MONOCHROME OFF	settings		wave7 publish/export	Disable monochrome print mode
-
-PRINT_GRAYSCALE_ON	PRINT GRAYSCALE ON	settings		wave7 publish/export	Print in grayscale mode
-
-PRINT_GRAYSCALE_OFF	PRINT GRAYSCALE OFF	settings		wave7 publish/export	Disable grayscale print mode
-
-PRINT_TRUECOLOR_ON	PRINT TRUECOLOR ON	settings		wave7 publish/export	Print in true color mode
-
-PRINT_TRUECOLOR_OFF	PRINT TRUECOLOR OFF	settings		wave7 publish/export	Disable true color print mode
-
-PRINT_COLLATE_ON	PRINT COLLATE ON	settings		wave7 publish/export	Collate print copies
-
-PRINT_COLLATE_OFF	PRINT COLLATE OFF	settings		wave7 publish/export	Disable collated print copies
-
-PRINT_COPIES	PRINT COPIES	settings	copies	wave7 publish/export	Set number of print copies
-
-PRINT_DRIVER	PRINT DRIVER	settings	pltcfg_filename	wave7 publish/export	Set print driver configuration file
-
-PRINT_FILENAME	PRINT FILENAME	settings	filename	wave7 publish/export	Set print output filename
-
-PRINT_CENTER_ON	PRINT CENTER ON	settings		wave7 publish/export	Center plot on paper
-
-PRINT_CENTER_OFF	PRINT CENTER OFF	settings		wave7 publish/export	Disable center plot on paper
-
-PRINT_MAXIMUM_ON	PRINT MAXIMUM ON	settings		wave7 publish/export	Maximize plot on paper
-
-PRINT_MAXIMUM_OFF	PRINT MAXIMUM OFF	settings		wave7 publish/export	Disable maximize plot on paper
-
-PRINT_NAMEDVIEW	PRINT NAMEDVIEW	settings	named_view	wave7 publish/export	Print from named view
-
-PRINT_ACTIVEVIEW	PRINT ACTIVEVIEW	settings		wave7 publish/export	Print from active view
-
-PRINT_PDF_LAYERS_ON	PRINT PDF LAYERS ON	settings		wave7 publish/export	Include PDF layers in output
-
-PRINT_PDF_LAYERS_OFF	PRINT PDF LAYERS OFF	settings		wave7 publish/export	Exclude PDF layers from output
-
-PRINT_PDF_BOOKMARKS_ON	PRINT PDF BOOKMARKS ON	settings		wave7 publish/export	Include PDF bookmarks in output
-
-PRINT_PDF_BOOKMARKS_OFF	PRINT PDF BOOKMARKS OFF	settings		wave7 publish/export	Exclude PDF bookmarks from output
-
-PRINT_PDF_SEARCHABLE_ON	PRINT PDF SEARCHABLE ON	settings		wave7 publish/export	Make PDF text searchable
-
-PRINT_PDF_SEARCHABLE_OFF	PRINT PDF SEARCHABLE OFF	settings		wave7 publish/export	Disable searchable PDF text
-
-PRINT_PDF_COMPRESS_ON	PRINT PDF COMPRESS ON	settings		wave7 publish/export	Compress PDF output
-
-PRINT_PDF_COMPRESS_OFF	PRINT PDF COMPRESS OFF	settings		wave7 publish/export	Disable PDF compression
-
-PRINT_PDF_EMBEDFONTS_ON	PRINT PDF EMBED FONTS ON	settings		wave7 publish/export	Embed fonts in PDF output
-
-PRINT_PDF_EMBEDFONTS_OFF	PRINT PDF EMBED FONTS OFF	settings		wave7 publish/export	Do not embed fonts in PDF output
-
-PRINT_PDF_HYPERLINKS_ON	PRINT PDF HYPERLINKS ON	settings		wave7 publish/export	Include hyperlinks in PDF output
-
-PRINT_PDF_HYPERLINKS_OFF	PRINT PDF HYPERLINKS OFF	settings		wave7 publish/export	Exclude hyperlinks from PDF output
-
-PRINT_PDF_GEOPDF_ON	PRINT PDF GEOPDF ON	settings		wave7 publish/export	Enable GeoPDF output options
-
-PRINT_PDF_GEOPDF_OFF	PRINT PDF GEOPDF OFF	settings		wave7 publish/export	Disable GeoPDF output options
-
-PRINT_ANTIALIAS_ON	PRINT ANTIALIAS ON	settings		wave7 publish/export	Enable print anti-aliasing
-
-PRINT_ANTIALIAS_OFF	PRINT ANTIALIAS OFF	settings		wave7 publish/export	Disable print anti-aliasing
-
-PRINT_ELEMENTSINVIEW_ON	PRINT ELEMENTS IN VIEW ON	settings		wave7 publish/export	Print only elements visible in view
-
-PRINT_ELEMENTSINVIEW_OFF	PRINT ELEMENTS IN VIEW OFF	settings		wave7 publish/export	Print all elements in print area
-
-PRINT_FENCE_ON	PRINT FENCE ON	settings		wave7 publish/export	Use fence for print area boundary
-
-PRINT_FENCE_OFF	PRINT FENCE OFF	settings		wave7 publish/export	Disable fence as print area boundary
-
-IPLOT_VIEW	IPLOT VIEW	settings	view_number	wave7 publish/export	Set InterPlot source view number
-
-IPLOT_SCALE	IPLOT SCALE	settings	scale	wave7 publish/export	Set InterPlot scale factor
-
-IPLOT_PAPERSIZE	IPLOT PAPERSIZE	settings	paper_size	wave7 publish/export	Set InterPlot paper size name
-
-IPLOT_ORIENTATION_PORTRAIT	IPLOT ORIENTATION PORTRAIT	settings		wave7 publish/export	Set InterPlot orientation to portrait
-
-IPLOT_ORIENTATION_LANDSCAPE	IPLOT ORIENTATION LANDSCAPE	settings		wave7 publish/export	Set InterPlot orientation to landscape
-
-IPLOT_PENMAP_ON	IPLOT PENMAP ON	settings		wave7 publish/export	Enable pen map for InterPlot
-
-IPLOT_PENMAP_OFF	IPLOT PENMAP OFF	settings		wave7 publish/export	Disable pen map for InterPlot
-
-IPLOT_RASTER_ON	IPLOT RASTER ON	settings		wave7 publish/export	Include rasters in InterPlot output
-
-IPLOT_RASTER_OFF	IPLOT RASTER OFF	settings		wave7 publish/export	Exclude rasters from InterPlot output
-
-IPLOT_REFERENCE_ON	IPLOT REFERENCE ON	settings		wave7 publish/export	Include references in InterPlot output
-
-IPLOT_REFERENCE_OFF	IPLOT REFERENCE OFF	settings		wave7 publish/export	Exclude references from InterPlot output
-
-IPLOT_COPIES	IPLOT COPIES	settings	copies	wave7 publish/export	Set InterPlot copy count
-
-IPLOT_DRIVER	IPLOT DRIVER	settings	pltcfg_filename	wave7 publish/export	Set InterPlot driver configuration file
-
-IPLOT_FILENAME	IPLOT FILENAME	settings	filename	wave7 publish/export	Set InterPlot output filename
-
-IPLOT_COLOR_ON	IPLOT COLOR ON	settings		wave7 publish/export	Enable color for InterPlot output
-
-IPLOT_COLOR_OFF	IPLOT COLOR OFF	settings		wave7 publish/export	Disable color for InterPlot output
-
-IPLOT_GRAYSCALE_ON	IPLOT GRAYSCALE ON	settings		wave7 publish/export	Enable grayscale for InterPlot output
-
-IPLOT_GRAYSCALE_OFF	IPLOT GRAYSCALE OFF	settings		wave7 publish/export	Disable grayscale for InterPlot output
-
-IPLOT_PLOTTOFILE_ON	IPLOT PLOT TO FILE ON	settings		wave7 publish/export	Enable InterPlot plot-to-file mode
-
-IPLOT_PLOTTOFILE_OFF	IPLOT PLOT TO FILE OFF	settings		wave7 publish/export	Disable InterPlot plot-to-file mode
-
-IPLOT_PLOTTOPRINTER_ON	IPLOT PLOT TO PRINTER ON	settings		wave7 publish/export	Enable InterPlot plot-to-printer mode
-
-IPLOT_PLOTTOPRINTER_OFF	IPLOT PLOT TO PRINTER OFF	settings		wave7 publish/export	Disable InterPlot plot-to-printer mode
-
-FILE_SAVEAS_COMPRESS_ON	FILE SAVEAS COMPRESS ON	settings		wave7 publish/export	Enable compression for Save As
-
-FILE_SAVEAS_COMPRESS_OFF	FILE SAVEAS COMPRESS OFF	settings		wave7 publish/export	Disable compression for Save As
-
-FILE_SAVEAS_EMBED_ON	FILE SAVEAS EMBED ON	settings		wave7 publish/export	Embed references on Save As
-
-FILE_SAVEAS_EMBED_OFF	FILE SAVEAS EMBED OFF	settings		wave7 publish/export	Do not embed references on Save As
-
-DIGITALSIGNATURE_DISPLAY_ON	DIGITAL SIGNATURE DISPLAY ON	settings		wave7 publish/export	Show digital signature display in views
-
-DIGITALSIGNATURE_DISPLAY_OFF	DIGITAL SIGNATURE DISPLAY OFF	settings		wave7 publish/export	Hide digital signature display in views
-
-DIGITALSIGNATURE_LIST	DIGITAL SIGNATURE LIST	settings		wave7 publish/export	List digital signatures on active file
-
-BATCHPROCESS_NEW	BATCHPROCESS NEW	settings		wave7 publish/export	Create new batch process job list
-
-BATCHPROCESS_CLEAR	BATCHPROCESS CLEAR	settings		wave7 publish/export	Clear batch process job list
-
-BATCHPROCESS_LIST	BATCHPROCESS LIST	settings		wave7 publish/export	List batch process jobs in queue
-
-BATCHPROCESS_ADD_FILE	BATCHPROCESS ADD FILE	settings	filename	wave7 publish/export	Add file to batch process queue
-
-PUBLISHDGN_DIALOG	PUBLISHDGN DIALOG	dialog		wave7 publish/export	Opens Publish iModel dialog; negative control
-
-PUBLISHDGN_PUBLISH_FORCE	PUBLISHDGN PUBLISH FORCE	file		wave7 publish/export	Executes publish and writes iModel files; negative control
-
-PRINTORGANIZER_DIALOG	PRINTORGANIZER DIALOG	dialog		wave7 publish/export	Opens Print Organizer main dialog; negative control
-
-PRINTORGANIZER_PRINTSTYLE_DIALOG	PRINTORGANIZER PRINTSTYLE DIALOG	dialog		wave7 publish/export	Opens Print Styles dialog; negative control
-
-PRINTORGANIZER_PROPERTYFILTER	PRINTORGANIZER PROPERTYFILTER	dialog		wave7 publish/export	Opens PDF Property Filter dialog; negative control
-
-PRINTORGANIZER_PREVIEW_ALL	PRINTORGANIZER PREVIEW ALL	tool		wave7 publish/export	Previews all print definitions; negative control
-
-PRINTORGANIZER_PRINT_ALL	PRINTORGANIZER PRINT ALL	file		wave7 publish/export	Prints all definitions and writes output; negative control
-
-PRINTORGANIZER_SAVEAS	PRINTORGANIZER SAVEAS	file	printset_filename	wave7 publish/export	Saves print set to .pset file; negative control
-
-PRINTORGANIZER_OPEN	PRINTORGANIZER OPEN	file	printset_filename	wave7 publish/export	Opens print set file; may prompt save; negative control
-
-PRINTORGANIZER_EXPORTCSV	PRINTORGANIZER EXPORTCSV	file	filename	wave7 publish/export	Exports print set metadata to CSV; negative control
-
-PRINT_PREVIEW	PRINT PREVIEW	dialog		wave7 publish/export	Opens print preview; negative control
-
-PRINT_EXECUTE	PRINT EXECUTE	file		wave7 publish/export	Executes print and writes output; negative control
-
-EXPORT_DIALOG	EXPORT DIALOG	dialog		wave7 publish/export	Opens Export dialog; negative control
-
-IPLOT_DIALOG	IPLOT DIALOG	dialog		wave7 publish/export	Opens InterPlot dialog; negative control
-
-IPLOT_EXECUTE	IPLOT EXECUTE	file		wave7 publish/export	Executes InterPlot and writes output; negative control
-
-FILE_SAVEAS_DIALOG	FILE SAVEAS DIALOG	dialog		wave7 publish/export	Opens Save As file dialog; negative control
-
-VBA_RUN	VBA RUN	tool	macro_name	wave7 publish/export	Runs VBA macro; negative control
-
-BATCHPROCESS_RUN	BATCHPROCESS RUN	file		wave7 publish/export	Runs batch process jobs; negative control
-
-BATCHPROCESS_DIALOG	BATCHPROCESS DIALOG	dialog		wave7 publish/export	Opens Batch Process dialog; negative control
-
-DIGITALSIGNATURE_DIALOG	DIGITAL SIGNATURE DIALOG	dialog		wave7 publish/export	Opens Digital Signature dialog; negative control
-
-CIVIL_DISPLAY_ON	CIVIL DISPLAY ON	view		wave7 openroads/civil	general civil element display toggle
-
-CIVIL_DISPLAY_OFF	CIVIL DISPLAY OFF	view		wave7 openroads/civil	
-
-VIEW_CIVIL_ON	VIEW CIVIL ON	view		wave7 openroads/civil	view attribute civil display
-
-VIEW_CIVIL_OFF	VIEW CIVIL OFF	view		wave7 openroads/civil	
-
-VIEW_GEOMETRY_ON	VIEW GEOMETRY ON	view		wave7 openroads/civil	
-
-VIEW_GEOMETRY_OFF	VIEW GEOMETRY OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_ON	GEOMETRY DISPLAY ON	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_OFF	GEOMETRY DISPLAY OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_HORIZONTAL_ON	GEOMETRY DISPLAY HORIZONTAL ON	view		wave7 openroads/civil	horizontal alignment graphics
-
-GEOMETRY_DISPLAY_HORIZONTAL_OFF	GEOMETRY DISPLAY HORIZONTAL OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_VERTICAL_ON	GEOMETRY DISPLAY VERTICAL ON	view		wave7 openroads/civil	vertical/profile graphics
-
-GEOMETRY_DISPLAY_VERTICAL_OFF	GEOMETRY DISPLAY VERTICAL OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_SPIRAL_ON	GEOMETRY DISPLAY SPIRAL ON	view		wave7 openroads/civil	spiral/clothoid graphics
-
-GEOMETRY_DISPLAY_SPIRAL_OFF	GEOMETRY DISPLAY SPIRAL OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_STATION_ON	GEOMETRY DISPLAY STATION ON	view		wave7 openroads/civil	station tick/label graphics
-
-GEOMETRY_DISPLAY_STATION_OFF	GEOMETRY DISPLAY STATION OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_STATION_EQUATION_ON	GEOMETRY DISPLAY STATION EQUATION ON	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_STATION_EQUATION_OFF	GEOMETRY DISPLAY STATION EQUATION OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_CONTROL_POINT_ON	GEOMETRY DISPLAY CONTROL POINT ON	view		wave7 openroads/civil	PI/PC/PT etc
-
-GEOMETRY_DISPLAY_CONTROL_POINT_OFF	GEOMETRY DISPLAY CONTROL POINT OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_POI_ON	GEOMETRY DISPLAY POINT OF INTERSECTION ON	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_POI_OFF	GEOMETRY DISPLAY POINT OF INTERSECTION OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_CURVE_SET_ON	GEOMETRY DISPLAY CURVE SET ON	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_CURVE_SET_OFF	GEOMETRY DISPLAY CURVE SET OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_START_END_ON	GEOMETRY DISPLAY START END ON	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_START_END_OFF	GEOMETRY DISPLAY START END OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_ANNOTATION_ON	GEOMETRY DISPLAY ANNOTATION ON	view		wave7 openroads/civil	geometry-linked annotation graphics
-
-GEOMETRY_DISPLAY_ANNOTATION_OFF	GEOMETRY DISPLAY ANNOTATION OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_LINEAR_ELEMENT_ON	GEOMETRY DISPLAY LINEAR ELEMENT ON	view		wave7 openroads/civil	
-
-GEOMETRY_DISPLAY_LINEAR_ELEMENT_OFF	GEOMETRY DISPLAY LINEAR ELEMENT OFF	view		wave7 openroads/civil	
-
-GEOMETRY_ALIGNMENT_DISPLAY_ON	GEOMETRY ALIGNMENT DISPLAY ON	view		wave7 openroads/civil	
-
-GEOMETRY_ALIGNMENT_DISPLAY_OFF	GEOMETRY ALIGNMENT DISPLAY OFF	view		wave7 openroads/civil	
-
-GEOMETRY_PROFILE_DISPLAY_ON	GEOMETRY PROFILE DISPLAY ON	view		wave7 openroads/civil	
-
-GEOMETRY_PROFILE_DISPLAY_OFF	GEOMETRY PROFILE DISPLAY OFF	view		wave7 openroads/civil	
-
-GEOMETRY_PROFILE_PROJECTION_DISPLAY_ON	GEOMETRY PROFILE PROJECTION DISPLAY ON	view		wave7 openroads/civil	profile projection in plan
-
-GEOMETRY_PROFILE_PROJECTION_DISPLAY_OFF	GEOMETRY PROFILE PROJECTION DISPLAY OFF	view		wave7 openroads/civil	
-
-GEOMETRY_PROFILE_INTERSECTION_DISPLAY_ON	GEOMETRY PROFILE INTERSECTION DISPLAY ON	view		wave7 openroads/civil	
-
-GEOMETRY_PROFILE_INTERSECTION_DISPLAY_OFF	GEOMETRY PROFILE INTERSECTION DISPLAY OFF	view		wave7 openroads/civil	
-
-GEOMETRY_MULTIPLE_PROFILE_OPEN_VIEW	GEOMETRY MULTIPLE PROFILE OPEN VIEW	view		wave7 openroads/civil	ORD help confirmed; opens multiple profile model
-
-GEOMETRY_PROFILE_OPEN_VIEW	GEOMETRY PROFILE OPEN VIEW	view		wave7 openroads/civil	single profile view
-
-GEOMETRY_CROSS_SECTION_DISPLAY_ON	GEOMETRY CROSS SECTION DISPLAY ON	view		wave7 openroads/civil	
-
-GEOMETRY_CROSS_SECTION_DISPLAY_OFF	GEOMETRY CROSS SECTION DISPLAY OFF	view		wave7 openroads/civil	
-
-GEOMETRY_DYNAMIC_SECTION_OPEN_VIEW	GEOMETRY DYNAMIC SECTION OPEN VIEW	view		wave7 openroads/civil	dynamic cross section window
-
-CIVIL_3D_CUT_DISPLAY_ON	CIVIL 3D CUT DISPLAY ON	view		wave7 openroads/civil	3D cut graphics in profile/section
-
-CIVIL_3D_CUT_DISPLAY_OFF	CIVIL 3D CUT DISPLAY OFF	view		wave7 openroads/civil	
-
-CORRIDOR_DISPLAY_TEMPLATE_ON	CORRIDOR DISPLAY TEMPLATE ON	view		wave7 openroads/civil	template overlay on corridor
-
-CORRIDOR_DISPLAY_TEMPLATE_OFF	CORRIDOR DISPLAY TEMPLATE OFF	view		wave7 openroads/civil	
-
-CORRIDOR_DISPLAY_TEMPLATE_POINTS_ON	CORRIDOR DISPLAY TEMPLATE POINTS ON	view		wave7 openroads/civil	template point handles
-
-CORRIDOR_DISPLAY_TEMPLATE_POINTS_OFF	CORRIDOR DISPLAY TEMPLATE POINTS OFF	view		wave7 openroads/civil	
-
-CORRIDOR_DISPLAY_TEMPLATE_COMPONENTS_ON	CORRIDOR DISPLAY TEMPLATE COMPONENTS ON	view		wave7 openroads/civil	template component boundaries
-
-CORRIDOR_DISPLAY_TEMPLATE_COMPONENTS_OFF	CORRIDOR DISPLAY TEMPLATE COMPONENTS OFF	view		wave7 openroads/civil	
-
-CORRIDOR_DISPLAY_HANDLES_ON	CORRIDOR DISPLAY HANDLES ON	view		wave7 openroads/civil	corridor edit handles
-
-CORRIDOR_DISPLAY_HANDLES_OFF	CORRIDOR DISPLAY HANDLES OFF	view		wave7 openroads/civil	
-
-CORRIDOR_DISPLAY_FEATURES_ON	CORRIDOR DISPLAY FEATURES ON	view		wave7 openroads/civil	corridor feature symbology
-
-CORRIDOR_DISPLAY_FEATURES_OFF	CORRIDOR DISPLAY FEATURES OFF	view		wave7 openroads/civil	
-
-CORRIDOR_REFRESH	CORRIDOR REFRESH	view		wave7 openroads/civil	redraw corridor graphics
-
-CORRIDOR_UPDATE_ALL	CORRIDOR UPDATE ALL	view		wave7 openroads/civil	reprocess all corridors
-
-CIVIL_FEATURE_SYMBLOGY_DISPLAY_ON	CIVIL FEATURE SYMBLOGY DISPLAY ON	view		wave7 openroads/civil	feature symbology overlay
-
-CIVIL_FEATURE_SYMBLOGY_DISPLAY_OFF	CIVIL FEATURE SYMBLOGY DISPLAY OFF	view		wave7 openroads/civil	
-
-CIVIL_TEMPLATE_DISPLAY_ON	CIVIL TEMPLATE DISPLAY ON	view		wave7 openroads/civil	template library graphics
-
-CIVIL_TEMPLATE_DISPLAY_OFF	CIVIL TEMPLATE DISPLAY OFF	view		wave7 openroads/civil	
-
-CORRIDOR_TEMPLATE_DISPLAY_ON	CORRIDOR TEMPLATE DISPLAY ON	view		wave7 openroads/civil	
-
-CORRIDOR_TEMPLATE_DISPLAY_OFF	CORRIDOR TEMPLATE DISPLAY OFF	view		wave7 openroads/civil	
-
-GEOMETRY_SUPERELEVATION_DISPLAY_ON	GEOMETRY SUPERELEVATION DISPLAY ON	view		wave7 openroads/civil	superelevation lane graphics
-
-GEOMETRY_SUPERELEVATION_DISPLAY_OFF	GEOMETRY SUPERELEVATION DISPLAY OFF	view		wave7 openroads/civil	
-
-GEOMETRY_SUPERELEVATION_DISPLAY_COLOR_FILL	GEOMETRY SUPERELEVATION DISPLAY COLOR FILL	settings		wave7 openroads/civil	ORD prefs: color shaded fill mode
-
-GEOMETRY_SUPERELEVATION_DISPLAY_BOUNDARIES_ONLY	GEOMETRY SUPERELEVATION DISPLAY BOUNDARIES ONLY	settings		wave7 openroads/civil	ORD prefs: boundary-only mode
-
-GEOMETRY_SUPERELEVATION_DISPLAY_NONE	GEOMETRY SUPERELEVATION DISPLAY NONE	settings		wave7 openroads/civil	hide superelevation lanes
-
-GEOMETRY_SUPERELEVATION_OPEN_VIEW	GEOMETRY SUPERELEVATION OPEN VIEW	view		wave7 openroads/civil	ORD help; superelevation diagram view
-
-CIVIL_ANNOTATION_DISPLAY_ON	CIVIL ANNOTATION DISPLAY ON	view		wave7 openroads/civil	
-
-CIVIL_ANNOTATION_DISPLAY_OFF	CIVIL ANNOTATION DISPLAY OFF	view		wave7 openroads/civil	
-
-CIVIL_LABEL_DISPLAY_ON	CIVIL LABEL DISPLAY ON	view		wave7 openroads/civil	
-
-CIVIL_LABEL_DISPLAY_OFF	CIVIL LABEL DISPLAY OFF	view		wave7 openroads/civil	
-
-ANNOTATION_GROUP_DISPLAY_ON	ANNOTATION GROUP DISPLAY ON	view		wave7 openroads/civil	plan/profile/xsection annotation groups
-
-ANNOTATION_GROUP_DISPLAY_OFF	ANNOTATION GROUP DISPLAY OFF	view		wave7 openroads/civil	
-
-ANNOTATION_REFRESH_ALL	ANNOTATION REFRESH ALL	settings		wave7 openroads/civil	regenerate civil annotations
-
-FIELD_UPDATE_ALL_FILE	FIELD UPDATE ALL FILE	settings		wave7 openroads/civil	TDOT doc; refresh field-linked labels
-
-CIVIL_STATION_FORMAT_STATION	CIVIL STATION FORMAT STATION	settings		wave7 openroads/civil	station display format
-
-CIVIL_STATION_FORMAT_DECIMAL	CIVIL STATION FORMAT DECIMAL	settings		wave7 openroads/civil	
-
-GEOMETRY_STATION_FORMAT_STATION	GEOMETRY STATION FORMAT STATION	settings		wave7 openroads/civil	
-
-GEOMETRY_STATION_FORMAT_DECIMAL	GEOMETRY STATION FORMAT DECIMAL	settings		wave7 openroads/civil	
-
-CIVIL_COORDINATE_FORMAT_FEET	CIVIL COORDINATE FORMAT FEET	settings		wave7 openroads/civil	civil formatting prefs
-
-CIVIL_COORDINATE_FORMAT_METERS	CIVIL COORDINATE FORMAT METERS	settings		wave7 openroads/civil	
-
-TERRAIN_DISPLAY_ON	TERRAIN DISPLAY ON	view		wave7 openroads/civil	
-
-TERRAIN_DISPLAY_OFF	TERRAIN DISPLAY OFF	view		wave7 openroads/civil	
-
-TERRAIN_DISPLAY_CONTOURS_ON	TERRAIN DISPLAY CONTOURS ON	view		wave7 openroads/civil	
-
-TERRAIN_DISPLAY_CONTOURS_OFF	TERRAIN DISPLAY CONTOURS OFF	view		wave7 openroads/civil	
-
-TERRAIN_DISPLAY_TRIANGULATION_ON	TERRAIN DISPLAY TRIANGULATION ON	view		wave7 openroads/civil	TIN mesh display
-
-TERRAIN_DISPLAY_TRIANGULATION_OFF	TERRAIN DISPLAY TRIANGULATION OFF	view		wave7 openroads/civil	
-
-TERRAIN_DISPLAY_FEATURES_ON	TERRAIN DISPLAY FEATURES ON	view		wave7 openroads/civil	terrain feature definitions
-
-TERRAIN_DISPLAY_FEATURES_OFF	TERRAIN DISPLAY FEATURES OFF	view		wave7 openroads/civil	
-
-DRAINAGE_DISPLAY_ON	DRAINAGE DISPLAY ON	view		wave7 openroads/civil	drainage civil app
-
-DRAINAGE_DISPLAY_OFF	DRAINAGE DISPLAY OFF	view		wave7 openroads/civil	
-
-LOCK_STATION_ON	LOCK STATION ON	lock		wave7 openroads/civil	civil station lock
-
-LOCK_STATION_OFF	LOCK STATION OFF	lock		wave7 openroads/civil	
-
-LOCK_OFFSET_ON	LOCK OFFSET ON	lock		wave7 openroads/civil	civil offset lock
-
-LOCK_OFFSET_OFF	LOCK OFFSET OFF	lock		wave7 openroads/civil	
-
-CORRIDOR_CREATE	CORRIDOR CREATE	tool		wave7 openroads/civil	negative; interactive corridor creation
-
-GEOMETRY_CREATE_HORIZONTAL	GEOMETRY CREATE HORIZONTAL	tool		wave7 openroads/civil	negative; interactive geometry tool
-
-GEOMETRY_EDIT_HORIZONTAL	GEOMETRY EDIT HORIZONTAL	tool		wave7 openroads/civil	negative; interactive edit tool
-
-CORRIDOR_EDIT	CORRIDOR EDIT	tool		wave7 openroads/civil	negative; interactive corridor edit
-
-GEOMETRY_SUPERELEVATION_CREATE	GEOMETRY SUPERELEVATION CREATE	tool		wave7 openroads/civil	negative; interactive superelevation workflow
-
-CORRIDOR_SUPERELEVATION_ASSIGN	CORRIDOR SUPERELEVATION ASSIGN	tool		wave7 openroads/civil	negative; assign superelevation to corridor
-
-TERRAIN_CREATE	TERRAIN CREATE	tool		wave7 openroads/civil	negative; interactive terrain creation
-
-DIALOG_CIVIL_PREFERENCES	DIALOG CIVIL PREFERENCES	dialog		wave7 openroads/civil	negative; File>Settings>User>Preferences civil
-
-DIALOG_FEATURE_DEFINITION_MANAGER	DIALOG FEATURE DEFINITION MANAGER	dialog		wave7 openroads/civil	negative; feature definition manager UI
-
-GEOMETRY_FEATURE_DEFINITION_WIZARD	GEOMETRY FEATURE DEFINITION WIZARD	dialog		wave7 openroads/civil	negative; ORD help confirmed wizard dialog
-
+opName	keyin	kind	requiredParams	source	notes
+DWG_SETTINGS_OPEN	DWG SETTINGS OPEN	dialog		wave8 dwg/pw/ifc	Bentley Help: Open DWG Settings File dialog; optional filename
+DWG_SETTINGS_SAVEAS	DWG SETTINGS SAVEAS	dialog		wave8 dwg/pw/ifc	Bentley Help: save DWG options to .dws; optional FILENAME
+DWG_UNITS	DWG UNITS	dialog		wave8 dwg/pw/ifc	Bentley Communities KB: Design Center units for open DWG
+DWG_WORKMODE_ON	DWG WORKMODE ON	settings		wave8 dwg/pw/ifc	uncertain; usually MS_WORKMODE=DWG
+DWG_WORKMODE_OFF	DWG WORKMODE OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_AXISLOCK_FROM_ORTHOMODE_ON	SET DWG AXISLOCK FROM ORTHOMODE ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_AXISLOCK_FROM_ORTHOMODE
+SET_DWG_AXISLOCK_FROM_ORTHOMODE_OFF	SET DWG AXISLOCK FROM ORTHOMODE OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_DISCARD_INVALID_ON	SET DWG DISCARD INVALID ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_DISCARD_INVALID
+SET_DWG_DISCARD_INVALID_OFF	SET DWG DISCARD INVALID OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_ATTRIBUTE_AS_TAG_ON	SET DWG ATTRIBUTE AS TAG ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_ATTRIBUTE_AS_TAG
+SET_DWG_ATTRIBUTE_AS_TAG_OFF	SET DWG ATTRIBUTE AS TAG OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_GRAPHIC_GROUP_ATTRIBUTES_ON	SET DWG GRAPHIC GROUP ATTRIBUTES ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_GRAPHIC_GROUP_ATTRIBUTES
+SET_DWG_GRAPHIC_GROUP_ATTRIBUTES_OFF	SET DWG GRAPHIC GROUP ATTRIBUTES OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_MAP_XREF_NAMES_ON	SET DWG MAP XREF NAMES ON	settings		wave8 dwg/pw/ifc	uncertain; Map Logical Names to XRef Block Names
+SET_DWG_MAP_XREF_NAMES_OFF	SET DWG MAP XREF NAMES OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_SEED_GLOBAL_ORIGIN_ON	SET DWG SEED GLOBAL ORIGIN ON	settings		wave8 dwg/pw/ifc	uncertain; Use Seed File Global Origin
+SET_DWG_SEED_GLOBAL_ORIGIN_OFF	SET DWG SEED GLOBAL ORIGIN OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_REFERENCE_CONVERT_ON	SET DWG REFERENCE CONVERT ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_REFERENCE_CONVERT
+SET_DWG_REFERENCE_CONVERT_OFF	SET DWG REFERENCE CONVERT OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_PRESERVE_SETTINGS_ON	SET DWG PRESERVE SETTINGS ON	settings		wave8 dwg/pw/ifc	uncertain; Preserve MicroStation Settings
+SET_DWG_PRESERVE_SETTINGS_OFF	SET DWG PRESERVE SETTINGS OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_LEVEL_OVERRIDES_ON	SET DWG LEVEL OVERRIDES ON	settings		wave8 dwg/pw/ifc	uncertain; Use Level Symbology Overrides
+SET_DWG_LEVEL_OVERRIDES_OFF	SET DWG LEVEL OVERRIDES OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_DROP_LINESTYLES_ON	SET DWG DROP LINESTYLES ON	settings		wave8 dwg/pw/ifc	uncertain; Drop Unsupported LineStyles
+SET_DWG_DROP_LINESTYLES_OFF	SET DWG DROP LINESTYLES OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_DROP_DIMENSIONS_ON	SET DWG DROP DIMENSIONS ON	settings		wave8 dwg/pw/ifc	uncertain; Drop Unsupported Dimensions
+SET_DWG_DROP_DIMENSIONS_OFF	SET DWG DROP DIMENSIONS OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_TRUE_COLOR_ON	SET DWG TRUE COLOR ON	settings		wave8 dwg/pw/ifc	uncertain; Create True Color From DGN Color Indices
+SET_DWG_TRUE_COLOR_OFF	SET DWG TRUE COLOR OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_UCS_FROM_ACS_ON	SET DWG UCS FROM ACS ON	settings		wave8 dwg/pw/ifc	uncertain; Set UCS from Current ACS
+SET_DWG_UCS_FROM_ACS_OFF	SET DWG UCS FROM ACS OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_FORCE_ZERO_Z_ON	SET DWG FORCE ZERO Z ON	settings		wave8 dwg/pw/ifc	uncertain; Force Zero Z-Coordinate
+SET_DWG_FORCE_ZERO_Z_OFF	SET DWG FORCE ZERO Z OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_APPLICATION_DATA_ON	SET DWG APPLICATION DATA ON	settings		wave8 dwg/pw/ifc	uncertain; Save Application Data
+SET_DWG_APPLICATION_DATA_OFF	SET DWG APPLICATION DATA OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_EXPORT_EMPTY_ITEMTYPES_ON	SET DWG EXPORT EMPTY ITEMTYPES ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_EXPORT_EMPTYITEMTYPEPROPERTIES
+SET_DWG_EXPORT_EMPTY_ITEMTYPES_OFF	SET DWG EXPORT EMPTY ITEMTYPES OFF	settings		wave8 dwg/pw/ifc	uncertain
+REFERENCE_SET_IGNOREWHENNESTING_ON	REFERENCE SET IGNOREWHENNESTING=ON	settings		wave8 dwg/pw/ifc	Bentley Help REFERENCE SET; DWG live nesting
+REFERENCE_SET_IGNOREWHENNESTING_OFF	REFERENCE SET IGNOREWHENNESTING=OFF	settings		wave8 dwg/pw/ifc	may need file_spec
+SET_DWG_PROXYGRAPHICS_ON	SET DWG PROXYGRAPHICS ON	settings		wave8 dwg/pw/ifc	uncertain; MS_DWG_PROXYSHOW pattern
+SET_DWG_PROXYGRAPHICS_OFF	SET DWG PROXYGRAPHICS OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_PROXY_IMAGE_ON	SET DWG PROXY IMAGE ON	settings		wave8 dwg/pw/ifc	uncertain; Show Proxy Image
+SET_DWG_PROXY_BOX_ON	SET DWG PROXY BOX ON	settings		wave8 dwg/pw/ifc	uncertain; Show Proxy Box
+SET_DWG_ENTITY_HANDLES_ON	SET DWG ENTITY HANDLES ON	settings		wave8 dwg/pw/ifc	uncertain; DWG entity handle persistence
+SET_DWG_ENTITY_HANDLES_OFF	SET DWG ENTITY HANDLES OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_DWG_OLELINKS_ON	SET DWG OLELINKS ON	settings		wave8 dwg/pw/ifc	uncertain; DWG OLE link round-trip
+SET_DWG_OLELINKS_OFF	SET DWG OLELINKS OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_OLE_DISPLAY_ON	SET OLE DISPLAY ON	view		wave8 dwg/pw/ifc	uncertain; OLE object display toggle
+SET_OLE_DISPLAY_OFF	SET OLE DISPLAY OFF	view		wave8 dwg/pw/ifc	uncertain
+TITLEBLOCK_UPDATENOW	TITLEBLOCK UPDATENOW	settings		wave8 dwg/pw/ifc	Bentley PW Help: refresh titleblock attrs from PW DB
+TITLEBLOCK_UPDATEDMS	TITLEBLOCK UPDATEDMS	settings		wave8 dwg/pw/ifc	Bentley PW Help: push edited tags to PW DB
+DMS_REF_RELOAD	DMS REF RELOAD	dialog		wave8 dwg/pw/ifc	Bentley PW Help: may open Select Documents to Reload
+IFC_DISPLAY_ON	IFC DISPLAY ON	settings		wave8 dwg/pw/ifc	uncertain; IFC attach/display toggle
+IFC_DISPLAY_OFF	IFC DISPLAY OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_IFC_ON	SET IFC ON	settings		wave8 dwg/pw/ifc	uncertain
+SET_IFC_OFF	SET IFC OFF	settings		wave8 dwg/pw/ifc	uncertain
+BIM_DISPLAY_ON	BIM DISPLAY ON	settings		wave8 dwg/pw/ifc	uncertain
+BIM_DISPLAY_OFF	BIM DISPLAY OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_BIM_ON	SET BIM ON	settings		wave8 dwg/pw/ifc	uncertain
+SET_BIM_OFF	SET BIM OFF	settings		wave8 dwg/pw/ifc	uncertain
+SET_SHARECELL_ON	SET SHARECELL ON	settings		wave8 dwg/pw/ifc	Bentley Help Cell Library Dialog
+SET_SHARECELL_OFF	SET SHARECELL OFF	settings		wave8 dwg/pw/ifc	Bentley Help
+SET_SHARECELL_TOGGLE	SET SHARECELL TOGGLE	settings		wave8 dwg/pw/ifc	Bentley Help SET SHARECELL TOGGLE
+DGNLIB_UPDATE_LEVELS	DGNLIB UPDATE LEVELS	settings		wave8 dwg/pw/ifc	Bentley Help: sync levels from DGNLIB
+DGNLIB_UPDATE_LEVELS_ALL	DGNLIB UPDATE LEVELS ALL	settings		wave8 dwg/pw/ifc	Bentley Help Level Manager
+DGNLIB_UPDATE_LEVELS_BYLEVELSYMBOLOGY	DGNLIB UPDATE LEVELS BYLEVELSYMBOLOGY	settings		wave8 dwg/pw/ifc	Bentley Help
+DGNLIB_UPDATE_LEVELS_OVERRIDESYMBOLOGY	DGNLIB UPDATE LEVELS OVERRIDESYMBOLOGY	settings		wave8 dwg/pw/ifc	Bentley Help
+DGNLIB_UPDATE_TEXTSTYLES	DGNLIB UPDATE TEXTSTYLES	settings		wave8 dwg/pw/ifc	Bentley Help Building DGN Libraries
+DGNLIB_UPDATE_DIMSTYLES	DGNLIB UPDATE DIMSTYLES	settings		wave8 dwg/pw/ifc	Bentley Help Building DGN Libraries
+DGNLIB_UPDATE_MLINESTYLES	DGNLIB UPDATE MLINESTYLES	settings		wave8 dwg/pw/ifc	Bentley Help Building DGN Libraries
+DGNLIB_UPDATE_DETAILINGSYMBOLSTYLES	DGNLIB UPDATE DETAILINGSYMBOLSTYLES	settings		wave8 dwg/pw/ifc	Bentley Help Building DGN Libraries
+DGNLIB_UPDATE_TEMPLATES	DGNLIB UPDATE TEMPLATES	settings		wave8 dwg/pw/ifc	Bentley Help Building DGN Libraries
+DGNLIB_UPDATE_ALL	DGNLIB UPDATE ALL	settings		wave8 dwg/pw/ifc	Bentley Help; all listed DGNLIB resource types
+ACTIVE_CELL_RELATIVE_OFF	ACTIVE CELL RELATIVE OFF	settings		wave8 dwg/pw/ifc	cell relative placement
+OLECNTR_EDIT	OLECNTR EDIT	dialog		wave8 dwg/pw/ifc	negative; Bentley Help Links dialog
+OLECNTR_INSERT	OLECNTR INSERT	dialog		wave8 dwg/pw/ifc	negative; Bentley Help Insert Object
+TITLEBLOCK_MODIFY	TITLEBLOCK MODIFY	dialog		wave8 dwg/pw/ifc	negative; PW Document Properties
+TITLEBLOCK_PLACE	TITLEBLOCK PLACE	tool		wave8 dwg/pw/ifc	negative; places titleblock cell
+DMS_OPEN_DOCUMENT	DMS OPEN DOCUMENT	file		wave8 dwg/pw/ifc	negative never probe; PW File>Open
+DMS_UPDATE_SERVERCOPY	DMS UPDATE SERVERCOPY	file		wave8 dwg/pw/ifc	negative; Update Server Copy
+DMS_REFRESH_LOCALCOPY	DMS REFRESH LOCALCOPY	file		wave8 dwg/pw/ifc	negative; Refresh Local Copy
+IFC_EXPORTBYITWIN	IFC EXPORTBYITWIN	file		wave8 dwg/pw/ifc	negative; Bentley IFC export by iTwin
+IFCOUT	IFCOUT	file		wave8 dwg/pw/ifc	negative; IFC export family
+ATTACH_LIBRARY_DIALOG	ATTACH LIBRARY	file		wave8 dwg/pw/ifc	negative; attach cell library dialog risk
+MARKUP_SHOWPREVIEW	MARKUP SHOWPREVIEW	settings		wave8 markup/export	docs Markups dialog; may need selection
+MARKUP_HIDEPREVIEW	MARKUP HIDEPREVIEW	settings		wave8 markup/export	
+MARKUP_REVIEWMODE	MARKUP REVIEWMODE	settings		wave8 markup/export	overlay review mode
+ACTIVE_LINKAGE_NONE	ACTIVE LINKAGE NONE	settings		wave8 markup/export	Database Dialog linkage mode
+ACTIVE_LINKAGE_NEW	ACTIVE LINKAGE NEW	settings		wave8 markup/export	
+ACTIVE_LINKAGE_DUPLICATE	ACTIVE LINKAGE DUPLICATE	settings		wave8 markup/export	
+ACTIVE_LINKAGE_INFORMATION	ACTIVE LINKAGE INFORMATION	settings		wave8 markup/export	
+FORMS_ON	FORMS ON	settings		wave8 markup/export	database screen forms
+FORMS_OFF	FORMS OFF	settings		wave8 markup/export	
+SET_CONFIRM_ON	SET CONFIRM ON	settings		wave8 markup/export	confirm rows when attaching
+SET_CONFIRM_OFF	SET CONFIRM OFF	settings		wave8 markup/export	
+SET_DELETE_ON	SET DELETE ON	settings		wave8 markup/export	linked-row delete preference — not element delete
+SET_DELETE_OFF	SET DELETE OFF	settings		wave8 markup/export	
+PRINT_PLOTTO3D_ON	PRINT PLOTTO3D ON	settings		wave8 markup/export	Print Dialog PDF 3D option
+PRINT_PLOTTO3D_OFF	PRINT PLOTTO3D OFF	settings		wave8 markup/export	
+PRINT_AUTOCENTER_ON	PRINT AUTOCENTER ON	settings		wave8 markup/export	docs PRINT AUTOCENTER
+PRINT_AUTOCENTER_OFF	PRINT AUTOCENTER OFF	settings		wave8 markup/export	
+PRINT_ATTRIBUTES_BORDER_ON	PRINT ATTRIBUTES BORDER ON	settings		wave8 markup/export	docs Print Dialog key-ins
+PRINT_ATTRIBUTES_BORDER_OFF	PRINT ATTRIBUTES BORDER OFF	settings		wave8 markup/export	
+PRINT_ATTRIBUTES_BROKENASSOCSYMB_ON	PRINT ATTRIBUTES BROKENASSOCSYMB ON	settings		wave8 markup/export	
+PRINT_ATTRIBUTES_BROKENASSOCSYMB_OFF	PRINT ATTRIBUTES BROKENASSOCSYMB OFF	settings		wave8 markup/export	
+PRINT_ATTRIBUTES_TAGS_ON	PRINT ATTRIBUTES TAGS ON	settings		wave8 markup/export	print attribute — not tag place
+PRINT_ATTRIBUTES_TAGS_OFF	PRINT ATTRIBUTES TAGS OFF	settings		wave8 markup/export	
+EXPORT_VISIBLE_EDGES_ON	EXPORT VISIBLE EDGES ON	settings		wave8 markup/export	option flag only — not file export execute
+EXPORT_VISIBLE_EDGES_OFF	EXPORT VISIBLE EDGES OFF	settings		wave8 markup/export	
+SET_EXPORT_2D_ON	SET EXPORT 2D ON	settings		wave8 markup/export	export option toggle
+SET_EXPORT_2D_OFF	SET EXPORT 2D OFF	settings		wave8 markup/export	
+ANIMATION_PREVIEW_ON	ANIMATION PREVIEW ON	settings		wave8 markup/export	
+ANIMATION_PREVIEW_OFF	ANIMATION PREVIEW OFF	settings		wave8 markup/export	
+SET_TAG_DISPLAY_ON	SET TAG DISPLAY ON	settings		wave8 markup/export	tag display extras
+SET_TAG_DISPLAY_OFF	SET TAG DISPLAY OFF	settings		wave8 markup/export	
+SET_ACSDISPLAY_ON	SET ACSDISPLAY ON	settings		wave8 markup/export	docs ACS triad display
+SET_ACSDISPLAY_OFF	SET ACSDISPLAY OFF	settings		wave8 markup/export	
+COORDINATE_READOUT_UOR	COORDINATE READOUT UOR	settings		wave8 markup/export	
+WORKSET_PROPERTIES_REFRESH	WORKSET PROPERTIES REFRESH	settings		wave8 markup/export	refresh only — not assign/create
+MARKUP_DIALOG_OPEN	MARKUP DIALOG OPEN	dialog		wave8 markup/export	negative — dialog manager
+DIALOG_PROJECTWISE	DIALOG PROJECTWISE	dialog		wave8 markup/export	negative ProjectWise
+PROJECTWISE_CHECKOUT	PROJECTWISE CHECKOUT	file		wave8 markup/export	negative never probe
+RASTER_SNAP_ON	RASTER SNAP ON	settings		wave8 raster/reality	raster snappable
+RASTER_SNAP_OFF	RASTER SNAP OFF	settings		wave8 raster/reality	
+RASTER_INVERT_ON	RASTER INVERT ON	settings		wave8 raster/reality	monochrome invert
+RASTER_INVERT_OFF	RASTER INVERT OFF	settings		wave8 raster/reality	
+SET_RASTER_INVERT_ON	SET RASTER INVERT ON	settings		wave8 raster/reality	
+SET_RASTER_INVERT_OFF	SET RASTER INVERT OFF	settings		wave8 raster/reality	
+SET_RASTER_TRANSPARENCY_ON	SET RASTER TRANSPARENCY ON	settings		wave8 raster/reality	
+SET_RASTER_TRANSPARENCY_OFF	SET RASTER TRANSPARENCY OFF	settings		wave8 raster/reality	
+RASTER_PRIORITY_0	RASTER PRIORITY 0	settings		wave8 raster/reality	display priority
+RASTER_PRIORITY_100	RASTER PRIORITY 100	settings		wave8 raster/reality	
+SET_RASTER_PRIORITY_0	SET RASTER PRIORITY 0	settings		wave8 raster/reality	
+SET_RASTER_PRIORITY_100	SET RASTER PRIORITY 100	settings		wave8 raster/reality	
+RASTER_PRINT_ON	RASTER PRINT ON	settings		wave8 raster/reality	print flag
+RASTER_PRINT_OFF	RASTER PRINT OFF	settings		wave8 raster/reality	
+RASTER_LOCATE_ON	RASTER LOCATE ON	settings		wave8 raster/reality	
+RASTER_LOCATE_OFF	RASTER LOCATE OFF	settings		wave8 raster/reality	
+POINT_CLOUD_DISPLAY_ON	POINT CLOUD DISPLAY ON	view		wave8 raster/reality	spaced form
+POINT_CLOUD_DISPLAY_OFF	POINT CLOUD DISPLAY OFF	view		wave8 raster/reality	
+SET_POINT_CLOUD_ON	SET POINT CLOUD ON	settings		wave8 raster/reality	
+SET_POINT_CLOUD_OFF	SET POINT CLOUD OFF	settings		wave8 raster/reality	
+POINTCLOUD_SNAP_ON	POINTCLOUD SNAP ON	settings		wave8 raster/reality	
+POINTCLOUD_SNAP_OFF	POINTCLOUD SNAP OFF	settings		wave8 raster/reality	
+POINT_CLOUD_SNAP_ON	POINT CLOUD SNAP ON	settings		wave8 raster/reality	
+POINT_CLOUD_SNAP_OFF	POINT CLOUD SNAP OFF	settings		wave8 raster/reality	
+POINTCLOUD_LOCATE_ON	POINTCLOUD LOCATE ON	settings		wave8 raster/reality	
+POINTCLOUD_LOCATE_OFF	POINTCLOUD LOCATE OFF	settings		wave8 raster/reality	
+POINTCLOUD_DENSITY_10	POINTCLOUD DENSITY 10	settings		wave8 raster/reality	documented low (1-100)
+POINTCLOUD_DENSITY_60	POINTCLOUD DENSITY 60	settings		wave8 raster/reality	documented medium
+POINTCLOUD_DENSITY_100	POINTCLOUD DENSITY 100	settings		wave8 raster/reality	documented high
+POINT_CLOUD_DENSITY_10	POINT CLOUD DENSITY 10	settings		wave8 raster/reality	spaced density
+POINT_CLOUD_DENSITY_60	POINT CLOUD DENSITY 60	settings		wave8 raster/reality	
+POINT_CLOUD_DENSITY_100	POINT CLOUD DENSITY 100	settings		wave8 raster/reality	
+SET_POINTCLOUD_DENSITY_HIGH	SET POINTCLOUD DENSITY HIGH	settings		wave8 raster/reality	named density
+SET_POINTCLOUD_DENSITY_MEDIUM	SET POINTCLOUD DENSITY MEDIUM	settings		wave8 raster/reality	
+SET_POINTCLOUD_DENSITY_LOW	SET POINTCLOUD DENSITY LOW	settings		wave8 raster/reality	
+POINT_CLOUD_COLOR_BY_RGB	POINT CLOUD COLOR BY RGB	settings		wave8 raster/reality	stylization
+POINT_CLOUD_COLOR_BY_INTENSITY	POINT CLOUD COLOR BY INTENSITY	settings		wave8 raster/reality	
+POINT_CLOUD_COLOR_BY_ELEVATION	POINT CLOUD COLOR BY ELEVATION	settings		wave8 raster/reality	
+POINT_CLOUD_COLOR_BY_CLASSIFICATION	POINT CLOUD COLOR BY CLASSIFICATION	settings		wave8 raster/reality	
+POINT_CLOUD_CLASSIFICATION_ON	POINT CLOUD CLASSIFICATION ON	settings		wave8 raster/reality	
+POINT_CLOUD_CLASSIFICATION_OFF	POINT CLOUD CLASSIFICATION OFF	settings		wave8 raster/reality	
+POINTCLOUD_STYLIZATION_RGB	POINTCLOUD STYLIZATION RGB	settings		wave8 raster/reality	alt stylization token
+POINTCLOUD_STYLIZATION_INTENSITY	POINTCLOUD STYLIZATION INTENSITY	settings		wave8 raster/reality	
+POINTCLOUD_ANCHORED_ON	POINTCLOUD ANCHORED ON	settings		wave8 raster/reality	
+POINTCLOUD_ANCHORED_OFF	POINTCLOUD ANCHORED OFF	settings		wave8 raster/reality	
+REALITY_MESH_DISPLAY_ON	REALITY MESH DISPLAY ON	view		wave8 raster/reality	spaced form
+REALITY_MESH_DISPLAY_OFF	REALITY MESH DISPLAY OFF	view		wave8 raster/reality	
+SET_REALITY_MESH_ON	SET REALITY MESH ON	settings		wave8 raster/reality	
+SET_REALITY_MESH_OFF	SET REALITY MESH OFF	settings		wave8 raster/reality	
+REALITY_MESH_SNAP_ON	REALITY MESH SNAP ON	settings		wave8 raster/reality	
+REALITY_MESH_SNAP_OFF	REALITY MESH SNAP OFF	settings		wave8 raster/reality	
+REALITY_MESH_LOCATE_ON	REALITY MESH LOCATE ON	settings		wave8 raster/reality	
+REALITY_MESH_LOCATE_OFF	REALITY MESH LOCATE OFF	settings		wave8 raster/reality	
+REALITY_MESH_TRANSPARENCY_ON	REALITY MESH TRANSPARENCY ON	settings		wave8 raster/reality	
+REALITY_MESH_TRANSPARENCY_OFF	REALITY MESH TRANSPARENCY OFF	settings		wave8 raster/reality	
+SET_MESH_FACETS_ON	SET MESH FACETS ON	settings		wave8 raster/reality	facets (not FACET EDGES)
+SET_MESH_FACETS_OFF	SET MESH FACETS OFF	settings		wave8 raster/reality	
+MESH_FACETS_ON	MESH FACETS ON	view		wave8 raster/reality	
+MESH_FACETS_OFF	MESH FACETS OFF	view		wave8 raster/reality	
+FEATURE_SOLID_DISPLAY_ON	FEATURE SOLID DISPLAY ON	view		wave8 raster/reality	
+FEATURE_SOLID_DISPLAY_OFF	FEATURE SOLID DISPLAY OFF	view		wave8 raster/reality	
+SET_FEATURE_SOLIDS_ON	SET FEATURE SOLIDS ON	settings		wave8 raster/reality	
+SET_FEATURE_SOLIDS_OFF	SET FEATURE SOLIDS OFF	settings		wave8 raster/reality	
+SET_FEATURE_SOLID_ON	SET FEATURE SOLID ON	settings		wave8 raster/reality	
+SET_FEATURE_SOLID_OFF	SET FEATURE SOLID OFF	settings		wave8 raster/reality	
+POINTCLOUD_DIALOG_OPEN	POINTCLOUD DIALOG OPEN	dialog		wave8 raster/reality	negative — documented dialog key-in
+MRMESH_DIALOG_OPEN	MRMESH DIALOG OPEN	dialog		wave8 raster/reality	negative — Reality Mesh dialog
+MRMESH_ATTACH	MRMESH ATTACH	file		wave8 raster/reality	negative — documented attach
+PLACE_RASTER_BOUNDARY	PLACE RASTER BOUNDARY	tool		wave8 raster/reality	negative — placement tool
+CLIP_POINTCLOUD	CLIP POINTCLOUD	tool		wave8 raster/reality	negative — clip tool needs pick
+DISPLAYSET_ADD	DISPLAYSET ADD	settings		wave8 seed	may need selection; probe OK vs hang
+DISPLAYSET_REMOVE	DISPLAYSET REMOVE	settings		wave8 seed	
+DISPLAYSET_INVERT	DISPLAYSET INVERT	settings		wave8 seed	
+NAMED_GROUP_HILITE_ON	NAMED GROUP HILITE ON	settings		wave8 seed	
+NAMED_GROUP_HILITE_OFF	NAMED GROUP HILITE OFF	settings		wave8 seed	
+ELEMENT_TEMPLATE_ACTIVE_BYLEVEL	ELEMENT TEMPLATE ACTIVE BYLEVEL	settings		wave8 seed	element templates sparse
+ELEMENT_TEMPLATE_ACTIVE_BYCOLOR	ELEMENT TEMPLATE ACTIVE BYCOLOR	settings		wave8 seed	
+ELEMENT_TEMPLATE_ACTIVE_BYWEIGHT	ELEMENT TEMPLATE ACTIVE BYWEIGHT	settings		wave8 seed	
+ELEMENT_TEMPLATE_ACTIVE_BYSTYLE	ELEMENT TEMPLATE ACTIVE BYSTYLE	settings		wave8 seed	
+ELEMENT_TEMPLATE_ACTIVE_BYCLASS	ELEMENT TEMPLATE ACTIVE BYCLASS	settings		wave8 seed	
+ELEMENT_TEMPLATE_ACTIVE_BYTRANSPARENCY	ELEMENT TEMPLATE ACTIVE BYTRANSPARENCY	settings		wave8 seed	
+ELEMENT_TEMPLATE_ACTIVE_BYPRIORITY	ELEMENT TEMPLATE ACTIVE BYPRIORITY	settings		wave8 seed	
+SET_ELEMENT_TEMPLATE_ON	SET ELEMENT TEMPLATE ON	settings		wave8 seed	
+SET_ELEMENT_TEMPLATE_OFF	SET ELEMENT TEMPLATE OFF	settings		wave8 seed	
+DWG_SAVE_ON	DWG SAVE ON	settings		wave8 seed	DWG settings sparse
+DWG_SAVE_OFF	DWG SAVE OFF	settings		wave8 seed	
+SHARED_CELL_DISPLAY_ON	SHARED CELL DISPLAY ON	settings		wave8 seed	
+SHARED_CELL_DISPLAY_OFF	SHARED CELL DISPLAY OFF	settings		wave8 seed	
+SET_SHARED_CELL_OVERRIDE_ON	SET SHARED CELL OVERRIDE ON	settings		wave8 seed	
+SET_SHARED_CELL_OVERRIDE_OFF	SET SHARED CELL OVERRIDE OFF	settings		wave8 seed	
+SET_ANIMATION_ON	SET ANIMATION ON	settings		wave8 seed	
+SET_ANIMATION_OFF	SET ANIMATION OFF	settings		wave8 seed	
+CAMERA_ON	CAMERA ON	view		wave8 seed	
+CAMERA_OFF	CAMERA OFF	view		wave8 seed	
+SET_CAMERA_ANGLE	SET CAMERA ANGLE	settings		wave8 seed	may need value
+SET_CAMERA_POSITION	SET CAMERA POSITION	settings		wave8 seed	
+MATERIAL_DISPLAY_ON	MATERIAL DISPLAY ON	settings		wave8 seed	
+MATERIAL_DISPLAY_OFF	MATERIAL DISPLAY OFF	settings		wave8 seed	
+SET_MATERIAL_ON	SET MATERIAL ON	settings		wave8 seed	
+SET_MATERIAL_OFF	SET MATERIAL OFF	settings		wave8 seed	
+DATABASE_LINKAGE_ON	DATABASE LINKAGE ON	settings		wave8 seed	
+DATABASE_LINKAGE_OFF	DATABASE LINKAGE OFF	settings		wave8 seed	
+REPORT_DISPLAY_ON	REPORT DISPLAY ON	settings		wave8 seed	
+REPORT_DISPLAY_OFF	REPORT DISPLAY OFF	settings		wave8 seed	
+SET_WORKSET_ON	SET WORKSET ON	settings		wave8 seed	
+SET_WORKSET_OFF	SET WORKSET OFF	settings		wave8 seed	
+WORKSPACE_PREFS_SAVE	WORKSPACE PREFS SAVE	settings		wave8 seed	file-ish risk — kind may reclass
+SECTION_CALLLOUTS_ON	SECTION CALLOUTS ON	settings		wave8 seed	
+SECTION_CALLOUTS_OFF	SECTION CALLOUTS OFF	settings		wave8 seed	
+DETAIL_CALLOUTS_ON	DETAIL CALLOUTS ON	settings		wave8 seed	
+DETAIL_CALLOUTS_OFF	DETAIL CALLOUTS OFF	settings		wave8 seed	
+NAMED_BOUNDARY_DISPLAY_ON	NAMED BOUNDARY DISPLAY ON	settings		wave8 seed	
+NAMED_BOUNDARY_DISPLAY_OFF	NAMED BOUNDARY DISPLAY OFF	settings		wave8 seed	
+CLIP_VOLUME_DISPLAY_ON	CLIP VOLUME DISPLAY ON	settings		wave8 seed	
+CLIP_VOLUME_DISPLAY_OFF	CLIP VOLUME DISPLAY OFF	settings		wave8 seed	
+CLIP_MASK_DISPLAY_ON	CLIP MASK DISPLAY ON	settings		wave8 seed	
+CLIP_MASK_DISPLAY_OFF	CLIP MASK DISPLAY OFF	settings		wave8 seed	
+SET_CLIP_VOLUME_ON	SET CLIP VOLUME ON	settings		wave8 seed	
+SET_CLIP_VOLUME_OFF	SET CLIP VOLUME OFF	settings		wave8 seed	
+VIEW_DISPLAYSET_ON	VIEW DISPLAYSET ON	view		wave8 seed	
+VIEW_DISPLAYSET_OFF	VIEW DISPLAYSET OFF	view		wave8 seed	
+VIEW_NAMEDGROUP_ON	VIEW NAMEDGROUP ON	view		wave8 seed	
+VIEW_NAMEDGROUP_OFF	VIEW NAMEDGROUP OFF	view		wave8 seed	
+VIEW_TRANSPARENCY_ON	VIEW TRANSPARENCY ON	view		wave8 seed	
+VIEW_TRANSPARENCY_OFF	VIEW TRANSPARENCY OFF	view		wave8 seed	
+ACTIVE_TRANSPARENCY_50	ACTIVE TRANSPARENCY 50	settings		wave8 seed	
+ACTIVE_PRIORITY_100	ACTIVE PRIORITY 100	settings		wave8 seed	
+SET_PRIORITY_ON	SET PRIORITY ON	settings		wave8 seed	
+SET_PRIORITY_OFF	SET PRIORITY OFF	settings		wave8 seed	
+SET_CLASS_ON	SET CLASS ON	settings		wave8 seed	
+SET_CLASS_OFF	SET CLASS OFF	settings		wave8 seed	
+UOR_READOUT_ON	UOR READOUT ON	settings		wave8 seed	
+UOR_READOUT_OFF	UOR READOUT OFF	settings		wave8 seed	
+SET_INPUT_FOCUS_HOME	SET INPUT FOCUS HOME	settings		wave8 seed	
+SET_INPUT_FOCUS_KEYIN	SET INPUT FOCUS KEYIN	settings		wave8 seed	
+DIGITIZER_ON	DIGITIZER ON	lock		wave8 seed	
+DIGITIZER_OFF	DIGITIZER OFF	lock		wave8 seed	
+LOCK_DIGITIZER_ON	LOCK DIGITIZER ON	lock		wave8 seed	
+LOCK_DIGITIZER_OFF	LOCK DIGITIZER OFF	lock		wave8 seed	
+PARAMETRIC_UPDATE_ON	PARAMETRIC UPDATE ON	settings		wave8 seed	
+PARAMETRIC_UPDATE_OFF	PARAMETRIC UPDATE OFF	settings		wave8 seed	
+CONSTRAINTS_DISPLAY_ON	CONSTRAINTS DISPLAY ON	settings		wave8 seed	
+CONSTRAINTS_DISPLAY_OFF	CONSTRAINTS DISPLAY OFF	settings		wave8 seed	
+VARIABLES_DISPLAY_ON	VARIABLES DISPLAY ON	settings		wave8 seed	
+VARIABLES_DISPLAY_OFF	VARIABLES DISPLAY OFF	settings		wave8 seed	
+SAVED_VIEW_APPLY_LEVELS_ON	SAVED VIEW APPLY LEVELS ON	settings		wave8 seed	
+SAVED_VIEW_APPLY_LEVELS_OFF	SAVED VIEW APPLY LEVELS OFF	settings		wave8 seed	
+SAVED_VIEW_APPLY_CLIP_ON	SAVED VIEW APPLY CLIP ON	settings		wave8 seed	
+SAVED_VIEW_APPLY_CLIP_OFF	SAVED VIEW APPLY CLIP OFF	settings		wave8 seed	
+VIEW_GROUP_APPLY_ON	VIEW GROUP APPLY ON	view		wave8 seed	
+VIEW_GROUP_APPLY_OFF	VIEW GROUP APPLY OFF	view		wave8 seed	
+SHEET_INDEX_DISPLAY_ON	SHEET INDEX DISPLAY ON	settings		wave8 seed	
+SHEET_INDEX_DISPLAY_OFF	SHEET INDEX DISPLAY OFF	settings		wave8 seed	
+ANNOTATION_SCALE_LOCK_ON	ANNOTATION SCALE LOCK ON	lock		wave8 seed	
+LOCK_ANNOTATION_SCALE_ON	LOCK ANNOTATION SCALE ON	lock		wave8 seed	
+LOCK_ANNOTATION_SCALE_OFF	LOCK ANNOTATION SCALE OFF	lock		wave8 seed	
+ACTIVE_ANNOTATION_SCALE_FULL_SIZE	ACTIVE ANNOTATION SCALE FULL SIZE	settings		wave8 seed	
+ACTIVE_ANNOTATION_SCALE_1_10	ACTIVE ANNOTATION SCALE 1:10	settings		wave8 seed	
+ACTIVE_ANNOTATION_SCALE_1_20	ACTIVE ANNOTATION SCALE 1:20	settings		wave8 seed	
+ACTIVE_ANNOTATION_SCALE_1_50	ACTIVE ANNOTATION SCALE 1:50	settings		wave8 seed	
+TEXT_STYLE_OVERRIDE_ON	TEXT STYLE OVERRIDE ON	settings		wave8 seed	
+TEXT_STYLE_OVERRIDE_OFF	TEXT STYLE OVERRIDE OFF	settings		wave8 seed	
+DIMENSION_STYLE_OVERRIDE_ON	DIMENSION STYLE OVERRIDE ON	settings		wave8 seed	
+DIMENSION_STYLE_OVERRIDE_OFF	DIMENSION STYLE OVERRIDE OFF	settings		wave8 seed	
+SET_ASSOCIATION_ON	SET ASSOCIATION ON	settings		wave8 seed	
+SET_ASSOCIATION_OFF	SET ASSOCIATION OFF	settings		wave8 seed	
+FENCE_CLIP_MODE_INSIDE	FENCE CLIP MODE INSIDE	settings		wave8 seed	
+FENCE_CLIP_MODE_OUTSIDE	FENCE CLIP MODE OUTSIDE	settings		wave8 seed	
+FENCE_CLIP_MODE_OVERLAP	FENCE CLIP MODE OVERLAP	settings		wave8 seed	
+FENCE_CLIP_MODE_CLIP	FENCE CLIP MODE CLIP	settings		wave8 seed	
+SET_FENCE_CLIP_ON	SET FENCE CLIP ON	settings		wave8 seed	
+SET_FENCE_CLIP_OFF	SET FENCE CLIP OFF	settings		wave8 seed	
+REFERENCE_NESTING_DISPLAY_ON	REFERENCE NESTING DISPLAY ON	settings		wave8 seed	
+REFERENCE_NESTING_DISPLAY_OFF	REFERENCE NESTING DISPLAY OFF	settings		wave8 seed	
+REFERENCE_BOUNDARIES_ON	REFERENCE BOUNDARIES ON	settings		wave8 seed	
+REFERENCE_BOUNDARIES_OFF	REFERENCE BOUNDARIES OFF	settings		wave8 seed	
+LEVEL_OVERRIDE_SYMBOLOGY_ON	LEVEL OVERRIDE SYMBOLOGY ON	settings		wave8 seed	
+LEVEL_OVERRIDE_SYMBOLOGY_OFF	LEVEL OVERRIDE SYMBOLOGY OFF	settings		wave8 seed	
+ACCUDRAW_COORDINATE_SYSTEM_RECTANGULAR	ACCUDRAW COORDINATE SYSTEM RECTANGULAR	settings		wave8 seed	
+ACCUDRAW_COORDINATE_SYSTEM_POLAR	ACCUDRAW COORDINATE SYSTEM POLAR	settings		wave8 seed	
+ACCUDRAW_COORDINATE_SYSTEM_CYLINDRICAL	ACCUDRAW COORDINATE SYSTEM CYLINDRICAL	settings		wave8 seed	
+ACCUDRAW_COORDINATE_SYSTEM_SPHERICAL	ACCUDRAW COORDINATE SYSTEM SPHERICAL	settings		wave8 seed	
+ACTIVE_PATTERN_CELL_SCALE_1	ACTIVE PATTERN CELL SCALE 1	settings		wave8 seed	
+PDF_EMBED_FONTS_ON	PDF EMBED FONTS ON	settings		wave8 seed	
+PDF_EMBED_FONTS_OFF	PDF EMBED FONTS OFF	settings		wave8 seed	
+PDF_LAYERS_ON	PDF LAYERS ON	settings		wave8 seed	
+PDF_LAYERS_OFF	PDF LAYERS OFF	settings		wave8 seed	
+PRINT_BROKEN_ASSOCIATIONS_ON	PRINT BROKEN ASSOCIATIONS ON	settings		wave8 seed	
+PRINT_BROKEN_ASSOCIATIONS_OFF	PRINT BROKEN ASSOCIATIONS OFF	settings		wave8 seed	
+PUBLISHDGN_RIGHT_CLICK_MENU_ON	PUBLISHDGN RIGHT CLICK MENU ON	settings		wave8 seed	
+PUBLISHDGN_RIGHT_CLICK_MENU_OFF	PUBLISHDGN RIGHT CLICK MENU OFF	settings		wave8 seed	
+PLACE_LINE_CONSTRAINED	PLACE LINE CONSTRAINED	tool		wave8 seed	negative control
+PLACE_SHAPE_CONSTRAINED	PLACE SHAPE CONSTRAINED	tool		wave8 seed	negative
+DIALOG_ELEMENT_TEMPLATES	DIALOG ELEMENT TEMPLATES	dialog		wave8 seed	negative
+DIALOG_NAMED_GROUPS	DIALOG NAMED GROUPS	dialog		wave8 seed	negative
+DIALOG_DISPLAYSET	DIALOG DISPLAYSET	dialog		wave8 seed	negative
+DIALOG_ITEM_TYPES	DIALOG ITEM TYPES	dialog		wave8 seed	negative
+FILEOPEN	FILEOPEN	file		wave8 seed	negative
+SAVE_DESIGN_AS	SAVE DESIGN AS	file		wave8 seed	negative
+PROJECTWISE_CHECKIN	PROJECTWISE CHECKIN	file		wave8 seed	negative
+IFC_IMPORT	IFC IMPORT	file		wave8 seed	negative
+DWG_EXPORT	DWG EXPORT	file		wave8 seed	negative
+DWG_IMPORT	DWG IMPORT	file		wave8 seed	negative
+LOCK_TEMPLATEASSOCIATION_ON	LOCK TEMPLATEASSOCIATION ON	lock		wave8 templates/groups	docs: Element Template Association lock
+LOCK_TEMPLATEASSOCIATION_OFF	LOCK TEMPLATEASSOCIATION OFF	lock		wave8 templates/groups	docs: unlock template association
+LOCK_TEMPLATEASSOCIATION_TOGGLE	LOCK TEMPLATEASSOCIATION TOGGLE	lock		wave8 templates/groups	toggle association lock
+TEMPLATE_ACTIVE	TEMPLATE ACTIVE {group\name}	settings	group\name	wave8 templates/groups	docs: TEMPLATE ACTIVE TemplateGroup\TemplateName
+TEMPLATE_APPLY	TEMPLATE APPLY	settings		wave8 templates/groups	apply active template to selection
+TEMPLATE_CLEAR	TEMPLATE CLEAR	settings		wave8 templates/groups	clear active element template
+TEMPLATE_OVERRIDE_ON	TEMPLATE OVERRIDE ON	settings		wave8 templates/groups	allow attribute overrides vs template
+TEMPLATE_OVERRIDE_OFF	TEMPLATE OVERRIDE OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_APPLY	ELEMENT TEMPLATE APPLY	settings		wave8 templates/groups	apply template symbology to elements
+ELEMENT_TEMPLATE_CLEAR	ELEMENT TEMPLATE CLEAR	settings		wave8 templates/groups	clear active template association
+ELEMENT_TEMPLATE_LOCK_ON	ELEMENT TEMPLATE LOCK ON	lock		wave8 templates/groups	alt association lock spelling
+ELEMENT_TEMPLATE_LOCK_OFF	ELEMENT TEMPLATE LOCK OFF	lock		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYLEVEL_ON	ELEMENT TEMPLATE ACTIVE BYLEVEL ON	settings		wave8 templates/groups	active bylevel from template
+ELEMENT_TEMPLATE_ACTIVE_BYLEVEL_OFF	ELEMENT TEMPLATE ACTIVE BYLEVEL OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYCOLOR_ON	ELEMENT TEMPLATE ACTIVE BYCOLOR ON	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYCOLOR_OFF	ELEMENT TEMPLATE ACTIVE BYCOLOR OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYWEIGHT_ON	ELEMENT TEMPLATE ACTIVE BYWEIGHT ON	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYWEIGHT_OFF	ELEMENT TEMPLATE ACTIVE BYWEIGHT OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYSTYLE_ON	ELEMENT TEMPLATE ACTIVE BYSTYLE ON	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_ACTIVE_BYSTYLE_OFF	ELEMENT TEMPLATE ACTIVE BYSTYLE OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_OVERRIDE_LEVEL_ON	ELEMENT TEMPLATE OVERRIDE LEVEL ON	settings		wave8 templates/groups	override level from template
+ELEMENT_TEMPLATE_OVERRIDE_LEVEL_OFF	ELEMENT TEMPLATE OVERRIDE LEVEL OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_OVERRIDE_COLOR_ON	ELEMENT TEMPLATE OVERRIDE COLOR ON	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_OVERRIDE_COLOR_OFF	ELEMENT TEMPLATE OVERRIDE COLOR OFF	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_OVERRIDE_WEIGHT_ON	ELEMENT TEMPLATE OVERRIDE WEIGHT ON	settings		wave8 templates/groups	
+ELEMENT_TEMPLATE_OVERRIDE_WEIGHT_OFF	ELEMENT TEMPLATE OVERRIDE WEIGHT OFF	settings		wave8 templates/groups	
+NAMED_GROUP_HILITE_TOGGLE	NAMED GROUP HILITE TOGGLE	settings		wave8 templates/groups	toggle named group hilite
+NAMED_GROUP_SELECT	NAMED GROUP SELECT	settings		wave8 templates/groups	add group members to selection
+NAMED_GROUP_ADD_TO_SELECTION	NAMED GROUP ADD TO SELECTION	settings		wave8 templates/groups	Named Groups dialog Add to Selection
+NAMED_GROUP_REMOVE_FROM_SELECTION	NAMED GROUP REMOVE FROM SELECTION	settings		wave8 templates/groups	
+NAMED_GROUP_SET_DISPLAYSET	NAMED GROUP SET DISPLAYSET	settings		wave8 templates/groups	put named group into displayset
+NAMED_GROUP_ADD_TO_DISPLAYSET	NAMED GROUP ADD TO DISPLAYSET	settings		wave8 templates/groups	
+NAMED_GROUP_REMOVE_FROM_DISPLAYSET	NAMED GROUP REMOVE FROM DISPLAYSET	settings		wave8 templates/groups	
+SET_NAMEDGROUP_DISPLAY_ON	SET NAMEDGROUP DISPLAY ON	view		wave8 templates/groups	view-attr style named group display
+SET_NAMEDGROUP_DISPLAY_OFF	SET NAMEDGROUP DISPLAY OFF	view		wave8 templates/groups	
+SELECT_BYNAMEDGROUP	SELECT BYNAMEDGROUP {name}	settings	name	wave8 templates/groups	docs: SELECT BYNAMEDGROUP
+SET_DISPLAYSET_ON	SET DISPLAYSET ON	view		wave8 templates/groups	docs: SET DISPLAYSET ON|OFF|TOGGLE
+SET_DISPLAYSET_OFF	SET DISPLAYSET OFF	view		wave8 templates/groups	
+SET_DISPLAYSET_TOGGLE	SET DISPLAYSET TOGGLE	view		wave8 templates/groups	
+DISPLAYSET_SET	DISPLAYSET SET	settings		wave8 templates/groups	isolate selection as displayset
+DISPLAYSET_ISOLATE	DISPLAYSET ISOLATE	settings		wave8 templates/groups	isolate synonym candidate
+DISPLAYSET_ADD_SELECTION	DISPLAYSET ADD SELECTION	settings		wave8 templates/groups	community: displayset add selection
+DISPLAYSET_REMOVE_SELECTION	DISPLAYSET REMOVE SELECTION	settings		wave8 templates/groups	community: displayset remove selection
+DISPLAYSET_ADD_FENCE	DISPLAYSET ADD FENCE	settings		wave8 templates/groups	add fence contents to displayset
+DISPLAYSET_FROM_NAMEDGROUP	DISPLAYSET FROM NAMEDGROUP	settings		wave8 templates/groups	build displayset from named group
+VIEW_CLIP_VISIBLE_ON	VIEW CLIP VISIBLE ON	view		wave8 templates/groups	docs: VIEW CLIP VISIBLE ON|OFF|TOGGLE
+VIEW_CLIP_VISIBLE_OFF	VIEW CLIP VISIBLE OFF	view		wave8 templates/groups	show/hide clip volume element
+VIEW_CLIP_VISIBLE_TOGGLE	VIEW CLIP VISIBLE TOGGLE	view		wave8 templates/groups	
+VIEW_CLIP_CLEAR	VIEW CLIP CLEAR	view		wave8 templates/groups	docs: clear clip volume from view
+SET_CLIPVOLUME_TOGGLE	SET CLIPVOLUME TOGGLE	view		wave8 templates/groups	
+CLIP_MASK_CLEAR	CLIP MASK CLEAR	view		wave8 templates/groups	clear clip mask from view
+CLIP_MASK_APPLY_ON	CLIP MASK APPLY ON	view		wave8 templates/groups	enable applied clip mask
+CLIP_MASK_APPLY_OFF	CLIP MASK APPLY OFF	view		wave8 templates/groups	
+VIEW_MASK_VISIBLE_ON	VIEW MASK VISIBLE ON	view		wave8 templates/groups	show/hide clip mask element
+VIEW_MASK_VISIBLE_OFF	VIEW MASK VISIBLE OFF	view		wave8 templates/groups	
+SET_CLIPMASK_ON	SET CLIPMASK ON	view		wave8 templates/groups	view attribute clip mask toggle
+SET_CLIPMASK_OFF	SET CLIPMASK OFF	view		wave8 templates/groups	
+NAMED_BOUNDARY_HILITE_ON	NAMED BOUNDARY HILITE ON	settings		wave8 templates/groups	hilite named boundaries in view
+NAMED_BOUNDARY_HILITE_OFF	NAMED BOUNDARY HILITE OFF	settings		wave8 templates/groups	
+DRAWINGBOUNDARY_HILITEALL_ON	DRAWINGBOUNDARY HILITEALL ON	settings		wave8 templates/groups	docs: highlight all drawing boundaries
+DRAWINGBOUNDARY_HILITEALL_OFF	DRAWINGBOUNDARY HILITEALL OFF	settings		wave8 templates/groups	
+DRAWING_BOUNDARY_ANNOTATION_DISPLAY_ON	DRAWING BOUNDARY ANNOTATION DISPLAY ON	settings		wave8 templates/groups	detailing style annotation display
+DRAWING_BOUNDARY_ANNOTATION_DISPLAY_OFF	DRAWING BOUNDARY ANNOTATION DISPLAY OFF	settings		wave8 templates/groups	
+DRAWING_BOUNDARY_BOUNDARY_DISPLAY_ON	DRAWING BOUNDARY BOUNDARY DISPLAY ON	settings		wave8 templates/groups	detailing style boundary display
+DRAWING_BOUNDARY_BOUNDARY_DISPLAY_OFF	DRAWING BOUNDARY BOUNDARY DISPLAY OFF	settings		wave8 templates/groups	
+SECTION_CALL_DISPLAY_ON	SECTION CALL DISPLAY ON	settings		wave8 templates/groups	section callout graphics display
+SECTION_CALL_DISPLAY_OFF	SECTION CALL DISPLAY OFF	settings		wave8 templates/groups	
+DETAIL_CALL_DISPLAY_ON	DETAIL CALL DISPLAY ON	settings		wave8 templates/groups	detail callout graphics display
+DETAIL_CALL_DISPLAY_OFF	DETAIL CALL DISPLAY OFF	settings		wave8 templates/groups	
+DETAILING_SYMBOL_DISPLAY_ON	DETAILING SYMBOL DISPLAY ON	settings		wave8 templates/groups	all detailing symbols display
+DETAILING_SYMBOL_DISPLAY_OFF	DETAILING SYMBOL DISPLAY OFF	settings		wave8 templates/groups	
+SET_SECTION_CALLOUTS_ON	SET SECTION CALLOUTS ON	settings		wave8 templates/groups	SET form of section callouts
+SET_SECTION_CALLOUTS_OFF	SET SECTION CALLOUTS OFF	settings		wave8 templates/groups	
+SET_DETAIL_CALLOUTS_ON	SET DETAIL CALLOUTS ON	settings		wave8 templates/groups	
+SET_DETAIL_CALLOUTS_OFF	SET DETAIL CALLOUTS OFF	settings		wave8 templates/groups	
+SHEET_INDEX_AUTO_ON	SHEET INDEX AUTO ON	settings		wave8 templates/groups	auto-update sheet index settings
+SHEET_INDEX_AUTO_OFF	SHEET INDEX AUTO OFF	settings		wave8 templates/groups	
+SHEET_INDEX_FOLDER_DISPLAY_ON	SHEET INDEX FOLDER DISPLAY ON	settings		wave8 templates/groups	sheet index folder tree display
+SHEET_INDEX_FOLDER_DISPLAY_OFF	SHEET INDEX FOLDER DISPLAY OFF	settings		wave8 templates/groups	
+NAMED_GROUP_CREATE	NAMED GROUP CREATE	tool		wave8 templates/groups	negative: create is interactive tool
+GROUP_ADD	GROUP ADD	tool		wave8 templates/groups	negative: docs GROUP ADD tool
+VIEW_CLIP_ICON	VIEW CLIP ICON	tool		wave8 templates/groups	negative: docs apply clip volume tool
+VIEW_MASK_ICON	VIEW MASK ICON	tool		wave8 templates/groups	negative: docs apply clip mask tool
+PLACE_DRAWING_BOUNDARY	PLACE DRAWING BOUNDARY	tool		wave8 templates/groups	negative: placement tool
+TEMPLATE_DIALOG	TEMPLATE DIALOG	dialog		wave8 templates/groups	negative: docs TEMPLATE DIALOG
+DIALOG_DETAILINGSYMBOLSTYLE_OPEN	DIALOG DETAILINGSYMBOLSTYLE OPEN	dialog		wave8 templates/groups	negative: docs dialog open
+EXPORT_ELEMENT_TEMPLATES	EXPORT ELEMENT TEMPLATES	file		wave8 templates/groups	negative: file export not settings
