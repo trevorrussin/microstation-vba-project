@@ -93,6 +93,11 @@ instead of a silent empty list. Multi-word queries that miss under FTS5 AND
 are retried with OR / phrase matching. Ground engineer-facing questions about
 MUTCD/NYSDOT requirements in the returned excerpt + page citation, not recollection.
 
+`manual_search.render_page_image(source, page_num, out_path)` renders the
+actual PDF page (via PyMuPDF) rather than just returning text — the chat
+panel (below) uses this to show the real manual/sheet page a search hit
+came from, alongside its text excerpt.
+
 **Not exposed — by design:** `test_registry_command`. That VBA op bypasses the
 `needs-testing` gate for exactly one manual IDE promotion run. Reachable only
 by hand-editing `Bridge/request.tsv` and sending the keyin yourself. Arbitrary
@@ -182,6 +187,15 @@ line and blocks (a plain polling wait, safe here since this process has no UI
 thread to keep responsive, unlike the VBA panel) until the engineer replies
 in the panel, matching the documented pattern for promoting question-asking
 to a tool call in agentic loops.
+
+After every `search_reference_manual` call, the panel also shows the actual
+matched PDF page (top hit only) in `imgScreenshot`, alongside a citation
+line in the activity trace — same display mechanism the post-turn drawing
+screenshot uses (last-shown-wins if both fire in one turn), driven by
+`manual_search.render_page_image` + a new `REFERENCE_IMAGE` chat-log line
+type. Best-effort: a missing/gitignored PDF or an out-of-range page just
+means no image that turn, never a failed tool call — the text excerpt the
+model already has is unaffected either way.
 
 ## Eval harness (`eval_harness.py`)
 
