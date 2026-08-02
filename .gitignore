@@ -53,5 +53,9 @@ Project Documentation/*.ts
 Bridge/keyin-probe-batch.json
 Bridge/keyin-probe-results.json
 
+# Regenerable drawing-recipe probe output (scripts/recipe_batch.py) -- same
+# category as the keyin probe output above.
+Bridge/recipe-probe-batch.json
+
 # Python bytecode cache, any location
 __pycache__/
