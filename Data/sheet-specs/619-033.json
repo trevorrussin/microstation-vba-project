@@ -1,0 +1,409 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-033",
+    "title": "WORK ZONE TRAFFIC CONTROL SHOULDER CLOSURE FREEWAY MULCHING/HERBICIDE",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "MULCHING/HERBICIDE OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2021-12-02",
+    "issuedUnder": "EI 21-028",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-033.pdf",
+    "localPdf": "Bridge/captures/619-033.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 270,
+    "transcribedBy": "Cursor (Family 9 mowing/mulching/marking)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Freeway shoulder closure mulching/herbicide. FREEWAY-only PVH+TMIA; GVW×speed roll-ahead with >=60 and 45-55 bands; W20-1 + W8-23. Plan typo SEE TABLE 034-02 → 033-02."
+  },
+  "applicability": {
+    "roadType": "Freeway",
+    "roadway": "Freeway",
+    "closure": "Shoulder closure",
+    "duration": "Mulching/Herbicide (special)",
+    "speedRangeMph": {
+      "allowed": [
+        45,
+        50,
+        55,
+        60,
+        65
+      ],
+      "note": "Roll-ahead bands 45-55 / >=60."
+    },
+    "laneWidthFt": null,
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft"
+    ],
+    "areaTypes": null
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "type": "integer",
+      "allowed": [
+        45,
+        50,
+        55,
+        60,
+        65
+      ],
+      "usedBy": [
+        "033-02"
+      ]
+    },
+    {
+      "id": "shoulderWidthBand",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft"
+      ],
+      "default": ">= 8 ft",
+      "usedBy": []
+    },
+    {
+      "id": "exposureCondition",
+      "type": "enum",
+      "allowed": [
+        "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC"
+      ],
+      "usedBy": [
+        "033-01"
+      ]
+    },
+    {
+      "id": "closureType",
+      "type": "enum",
+      "allowed": [
+        "LANE CLOSURE OR ENCROACHMENT",
+        "SHOULDER CLOSURE OR ENCROACHMENT"
+      ],
+      "default": "SHOULDER CLOSURE OR ENCROACHMENT",
+      "usedBy": [
+        "033-01"
+      ]
+    },
+    {
+      "id": "signSizeClass",
+      "type": "enum",
+      "allowed": [
+        "FREEWAY"
+      ],
+      "default": "FREEWAY",
+      "usedBy": [
+        "033-03"
+      ]
+    }
+  ],
+  "tableRoles": {
+    "note": "3 tables. FREEWAY-only PV. NO taperAndBuffer / advanceWarningSpacing.",
+    "protectiveVehicle": "033-01",
+    "rollAheadDistance": "033-02",
+    "signSizes": "033-03"
+  },
+  "tables": {
+    "033-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition"
+      ],
+      "note": "Single FREEWAY column. PVH+TMIA for both closures (workers-exposed). No OTHER HAZARDS rows.",
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        }
+      ],
+      "legend": {
+        "PVH": "PROTECTIVE VEHICLE HEAVY (MINIMUM GROSS WEIGHT 22,000 LBS. OR GREATER)",
+        "TMIA": "TRUCK/TRAILER MOUNTED IMPACT ATTENUATOR"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUME THERE IS NO POSITIVE PROTECTION PRESENT.",
+        "2. TRUCK/TRAILER MOUNTED IMPACT ATTENUATORS (TMIA) SHALL NOT BE MOUNTED/INSTALLED ON VEHICLES WITH A GROSS VEHICLE WEIGHT (GVW) LESS THAN WHAT IS MINIMALLY REQUIRED BY THE MANUFACTURER OF THE TMIA."
+      ]
+    },
+    "033-02": {
+      "title": "ROLL AHEAD DISTANCE FOR PROTECTIVE VEHICLES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "note": "GVW×speed matrix with >=60 and 45-55 bands. Encoded speed-keyed min=heavy/max=light.",
+      "rows": [
+        {
+          "speedBand": ">= 60 MPH",
+          "minMph": 60,
+          "maxMph": null,
+          "lightGvw": {
+            "ft": 240,
+            "skipLines": 6
+          },
+          "heavyGvw": {
+            "ft": 200,
+            "skipLines": 5
+          },
+          "min": {
+            "ft": 200,
+            "skipLines": 5
+          },
+          "max": {
+            "ft": 240,
+            "skipLines": 6
+          }
+        },
+        {
+          "speedBand": "45 - 55 MPH",
+          "minMph": 45,
+          "maxMph": 55,
+          "lightGvw": {
+            "ft": 200,
+            "skipLines": 5
+          },
+          "heavyGvw": {
+            "ft": 160,
+            "skipLines": 4
+          },
+          "min": {
+            "ft": 160,
+            "skipLines": 4
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        }
+      ],
+      "usageNote": "MIN/MAX = heavy/light GVW for the speed band."
+    },
+    "033-03": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "note": "FREEWAY column only on this sheet.",
+      "rows": [
+        {
+          "signCode": "W20-1",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W8-23",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "Moving operation: ROLL AHEAD + W20-1. No tapers.",
+    "zones": [
+      {
+        "id": "signA",
+        "order": 1,
+        "kind": "sign",
+        "signCode": "W20-1"
+      },
+      {
+        "id": "gapA",
+        "order": 2,
+        "kind": "gap",
+        "sheetLabel": "A",
+        "lengthSource": {
+          "fixedFt": 500
+        },
+        "dimensioned": false,
+        "note": "500 FT. (MINIMUM) AND 2 MILE (MAXIMUM)"
+      },
+      {
+        "id": "protectiveVehicle",
+        "order": 3,
+        "kind": "symbol",
+        "sheetLabel": "PROTECTIVE VEHICLE / WORK VEHICLE",
+        "lengthSource": null
+      },
+      {
+        "id": "rollAheadDistance",
+        "order": 4,
+        "kind": "clearance",
+        "sheetLabel": "ROLL AHEAD DISTANCE",
+        "lengthSource": {
+          "table": "033-02",
+          "column": "range",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph"
+          ]
+        },
+        "dimensioned": true,
+        "sheetReference": "(SEE TABLE 033-02)"
+      },
+      {
+        "id": "workArea",
+        "order": 5,
+        "kind": "workArea",
+        "sheetLabel": "WORK AREA",
+        "lengthSource": null,
+        "hatched": true,
+        "dimensioned": false
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "Roll Ahead + W20-1 only.",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Work / protective vehicle",
+        "walkDirection": "Upstream, against traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "rollAheadDistance",
+            "label": "ROLL AHEAD DISTANCE"
+          },
+          {
+            "rowNum": 2,
+            "type": "Sign",
+            "zone": "signA",
+            "signCode": "W20-1",
+            "spacingZone": "gapA"
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "BUFFER SPACE",
+            "reason": "No buffer on mowing/mulching sheet."
+          },
+          {
+            "label": "SHOULDER TAPER",
+            "reason": "No taper."
+          },
+          {
+            "label": "MERGING TAPER",
+            "reason": "No taper."
+          },
+          {
+            "label": "Vehicle Space",
+            "reason": "Not on this sheet."
+          }
+        ]
+      }
+    ]
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "items": [
+      {
+        "signCode": "W20-1",
+        "sheetLegend": "ROAD WORK AHEAD",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signA",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W20-01RA"
+      },
+      {
+        "signCode": "W8-23",
+        "sheetLegend": "NO SHOULDER",
+        "shape": "diamond",
+        "postMounted": true,
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W08-23"
+      },
+      {
+        "signCode": "WARNING FLAG",
+        "sheetLegend": "WARNING FLAG",
+        "shape": "flag",
+        "postMounted": false,
+        "mountedOn": "workVehicle",
+        "sizeFreeway": "18x18",
+        "signLibraryKey": null
+      }
+    ]
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "protectiveVehicle",
+        "sheetLabel": "PVH",
+        "required": true
+      },
+      {
+        "id": "arrowPanel",
+        "sheetLabel": "ARROW PANEL (CAUTION MODE)",
+        "required": true
+      },
+      {
+        "id": "workVehicle",
+        "sheetLabel": "WORK VEHICLE",
+        "required": true
+      },
+      {
+        "id": "workAreaHatch",
+        "sheetLabel": "WORK AREA",
+        "required": true,
+        "hatched": true
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "dimensions": [
+      {
+        "zone": "rollAheadDistance",
+        "label": "ROLL AHEAD DISTANCE"
+      }
+    ],
+    "lateralDimensions": []
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. THE HERBICIDE/MULCHING OPERATIONS IS A SPECIAL OPERATION. IT SHALL BE SCHEDULED AND COMPLETED DURING DAYLIGHT WORK SHIFTS. THE WORK SHALL BE SUSPENDED DURING PERIODS OF POOR VISIBILITY.",
+      "2. WORK VEHICLE SHALL HAVE AN AMBER BEACON OPERATING AT ALL TIMES. IF IT IS NECESSARY FOR THE VEHICLE TO ENCROACH ONTO THE TRAVEL LANE, THE WORK VEHICLE SHALL BE FOLLOWED BY A PROTECTIVE VEHICLE WITH OPERATING FLASHING LIGHTS.",
+      "3. APPROVED PERSONAL PROTECTIVE EQUIPMENT (PPE) SHALL BE WORN WHILE ON WORK VEHICLES NOT EQUIPPED WITH AN ENCLOSED CAB. PPE IS REQUIRED WHEN EXITING WORK VEHICLE WITHIN RIGHT OF WAY. PESTICIDE APPLICATIONS ARE REQUIRED TO WEAR APPROVED PPE THAT ADHERES TO THE PRODUCT LABEL.",
+      "4. IF SHOULDER AREA BECOMES TOO NARROW FOR VEH #1 TO BE COMPLETELY ON THE SHOULDER, THE VEHICLE SHALL STAY ON THE WIDER SHOULDER AREA UNTIL OPERATOR CAN SAFELY DRIVE AROUND THE NARROW SHOULDER TO NEW SET-UP POINT.",
+      "5. VEH #2 SHALL BE PLACED TO OPTIMIZE AND ENHANCE VISIBILITY FROM THE REAR OF THE OPERATION. AND SHALL NOT EXCEED THE APPROPRIATE ROLL AHEAD DISTANCE VALUES."
+    ]
+  },
+  "rules": [
+    {
+      "id": "no-tapers",
+      "severity": "error",
+      "source": "Plan",
+      "assert": "No taper/buffer rows.",
+      "commonFailure": "Emitting default MERGING/SHOULDER TAPER from another family."
+    }
+  ],
+  "knownCodeDeviations": [
+    {
+      "id": "plan-table-typo-034",
+      "note": "Plan callout prints 'SEE TABLE 034-02' but sheet tables are 033-*; transcribed as 033-02."
+    }
+  ]
+}

@@ -1,0 +1,1684 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-402",
+    "title": "WORK ZONE TRAFFIC CONTROL MULTI-LANE DIVIDED ROADWAY AND FREEWAY RIGHT LANE CLOSURE",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "INTERMEDIATE TERM OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2026-04-29",
+    "issuedUnder": "EI / EB per sheet title block (E3 revision)",
+    "signedBy": null,
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-402_E3.pdf",
+    "localPdf": "Bridge/captures/619-402.pdf",
+    "localRender": null,
+    "pdfPages": 2,
+    "transcribedBy": "Cursor (Family 2 intermediate sibling of 619-302; tables via _draft_619402_tables.json; corridor cloned from 302 with plan-geometry datum check)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Canonical PDF is 619-402_E3.pdf (copied to Bridge/captures/619-402.pdf). Page 1 = plan + Notes 1-8; page 2 = Tables 402-01..06. 402-03/04/02 match 302-02/03/05 cell-for-cell including 65mph/12ft=800/20/21. 402-01 uses PVH/PVL+TMIA (not 302's P/TMIA). 402-05 and regulatory signs are new."
+  },
+  "applicability": {
+    "roadType": "Freeway/Multilane Divided",
+    "roadway": "Multilane divided or freeway",
+    "closure": "Right lane closure",
+    "duration": "Intermediate Term",
+    "durationDefinition": "Stationary work that occupies a location more than one daylight period up to 3 consecutive days, or nighttime work lasting more than 1 hour (Note 1).",
+    "speedRangeMph": {
+      "allowed": [
+        25,
+        30,
+        35,
+        40,
+        45,
+        50,
+        55,
+        65
+      ],
+      "note": "CORRECTED after direct extraction (initial recon guessed 9 rows including 60 -- wrong). Table 302-02 genuinely has only 8 rows, skipping 60 mph entirely (25,30,35,40,45,50,55,65) -- the same gap pattern as 619-011.json's tables['011-03'] (buffer-only table), even though 619-011's own tables['011-02'] (the master taper table) DOES have a 60mph row. Verified twice: word-grouping extraction with assert_row_count, and a page-wide search for any '60' token in the table's y-band, both independently confirming no 60mph row. Do not treat 'min/max/increment' as implying every 5mph step exists -- use the explicit allowed list instead."
+    },
+    "laneWidthFt": [
+      10,
+      11,
+      12
+    ],
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft"
+    ],
+    "shoulderWidthBandNote": "Same three-band structure as 619-311 -- do not interpolate per-foot values above 8 ft.",
+    "areaTypes": null,
+    "areaTypeNote": "This sheet's Table 302-03 is keyed by ROAD TYPE (URBAN <=30/35-40/>=45, RURAL, FREEWAY), not by a separate AREA TYPE dimension like 619-311's Table 311-03 -- FREEWAY is a road-type row here, not a modifier on URBAN/RURAL. Matches 619-011.json's tables['011-06'] shape exactly.",
+    "closureNote": "Note 2: left lane closures are symmetrical — substitute W20-5(L) and W4-2L."
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "label": "Preconstruction posted speed limit (MPH)",
+      "type": "integer",
+      "allowed": [
+        25,
+        30,
+        35,
+        40,
+        45,
+        50,
+        55,
+        65
+      ],
+      "note": "60 mph is NOT covered -- Table 302-02 (needed by every plan on this sheet for taper/buffer) genuinely skips 60, confirmed by direct extraction. Do not accept 60 and interpolate.",
+      "usedBy": [
+        "402-01",
+        "402-03",
+        "402-04",
+        "402-02"
+      ]
+    },
+    {
+      "id": "laneWidthFt",
+      "label": "Lane width (ft)",
+      "type": "integer",
+      "allowed": [
+        10,
+        11,
+        12
+      ],
+      "usedBy": [
+        "402-03"
+      ]
+    },
+    {
+      "id": "shoulderWidthBand",
+      "label": "Shoulder width band",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft"
+      ],
+      "usedBy": [
+        "402-03"
+      ]
+    },
+    {
+      "id": "roadTypeForSignSpacing",
+      "label": "Road type for advance warning sign spacing",
+      "type": "enum",
+      "allowed": [
+        "URBAN",
+        "RURAL",
+        "FREEWAY"
+      ],
+      "default": "URBAN",
+      "usedBy": [
+        "402-04"
+      ],
+      "note": "Same shape as 619-311's areaType input (URBAN/RURAL, disambiguated by speed via the row's own minMph/maxMph bounds) plus a third FREEWAY option. Pass just 'URBAN' -- Table 302-03's three URBAN speed bands (<=30, 35-40, >=45) are selected by preconstructionPostedSpeedMph automatically, not by a compound label."
+    },
+    {
+      "id": "exposureCondition",
+      "label": "Worker exposure condition",
+      "type": "enum",
+      "allowed": [
+        "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+        "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS)"
+      ],
+      "usedBy": [
+        "402-01"
+      ]
+    },
+    {
+      "id": "closureType",
+      "label": "Closure type (for protective vehicle lookup)",
+      "type": "enum",
+      "allowed": [
+        "LANE CLOSURE OR ENCROACHMENT",
+        "SHOULDER CLOSURE OR ENCROACHMENT"
+      ],
+      "usedBy": [
+        "402-01"
+      ]
+    },
+    {
+      "id": "roadTypeForProtectiveVehicle",
+      "label": "Freeway vs Non-Freeway (for Table 302-01 and sign size lookup)",
+      "type": "enum",
+      "allowed": [
+        "FREEWAY",
+        "NON-FREEWAY"
+      ],
+      "usedBy": [
+        "402-01",
+        "402-06"
+      ],
+      "note": "Table 302-01 has its own FREEWAY column (single, no speed sub-split) in addition to the three NON-FREEWAY speed columns 619-311 also has. Confirmed identical to 619-011.json's tables['011-01'] SHORT_TERM duration block on the NON-FREEWAY columns."
+    },
+    {
+      "id": "signSizeClass",
+      "label": "Sign size class",
+      "type": "enum",
+      "allowed": [
+        "NON-FREEWAY",
+        "FREEWAY"
+      ],
+      "default": "NON-FREEWAY",
+      "usedBy": [
+        "402-06"
+      ]
+    }
+  ],
+  "tableRoles": {
+    "note": "Numbering differs from 619-302. 402-05 CHANNELIZING DEVICE APPLICATION is NEW vs 302.",
+    "protectiveVehicle": "402-01",
+    "rollAheadDistance": "402-02",
+    "taperAndBuffer": "402-03",
+    "advanceWarningSpacing": "402-04",
+    "channelizingApplication": "402-05",
+    "signSizes": "402-06"
+  },
+  "tables": {
+    "402-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition",
+        "roadTypeForProtectiveVehicle",
+        "preconstructionPostedSpeedMph"
+      ],
+      "note": "Intermediate-term: PVH/PVL+TMIA codes (not 302 P/TMIA).",
+      "speedBands": [
+        {
+          "id": "ge45",
+          "label": ">= 45 MPH",
+          "minMph": 45,
+          "maxMph": null
+        },
+        {
+          "id": "b35to40",
+          "label": "35 - 40 MPH",
+          "minMph": 35,
+          "maxMph": 40
+        },
+        {
+          "id": "le30",
+          "label": "<= 30 MPH",
+          "minMph": null,
+          "maxMph": 30
+        }
+      ],
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "SEE NOTE 2",
+          "ge45": "PVH+TMIA",
+          "b35to40": "PVH+TMIA",
+          "le30": "PVL+TMIA"
+        },
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS)",
+          "FREEWAY": "SEE NOTE 2",
+          "ge45": "PVH+TMIA",
+          "b35to40": "PVH+TMIA",
+          "le30": "SEE NOTE 2"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "SEE NOTE 2",
+          "ge45": "PVH+TMIA",
+          "b35to40": "PVH+TMIA",
+          "le30": "SEE NOTE 2"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS, EXCAVATION)",
+          "FREEWAY": "SEE NOTE 2",
+          "ge45": "PVH+TMIA",
+          "b35to40": "SEE NOTE 3",
+          "le30": "SEE NOTE 2"
+        }
+      ],
+      "legend": {
+        "PVL": "PROTECTIVE VEHICLE LIGHT (MINIMUM GROSS WEIGHT 9,500 LBS. OR GREATER) (SEE NOTE 5)",
+        "PVH": "PROTECTIVE VEHICLE HEAVY (MINIMUM GROSS WEIGHT 22,000 LBS. OR GREATER)",
+        "TMIA": "TRUCK/TRAILER MOUNTED IMPACT ATTENUATOR"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUMES THERE IS NO POSITIVE PROTECTION PRESENT"
+      ]
+    },
+    "402-02": {
+      "title": "ROLL AHEAD DISTANCE",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES FOR VEHICLES - STATIONARY OPERATION - MIN and MAX",
+      "note": "STATIONARY OPERATION only. Identical to 302-05.",
+      "rows": [
+        {
+          "speedBand": ">= 55 MPH",
+          "minMph": 55,
+          "maxMph": null,
+          "min": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "speedBand": "45 - 50 MPH",
+          "minMph": 45,
+          "maxMph": 50,
+          "min": {
+            "ft": 80,
+            "skipLines": 2
+          },
+          "max": {
+            "ft": 160,
+            "skipLines": 4
+          }
+        },
+        {
+          "speedBand": "<= 40 MPH",
+          "minMph": null,
+          "maxMph": 40,
+          "min": {
+            "ft": 40,
+            "skipLines": 1
+          },
+          "max": {
+            "ft": 120,
+            "skipLines": 3
+          }
+        }
+      ]
+    },
+    "402-03": {
+      "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "columnMeaning": {
+        "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES",
+        "laneTaper": "TAPER LENGTH: L (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES, FOR LANE WIDTH IN FT.",
+        "shoulderTaper": "SHOULDER TAPER LENGTH: L/3 (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES, FOR SHOULDER WIDTH"
+      },
+      "note": "8 rows (25-55, 65). y_tol=5.0. Identical to 302-02.",
+      "rows": [
+        {
+          "speedMph": 25,
+          "longitudinalBufferSpace": {
+            "ft": 155,
+            "skipLines": 4
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "11": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "12": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            "5 - 7 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            ">= 8 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            }
+          }
+        },
+        {
+          "speedMph": 30,
+          "longitudinalBufferSpace": {
+            "ft": 200,
+            "skipLines": 5
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "11": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "12": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            "5 - 7 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            ">= 8 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            }
+          }
+        },
+        {
+          "speedMph": 35,
+          "longitudinalBufferSpace": {
+            "ft": 250,
+            "skipLines": 6
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            },
+            "11": {
+              "ft": 240,
+              "skipLines": 6,
+              "devices": 7
+            },
+            "12": {
+              "ft": 240,
+              "skipLines": 6,
+              "devices": 7
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            "5 - 7 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            ">= 8 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            }
+          }
+        },
+        {
+          "speedMph": 40,
+          "longitudinalBufferSpace": {
+            "ft": 305,
+            "skipLines": 8
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 280,
+              "skipLines": 7,
+              "devices": 8
+            },
+            "11": {
+              "ft": 320,
+              "skipLines": 8,
+              "devices": 9
+            },
+            "12": {
+              "ft": 320,
+              "skipLines": 8,
+              "devices": 9
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            "5 - 7 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            ">= 8 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            }
+          }
+        },
+        {
+          "speedMph": 45,
+          "longitudinalBufferSpace": {
+            "ft": 360,
+            "skipLines": 9
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 440,
+              "skipLines": 11,
+              "devices": 12
+            },
+            "11": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "12": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            ">= 8 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            }
+          }
+        },
+        {
+          "speedMph": 50,
+          "longitudinalBufferSpace": {
+            "ft": 425,
+            "skipLines": 11
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "11": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "12": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 55,
+          "longitudinalBufferSpace": {
+            "ft": 495,
+            "skipLines": 13
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "11": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            },
+            "12": {
+              "ft": 680,
+              "skipLines": 17,
+              "devices": 18
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 65,
+          "longitudinalBufferSpace": {
+            "ft": 645,
+            "skipLines": 16
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 640,
+              "skipLines": 16,
+              "devices": 17
+            },
+            "11": {
+              "ft": 720,
+              "skipLines": 18,
+              "devices": 19
+            },
+            "12": {
+              "ft": 800,
+              "skipLines": 20,
+              "devices": 21
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            ">= 8 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          }
+        }
+      ],
+      "knownAnomalies": [
+        {
+          "cell": "speedMph=65, laneTaper[12]",
+          "printed": "800/20/21",
+          "issue": "CROSS-SHEET DISCREPANCY, not a transcription error: this sheet prints 800/20/21 for this cell (20 skip lines x 40 ft = 800 -- internally consistent, devices=21=skips+1). Data/sheet-specs/619-011.json's master table 011-02 prints 800/19/20 for the SAME lookup (45mph... no, same speed/lateral-shift combination) -- which 011-02's own knownAnomalies entry already flags as internally INCONSISTENT (19*40=760, not 800). Verified directly against this sheet's own PDF vector text twice before accepting -- 619-302's value is correct per the ft=skipLines*40 rule; 619-011's is the one with a printing defect. Two different official NYSDOT sheets disagree on this cell. Transcribed as printed on THIS sheet per the verbatim rule; do not silently reconcile the two sheets to match each other.",
+          "recommendation": "Prefer this sheet's own value (800/20/21) when resolving 619-402; do not average or defer to 619-011's figure for this specific cell.",
+          "note": "CROSS-SHEET DISCREPANCY, not a transcription error: this sheet prints 800/20/21 for this cell (20 skip lines x 40 ft = 800 -- internally consistent, devices=21=skips+1). Data/sheet-specs/619-011.json's master table 011-02 prints 800/19/20 for the SAME lookup (45mph... no, same speed/lateral-shift combination) -- which 011-02's own knownAnomalies entry already flags as internally INCONSISTENT (19*40=760, not 800). Verified directly against this sheet's own PDF vector text twice before accepting -- 619-402's value is correct per the ft=skipLines*40 rule; 619-011's is the one with a printing defect. Two different official NYSDOT sheets disagree on this cell. Transcribed as printed on THIS sheet per the verbatim rule; do not silently reconcile the two sheets to match each other."
+        }
+      ]
+    },
+    "402-04": {
+      "title": "ADVANCE WARNING SIGN SPACING",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "roadTypeForSignSpacing"
+      ],
+      "columnMeaning": {
+        "A": "DISTANCE BETWEEN SIGNS - A (FT.)",
+        "B": "DISTANCE BETWEEN SIGNS - B (FT.)",
+        "C": "DISTANCE BETWEEN SIGNS - C (FT.)",
+        "XX": "SIGN LEGEND substituted into W20-1: 'ROAD WORK XX'",
+        "YY": "SIGN LEGEND substituted into W20-5R: 'RIGHT LANE CLOSED YY'"
+      },
+      "note": "Identical to 302-03.",
+      "rows": [
+        {
+          "roadType": "URBAN",
+          "speedBand": "<= 30 MPH",
+          "minMph": null,
+          "maxMph": 30,
+          "A": 100,
+          "B": 100,
+          "C": 100,
+          "XX": "AHEAD",
+          "YY": "AHEAD"
+        },
+        {
+          "roadType": "URBAN",
+          "speedBand": "35-40 MPH",
+          "minMph": 35,
+          "maxMph": 40,
+          "A": 200,
+          "B": 200,
+          "C": 200,
+          "XX": "AHEAD",
+          "YY": "AHEAD"
+        },
+        {
+          "roadType": "URBAN",
+          "speedBand": ">= 45 MPH",
+          "minMph": 45,
+          "maxMph": null,
+          "A": 350,
+          "B": 350,
+          "C": 350,
+          "XX": "1000 FT.",
+          "YY": "AHEAD"
+        },
+        {
+          "roadType": "RURAL",
+          "speedBand": "ALL",
+          "minMph": null,
+          "maxMph": null,
+          "A": 500,
+          "B": 500,
+          "C": 500,
+          "XX": "1500 FT.",
+          "YY": "1000 FT."
+        },
+        {
+          "roadType": "FREEWAY",
+          "speedBand": "ALL",
+          "minMph": null,
+          "maxMph": null,
+          "A": 1000,
+          "B": 1500,
+          "C": 2640,
+          "XX": "1 MILE",
+          "YY": "½ MILE"
+        }
+      ]
+    },
+    "402-05": {
+      "title": "CHANNELIZING DEVICE APPLICATION FOR INTERMEDIATE-TERM STATIONARY WORK ZONES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "workZoneProvision",
+        "channelizingDeviceType"
+      ],
+      "note": "NEW vs 619-302. X/X2/O matrix.",
+      "columnHeaders": [
+        "cones",
+        "type1_markers",
+        "type2_markers",
+        "type3_markers",
+        "tubular_markers",
+        "vertical_panels",
+        "oversized_vertical_panels",
+        "barricades",
+        "arrow_panels"
+      ],
+      "provisionRows": [
+        {
+          "provisionId": "shoulderMergingShiftingTapers",
+          "label": "SHOULDER/MERGING/SHIFTING TAPERS",
+          "spacingReference": "40 FT.",
+          "allowedByDeviceType": {
+            "cones": "X",
+            "vertical_panels": "X"
+          }
+        },
+        {
+          "provisionId": "markingForTransverseBumps",
+          "label": "MARKING FOR TRANSVERSE BUMPS",
+          "allowedByDeviceType": {
+            "cones": "X2",
+            "type2_markers": "X2",
+            "vertical_panels": "X2"
+          }
+        },
+        {
+          "provisionId": "transverseDeviceWithinClosedLaneOrShoulder",
+          "label": "TRANSVERSE DEVICE WITHIN CLOSED TRAFFIC LANE AND/OR SHOULDER",
+          "spacingReference": "800 FT.",
+          "allowedByDeviceType": {
+            "cones": "X",
+            "type1_markers": "X",
+            "type2_markers": "X",
+            "tubular_markers": "X",
+            "vertical_panels": "X",
+            "oversized_vertical_panels": "O"
+          }
+        },
+        {
+          "provisionId": "removalOfExistingGuideRail",
+          "label": "REMOVAL OF EXISTING GUIDE RAIL",
+          "spacingReference": "80 FT. / 40 FT.",
+          "allowedByDeviceType": {
+            "cones": "X",
+            "type1_markers": "X",
+            "type2_markers": "X",
+            "type3_markers": "X",
+            "tubular_markers": "X",
+            "vertical_panels": "X",
+            "oversized_vertical_panels": "O"
+          }
+        }
+      ],
+      "spacingRows": [
+        {
+          "spacingId": "spacing20ft",
+          "label": "20 FT.",
+          "yApprox": 262,
+          "allowedByDeviceType": {
+            "cones": "X",
+            "vertical_panels": "X"
+          }
+        },
+        {
+          "spacingId": "spacing40ft",
+          "label": "40 FT.",
+          "yApprox": 276,
+          "allowedByDeviceType": {
+            "cones": "X",
+            "vertical_panels": "X"
+          }
+        }
+      ],
+      "tableNotes": [
+        "NOTES: X= ALLOWED, BLANK = NOT ALLOWED, O = OPTIONAL * SEE NOTE 4 ON SHEET 1 OF 2.",
+        "1. - A TYPE 1 OBJECT MARKER MAY BE USED IN LIEU OF CHANNELIZING DEVICE.",
+        "2. - CHANNELIZING DEVICES SHALL BE EQUIPPED WITH A FLASHING WARNING LIGHT."
+      ]
+    },
+    "402-06": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "note": "8 entries; base 6 match 302-04; adds R2-1/NYR2-2/NYR2-6.",
+      "rows": [
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "NYW8-33",
+          "NON-FREEWAY": "48x24",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "W4-2R",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W20-5",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        },
+        {
+          "signCode": "R2-1 OR NYR2-2",
+          "NON-FREEWAY": "30x36",
+          "FREEWAY": "36x48",
+          "note": "PDF splits R2-1 OR / NYR2-2 across lines"
+        },
+        {
+          "signCode": "NYR2-6",
+          "NON-FREEWAY": null,
+          "FREEWAY": null,
+          "note": "Listed under R2-1 group; no sizes in PDF text layer"
+        }
+      ]
+    }
+  },
+  "geometry": {
+    "confidence": "drawing",
+    "stationing": {
+      "origin": "Upstream edge of the WORK AREA",
+      "positiveDirection": "Upstream, against the direction of travel",
+      "note": "Same convention as 619-311: station 0 at work-area edge, downstream is a separate alignment with its own station 0."
+    },
+    "crossSection": {
+      "description": "Multilane divided roadway or freeway: multiple travel lanes in one direction (render shows 3), paved shoulder outside the outer travel lane, physical median/divider separating opposing traffic (unlike 619-311's undivided cross-section).",
+      "closedLane": "The right (outer) travel lane in the direction of travel",
+      "closedShoulder": "The paved shoulder outboard of the closed lane, when also closed (conditional -- see VEH #2 / Note 8)",
+      "lateralReference": "Offsets measured from the roadway centerline/lane striping toward the closed side."
+    },
+    "lateralOffsets": {
+      "minOpenLane": {
+        "note": "No '10\\'-0\" (MIN.)' minimum-open-lane dimension is printed on this sheet, unlike 619-311 -- confirmed absent by coordinate search, not an oversight. Do not carry 619-311's dimension onto this sheet."
+      },
+      "workAreaHatch": {
+        "note": "Hatched WORK AREA spans the closed travel lane; shoulder inclusion depends on whether the shoulder is also closed on a given plan (conditional, per Table 302-01's separate SHOULDER CLOSURE row and VEH #2 / Note 8)."
+      },
+      "arrowPanel": {
+        "placement": "On the shoulder, outboard of the closed travel lane, at the upstream end of the merging taper -- same as 619-311's arrow panel."
+      },
+      "advanceWarningSigns": {
+        "placement": "Post-mounted on the right shoulder, outboard of the closed shoulder, clear of channelizing devices -- same as 619-311."
+      }
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "Same sequential skeleton as 619-302 (single MERGING TAPER L; shoulder taper overlays gap A). Confirmed via extract_plan_geometry on page 1 of E3 PDF. Intermediate-term extras (regulatory speed mid A/B, NY9-11, 20' device spacing) are symbols/rules, not corridor zones.",
+    "zones": [
+      {
+        "id": "signC",
+        "order": 1,
+        "kind": "sign",
+        "signCode": "W20-1",
+        "sheetLegend": "ROAD WORK XX",
+        "note": "Furthest upstream advance warning sign."
+      },
+      {
+        "id": "gapC",
+        "order": 2,
+        "kind": "gap",
+        "sheetLabel": "C",
+        "sheetReference": "(SEE TABLE 402-04)",
+        "lengthSource": {
+          "table": "402-04",
+          "column": "C",
+          "lookupBy": [
+            "roadTypeForSignSpacing"
+          ]
+        },
+        "dimensioned": true,
+        "spans": "W20-1 to W20-5R"
+      },
+      {
+        "id": "signB",
+        "order": 3,
+        "kind": "sign",
+        "signCode": "W20-5",
+        "sheetLegend": "RIGHT LANE CLOSED YY"
+      },
+      {
+        "id": "gapB",
+        "order": 4,
+        "kind": "gap",
+        "sheetLabel": "B",
+        "sheetReference": "(SEE TABLE 402-04)",
+        "lengthSource": {
+          "table": "402-04",
+          "column": "B",
+          "lookupBy": [
+            "roadTypeForSignSpacing"
+          ]
+        },
+        "dimensioned": true,
+        "spans": "W20-5R to W4-2R"
+      },
+      {
+        "id": "signA",
+        "order": 5,
+        "kind": "sign",
+        "signCode": "W4-2R",
+        "sheetLegend": "(merge symbol, no text)",
+        "note": "Closest advance warning sign to the taper. Note 5: substitute W20-5L / W4-2L for a left lane closure."
+      },
+      {
+        "id": "gapA",
+        "order": 6,
+        "kind": "gap",
+        "sheetLabel": "A",
+        "sheetReference": "(SEE TABLE 402-04)",
+        "lengthSource": {
+          "table": "402-04",
+          "column": "A",
+          "lookupBy": [
+            "roadTypeForSignSpacing"
+          ]
+        },
+        "dimensioned": true,
+        "spans": "W4-2R to the upstream end of the MERGING TAPER (the merging-taper / shoulder-taper junction)",
+        "containsOverlay": "shoulderTaper",
+        "note": "DATUM SHARING confirmed via scripts/extract_plan_geometry.py: the A dimension (x=272.8, y 479.5-568.0) and the shoulder taper dimension (x=153.5, y 479.5-509.6) share datum y=479.5 -- same pattern as 619-311's gapA/shoulderTaper. The shoulder taper lies INSIDE gap A, not sequential."
+      },
+      {
+        "id": "shoulderTaper",
+        "order": 7,
+        "kind": "taper",
+        "sheetLabel": "SHOULDER TAPER",
+        "sheetReference": "(SEE TABLE 402-03)",
+        "lengthSource": {
+          "table": "402-03",
+          "column": "shoulderTaper",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph",
+            "shoulderWidthBand"
+          ]
+        },
+        "dimensioned": true,
+        "consumesStation": false,
+        "containedIn": "gapA",
+        "stationAnchor": {
+          "zone": "laneTaper",
+          "end": "upstream"
+        },
+        "note": "L/3. Overlay on gap A, identical structural pattern to 619-311's shoulder taper -- starts where the merging taper ends and runs upstream inside A."
+      },
+      {
+        "id": "laneTaper",
+        "order": 8,
+        "kind": "taper",
+        "sheetLabel": "MERGING TAPER",
+        "sheetReference": "(SEE TABLE 402-03)",
+        "lengthSource": {
+          "table": "402-03",
+          "column": "laneTaper",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph",
+            "laneWidthFt"
+          ]
+        },
+        "dimensioned": true,
+        "note": "This is 'L'. Unlike 619-311 (which calls this zone 'LANE TAPER' even though the order-table's legacy label is 'Merging/Shifting Taper'), this sheet's own printed label IS 'MERGING TAPER' -- matches the legacy order-table label directly."
+      },
+      {
+        "id": "bufferSpace",
+        "order": 9,
+        "kind": "buffer",
+        "sheetLabel": "BUFFER SPACE",
+        "sheetReference": "(SEE TABLE 402-03)",
+        "lengthSource": {
+          "table": "402-03",
+          "column": "longitudinalBufferSpace",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph"
+          ]
+        },
+        "dimensioned": true,
+        "mustBeEmpty": true,
+        "mustBeEmptyReason": "Note 3 -- no workers, equipment or other vehicles in the buffer space or roll ahead distance."
+      },
+      {
+        "id": "protectiveVehicle2",
+        "order": 10,
+        "kind": "symbol",
+        "sheetLabel": "VEH #2",
+        "lengthSource": null,
+        "note": "CONDITIONAL -- only present when shoulder width is >= 8 ft (Note 8). Guards the closed PAVED SHOULDER (Table 302-01's separate SHOULDER CLOSURE row), not the closed lane. Station anchor is the LOWEST-CONFIDENCE call on this sheet: its label lands in the same text-extraction row-band as the BUFFER SPACE dimension label (y 319-360), immediately upstream of VEH #3's blob (which ends at y=302.7) -- read as the same station as VEH #3 (upstream end of roll ahead / downstream end of buffer space), offset onto the shoulder rather than the lane. Flag for visual confirmation against the rendered plan before a live build relies on it."
+      },
+      {
+        "id": "protectiveVehicle3",
+        "order": 11,
+        "kind": "symbol",
+        "sheetLabel": "VEH #3",
+        "lengthSource": null,
+        "note": "The main lane-closure protective vehicle -- plays the same role as 619-311's 'VEH #2' (protectiveVehicle1), just numbered differently on this sheet. Drawn as two truck icons; carries the NYW8-33 'LANE CLOSED' vehicle-mounted sign, same as 619-311's protectiveVehicle1.",
+        "stationAnchor": {
+          "zone": "rollAheadDistance",
+          "end": "upstream"
+        }
+      },
+      {
+        "id": "rollAheadDistance",
+        "order": 12,
+        "kind": "clearance",
+        "sheetLabel": "ROLL AHEAD DISTANCE",
+        "sheetReference": "(SEE TABLE 402-02)",
+        "lengthSource": {
+          "table": "402-02",
+          "column": "range",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph"
+          ]
+        },
+        "dimensioned": true,
+        "mustBeEmpty": true,
+        "mustBeEmptyReason": "Note 3.",
+        "spans": "Rear of VEH #3 to the upstream edge of the WORK AREA"
+      },
+      {
+        "id": "workArea",
+        "order": 13,
+        "kind": "workArea",
+        "sheetLabel": "WORK AREA",
+        "lengthSource": null,
+        "lengthNote": "Project-specific, same as 619-311.",
+        "hatched": true,
+        "dimensioned": false
+      },
+      {
+        "id": "spotter",
+        "order": 14,
+        "kind": "symbol",
+        "sheetLabel": "SPOTTER RECOMMENDED",
+        "lengthSource": null,
+        "required": false,
+        "note": "Shown at the downstream edge of the work area, same as 619-311. Also repeated in Detail 302A."
+      },
+      {
+        "id": "downstreamTaper",
+        "order": 15,
+        "kind": "taper",
+        "sheetLabel": "DOWNSTREAM TAPER",
+        "lengthSource": {
+          "fixedRange": {
+            "minFt": 50,
+            "maxFt": 100
+          }
+        },
+        "sheetText": "50'-100'",
+        "dimensioned": true
+      },
+      {
+        "id": "gapEndRoadWork",
+        "order": 16,
+        "kind": "gap",
+        "sheetLabel": null,
+        "lengthSource": {
+          "fixedRange": {
+            "minFt": 80,
+            "maxFt": 400
+          }
+        },
+        "dimensioned": false,
+        "sheetText": "THIS SIGN SHALL BE LOCATED A MINIMUM DISTANCE OF 80 FT AND MAXIMUM OF 400 FT PAST THE END OF THE DOWNSTREAM TAPER.",
+        "spans": "End of the downstream taper to the G20-2 sign"
+      },
+      {
+        "id": "signEndRoadWork",
+        "order": 17,
+        "kind": "sign",
+        "signCode": "G20-2",
+        "sheetLegend": "END ROAD WORK"
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "Same two-alignment-walk structure as 619-311, with a third protective-vehicle row added for the conditional shoulder vehicle.",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Upstream edge of the WORK AREA",
+        "walkDirection": "Upstream, against traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "rollAheadDistance",
+            "label": "ROLL AHEAD DISTANCE"
+          },
+          {
+            "rowNum": 2,
+            "type": "Non-Sign",
+            "zone": "bufferSpace",
+            "label": "BUFFER SPACE"
+          },
+          {
+            "rowNum": 3,
+            "type": "Non-Sign",
+            "zone": "laneTaper",
+            "label": "MERGING TAPER"
+          },
+          {
+            "rowNum": 4,
+            "type": "Sign",
+            "zone": "signA",
+            "signCode": "W4-2R",
+            "spacingZone": "gapA"
+          },
+          {
+            "rowNum": 5,
+            "type": "Sign",
+            "zone": "signB",
+            "signCode": "W20-5",
+            "spacingZone": "gapB"
+          },
+          {
+            "rowNum": 6,
+            "type": "Sign",
+            "zone": "signC",
+            "signCode": "W20-1",
+            "spacingZone": "gapC"
+          }
+        ],
+        "overlayZones": [
+          {
+            "zone": "shoulderTaper",
+            "anchor": {
+              "zone": "laneTaper",
+              "end": "upstream"
+            },
+            "direction": "upstream",
+            "note": "Same overlay pattern as 619-311 -- drawn and dimensioned but consumes no station in the walk."
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "Vehicle Space",
+            "reason": "Not on this sheet, same as 619-311 -- protective vehicles sit at defined anchors (rollAheadDistance upstream end), not a separate dimensioned segment."
+          },
+          {
+            "label": "Upstream Taper Temp Barrier",
+            "reason": "No temporary barrier on this sheet."
+          },
+          {
+            "label": "Upstream Taper Box/Corr Beam",
+            "reason": "No box beam / corrugated beam on this sheet."
+          }
+        ]
+      },
+      {
+        "alignIdx": 2,
+        "name": "Downstream",
+        "station0": "Downstream edge of the WORK AREA",
+        "walkDirection": "Downstream, with traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "downstreamTaper",
+            "label": "DOWNSTREAM TAPER"
+          },
+          {
+            "rowNum": 2,
+            "type": "Sign",
+            "zone": "signEndRoadWork",
+            "signCode": "G20-2",
+            "spacingZone": "gapEndRoadWork"
+          }
+        ]
+      }
+    ]
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "note": "Base advance set matches 302 (W20-1 / W20-5 / W4-2R / G20-2). Intermediate adds regulatory R2-1 or NYR2-2/NYR2-6 per Note 8 / Table 402-06. NY9-11 (Note 7) is recommended only — tracked under symbols, not signs.items (no size row on 402-06).",
+    "items": [
+      {
+        "signCode": "W20-1",
+        "sheetLegend": "ROAD WORK XX",
+        "legendSubstitution": {
+          "placeholder": "XX",
+          "table": "402-04",
+          "column": "XX"
+        },
+        "shape": "diamond",
+        "warningFlags": true,
+        "postMounted": true,
+        "corridorZone": "signC",
+        "positionRank": 3,
+        "positionNote": "Furthest upstream of the three advance warning signs.",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": null,
+        "signLibraryBase": "W20-01R",
+        "signLibraryNote": "Same substitution rule as 619-311: base + legend suffix (AHEAD->A, feet->F, mile->M). FREEWAY road type here gives XX='1 MILE' -> suffix M -> W20-01RM (a new variant 619-311 never needed, since 619-311 has no freeway row)."
+      },
+      {
+        "signCode": "W20-5",
+        "sheetLegend": "RIGHT LANE CLOSED YY",
+        "legendSubstitution": {
+          "placeholder": "YY",
+          "table": "402-04",
+          "column": "YY"
+        },
+        "shape": "diamond",
+        "warningFlags": false,
+        "postMounted": true,
+        "corridorZone": "signB",
+        "positionRank": 2,
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": null,
+        "signLibraryBase": "W20-05R",
+        "signLibraryNote": "FREEWAY road type gives YY='½ MILE' -> suffix M -> W20-05RM (new variant, same reasoning as W20-1 above).",
+        "sheetNote": "Sheet table 402-06 prints W20-5; SignLibrary base remains W20-05R (right)."
+      },
+      {
+        "signCode": "W4-2R",
+        "sheetLegend": "(merge symbol)",
+        "legendSubstitution": null,
+        "shape": "diamond",
+        "warningFlags": true,
+        "postMounted": true,
+        "corridorZone": "signA",
+        "positionRank": 1,
+        "positionNote": "Closest advance warning sign to the taper.",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W04-02R",
+        "note": "Note 5: for a LEFT lane closure, substitute W20-5L and W4-2L instead of this sign and W20-5R."
+      },
+      {
+        "signCode": "G20-2",
+        "sheetLegend": "END ROAD WORK",
+        "legendSubstitution": null,
+        "shape": "rectangle",
+        "warningFlags": false,
+        "postMounted": true,
+        "corridorZone": "signEndRoadWork",
+        "positionNote": "Downstream of the work area, 80-400 ft past the end of the downstream taper.",
+        "sizeNonFreeway": "36x18",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": "G20-02"
+      },
+      {
+        "signCode": "NYW8-33",
+        "sheetLegend": "LANE CLOSED",
+        "legendSubstitution": null,
+        "shape": "rectangle",
+        "warningFlags": false,
+        "postMounted": false,
+        "mountedOn": "protectiveVehicle3",
+        "corridorZone": null,
+        "sizeNonFreeway": "48x24",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": null,
+        "signLibraryNote": "Vehicle-mounted, same pattern as 619-311 -- not a post-mounted gap in SignLibrary."
+      },
+      {
+        "signCode": "WARNING FLAG",
+        "sheetLegend": null,
+        "shape": "flag",
+        "postMounted": false,
+        "mountedOn": "W20-1, W4-2R",
+        "sizeNonFreeway": "18x18",
+        "sizeFreeway": "18x18",
+        "note": "Table 302-04 lists this size, confirming flags are used on this sheet -- same two-signs convention as 619-311 (furthest and closest advance warning signs), inferred by analogy since there is no separate plan callout confirming exactly which signs carry flags. Corrected from an earlier draft that mistakenly concluded no flags exist on this sheet at all."
+      },
+      {
+        "signCode": "R2-1 OR NYR2-2",
+        "sheetLegend": "SPEED LIMIT",
+        "legendSubstitution": null,
+        "shape": "rectangle",
+        "warningFlags": false,
+        "postMounted": true,
+        "corridorZone": null,
+        "positionNote": "Note 8: required halfway between 1st and 2nd advance warning signs unless already present.",
+        "sizeNonFreeway": "30x36",
+        "sizeFreeway": "36x48",
+        "signLibraryKey": "R2-1",
+        "required": true
+      },
+      {
+        "signCode": "NYR2-6",
+        "sheetLegend": "SPEED LIMIT (variant)",
+        "legendSubstitution": null,
+        "shape": "rectangle",
+        "postMounted": true,
+        "corridorZone": null,
+        "sizeNonFreeway": null,
+        "sizeFreeway": null,
+        "signLibraryKey": null,
+        "required": false,
+        "note": "Listed on 402-06 under the R2-1 group; no explicit size cells in the PDF text layer."
+      }
+    ]
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "arrowPanel",
+        "sheetLabel": "ARROW PANEL",
+        "required": true,
+        "count": 1,
+        "stationAnchor": {
+          "zone": "laneTaper",
+          "end": "upstream"
+        },
+        "lateralAnchor": "On the shoulder, outboard of the closed travel lane",
+        "alternative": {
+          "sheetText": "OR",
+          "option": "VEH #1",
+          "description": "A protective vehicle carrying the arrow panel may be used instead of the trailer-mounted arrow panel, at the same station -- same alternative structure as 619-311."
+        }
+      },
+      {
+        "id": "protectiveVehicle3",
+        "sheetLabel": "VEH #3",
+        "required": "per Table 302-01 (LANE CLOSURE row)",
+        "stationAnchor": {
+          "zone": "rollAheadDistance",
+          "end": "upstream"
+        },
+        "lateralAnchor": "In the closed travel lane, parallel to traffic",
+        "cellHint": "TWZWVA_P",
+        "carriesSign": "NYW8-33"
+      },
+      {
+        "id": "protectiveVehicle2",
+        "sheetLabel": "VEH #2",
+        "required": "per Note 8 -- only when shoulder width is >= 8 ft, and per Table 302-01's SHOULDER CLOSURE row",
+        "stationAnchor": {
+          "zone": "rollAheadDistance",
+          "end": "upstream",
+          "note": "Same station as protectiveVehicle3 -- LOWEST CONFIDENCE anchor on this sheet, see corridor.zones.protectiveVehicle2 note."
+        },
+        "lateralAnchor": "On the closed paved shoulder",
+        "cellHint": "TWZWVA_P"
+      },
+      {
+        "id": "protectiveVehicle1",
+        "sheetLabel": "VEH #1",
+        "required": "only when the truck-mounted arrow panel option is used",
+        "stationAnchor": {
+          "zone": "laneTaper",
+          "end": "upstream"
+        },
+        "lateralAnchor": "On the shoulder / outer edge of the closed lane at the head of the taper",
+        "cellHint": "TWZWVA_P",
+        "note": "The 'OR' alternative to the arrow panel trailer -- same role as 619-311's VEH #1 (there also called protectiveVehicle2)."
+      },
+      {
+        "id": "channelizingDevices",
+        "sheetLabel": "CHANNELIZING DEVICES",
+        "deviceSymbol": "CONE",
+        "required": true,
+        "longitudinalSpacing": {
+          "maxFt": 20,
+          "sheetText": "Note 4 / Table 402-05 — not to exceed 20' in the active work space (intermediate)."
+        },
+        "runs": [
+          {
+            "id": "shoulderTaperRun",
+            "zone": "shoulderTaper",
+            "deviceCountSource": {
+              "table": "402-03",
+              "column": "shoulderTaper.devices"
+            }
+          },
+          {
+            "id": "laneTaperRun",
+            "zone": "laneTaper",
+            "deviceCountSource": {
+              "table": "402-03",
+              "column": "laneTaper.devices"
+            }
+          },
+          {
+            "id": "longitudinalRun",
+            "zone": "bufferSpace..workArea",
+            "deviceCountSource": null
+          },
+          {
+            "id": "downstreamRun",
+            "zone": "downstreamTaper",
+            "deviceCountSource": null
+          }
+        ],
+        "transverse": {
+          "required": "conditional",
+          "condition": "A paved shoulder 8' or wider is closed for a distance greater than 800'",
+          "maxSpacingFt": 800,
+          "sheetText": "Note 6 -- same condition as 619-311's Note 5.",
+          "detail": "302A",
+          "extent": "Across the closed travel lane and the closed paved shoulder"
+        }
+      },
+      {
+        "id": "spotter",
+        "sheetLabel": "SPOTTER RECOMMENDED",
+        "required": false,
+        "stationAnchor": {
+          "zone": "workArea",
+          "end": "downstream"
+        },
+        "detail": "302A"
+      },
+      {
+        "id": "workAreaHatch",
+        "sheetLabel": "WORK AREA",
+        "required": true,
+        "stationAnchor": {
+          "zone": "workArea",
+          "end": "both"
+        },
+        "lateralAnchor": "Closed travel lane (plus closed shoulder if that is also closed)",
+        "hatched": true
+      },
+      {
+        "id": "ny911Recommended",
+        "sheetLabel": "NY9-11",
+        "required": false,
+        "note": "Note 7 recommended: 1000' before first advance warning when speed >= 45; 300-500' when < 45."
+      },
+      {
+        "id": "channelizingApplicationTable",
+        "sheetLabel": "TABLE 402-05",
+        "required": true,
+        "note": "Device type matrix for intermediate-term (cones/drums/tubular/etc). See tables['402-05']."
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "description": "Same convention as 619-311: only what's listed here is dimensioned/labeled on this sheet.",
+    "dimensions": [
+      {
+        "zone": "gapC",
+        "label": "C",
+        "reference": "(SEE TABLE 402-04)"
+      },
+      {
+        "zone": "gapB",
+        "label": "B",
+        "reference": "(SEE TABLE 402-04)"
+      },
+      {
+        "zone": "gapA",
+        "label": "A",
+        "reference": "(SEE TABLE 402-04)"
+      },
+      {
+        "zone": "shoulderTaper",
+        "label": "SHOULDER TAPER",
+        "reference": "(SEE TABLE 402-03)"
+      },
+      {
+        "zone": "laneTaper",
+        "label": "MERGING TAPER L",
+        "reference": "(SEE TABLE 402-03)"
+      },
+      {
+        "zone": "bufferSpace",
+        "label": "BUFFER SPACE",
+        "reference": "(SEE TABLE 402-03)"
+      },
+      {
+        "zone": "rollAheadDistance",
+        "label": "ROLL AHEAD DISTANCE",
+        "reference": "(SEE TABLE 402-02)"
+      },
+      {
+        "zone": "downstreamTaper",
+        "label": "50'-100' DOWNSTREAM TAPER",
+        "reference": null
+      }
+    ],
+    "lateralDimensions": [],
+    "lateralDimensionsNote": "Unlike 619-311, no '10\\'-0\" (MIN.)' minimum-open-lane lateral dimension is printed on this sheet -- confirmed absent by coordinate search.",
+    "leaderCallouts": [
+      {
+        "text": "SPOTTER RECOMMENDED",
+        "pointsAt": "spotter"
+      },
+      {
+        "text": "SEE DETAIL 302A",
+        "pointsAt": "downstream taper / work area zone"
+      },
+      {
+        "text": "CHANNELIZING DEVICE SPACING (CENTER TO CENTER) SHALL NOT EXCEED 40' IN THE ACTIVE WORK SPACE",
+        "pointsAt": "channelizingDevices"
+      },
+      {
+        "text": "LANE CLOSED",
+        "pointsAt": "protectiveVehicle3",
+        "note": "NYW8-33 vehicle-mounted sign"
+      },
+      {
+        "text": "VEH #2 (SEE NOTE 8)",
+        "pointsAt": "protectiveVehicle2"
+      }
+    ],
+    "notLabeled": [
+      {
+        "item": "Vehicle Space",
+        "reason": "Not a zone on this sheet, same as 619-311."
+      },
+      {
+        "item": "WORK AREA length",
+        "reason": "Hatched region with a legend entry; no length dimension."
+      }
+    ]
+  },
+  "details": {
+    "402A": {
+      "title": "DETAIL 402A",
+      "note": "Referenced from plan (transverse channelizing / shoulder closure detail)."
+    }
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. INTERMEDIATE-TERM IS STATIONARY WORK THAT OCCUPIES A LOCATION MORE THAN ONE DAYLIGHT PERIOD UP TO 3 CONSECUTIVE DAYS, OR NIGHTTIME WORK LASTING MORE THAN 1 HOUR.",
+      "2. LEFT LANE CLOSURES ARE SYMMETRICAL TO RIGHT LANE CLOSURES. SUBSTITUTE LEFT LANE CLOSED SIGN (W20-5) AND THE CORRESPONDING LANE ENDS SIGN (W4-2L).",
+      "3. THE PROTECTIVE VEHICLE(S) SHALL MAINTAIN THE APPROPRIATE ROLL AHEAD DISTANCE, BE AN UNOCCUPIED TRUCK POSITIONED PARALLEL TO TRAFFIC, PARKING BRAKE SET, PLACED IN 2ND GEAR (MANUAL TRANSMISSIONS /ENGINE OFF) OR PARK / NEUTRAL (AUTOMATIC TRANSMISSIONS) AND HAVE THE FRONT WHEELS ALIGNED WITH THE LANE STRIPING.",
+      "4. CHANNELIZING DEVICE SPACING (CENTER TO CENTER) SHALL NOT EXCEED 20' IN THE ACTIVE WORK SPACE.",
+      "5. NO WORK ACTIVITY, EQUIPMENT, OR STORAGE OF VEHICLES, OR MATERIAL SHALL OCCUR WITHIN THE BUFFER SPACE AT ANY TIME.",
+      "6. CHANNELIZING DEVICES SHALL BE PLACED TRANSVERSELY A MINIMUM OF EVERY 800' AS SHOWN WHEN A PAVED SHOULDER HAVING A WIDTH OF 8' OR GREATER IS CLOSED FOR A DISTANCE GREATER THAN 800'.",
+      "7. THE NY9-11 SIGN IS RECOMMENDED. WHEN USED, IT SHALL BE PLACED IN ADVANCE OF THE FIRST ADVANCE WARNING SIGN. THE PLACEMENT DISTANCE SHALL BE 1000' FOR POSTED SPEED LIMITS OF 45 MPH OR HIGHER, AND 300' - 500' FOR POSTED SPEED LIMITS OF LESS THAN 45 MPH.",
+      "8. A REGULATORY SPEED LIMIT SIGN IS REQUIRED HALFWAY BETWEEN THE 1ST AND 2ND ADVANCE WARNING SIGNS UNLESS A REGULATORY SPEED LIMIT SIGN IS ALREADY PRESENT BETWEEN THOSE ADVANCED WARNING SIGNS OR A REGULATORY SPEED LIMIT REDUCTION IS AUTHORIZED AND THOSE SIGNS HAVE BEEN INSTALLED. ONE R2-1 OR NYR2-2 THROUGH NYR2-6 SHALL BEPROVIDED AS APPROPRIATE DEPENDING ON THE LOCATION. SEE STANDARD SHEET 619-012 FOR SIGN FACE AND SIZE"
+    ],
+    "planCallouts": [
+      {
+        "text": "THIS SIGN SHALL BE LOCATED A MINIMUM DISTANCE OF 80 FT AND MAXIMUM OF 400 FT PAST THE END OF THE DOWNSTREAM TAPER.",
+        "appliesTo": "G20-2"
+      }
+    ],
+    "tableNotes": [
+      "1. THE EXPOSURE CONDITIONS ASSUMES THERE IS NO POSITIVE PROTECTION PRESENT"
+    ]
+  },
+  "rules": [
+    {
+      "id": "no-occupancy-buffer",
+      "severity": "error",
+      "source": "Note 5",
+      "assert": "No work activity, equipment, vehicles, or material in the buffer space at any time.",
+      "commonFailure": "Drawing work-area hatch into the buffer."
+    },
+    {
+      "id": "sign-order",
+      "severity": "error",
+      "source": "Plan layout",
+      "assert": "Upstream advance signs: W4-2R, then W20-5R, then W20-1 (same as 302).",
+      "commonFailure": "Reversing the order or using W20-5aR from the two-lane sibling."
+    },
+    {
+      "id": "shoulder-taper-is-an-overlay",
+      "severity": "error",
+      "source": "Dimension datums",
+      "assert": "Shoulder taper overlays gap A; consumes no station.",
+      "commonFailure": "Sequential shoulder-taper station row."
+    },
+    {
+      "id": "device-spacing-20ft",
+      "severity": "error",
+      "source": "Note 4 / Table 402-05",
+      "assert": "Channelizing device spacing in the active work space must not exceed 20 ft (intermediate), not 302's 40 ft.",
+      "commonFailure": "Copying 40 ft from the short-term Family 2 reference."
+    },
+    {
+      "id": "regulatory-speed-mid-AB",
+      "severity": "error",
+      "source": "Note 8 / Table 402-06",
+      "assert": "Place R2-1 or NYR2-2/NYR2-6 halfway between 1st and 2nd advance warning signs unless already present.",
+      "commonFailure": "Omitting the regulatory speed sign because 302 has none."
+    },
+    {
+      "id": "no-invented-zones",
+      "severity": "error",
+      "source": "Plan layout",
+      "assert": "No Vehicle Space / temp barrier / box-corr beam sequential rows on the basic plan.",
+      "commonFailure": "Emitting the generic 7-row default upstream table."
+    },
+    {
+      "id": "pvh-pvl-codes",
+      "severity": "warning",
+      "source": "Table 402-01",
+      "assert": "Protective vehicle lookup returns PVH+TMIA / PVL+TMIA / SEE NOTE n — not 302's bare P.",
+      "commonFailure": "Assuming short-term P/TMIA codes apply to intermediate sheets."
+    }
+  ],
+  "knownCodeDeviations": [
+    {
+      "id": "device-spacing-default-40",
+      "severity": "error",
+      "assert": "Current placement defaults assume 40 ft skip-line spacing; intermediate sheets require 20 ft in the work space per Note 4."
+    },
+    {
+      "id": "regulatory-sign-not-in-order-table",
+      "severity": "warning",
+      "assert": "R2-1 mid A/B is required by Note 8 but is not yet a sequential order-table row in the bridge payload."
+    },
+    {
+      "id": "sheet-registry-wrong-signs",
+      "severity": "warning",
+      "assert": "sheet-registry.tsv must not override this spec; intermediate sheets DO include R2-1/NYR2-* (unlike 302 where those registry codes were noise)."
+    }
+  ],
+  "knownExcerpts": {
+    "from619-302": [
+      "402-03 == 302-02 (taper+buffer) including 65/12 = 800/20/21",
+      "402-04 == 302-03 (advance warning)",
+      "402-02 == 302-05 (roll ahead)",
+      "Corridor skeleton (single merging taper + shoulder overlay) matches 302"
+    ],
+    "differsFrom302": [
+      "Duration Intermediate; Notes 1/4/5/7/8 differ; Note 4 = 20' spacing",
+      "402-01 PVH/PVL+TMIA vs 302 P/TMIA",
+      "New Table 402-05 channelizing application matrix",
+      "402-06 adds R2-1/NYR2-2/NYR2-6",
+      "2 PDF pages (tables on page 2)"
+    ]
+  }
+}

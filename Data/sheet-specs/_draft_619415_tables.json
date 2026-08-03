@@ -1,0 +1,493 @@
+{
+  "sheetNumber": "619-415",
+  "sourcePdf": "Bridge/captures/619-415.pdf",
+  "sourcePdfRevision": "619-415_E3.pdf (2 pages, rotation=0, landscape mediabox)",
+  "pdfPages": 2,
+  "pageRotation": {
+    "page0": 0,
+    "page1": 0
+  },
+  "extractedBy": "Cursor subagent (PyMuPDF words_in_window / group_rows / assert_row_count)",
+  "extractedOn": "2026-08-03",
+  "confidence": "verbatim",
+  "tableRoles": {
+    "note": "Family 3 ramp-approach intermediate. Roles by CONTENT (numbering != 402): 415-01=taperAndBuffer, 415-02=rollAheadDistance, 415-03=protectiveVehicle, 415-04=channelizingApplication, 415-05=signSizes. NO advanceWarningSpacing table — AHEAD 1 MILE on plan + Note 8.",
+    "taperAndBuffer": "415-01",
+    "rollAheadDistance": "415-02",
+    "protectiveVehicle": "415-03",
+    "channelizingApplication": "415-04",
+    "signSizes": "415-05"
+  },
+  "tables": {
+    "415-01": {
+      "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph",
+        "laneWidthFt",
+        "shoulderWidthBand"
+      ],
+      "columnMeaning": {
+        "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES",
+        "lateralShiftTaper": "LONGITUDINAL TAPER LENGTH (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES (LATERAL SHIFT OF TRAFFIC FLOW PATH) FOR LANE WIDTH",
+        "shoulderTaper": "SHOULDER TAPER LENGTH: L/3 (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES"
+      },
+      "note": "4 speed columns (45,50,55,65). Shoulder+buffer match 301-03; lateralShiftTaper values match 402-03 laneTaper at same speeds.",
+      "rows": [
+        {
+          "speedMph": 45,
+          "longitudinalBufferSpace": {
+            "ft": 360,
+            "skipLines": 9
+          },
+          "lateralShiftTaper": {
+            "10": {
+              "ft": 440,
+              "skipLines": 11,
+              "devices": 12
+            },
+            "11": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "12": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            ">= 8 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            }
+          }
+        },
+        {
+          "speedMph": 50,
+          "longitudinalBufferSpace": {
+            "ft": 425,
+            "skipLines": 11
+          },
+          "lateralShiftTaper": {
+            "10": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "11": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "12": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 55,
+          "longitudinalBufferSpace": {
+            "ft": 495,
+            "skipLines": 13
+          },
+          "lateralShiftTaper": {
+            "10": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "11": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            },
+            "12": {
+              "ft": 680,
+              "skipLines": 17,
+              "devices": 18
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 65,
+          "longitudinalBufferSpace": {
+            "ft": 645,
+            "skipLines": 16
+          },
+          "lateralShiftTaper": {
+            "10": {
+              "ft": 640,
+              "skipLines": 16,
+              "devices": 17
+            },
+            "11": {
+              "ft": 720,
+              "skipLines": 18,
+              "devices": 19
+            },
+            "12": {
+              "ft": 800,
+              "skipLines": 20,
+              "devices": 21
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            ">= 8 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          }
+        }
+      ]
+    },
+    "415-02": {
+      "title": "ROLL AHEAD DISTANCE",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES FOR CLOSED TRAFFIC VEHICLES AND/OR SHOULDER — STATIONARY OPERATION MIN/MAX",
+      "note": "2 rows in PDF (>=55, 45-50). Omits <=40 MPH row from 402-02.",
+      "rows": [
+        {
+          "speedBand": ">= 55 MPH",
+          "minMph": 55,
+          "maxMph": null,
+          "min": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "speedBand": "45 - 50 MPH",
+          "minMph": 45,
+          "maxMph": 50,
+          "min": {
+            "ft": 80,
+            "skipLines": 2
+          },
+          "max": {
+            "ft": 160,
+            "skipLines": 4
+          }
+        }
+      ]
+    },
+    "415-03": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition",
+        "roadTypeForProtectiveVehicle"
+      ],
+      "note": "Ramp sheet: 2 shoulder rows, FREEWAY column only (PVH+TMIA). No ge45/b35/le30 speed-band columns unlike 402-01.",
+      "rows": [
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS, EXCAVATION)",
+          "FREEWAY": "PVH+TMIA"
+        }
+      ],
+      "legend": {
+        "PVH": "PROTECTIVE VEHICLE HEAVY (MINIMUM GROSS WEIGHT 22,000 LBS. OR GREATER)",
+        "TMIA": "TRUCK/TRAILER MOUNTED IMPACT ATTENUATOR"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUME THERE IS NO POSITIVE PROTECTION PRESENT.",
+        "2. TRUCK/TRAILER MOUNTED IMPACT ATTENUATORS (TMIA) SHALL NOT BE MOUNTED/INSTALLED ON VEHICLES WITH A GROSS VEHICLE WEIGHT (GVW) LESS THAN WHAT IS MINIMALLY REQUIRED BY THE MANUFACTURER OF THE TMIA."
+      ]
+    },
+    "415-04": {
+      "title": "CHANNELIZING DEVICE APPLICATION FOR INTERMEDIATE-TERM STATIONARY WORK ZONES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "workZoneProvision",
+        "channelizingDeviceType"
+      ],
+      "note": "Same structure as 402-05. 20 FT.* active-work-space spacing per Note 3.",
+      "columnHeaders": [
+        "cones",
+        "type1_markers",
+        "standard_cones",
+        "extra_tall_cones",
+        "temporary_tall_cones",
+        "temporary_tubular_markers",
+        "interim_tubular_markers",
+        "vertical_panels",
+        "oversized_vertical_panels",
+        "type_iii_barricades"
+      ],
+      "provisionRows": [
+        {
+          "provisionId": "shoulderMergingShiftingTapers",
+          "label": "SHOULDER/MERGING/SHIFTING TAPERS",
+          "spacingReference": "40 FT.",
+          "allowedByDeviceType": {
+            "type1_markers": "X",
+            "oversized_vertical_panels": "X"
+          }
+        },
+        {
+          "provisionId": "markingForTransverseBumps",
+          "label": "MARKING FOR TRANSVERSE BUMPS",
+          "allowedByDeviceType": {
+            "type1_markers": "X2",
+            "temporary_tall_cones": "X2",
+            "oversized_vertical_panels": "X2"
+          }
+        },
+        {
+          "provisionId": "transverseDeviceWithinClosedLaneOrShoulder",
+          "label": "TRANSVERSE DEVICE WITHIN CLOSED TRAFFIC LANE AND/OR SHOULDER",
+          "spacingReference": "800 FT.",
+          "allowedByDeviceType": {
+            "type1_markers": "X",
+            "extra_tall_cones": "X",
+            "temporary_tall_cones": "X",
+            "vertical_panels": "X",
+            "oversized_vertical_panels": "X",
+            "type_iii_barricades": "O"
+          }
+        },
+        {
+          "provisionId": "removalOfExistingGuideRail",
+          "label": "REMOVAL OF EXISTING GUIDE RAIL",
+          "spacingReference": "80 FT. / 40 FT.",
+          "allowedByDeviceType": {
+            "type1_markers": "X",
+            "extra_tall_cones": "X",
+            "temporary_tall_cones": "X",
+            "temporary_tubular_markers": "X",
+            "vertical_panels": "X",
+            "oversized_vertical_panels": "X",
+            "type_iii_barricades": "O"
+          }
+        }
+      ],
+      "spacingRows": [
+        {
+          "spacingId": "spacing20ft",
+          "label": "20 FT.",
+          "allowedByDeviceType": {
+            "type1_markers": "X",
+            "oversized_vertical_panels": "X"
+          }
+        },
+        {
+          "spacingId": "spacing40ft",
+          "label": "40 FT.",
+          "allowedByDeviceType": {
+            "type1_markers": "X",
+            "oversized_vertical_panels": "X"
+          }
+        }
+      ],
+      "tableNotes": [
+        "NOTES: X= ALLOWED, BLANK = NOT ALLOWED, O = OPTIONAL * SEE NOTE 4 ON SHEET 1 OF 2.",
+        "1. - A TYPE 1 OBJECT MARKER MAY BE USED IN LIEU OF CHANNELIZING DEVICE.",
+        "2. - CHANNELIZING DEVICES SHALL BE EQUIPPED WITH A FLASHING WARNING LIGHT."
+      ]
+    },
+    "415-05": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "note": "Ramp intermediate set: W21-5aR/W21-5bR, W7-3a, NYR9-11, R2-1/NYR2-2.",
+      "rows": [
+        {
+          "signCode": "W7-3a",
+          "NON-FREEWAY": null,
+          "FREEWAY": "36x30"
+        },
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "NYR9-11",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x84",
+          "note": "Recommended advance sign (Note 6); ramp/intermediate only"
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5bR",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5aR",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        },
+        {
+          "signCode": "R2-1 OR NYR2-2",
+          "NON-FREEWAY": null,
+          "FREEWAY": "36x48",
+          "note": "Regulatory speed sign (Note 8)"
+        },
+        {
+          "signCode": "NYR2-6",
+          "NON-FREEWAY": null,
+          "FREEWAY": null,
+          "note": "Listed under R2-1 group; no size in text layer"
+        }
+      ]
+    }
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. INTERMEDIATE-TERM IS STATIONARY WORK THAT OCCUPIES A LOCATION MORE THAN ONE DAYLIGHT PERIOD UP TO 3 CONSECUTIVE DAYS, OR NIGHTTIME WORK LASTING MORE THAN 1 HOUR.",
+      "2. NO WORK ACTIVITY OR STORAGE OF EQUIPMENT, VEHICLES, OR MATERIAL SHOULD OCCUR WITHIN A BUFFER SPACE.",
+      "3. CHANNELIZING DEVICE SPACING (CENTER TO CENTER) SHALL NOT EXCEED 20' IN THE ACTIVE WORK SPACE.",
+      "4. A SUPPLEMENTAL DISTANCE PLAQUE W7-3a SHALL BE USED WITH SIGN W20-1 WHEN THE DISTANCE BETWEEN THE ADVANCE WARNING SIGNS AND WORK BECOME GREATER THAN 2 MILES AS A RESULT OF THE FOLLOWING SITUATIONS: XX IS THE EXPECTED OVERALL LENGTH OF THE OPERATION TO BE COMPLETED WITHIN THE WORK DAY; *WORK LOCATIONS WITHIN XX MILES FROM THE W20-1 SIGN MAY BE RELOCATED WITHIN THE WORK DAY; *MULTIPLE WORK LOCATIONS ARE ANTICIPATED WITHIN XX MILES FROM THE W20-1 SIGN.",
+      "5. CHANNELIZING DEVICES SHALL BE PLACED TRANSVERSELY A MINIMUM OF EVERY 800' AS SHOWN WHEN A PAVED SHOULDER HAVING A WIDTH OF 8' OR GREATER IS CLOSED FOR A DISTANCE GREATER THAN 800'.",
+      "6. THE NYR9-11 SIGN IS RECOMMENDED. WHEN USED, IT SHALL BE PLACED IN ADVANCE OF THE FIRST ADVANCE WARNING SIGN. THE PLACEMENT DISTANCE SHALL BE 1000' FOR POSTED SPEED LIMITS OF 45 MPH OR HIGHER, AND 500' FOR POSTED SPEED LIMITS LESS THAN 45 MPH. THE SIGN SHALL BE PLACED TO AVOID GLARE TO RESIDENCES ADJOINING THE ROADWAY.",
+      "7. THE PROTECTIVE VEHICLE(S) SHALL MAINTAIN THE APPROPRIATE ROLL AHEAD DISTANCE, BE AN UNOCCUPIED TRUCK POSITIONED PARALLEL TO TRAFFIC, PARKING BRAKE SET, PLACED IN 2ND GEAR (MANUAL TRANSMISSIONS /ENGINE OFF) OR PARK / NEUTRAL (AUTOMATIC TRANSMISSIONS) AND HAVE THE FRONT WHEELS ALIGNED WITH THE LANE STRIPING.",
+      "8. A REGULATORY SPEED LIMIT SIGN IS REQUIRED HALFWAY BETWEEN THE 1ST AND 2ND ADVANCE WARNING SIGNS UNLESS A REGULATORY SPEED LIMIT SIGN IS ALREADY PRESENT BETWEEN THOSE ADVANCED WARNING SIGNS OR A REGULATORY SPEED LIMIT REDUCTION IS AUTHORIZED AND THOSE SIGNS HAVE BEEN INSTALLED. ONE R2-1 OR NYR2-2 THROUGH NYR2-6 SHALL BE PROVIDED AS APPROPRIATE DEPENDING ON THE LOCATION. SEE STANDARD SHEET 619-012 FOR SIGN FACE AND SIZE.",
+      "N1. WORK OCCURRING AFTER SUNSET AND BEFORE SUNRISE WILL BE CONSIDERED NIGHTTIME OPERATIONS.",
+      "N2. ALL SIGNS, STOP/SLOW PADDLES AND RED FLAGS USED TO WARN/ALERT/CONTROL TRAFFIC SHALL BE RETROREFLECTIVE. ALL WORKERS INVOLVED SHALL WEAR PROTECTIVE HELMETS AND NIGHTTIME APPAREL IN",
+      "N3. ACCORDANCE WITH EI 107-05A. HIGH VISIBILITY APPAREL AT ALL TIMES.",
+      "N4. VEHICLES OPERATING ON THE PAVEMENT OF A CLOSED ROADWAY OR TRAVEL LANE SHALL DISPLAY ROTATING AMBER BEACONS OR FLASHING LED BEACONS AT ALL TIMES.",
+      "N5. LEVEL I ILLUMINATION SHALL BE PROVIDED NEAR THE BEGINNING OF LANE CLOSURE TAPERS AND AT ROAD CLOSURES, INCLUDING THE SETUP AND REMOVAL OF THE CLOSURE TAPERS. LEVEL II ILLUMINATION SHALL BE PROVIDED FOR FLAGGING STATIONS, ASPHALT PAVING,",
+      "N6. MILLING, AND CONCRETE PLACEMENT AND/OR REMOVAL OPERATIONS, INCLUDING BRIDGE DECKS, 50 FEET AHEAD OF AND 100 FEET BEHIND A PAVING OR MILLING MACHINE.",
+      "N7. LEVEL III ILLUMINATION SHALL BE PROVIDED FOR PAVEMENT OR STRUCTURAL CRACK FILLING, JOINT REPAIR, PAVEMENT PATCHING AND REPAIRS, INSTALLATION OF SIGNAL EQUIPMENT OR OTHER ELECTRICAL/MECHANICAL EQUIPMENT, AND OTHER TASKS INVOLVING FINE DETAILS OR INTRICATE PARTS AND EQUIPMENT.",
+      "N8. ALL LIGHTING SHALL BE DESIGNED, INSTALLED, AND OPERATED TO AVOID GLARE THAT AFFECTS TRAFFIC ON THE ROADWAY OR THAT CAUSES ANNOYANCE OR DISCOMFORT FOR RESIDENCES ADJOINING THE ROADWAY.",
+      "N9. PRIOR TO THE START OF NIGHTTIME OPERATIONS, A WRITTEN NIGHTTIME OPERATIONS AND LIGHTING PLAN IS REQUIRED FOR APPROVAL FROM THE DOT ENGINEER.",
+      "N10. SEE STANDARD SPECIFICATIONS y 619 FOR ADDITONAL REQUIREMENTS AND CONSIDERATIONS.",
+      "N11. FLAGGERS SHALL USE A FLASHLIGHT WITH RED GLOW CONE/RED LED BATON FOR FLAGGING IN NON-ILLUMINATED FLAGGER STATIONS DURING NIGHTTIME OPERATIONS."
+    ],
+    "notesOrderNote": "8 numbered notes (page 0, x>=900) + N1-N8 nighttime block. Note 6 NYR9-11 recommended. Note 8 R2-1 regulatory speed sign."
+  },
+  "corridorHints": {
+    "confidence": "drawing",
+    "fromPlanLabels": [
+      "ramp approach: SHOULDER RAMP plan labels; Detail 415A for ramp taper",
+      "advance: W20-1 AHEAD 1 MILE (Note 8 regulatory spacing context)",
+      "recommended NYR9-11 before first advance warning (Note 6, 1000' @ >=45 mph)",
+      "shoulder closed signs W21-5aR/W21-5bR (not lane-closed W20-5R)",
+      "supplement W7-3a on W20-1 when work span > 2 miles (Note 4)",
+      "SHOULDER TAPER L/3 + lateral shift of traffic flow path (415-01)",
+      "BUFFER SPACE + roll-ahead (415-02) + PVH heavy protective vehicle",
+      "500' downstream taper on plan; channelizing per 415-04 + Note 3 (20' active workspace)",
+      "nighttime N1-N8 block (retroreflective, illumination levels)"
+    ]
+  },
+  "findings": [
+    "pdfPages=2 rotation=0 both display_rect=Rect(0.0, 0.0, 1224.0, 792.0)",
+    "ramp-approach plan: AHEAD 1 MILE (Note 8); SHOULDER RAMP labels; Detail 415A",
+    "415-01 vs 301-03: buffer + shoulder (<=8 ft) ALL 16 cells identical on 45-65 mph",
+    "415-01 NEW vs 301: lateralShiftTaper lane 10/11/12 (matches 402-03 values at 45-65 mph)",
+    "415-02: 2 speed rows only in PDF (402-02 has 3 incl <=40 MPH) — ramp sheet omits <=40 row",
+    "415-03: 2 shoulder rows FREEWAY-only PVH+TMIA (no speed-band columns on ramp sheet)",
+    "415-04: intermediate channelizing matrix (matches 402-05 structure; 20' spacing Note 3)",
+    "415-05: 9 sign rows incl NYR9-11 48x84 + R2-1/NYR2-2 (301-04 lacks both)",
+    "notes: 8 numbered + 11 N-nighttime (402 has 8 N; 415 adds N9-N11)",
+    "SURPRISE: Note 6 NYR9-11 recommended 1000' before 1st advance warning",
+    "SURPRISE: Note 3 20' channelizing spacing (intermediate, like 402)",
+    "SURPRISE: 415-03 FREEWAY-only PV table (no ge45/b35/le30 columns)",
+    "SURPRISE: 415-02 omits <=40 MPH roll-ahead row present on 402-02"
+  ],
+  "comparisonVs301": {
+    "415-01_vs_301-03": "buffer + shoulder <=8 ft identical; 415 adds lateralShiftTaper lane 10/11/12",
+    "415-03_vs_301-01": "same 2 shoulder PV rows but 415 drops speed-band columns (FREEWAY only)",
+    "415-02_vs_301-02": "415 speed-based 2-row vs 301 GVW-based 2-row — different keying",
+    "415-05_vs_301-04": "adds NYR9-11 + R2-1/NYR2-2; same W21-5aR/W21-5bR/W7-3a/G20-2 core",
+    "absent_vs_301": [
+      "301-02 GVW roll-ahead keying",
+      "301 Note 9 on 315; 415 has Note 8 R2-1 instead"
+    ],
+    "added_vs_301": [
+      "415-04 intermediate channelizing matrix",
+      "lateral shift taper columns",
+      "NYR9-11 recommended sign",
+      "nighttime N-notes block",
+      "20' channelizing spacing (Note 3)"
+    ]
+  }
+}

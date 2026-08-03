@@ -1,0 +1,105 @@
+{
+  "sheet": 524,
+  "meta": {
+    "pages": 2,
+    "rotation": 0
+  },
+  "schema": "temp_signal",
+  "tableRoles": {
+    "note": "Long-term temp signal. 524-01=AW, 524-02=taper/buffer?, 524-03=channelizing, 524-04=flare, 524-05=sizes. NO roll-ahead table on sheet.",
+    "advanceWarningSpacing": "524-01",
+    "signSizes": "524-05",
+    "channelizingApplication": "524-03",
+    "flareRates": "524-04"
+  },
+  "advanceWarning": [
+    {
+      "areaType": "URBAN",
+      "speedBand": "<= 30 MPH",
+      "minMph": null,
+      "maxMph": 30,
+      "A": 100,
+      "B": 100,
+      "C": 100,
+      "XX": "AHEAD",
+      "YY": "AHEAD"
+    },
+    {
+      "areaType": "URBAN",
+      "speedBand": "35-40 MPH",
+      "minMph": 35,
+      "maxMph": 40,
+      "A": 200,
+      "B": 200,
+      "C": 200,
+      "XX": "AHEAD",
+      "YY": "AHEAD"
+    },
+    {
+      "areaType": "URBAN",
+      "speedBand": ">= 45 MPH",
+      "minMph": 45,
+      "maxMph": null,
+      "A": 350,
+      "B": 350,
+      "C": 350,
+      "XX": "1000 FT.",
+      "YY": "AHEAD"
+    },
+    {
+      "areaType": "RURAL",
+      "speedBand": "ALL",
+      "minMph": null,
+      "maxMph": null,
+      "A": 500,
+      "B": 500,
+      "C": 500,
+      "XX": "1500 FT.",
+      "YY": "1000 FT."
+    }
+  ],
+  "signSizes": [
+    {
+      "signCode": "G20-2",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "NYR9-11",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R10-6L",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R10-6R",
+      "NON-FREEWAY": "24x36",
+      "FREEWAY": "24x36"
+    },
+    {
+      "signCode": "W20-1",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W20-4",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W3-3",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "WARNING FLAG",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    }
+  ],
+  "hasRollAhead": false,
+  "hasShoulderTaper": true
+}

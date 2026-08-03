@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "kind": "referenceLibrary",
+    "kindNote": "Not a corridor/plan sheet — no station walk / order table. schemaVersion 1.1 referenceLibrary pattern per 619-011.",
+    "number": "619-005",
+    "title": "DETAILS ON PLACEMENT OF PORTABLE TEMPORARY RUMBLE STRIPS",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "units": "U.S. CUSTOMARY STANDARD SHEET",
+    "scale": "NOT TO SCALE",
+    "approved": "2024-06-18",
+    "issuedUnder": "EI 22-008",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-005.pdf",
+    "localPdf": "Bridge/captures/619-005.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 0,
+    "transcribedBy": "Cursor (Misc reference/detail)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "PTRS spacing + sign sizes for rumble-strip placement details. referenceLibrary (supplements plan sheets). live-build n/a."
+  },
+  "tableRoles": {
+    "ptrsSpacing": "005-01",
+    "signSizes": "005-02"
+  },
+  "tables": {
+    "005-01": {
+      "title": "PTRS SPACING",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "speedBand"
+      ],
+      "columnMeaning": {
+        "distanceBeforeSign": "DISTANCE BEFORE SIGN",
+        "spacingOnCenter": "SPACING ON CENTER BETWEEN PTRS"
+      },
+      "rows": [
+        {
+          "speedBand": "<= 40 MPH",
+          "minMph": null,
+          "maxMph": 40,
+          "distanceBeforeSignFt": 120,
+          "spacingOnCenterFt": 10
+        },
+        {
+          "speedBand": "41-55 MPH",
+          "minMph": 41,
+          "maxMph": 55,
+          "distanceBeforeSignFt": 160,
+          "spacingOnCenterFt": 15
+        },
+        {
+          "speedBand": "56+ MPH",
+          "minMph": 56,
+          "maxMph": 64,
+          "distanceBeforeSignFt": 200,
+          "spacingOnCenterFt": 20
+        },
+        {
+          "speedBand": "65+ MPH",
+          "minMph": 65,
+          "maxMph": null,
+          "distanceBeforeSignFt": 240,
+          "spacingOnCenterFt": 35
+        }
+      ],
+      "note": "35'+ spacing band transcribed as 35 for 65+ from sheet '35'+' token."
+    },
+    "005-02": {
+      "title": "REQUIRED SIGN SIZES*",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "rows": [
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "NYW4-17",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W20-4",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W4-2R",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W20-5R",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W20-7",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "legend": {
+    "confidence": "drawing",
+    "items": [
+      "PORTABLE TEMPORARY RUMBLE STRIPS",
+      "DISTANCE BEFORE SIGN",
+      "DISTANCE BETWEEN PTRS"
+    ]
+  },
+  "notes": {
+    "confidence": "drawing",
+    "printed": [
+      "See PDF for complete PTRS placement notes and array diagrams."
+    ]
+  }
+}

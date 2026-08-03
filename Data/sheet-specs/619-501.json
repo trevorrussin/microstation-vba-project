@@ -1,0 +1,930 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-501",
+    "title": "WORK ZONE TRAFFIC CONTROL MULTILANE DIVIDED ROADWAY AND FREEWAY RIGHT SHOULDER CLOSURE",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "LONG TERM OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2026-05-06",
+    "issuedUnder": "E3 revision",
+    "signedBy": null,
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-501_E3.pdf",
+    "localPdf": "Bridge/captures/619-501.pdf",
+    "localRender": null,
+    "pdfPages": 2,
+    "pageRotation": 0,
+    "transcribedBy": "Cursor (Family 3 long-term barrier sibling of 619-301)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Long-term shoulder closure with temporary positive barrier. No PV/roll-ahead tables. 501-01 matches 301-03 buffer+shoulder. Flare rates 501-03."
+  },
+  "applicability": {
+    "roadType": "Freeway/Multilane Divided",
+    "roadway": "Multilane divided or freeway",
+    "closure": "Right shoulder closure",
+    "duration": "Long Term",
+    "durationDefinition": "Stationary work occupying a location more than 3 consecutive days.",
+    "speedRangeMph": {
+      "allowed": [
+        45,
+        50,
+        55,
+        65
+      ],
+      "note": "Table 301-03 covers 45,50,55,65 only — no 25-40 or 60 rows in PDF text layer."
+    },
+    "laneWidthFt": null,
+    "laneWidthNote": "No lane/merging taper on this sheet — lane width is not a lookup input.",
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft"
+    ],
+    "areaTypes": null,
+    "areaTypeNote": "No advance-warning spacing table; gaps are fixed plan callouts."
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "label": "Preconstruction posted speed limit (MPH)",
+      "type": "integer",
+      "allowed": [
+        45,
+        50,
+        55,
+        65
+      ],
+      "usedBy": [
+        "501-01",
+        "501-01"
+      ]
+    },
+    {
+      "id": "shoulderWidthBand",
+      "label": "Shoulder width band",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft"
+      ],
+      "usedBy": [
+        "501-01"
+      ]
+    },
+    {
+      "id": "signSizeClass",
+      "label": "Sign size class",
+      "type": "enum",
+      "allowed": [
+        "NON-FREEWAY",
+        "FREEWAY"
+      ],
+      "default": "FREEWAY",
+      "usedBy": []
+    }
+  ],
+  "tableRoles": {
+    "note": "Family 3 long-term shoulder with barrier. 4 tables — NO protectiveVehicle or rollAheadDistance (like 504). 501-01=taperAndBuffer. 501-03=positiveBarrierFlareRates.",
+    "taperAndBuffer": "501-01",
+    "channelizingApplication": "501-02",
+    "positiveBarrierFlareRates": "501-03",
+    "signSizes": "501-04"
+  },
+  "tables": {
+    "501-01": {
+      "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph",
+        "shoulderWidthBand"
+      ],
+      "columnMeaning": {
+        "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES",
+        "laneTaper": "LANE TAPER for lane widths 10/11/12 ft",
+        "shoulderTaper": "SHOULDER TAPER L/3 by shoulder width band"
+      },
+      "note": "Identical to 401-03. Shoulder+buffer match 301-03 on 45-65.",
+      "rows": [
+        {
+          "speedMph": 45,
+          "longitudinalBufferSpace": {
+            "ft": 360,
+            "skipLines": 9
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 440,
+              "skipLines": 11,
+              "devices": 12
+            },
+            "11": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "12": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            ">= 8 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            }
+          }
+        },
+        {
+          "speedMph": 50,
+          "longitudinalBufferSpace": {
+            "ft": 425,
+            "skipLines": 11
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "11": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "12": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 55,
+          "longitudinalBufferSpace": {
+            "ft": 495,
+            "skipLines": 13
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "11": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            },
+            "12": {
+              "ft": 680,
+              "skipLines": 17,
+              "devices": 18
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 65,
+          "longitudinalBufferSpace": {
+            "ft": 645,
+            "skipLines": 16
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 640,
+              "skipLines": 16,
+              "devices": 17
+            },
+            "11": {
+              "ft": 720,
+              "skipLines": 18,
+              "devices": 19
+            },
+            "12": {
+              "ft": 800,
+              "skipLines": 20,
+              "devices": 21
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            ">= 8 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          }
+        }
+      ]
+    },
+    "501-02": {
+      "title": "CHANNELIZING DEVICE APPLICATION FOR LONG-TERM STATIONARY WORK ZONES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "workZoneProvision",
+        "channelizingDeviceType"
+      ],
+      "note": "Long-term variant — 2 provisions + 2 spacing rows; no transverse/800' rows.",
+      "columnHeaders": [
+        "cones",
+        "temporary_cones_or_drums",
+        "type1_markers",
+        "type2_markers",
+        "type3_markers",
+        "tubular_markers",
+        "vertical_panels",
+        "oversized_vertical_panels",
+        "barricades",
+        "arrow_panels_type3"
+      ],
+      "provisionRows": [
+        {
+          "provisionId": "shoulderMergingShiftingTapers",
+          "label": "SHOULDER/MERGING/SHIFTING TAPERS",
+          "spacingReference": "40 FT.",
+          "allowedByDeviceType": {}
+        },
+        {
+          "provisionId": "removalOfExistingGuideRail",
+          "label": "REMOVAL OF EXISTING GUIDE RAIL",
+          "spacingReference": "80 FT. / 40 FT.",
+          "allowedByDeviceType": {}
+        }
+      ],
+      "spacingRows": [
+        {
+          "spacingId": "spacing20ft",
+          "label": "20 FT.",
+          "allowedByDeviceType": {}
+        },
+        {
+          "spacingId": "spacing40ft",
+          "label": "40 FT.",
+          "allowedByDeviceType": {}
+        }
+      ],
+      "tableNotes": [
+        "NOTES: X= ALLOWED, BLANK = NOT ALLOWED, O = OPTIONAL",
+        "1. - A TYPE 1 OBJECT MARKER MAY BE USED IN LIEU OF CHANNELIZING DEVICE.",
+        "2. - CHANNELIZING DEVICES SHALL BE EQUIPPED WITH A FLASHING WARNING LIGHT."
+      ]
+    },
+    "501-03": {
+      "title": "FLARE RATES FOR POSITIVE BARRIER",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "barrierType",
+        "preconstructionPostedSpeedMph"
+      ],
+      "speedColumnsMph": [
+        50,
+        55,
+        65
+      ],
+      "note": "3 speed columns (50/55/65) — subset of 504-03 (30-65). Same ratio pattern at overlap.",
+      "rows": [
+        {
+          "barrierType": "TEMPORARY POSITIVE BARRIER",
+          "flareRatesBySpeedMph": {
+            "50": "14:1",
+            "55": "16:1",
+            "65": "20:1"
+          }
+        },
+        {
+          "barrierType": "BOX BEAM OR HEAVY POST CORRUGATED BEAM",
+          "flareRatesBySpeedMph": {
+            "50": "11:1",
+            "55": "12:1",
+            "65": "15:1"
+          }
+        }
+      ]
+    },
+    "501-04": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "note": "Shoulder long-term sign set with NYR9-11; W21-5aR/W21-5bR both classes.",
+      "rows": [
+        {
+          "signCode": "G20-1",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "NYR9-11",
+          "NON-FREEWAY": "24x42",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W7-3a",
+          "NON-FREEWAY": "24x18",
+          "FREEWAY": "36x30"
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5aR",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5bR",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        },
+        {
+          "signCode": "R2-1 OR NYR2-2",
+          "NON-FREEWAY": "36x48",
+          "FREEWAY": "36x48",
+          "note": "PDF splits R2-1 OR / NYR2-2 across lines"
+        },
+        {
+          "signCode": "NYR2-6",
+          "NON-FREEWAY": null,
+          "FREEWAY": null,
+          "note": "Listed under R2-1 group; no sizes in PDF text layer"
+        }
+      ]
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "Long-term shoulder closure: SHOULDER TAPER + advance signs; temporary positive barrier along work area (no PV/roll-ahead). Flare rates from Table 501-03.",
+    "zones": [
+      {
+        "id": "signC",
+        "order": 1,
+        "kind": "sign",
+        "signCode": "W20-1",
+        "sheetLegend": "ROAD WORK XX"
+      },
+      {
+        "id": "gapC",
+        "order": 2,
+        "kind": "gap",
+        "sheetLabel": "C",
+        "lengthSource": {
+          "fixedFt": 1320
+        },
+        "dimensioned": true,
+        "spans": "W20-1 to W21-5bR",
+        "note": "Plan callout 1320' (¼ mile) — not from a numbered spacing table."
+      },
+      {
+        "id": "signB",
+        "order": 3,
+        "kind": "sign",
+        "signCode": "W21-5bR",
+        "sheetLegend": "RIGHT SHOULDER CLOSED AHEAD / MILE"
+      },
+      {
+        "id": "gapB",
+        "order": 4,
+        "kind": "gap",
+        "sheetLabel": "B",
+        "lengthSource": {
+          "fixedFt": 1500
+        },
+        "dimensioned": true,
+        "spans": "W21-5bR to W21-5aR"
+      },
+      {
+        "id": "signA",
+        "order": 5,
+        "kind": "sign",
+        "signCode": "W21-5aR",
+        "sheetLegend": "RIGHT SHOULDER CLOSED"
+      },
+      {
+        "id": "gapA",
+        "order": 6,
+        "kind": "gap",
+        "sheetLabel": "A",
+        "lengthSource": {
+          "fixedFt": 1000
+        },
+        "dimensioned": true,
+        "spans": "W21-5aR to upstream end of SHOULDER TAPER"
+      },
+      {
+        "id": "shoulderTaper",
+        "order": 7,
+        "kind": "taper",
+        "sheetLabel": "SHOULDER TAPER",
+        "sheetReference": "(SEE TABLE 501-01)",
+        "lengthSource": {
+          "table": "501-01",
+          "column": "shoulderTaper",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph",
+            "shoulderWidthBand"
+          ]
+        },
+        "dimensioned": true,
+        "consumesStation": true,
+        "note": "Consumes station on this sheet (no merging taper / gap-A overlay pattern)."
+      },
+      {
+        "id": "positiveBarrier",
+        "order": 8,
+        "kind": "barrier",
+        "sheetLabel": "TEMPORARY POSITIVE BARRIER",
+        "sheetReference": "(SEE TABLE 501-03)",
+        "lengthSource": null,
+        "dimensioned": false,
+        "note": "Barrier not on shoulder taper (sheet note)."
+      },
+      {
+        "id": "workArea",
+        "order": 9,
+        "kind": "workArea",
+        "sheetLabel": "WORK AREA",
+        "lengthSource": null,
+        "hatched": true,
+        "dimensioned": false
+      },
+      {
+        "id": "spotter",
+        "order": 10,
+        "kind": "symbol",
+        "sheetLabel": "SPOTTER RECOMMENDED",
+        "lengthSource": null,
+        "required": false
+      },
+      {
+        "id": "downstreamTaper",
+        "order": 11,
+        "kind": "taper",
+        "sheetLabel": "DOWNSTREAM TAPER",
+        "lengthSource": {
+          "fixedRange": {
+            "minFt": 50,
+            "maxFt": 100
+          }
+        },
+        "sheetText": "50'-100'",
+        "dimensioned": true
+      },
+      {
+        "id": "gapEndRoadWork",
+        "order": 12,
+        "kind": "gap",
+        "sheetLabel": null,
+        "lengthSource": {
+          "fixedRange": {
+            "minFt": 80,
+            "maxFt": 400
+          }
+        },
+        "dimensioned": false
+      },
+      {
+        "id": "signEndRoadWork",
+        "order": 13,
+        "kind": "sign",
+        "signCode": "G20-2",
+        "sheetLegend": "END ROAD WORK"
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "No ROLL AHEAD / BUFFER rows — long-term barrier shoulder sheet.",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Upstream end of SHOULDER TAPER / barrier start",
+        "walkDirection": "Upstream, against traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "shoulderTaper",
+            "label": "SHOULDER TAPER"
+          },
+          {
+            "rowNum": 2,
+            "type": "Sign",
+            "zone": "signA",
+            "signCode": "W21-5aR",
+            "spacingZone": "gapA"
+          },
+          {
+            "rowNum": 3,
+            "type": "Sign",
+            "zone": "signB",
+            "signCode": "W21-5bR",
+            "spacingZone": "gapB"
+          },
+          {
+            "rowNum": 4,
+            "type": "Sign",
+            "zone": "signC",
+            "signCode": "W20-1",
+            "spacingZone": "gapC"
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "ROLL AHEAD DISTANCE",
+            "reason": "No roll-ahead on long-term barrier sheet."
+          },
+          {
+            "label": "BUFFER SPACE",
+            "reason": "Buffer exists in 501-01 but barrier replaces PV/roll-ahead pattern; not a sequential row."
+          },
+          {
+            "label": "MERGING TAPER",
+            "reason": "Shoulder closure."
+          },
+          {
+            "label": "Vehicle Space",
+            "reason": "Not on this sheet."
+          }
+        ]
+      },
+      {
+        "alignIdx": 2,
+        "name": "Downstream",
+        "station0": "Downstream edge of WORK AREA",
+        "walkDirection": "Downstream, with traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "downstreamTaper",
+            "label": "DOWNSTREAM TAPER"
+          },
+          {
+            "rowNum": 2,
+            "type": "Sign",
+            "zone": "signEndRoadWork",
+            "signCode": "G20-2",
+            "spacingZone": "gapEndRoadWork"
+          }
+        ]
+      }
+    ]
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "note": "Shoulder-closed set. W21-5bR uses SignLibrary W21-05bR* legend variants; W21-5aR is fixed W21-05aR. W7-3a/G20-1 conditional per Notes 6-7.",
+    "items": [
+      {
+        "signCode": "G20-1",
+        "sheetLegend": "ROAD WORK NEXT XX MILES",
+        "shape": "rectangle",
+        "postMounted": true,
+        "required": false,
+        "sizeNonFreeway": "36x18",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": "G20-01",
+        "note": "Note 7 — every 2 miles when multiple work locations."
+      },
+      {
+        "signCode": "G20-2",
+        "sheetLegend": "END ROAD WORK",
+        "shape": "rectangle",
+        "postMounted": true,
+        "corridorZone": "signEndRoadWork",
+        "sizeNonFreeway": "36x18",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": "G20-02"
+      },
+      {
+        "signCode": "NYR9-11",
+        "shape": "rectangle",
+        "postMounted": true,
+        "mountedOn": null,
+        "corridorZone": null,
+        "sizeNonFreeway": "24x42",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": null,
+        "note": "Added from size table sync."
+      },
+      {
+        "signCode": "W7-3a",
+        "sheetLegend": "NEXT XX MILES",
+        "shape": "rectangle",
+        "postMounted": true,
+        "required": false,
+        "sizeNonFreeway": "24x18",
+        "sizeFreeway": "36x30",
+        "signLibraryKey": "W07-03aP",
+        "note": "Note 6 — supplemental plaque on W20-1 when work span > 2 miles."
+      },
+      {
+        "signCode": "W20-1",
+        "sheetLegend": "ROAD WORK XX",
+        "shape": "diamond",
+        "warningFlags": true,
+        "postMounted": true,
+        "corridorZone": "signC",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W20-01RM",
+        "signLibraryNote": "Plan uses mile-based XX on freeway; no spacing table — fixed freeway mile key."
+      },
+      {
+        "signCode": "W21-5aR",
+        "sheetLegend": "RIGHT SHOULDER CLOSED",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signA",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W21-05aR"
+      },
+      {
+        "signCode": "W21-5bR",
+        "sheetLegend": "RIGHT SHOULDER CLOSED AHEAD/YY",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signB",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W21-05bRM"
+      },
+      {
+        "signCode": "WARNING FLAG",
+        "shape": "flag",
+        "postMounted": false,
+        "mountedOn": "W20-1",
+        "sizeNonFreeway": "18x18",
+        "sizeFreeway": "18x18"
+      },
+      {
+        "signCode": "R2-1 OR NYR2-2",
+        "shape": "rectangle",
+        "postMounted": true,
+        "required": true,
+        "sizeNonFreeway": "30x36",
+        "sizeFreeway": "36x48",
+        "signLibraryKey": "R2-1",
+        "note": "Note 9 — mid A/B regulatory speed."
+      },
+      {
+        "signCode": "NYR2-6",
+        "shape": "rectangle",
+        "postMounted": true,
+        "required": false,
+        "sizeNonFreeway": null,
+        "sizeFreeway": null
+      }
+    ]
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "arrowPanel",
+        "sheetLabel": "ARROW PANEL",
+        "required": false,
+        "stationAnchor": {
+          "zone": "shoulderTaper",
+          "end": "upstream"
+        },
+        "note": "Plan shows CAUTION MODE callout."
+      },
+      {
+        "id": "spotter",
+        "sheetLabel": "SPOTTER RECOMMENDED",
+        "required": false,
+        "stationAnchor": {
+          "zone": "workArea",
+          "end": "downstream"
+        }
+      },
+      {
+        "id": "channelizingDevices",
+        "sheetLabel": "CHANNELIZING DEVICES",
+        "required": true,
+        "longitudinalSpacing": {
+          "maxFt": 40,
+          "sheetText": "Note 5 — not to exceed 40'."
+        },
+        "runs": [
+          {
+            "id": "shoulderTaperRun",
+            "zone": "shoulderTaper",
+            "deviceCountSource": {
+              "table": "501-01",
+              "column": "shoulderTaper.devices"
+            }
+          },
+          {
+            "id": "longitudinalRun",
+            "zone": "positiveBarrier..workArea",
+            "deviceCountSource": null,
+            "note": "No bufferSpace on long-term barrier corridor; devices along barrier/work area."
+          },
+          {
+            "id": "downstreamRun",
+            "zone": "downstreamTaper",
+            "deviceCountSource": null
+          }
+        ],
+        "transverse": {
+          "required": "conditional",
+          "condition": "Paved shoulder 8' or wider closed > 800'",
+          "maxSpacingFt": 800,
+          "sheetText": "Note 8"
+        }
+      },
+      {
+        "id": "workAreaHatch",
+        "sheetLabel": "WORK AREA",
+        "required": true,
+        "stationAnchor": {
+          "zone": "workArea",
+          "end": "both"
+        },
+        "hatched": true
+      },
+      {
+        "id": "positiveBarrier",
+        "sheetLabel": "TEMPORARY POSITIVE BARRIER",
+        "required": true,
+        "stationAnchor": {
+          "zone": "positiveBarrier",
+          "end": "both"
+        },
+        "note": "Flare rates Table 501-03."
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "dimensions": [
+      {
+        "zone": "gapC",
+        "label": "1320'",
+        "reference": null
+      },
+      {
+        "zone": "gapB",
+        "label": "1500'",
+        "reference": null
+      },
+      {
+        "zone": "gapA",
+        "label": "1000'",
+        "reference": null
+      },
+      {
+        "zone": "shoulderTaper",
+        "label": "SHOULDER TAPER",
+        "reference": "(SEE TABLE 501-01)"
+      },
+      {
+        "zone": "downstreamTaper",
+        "label": "50'-100' DOWNSTREAM TAPER",
+        "reference": null
+      }
+    ],
+    "labels": [
+      {
+        "text": "WORK AREA",
+        "zone": "workArea"
+      },
+      {
+        "text": "SPOTTER RECOMMENDED",
+        "zone": "spotter"
+      },
+      {
+        "text": "ARROW PANEL (CAUTION MODE)",
+        "zone": "shoulderTaper"
+      }
+    ]
+  },
+  "details": {},
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. LONG-TERM IS STATIONARY WORK THAT OCCUPIES A LOCATION MORE THAN 3 CONSECUTIVE DAYS.",
+      "2. LEFT SHOULDER CLOSURES ARE SYMMETRICAL. SUBSTITUTE LEFT SHOULDER CLOSED SIGNS (W21-5bL AND W21-5aL), AND OBJECT MARKER (OM3-L) FOR RIGHT SHOULDER CLOSED SIGNS (W21-5bR AND W21-5aR), AND OBJECT MARKER (OM3-R).",
+      "3. XX IS THE EXPECTED OVERALL LENGTH OF THE OPERATION TO BE COMPLETED WITHIN THE WORK DAY. A SUPPLEMENTAL DISTANCE PLAQUE W7-3a SHALL BE USED WITH SIGN W20-1 WHEN THE DISTANCE BETWEEN THE ADVANCE WARNING SIGNS AND WORK MAY BECOME GREATER THAN 2 MILES AS A RESULT OF THE FOLLOWING SITUATIONS: *MULTIPLE WORK LOCATIONS ARE ANTICIPATED WITHIN XX MILES FROM W20-1 SIGN *WORK AREA WILL BE RELOCATED DURING THE DURATION OF THE WORK WITHIN XX MILES FROM THE W20-1 SIGN THE SUPPLEMENT SIGN W7-3a SHALL INDICATE THE MAXIMUM ANTICIPATED DISTANCE BETWEEN THE W20-1 SIGM AND THE FARTHEST WORK LOCATION.",
+      "4. WHEN MULTIPLE WORK LOCATIONS EXIST WITHIN XX MILES FROM THE W20-1 SIGN. A G20-1 SIGN SHALL BE PLACED EVERY TWO MILES INDICATING THE DISTANCE FROM THE SIGN TO THE FARTHEST WORK LOCATION.",
+      "5. THE TEMPORARY POSITIVE BARRIER SHALL NOT BE PLACED ALONG THE MERGING TAPER. THE SHOULDER SHALL BE CLOSED USING CHANNELIZING DEVICES.",
+      "6. A REGULATORY SPEED LIMIT SIGN IS REQUIRED HALFWAY BETWEEN THE 1ST AND 2ND ADVANCE WARNING SIGNS UNLESS A REGULATORY SPEED LIMIT SIGN IS ALREADY PRESENT BETWEEN THOSE ADVANCED WARNING SIGNS OR A REGULATORY SPEED LIMIT REDUCTION IS AUTHORIZED AND THOSE SIGNS HAVE BEEN INSTALLED. ONE R2-1 OR NYR2-2 THROUGH NYR2-6 SHALL BE PROVIDED AS APPROPRIATE DEPENDING ON THE LOCATION. SEE STANDARD SHEET 619-012 FOR SIGN FACE AND SIZE. NOTES FOR NIGHTTIME OPERATIONS:"
+    ],
+    "planCallouts": [],
+    "tableNotes": []
+  },
+  "rules": [
+    {
+      "id": "no-roll-ahead-no-pv",
+      "severity": "error",
+      "source": "Sheet structure",
+      "assert": "Do not emit ROLL AHEAD or PV rows.",
+      "commonFailure": "Cloning 301 upstream walk."
+    },
+    {
+      "id": "barrier-not-on-taper",
+      "severity": "error",
+      "source": "Sheet notes",
+      "assert": "Temporary positive barrier not placed along the shoulder taper.",
+      "commonFailure": "Running barrier through the taper."
+    },
+    {
+      "id": "shoulder-taper-consumes-station",
+      "severity": "error",
+      "source": "Plan",
+      "assert": "SHOULDER TAPER is sequential.",
+      "commonFailure": "Family 2 overlay pattern."
+    }
+  ],
+  "knownCodeDeviations": [
+    {
+      "id": "barrier-placement-unimplemented",
+      "severity": "error",
+      "assert": "No temporary positive barrier placer yet."
+    }
+  ],
+  "knownExcerpts": {
+    "from619-301": [
+      "501-01 buffer+shoulder == 301-03"
+    ],
+    "differsFrom301": [
+      "No PV/roll-ahead",
+      "barrier + flare rates",
+      "long-term notes"
+    ]
+  }
+}

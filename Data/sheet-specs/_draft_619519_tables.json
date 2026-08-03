@@ -1,0 +1,65 @@
+{
+  "sheet": 519,
+  "meta": {
+    "pages": 2,
+    "rotation": 0
+  },
+  "tableRoles": {
+    "note": "Pedestrian/sidewalk sheet. Sign sizes + channelizing only — NO AW/buffer/taper/roll corridor tables.",
+    "signSizes": "519-01",
+    "channelizingApplication": "519-02"
+  },
+  "signSizes": [
+    {
+      "signCode": "G20-2",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R9-11L",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R9-11R",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R9-9",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W20-1",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "WARNING FLAG",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    }
+  ],
+  "schema": "sidewalk",
+  "bodyTokens": [
+    "W20-1",
+    "R9-11L",
+    "R9-9",
+    "R9-11R",
+    "R9-9",
+    "R9-11L",
+    "R9-11R",
+    "W20-1",
+    "G20-2",
+    "G20-2",
+    "W5-4",
+    "W20-1",
+    "R9-9",
+    "R9-9",
+    "W20-1",
+    "G20-2",
+    "G20-2",
+    "W5-4"
+  ]
+}

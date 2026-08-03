@@ -1,0 +1,97 @@
+{
+  "sheet": 323,
+  "meta": {
+    "pages": 3,
+    "rotation": 0
+  },
+  "tableRoles": {
+    "note": "Flagging at intersection. 323-01=AW 323-02=sizes 323-03=channelizing 323-04=stopping?",
+    "advanceWarningSpacing": "323-01",
+    "signSizes": "323-02",
+    "channelizingApplication": "323-03"
+  },
+  "notes": "Intersection flagging — buffer/PV may be on plan notes not numbered tables",
+  "signSizes": [
+    {
+      "signCode": "G20-2",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W20-1",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W20-4",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W20-7",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W20-7a",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W3-4",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "WARNING FLAG",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    }
+  ],
+  "advanceWarning": [
+    {
+      "areaType": "URBAN",
+      "speedBand": "<= 30 MPH",
+      "minMph": null,
+      "maxMph": 30,
+      "A": 100,
+      "B": 100,
+      "C": 100,
+      "XX": "AHEAD",
+      "YY": "AHEAD"
+    },
+    {
+      "areaType": "URBAN",
+      "speedBand": "35-40 MPH",
+      "minMph": 35,
+      "maxMph": 40,
+      "A": 200,
+      "B": 200,
+      "C": 200,
+      "XX": "AHEAD",
+      "YY": "AHEAD"
+    },
+    {
+      "areaType": "URBAN",
+      "speedBand": ">= 45 MPH",
+      "minMph": 45,
+      "maxMph": null,
+      "A": 350,
+      "B": 350,
+      "C": 350,
+      "XX": "1000 FT.",
+      "YY": "AHEAD"
+    },
+    {
+      "areaType": "RURAL",
+      "speedBand": "ALL",
+      "minMph": null,
+      "maxMph": null,
+      "A": 500,
+      "B": 500,
+      "C": 500,
+      "XX": "1500 FT.",
+      "YY": "1000 FT."
+    }
+  ]
+}

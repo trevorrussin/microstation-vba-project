@@ -1,0 +1,724 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-314",
+    "title": "WORK ZONE TRAFFIC CONTROL TWO-LANE TWO-WAY ROADWAY LANE CLOSURE WITH MOVING FLAGGERS",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "SHORT TERM OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2021-12-02",
+    "issuedUnder": "EI 21-028",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-314.pdf",
+    "localPdf": "Bridge/captures/619-314.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 270,
+    "transcribedBy": "Cursor (Family 6 two-lane two-way / flagger)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Moving flaggers. Fixed 500' gaps. Roll 2-band (no <=40). Buffer == 311. No AW table."
+  },
+  "applicability": {
+    "roadType": "Non-Freeway",
+    "roadway": "Two-lane two-way",
+    "lanesPerDirection": 1,
+    "closure": "Lane closure with flaggers",
+    "duration": "Short Term",
+    "durationDefinition": "Daytime work that occupies a location for more than 1 hour within a single daylight period.",
+    "speedRangeMph": {
+      "min": 25,
+      "max": 55,
+      "increment": 5,
+      "note": "Buffer 25-55; roll-ahead only >=45 bands (45-50 and >=55)."
+    },
+    "laneWidthFt": null,
+    "laneWidthNote": "No merging/lane taper on flagger sheets — lane width is not a lookup input.",
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft"
+    ],
+    "areaTypes": null,
+    "areaTypeNote": "No AW spacing table — plan uses fixed 500' gaps."
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "type": "integer",
+      "allowed": [
+        25,
+        30,
+        35,
+        40,
+        45,
+        50,
+        55
+      ],
+      "usedBy": [
+        "314-03",
+        "314-02",
+        "314-01"
+      ]
+    },
+    {
+      "id": "shoulderWidthBand",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft"
+      ],
+      "default": ">= 8 ft",
+      "usedBy": []
+    },
+    {
+      "id": "exposureCondition",
+      "type": "enum",
+      "allowed": [
+        "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+        "OTHER HAZARDS NO WORKERS EXPOSED"
+      ],
+      "usedBy": [
+        "314-01"
+      ]
+    },
+    {
+      "id": "closureType",
+      "type": "enum",
+      "allowed": [
+        "LANE CLOSURE OR ENCROACHMENT",
+        "SHOULDER CLOSURE OR ENCROACHMENT"
+      ],
+      "default": "LANE CLOSURE OR ENCROACHMENT",
+      "usedBy": [
+        "314-01"
+      ]
+    },
+    {
+      "id": "signSizeClass",
+      "type": "enum",
+      "allowed": [
+        "NON-FREEWAY",
+        "FREEWAY"
+      ],
+      "default": "NON-FREEWAY",
+      "usedBy": [
+        "314-04"
+      ]
+    }
+  ],
+  "tableRoles": {
+    "note": "Moving flaggers. 314-01=PV, 314-02=roll, 314-03=buffer, 314-04=sizes. NO advance-warning spacing table (plan uses fixed 500' gaps).",
+    "protectiveVehicle": "314-01",
+    "rollAheadDistance": "314-02",
+    "taperAndBuffer": "314-03",
+    "signSizes": "314-04"
+  },
+  "tables": {
+    "314-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition",
+        "preconstructionPostedSpeedMph"
+      ],
+      "roadTypeScope": "NON-FREEWAY",
+      "speedBands": [
+        {
+          "id": "ge45",
+          "label": ">= 45 MPH",
+          "minMph": 45,
+          "maxMph": null
+        },
+        {
+          "id": "b35to40",
+          "label": "35 - 40 MPH",
+          "minMph": 35,
+          "maxMph": 40
+        },
+        {
+          "id": "le30",
+          "label": "<= 30 MPH",
+          "minMph": null,
+          "maxMph": 30
+        }
+      ],
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "ge45": "P, TMIA",
+          "b35to40": "P, TMIA",
+          "le30": "P"
+        },
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS NO WORKERS EXPOSED",
+          "ge45": "P, TMIA",
+          "b35to40": "P",
+          "le30": "SEE NOTE 2"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "ge45": "P, TMIA",
+          "b35to40": "P",
+          "le30": "P"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS NO WORKERS EXPOSED",
+          "ge45": "P, TMIA",
+          "b35to40": "P",
+          "le30": "SEE NOTE 2"
+        }
+      ],
+      "legend": {
+        "P": "PROTECTIVE VEHICLE REQUIRED FOR EACH CLOSED LANE & EACH CLOSED PAVED SHOULDER 8' OR WIDER, IF THE WORK SPACE MOVES WITHIN THE STATIONARY CLOSURE, THE PROTECTIVE VEHICLE SHALL BE REPOSITIONED ACCORDINGLY",
+        "TMIA": "TMIA REQUIRED"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUMES THERE IS NO POSITIVE PROTECTION PRESENT",
+        "2. EITHER A PROTECTIVE VEHICLE OR THE STANDARD BUFFER SPACE SHALL BE PROVIDED"
+      ],
+      "note": "Optional on flagger sheets (see plan Note: PV may be used; if used, provide buffer)."
+    },
+    "314-02": {
+      "title": "ROLL AHEAD DISTANCE",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN/MAX",
+      "rows": [
+        {
+          "speedBand": ">= 55 MPH",
+          "minMph": 55,
+          "maxMph": null,
+          "min": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "speedBand": "45 - 50 MPH",
+          "minMph": 45,
+          "maxMph": 50,
+          "min": {
+            "ft": 80,
+            "skipLines": 2
+          },
+          "max": {
+            "ft": 160,
+            "skipLines": 4
+          }
+        }
+      ],
+      "usageNote": "MIN/MAX range, not a single value."
+    },
+    "314-03": {
+      "title": "LONGITUDINAL BUFFER SPACE",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "columnMeaning": {
+        "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES"
+      },
+      "note": "Buffer-only table — NO laneTaper / shoulderTaper columns (flagger operation, not merging).",
+      "rows": [
+        {
+          "speedMph": 25,
+          "longitudinalBufferSpace": {
+            "ft": 155,
+            "skipLines": 4
+          }
+        },
+        {
+          "speedMph": 30,
+          "longitudinalBufferSpace": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "speedMph": 35,
+          "longitudinalBufferSpace": {
+            "ft": 250,
+            "skipLines": 6
+          }
+        },
+        {
+          "speedMph": 40,
+          "longitudinalBufferSpace": {
+            "ft": 305,
+            "skipLines": 8
+          }
+        },
+        {
+          "speedMph": 45,
+          "longitudinalBufferSpace": {
+            "ft": 360,
+            "skipLines": 9
+          }
+        },
+        {
+          "speedMph": 50,
+          "longitudinalBufferSpace": {
+            "ft": 425,
+            "skipLines": 11
+          }
+        },
+        {
+          "speedMph": 55,
+          "longitudinalBufferSpace": {
+            "ft": 495,
+            "skipLines": 13
+          }
+        }
+      ]
+    },
+    "314-04": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "rows": [
+        {
+          "signCode": "G20-1",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "NYW8-33",
+          "NON-FREEWAY": "48x24",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W20-4",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W20-7",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W3-4",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W7-3a",
+          "NON-FREEWAY": "24x18",
+          "FREEWAY": "36x30"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "Moving flaggers. Fixed 500' sign gaps. Buffer + roll + PV. No AW table.",
+    "zones": [
+      {
+        "id": "signC",
+        "order": 1,
+        "kind": "sign",
+        "signCode": "W20-1"
+      },
+      {
+        "id": "gapC",
+        "order": 2,
+        "kind": "gap",
+        "sheetLabel": "500'",
+        "lengthSource": {
+          "fixedFt": 500
+        },
+        "dimensioned": true
+      },
+      {
+        "id": "signB",
+        "order": 3,
+        "kind": "sign",
+        "signCode": "W20-4"
+      },
+      {
+        "id": "gapB",
+        "order": 4,
+        "kind": "gap",
+        "sheetLabel": "500'",
+        "lengthSource": {
+          "fixedFt": 500
+        },
+        "dimensioned": true
+      },
+      {
+        "id": "signA",
+        "order": 5,
+        "kind": "sign",
+        "signCode": "W20-7"
+      },
+      {
+        "id": "gapA",
+        "order": 6,
+        "kind": "gap",
+        "sheetLabel": "500'",
+        "lengthSource": {
+          "fixedFt": 500
+        },
+        "dimensioned": true
+      },
+      {
+        "id": "bufferSpace",
+        "order": 7,
+        "kind": "buffer",
+        "sheetLabel": "BUFFER SPACE",
+        "lengthSource": {
+          "table": "314-03",
+          "column": "longitudinalBufferSpace",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph"
+          ]
+        },
+        "dimensioned": true
+      },
+      {
+        "id": "protectiveVehicle1",
+        "order": 8,
+        "kind": "symbol",
+        "sheetLabel": "PV",
+        "lengthSource": null
+      },
+      {
+        "id": "rollAheadDistance",
+        "order": 9,
+        "kind": "clearance",
+        "sheetLabel": "ROLL AHEAD DISTANCE",
+        "lengthSource": {
+          "table": "314-02",
+          "column": "range",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph"
+          ]
+        },
+        "dimensioned": true
+      },
+      {
+        "id": "workArea",
+        "order": 10,
+        "kind": "workArea",
+        "sheetLabel": "WORK AREA",
+        "lengthSource": null,
+        "hatched": true
+      },
+      {
+        "id": "gapEndRoadWork",
+        "order": 11,
+        "kind": "gap",
+        "lengthSource": {
+          "fixedRange": {
+            "minFt": 80,
+            "maxFt": 400
+          }
+        }
+      },
+      {
+        "id": "signEndRoadWork",
+        "order": 12,
+        "kind": "sign",
+        "signCode": "G20-2"
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "Moving: ROLL + BUFFER + W20-7/W20-4/W20-1 @500'. Downstream G20-2.",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Work area",
+        "walkDirection": "Upstream",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "rollAheadDistance",
+            "label": "ROLL AHEAD DISTANCE"
+          },
+          {
+            "rowNum": 2,
+            "type": "Non-Sign",
+            "zone": "bufferSpace",
+            "label": "BUFFER SPACE"
+          },
+          {
+            "rowNum": 3,
+            "type": "Sign",
+            "zone": "signA",
+            "signCode": "W20-7",
+            "spacingZone": "gapA"
+          },
+          {
+            "rowNum": 4,
+            "type": "Sign",
+            "zone": "signB",
+            "signCode": "W20-4",
+            "spacingZone": "gapB"
+          },
+          {
+            "rowNum": 5,
+            "type": "Sign",
+            "zone": "signC",
+            "signCode": "W20-1",
+            "spacingZone": "gapC"
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "MERGING TAPER",
+            "reason": "Moving flagger — no merge."
+          },
+          {
+            "label": "LANE TAPER",
+            "reason": "No lane taper."
+          },
+          {
+            "label": "SHOULDER TAPER",
+            "reason": "No shoulder taper."
+          },
+          {
+            "label": "Vehicle Space",
+            "reason": "Not on this sheet."
+          }
+        ]
+      },
+      {
+        "alignIdx": 2,
+        "name": "Downstream",
+        "station0": "Work area downstream",
+        "walkDirection": "Downstream",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Sign",
+            "zone": "signEndRoadWork",
+            "signCode": "G20-2",
+            "spacingZone": "gapEndRoadWork"
+          }
+        ]
+      }
+    ]
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "items": [
+      {
+        "signCode": "W20-1",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signC",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W20-01RA"
+      },
+      {
+        "signCode": "W20-4",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signB",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W20-04A"
+      },
+      {
+        "signCode": "W20-7",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signA",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W20-07"
+      },
+      {
+        "signCode": "G20-2",
+        "shape": "rectangle",
+        "postMounted": true,
+        "corridorZone": "signEndRoadWork",
+        "sizeNonFreeway": "36x18",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": "G20-02"
+      },
+      {
+        "signCode": "NYW8-33",
+        "shape": "rectangle",
+        "postMounted": true,
+        "sizeNonFreeway": "48x24",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": "NYW8-33",
+        "note": "LANE CLOSED on PV / arrow panel area."
+      },
+      {
+        "signCode": "G20-1",
+        "shape": "rectangle",
+        "postMounted": true,
+        "sizeNonFreeway": "36x18",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": "G20-01",
+        "note": "ROAD WORK NEXT X MILES — conditional Note 6."
+      },
+      {
+        "signCode": "W7-3a",
+        "shape": "rectangle",
+        "postMounted": true,
+        "sizeNonFreeway": "24x18",
+        "sizeFreeway": "36x30",
+        "signLibraryKey": "W07-03A",
+        "note": "NEXT X MILES plaque — conditional Note 5."
+      },
+      {
+        "signCode": "W3-4",
+        "shape": "diamond",
+        "postMounted": true,
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W03-04"
+      },
+      {
+        "signCode": "WARNING FLAG",
+        "shape": "flag",
+        "postMounted": false,
+        "sizeNonFreeway": "18x18",
+        "sizeFreeway": "18x18",
+        "mountedOn": "W20-1"
+      }
+    ]
+  },
+  "geometry": {
+    "confidence": "drawing",
+    "stationing": {
+      "origin": "Work area"
+    },
+    "crossSection": {}
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "flagger",
+        "sheetLabel": "FLAGGER",
+        "required": true,
+        "note": "24\" min STOP/SLOW paddle preferred."
+      },
+      {
+        "id": "protectiveVehicle",
+        "sheetLabel": "PV",
+        "required": false,
+        "stationAnchor": {
+          "zone": "rollAheadDistance",
+          "end": "upstream"
+        }
+      },
+      {
+        "id": "centerlineCones",
+        "sheetLabel": "CENTERLINE CONES",
+        "required": false,
+        "note": "Optional — enhance flagger visibility; 100 ft min from flagger."
+      },
+      {
+        "id": "channelizingDevices",
+        "sheetLabel": "CHANNELIZING DEVICES",
+        "required": true,
+        "longitudinalSpacing": {
+          "maxFt": 40,
+          "sheetText": "Not to exceed 40' (1 skip line)."
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "dimensions": [
+      {
+        "zone": "gapC",
+        "label": "500'",
+        "reference": null
+      },
+      {
+        "zone": "gapB",
+        "label": "500'",
+        "reference": null
+      },
+      {
+        "zone": "gapA",
+        "label": "500'",
+        "reference": null
+      },
+      {
+        "zone": "bufferSpace",
+        "label": "BUFFER SPACE",
+        "reference": null
+      },
+      {
+        "zone": "rollAheadDistance",
+        "label": "ROLL AHEAD DISTANCE",
+        "reference": null
+      }
+    ],
+    "callouts": []
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "items": []
+  },
+  "rules": [
+    {
+      "id": "no-merging-taper",
+      "severity": "error",
+      "source": "Sheet structure / flagger operation",
+      "assert": "Do not place MERGING TAPER or LANE TAPER — flagger operation uses stop/slow control, not a merge.",
+      "commonFailure": "Cloning 302/311 merging taper corridor onto a flagger sheet."
+    },
+    {
+      "id": "optional-pv",
+      "severity": "warning",
+      "source": "Plan note (PV may be used)",
+      "assert": "Protective vehicle with roll-ahead is optional; if used, provide buffer space.",
+      "commonFailure": "Always requiring PV or omitting buffer when PV is placed."
+    },
+    {
+      "id": "w3-4-conditional",
+      "severity": "warning",
+      "source": "Plan Note (queue past W20-4)",
+      "assert": "Add W3-4 if traffic is expected to queue past the W20-4 sign.",
+      "commonFailure": "Always placing W3-4 as a default order-table row."
+    }
+  ],
+  "knownAnomalies": [],
+  "openQuestions": []
+}

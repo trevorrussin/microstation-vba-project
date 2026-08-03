@@ -1,0 +1,129 @@
+{
+  "sheet": 90,
+  "meta": {
+    "pages": 1,
+    "rotation": 270
+  },
+  "tableRoles": {
+    "note": "Temporary road closure. 090-01=AW 090-02=buffer 090-03=sizes. NO PV/roll tables.",
+    "advanceWarningSpacing": "090-01",
+    "taperAndBuffer": "090-02",
+    "signSizes": "090-03"
+  },
+  "advanceWarning": [
+    {
+      "areaType": "URBAN",
+      "speedBand": "<= 30 MPH",
+      "minMph": null,
+      "maxMph": 30,
+      "A": 100,
+      "B": 100,
+      "C": 100,
+      "XX": "AHEAD",
+      "YY": "AHEAD"
+    },
+    {
+      "areaType": "URBAN",
+      "speedBand": "35-40 MPH",
+      "minMph": 35,
+      "maxMph": 40,
+      "A": 200,
+      "B": 200,
+      "C": 200,
+      "XX": "AHEAD",
+      "YY": "AHEAD"
+    },
+    {
+      "areaType": "URBAN",
+      "speedBand": ">= 45 MPH",
+      "minMph": 45,
+      "maxMph": null,
+      "A": 350,
+      "B": 350,
+      "C": 350,
+      "XX": "1000 FT.",
+      "YY": "AHEAD"
+    },
+    {
+      "areaType": "RURAL",
+      "speedBand": "ALL",
+      "minMph": null,
+      "maxMph": null,
+      "A": 500,
+      "B": 500,
+      "C": 500,
+      "XX": "1500 FT.",
+      "YY": "1000 FT."
+    }
+  ],
+  "bufferOnly": [
+    {
+      "speedMph": 25,
+      "longitudinalBufferSpace": {
+        "ft": 155,
+        "skipLines": 4
+      }
+    },
+    {
+      "speedMph": 30,
+      "longitudinalBufferSpace": {
+        "ft": 200,
+        "skipLines": 5
+      }
+    },
+    {
+      "speedMph": 35,
+      "longitudinalBufferSpace": {
+        "ft": 250,
+        "skipLines": 6
+      }
+    },
+    {
+      "speedMph": 40,
+      "longitudinalBufferSpace": {
+        "ft": 305,
+        "skipLines": 8
+      }
+    },
+    {
+      "speedMph": 45,
+      "longitudinalBufferSpace": {
+        "ft": 360,
+        "skipLines": 9
+      }
+    },
+    {
+      "speedMph": 50,
+      "longitudinalBufferSpace": {
+        "ft": 425,
+        "skipLines": 11
+      }
+    },
+    {
+      "speedMph": 55,
+      "longitudinalBufferSpace": {
+        "ft": 495,
+        "skipLines": 13
+      }
+    }
+  ],
+  "signSizes": [
+    {
+      "signCode": "W20-1",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W20-7",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W3-4",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    }
+  ],
+  "hasProtectiveVehicle": false,
+  "hasRollAhead": false
+}

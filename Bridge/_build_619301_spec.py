@@ -1,0 +1,336 @@
+"""Build Data/sheet-specs/619-301.json — Family 3 reference (freeway shoulder closure)."""
+from __future__ import annotations
+
+import json
+import pathlib
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+draft = json.loads((ROOT / "Data/sheet-specs/_draft_619301_tables.json").read_text(encoding="utf-8"))
+
+# Fill NON-FREEWAY sizes from typical MUTCD / 302 analogs where text layer missing
+SIZE_NF = {
+    "W20-1": "36x36", "W21-5aR": "36x36", "W21-5bR": "36x36",
+    "W7-3a": "24x18", "G20-2": "36x18", "G20-1": "36x18",
+    "WARNING FLAG": "18x18", "R2-1 OR NYR2-2": "30x36",
+}
+for row in draft["tables"]["301-04"]["rows"]:
+    if not row.get("NON-FREEWAY") and row["signCode"] in SIZE_NF:
+        row["NON-FREEWAY"] = SIZE_NF[row["signCode"]]
+        row["nonFreewayNote"] = "Filled from typical MUTCD/family sizes — PDF text layer (rotation=270) omitted NON-FREEWAY column."
+
+s = {
+    "schemaVersion": "1.1",
+    "sheet": {
+        "number": "619-301",
+        "title": "WORK ZONE TRAFFIC CONTROL MULTILANE DIVIDED ROADWAY AND FREEWAY RIGHT SHOULDER CLOSURE",
+        "series": "WORK ZONE TRAFFIC CONTROL",
+        "operation": "SHORT TERM OPERATION",
+        "units": "U.S. CUSTOMARY",
+        "scale": "NOT TO SCALE",
+        "approved": "2024-04-15",
+        "issuedUnder": "E3 revision",
+        "signedBy": None,
+        "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-301_E3.pdf",
+        "localPdf": "Bridge/captures/619-301.pdf",
+        "localRender": None,
+        "pdfPages": 1,
+        "pageRotation": 270,
+        "transcribedBy": "Cursor (Family 3 reference; tables from _draft_619301_tables.json; corridor from plan callouts + extract_plan_geometry)",
+        "transcribedOn": "2026-08-03",
+        "provenanceNote": (
+            "Family 3 reference — RIGHT SHOULDER CLOSURE. Structural break from Family 2: "
+            "no advance-warning spacing table (plan callouts 1320'/1500'/1000'); shoulder taper "
+            "only (no merging taper); roll-ahead keyed by PV GVW not speed; signs W21-5aR/W21-5bR; "
+            "PVH+TMIA. Speeds 45/50/55/65 only. Page rotation=270."
+        ),
+    },
+    "applicability": {
+        "roadType": "Freeway/Multilane Divided",
+        "roadway": "Multilane divided or freeway",
+        "closure": "Right shoulder closure",
+        "duration": "Short Term",
+        "durationDefinition": "Daytime work that occupies a location for more than 1 hour within a single daylight period (Note 1).",
+        "speedRangeMph": {
+            "allowed": [45, 50, 55, 65],
+            "note": "Table 301-03 covers 45,50,55,65 only — no 25-40 or 60 rows in PDF text layer.",
+        },
+        "laneWidthFt": None,
+        "laneWidthNote": "No lane/merging taper on this sheet — lane width is not a lookup input.",
+        "shoulderWidthBands": ["<= 4 ft", "5 - 7 ft", ">= 8 ft"],
+        "areaTypes": None,
+        "areaTypeNote": "No advance-warning spacing table; gaps are fixed plan callouts.",
+    },
+    "inputs": [
+        {
+            "id": "preconstructionPostedSpeedMph",
+            "label": "Preconstruction posted speed limit (MPH)",
+            "type": "integer",
+            "allowed": [45, 50, 55, 65],
+            "usedBy": ["301-01", "301-03"],
+        },
+        {
+            "id": "shoulderWidthBand",
+            "label": "Shoulder width band",
+            "type": "enum",
+            "allowed": ["<= 4 ft", "5 - 7 ft", ">= 8 ft"],
+            "usedBy": ["301-03"],
+        },
+        {
+            "id": "protectiveVehicleGvwLbs",
+            "label": "Protective vehicle GVW (lbs)",
+            "type": "integer",
+            "allowed": [9500, 22000],
+            "default": 22000,
+            "usedBy": ["301-02"],
+            "note": "Roll-ahead table is keyed by GVW band, not posted speed. Default 22000 selects the PVH band.",
+        },
+        {
+            "id": "exposureCondition",
+            "label": "Worker exposure condition",
+            "type": "enum",
+            "allowed": [
+                "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+                "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS, EXCAVATION)",
+            ],
+            "usedBy": ["301-01"],
+        },
+        {
+            "id": "closureType",
+            "label": "Closure type",
+            "type": "enum",
+            "allowed": ["SHOULDER CLOSURE OR ENCROACHMENT"],
+            "default": "SHOULDER CLOSURE OR ENCROACHMENT",
+            "usedBy": ["301-01"],
+        },
+        {
+            "id": "signSizeClass",
+            "label": "Sign size class",
+            "type": "enum",
+            "allowed": ["NON-FREEWAY", "FREEWAY"],
+            "default": "FREEWAY",
+        },
+    ],
+    "tableRoles": draft["tableRoles"],
+    "tables": draft["tables"],
+    "corridor": {
+        "confidence": "drawing",
+        "description": (
+            "Upstream against traffic from work: ROLL AHEAD → BUFFER → SHOULDER TAPER (consumes "
+            "station — unlike Family 2 overlay) → W21-5aR → W21-5bR → W20-1. Plan spacing "
+            "callouts 1000'/1500'/1320' mapped to gaps A/B/C (nearest→farthest). No MERGING TAPER."
+        ),
+        "zones": [
+            {"id": "signC", "order": 1, "kind": "sign", "signCode": "W20-1", "sheetLegend": "ROAD WORK XX"},
+            {"id": "gapC", "order": 2, "kind": "gap", "sheetLabel": "C",
+             "lengthSource": {"fixedFt": 1320}, "dimensioned": True,
+             "spans": "W20-1 to W21-5bR",
+             "note": "Plan callout 1320' (¼ mile) — not from a numbered spacing table."},
+            {"id": "signB", "order": 3, "kind": "sign", "signCode": "W21-5bR",
+             "sheetLegend": "RIGHT SHOULDER CLOSED AHEAD / MILE"},
+            {"id": "gapB", "order": 4, "kind": "gap", "sheetLabel": "B",
+             "lengthSource": {"fixedFt": 1500}, "dimensioned": True,
+             "spans": "W21-5bR to W21-5aR"},
+            {"id": "signA", "order": 5, "kind": "sign", "signCode": "W21-5aR",
+             "sheetLegend": "RIGHT SHOULDER CLOSED"},
+            {"id": "gapA", "order": 6, "kind": "gap", "sheetLabel": "A",
+             "lengthSource": {"fixedFt": 1000}, "dimensioned": True,
+             "spans": "W21-5aR to upstream end of SHOULDER TAPER"},
+            {"id": "shoulderTaper", "order": 7, "kind": "taper", "sheetLabel": "SHOULDER TAPER",
+             "sheetReference": "(SEE TABLE 301-03)",
+             "lengthSource": {"table": "301-03", "column": "shoulderTaper",
+                              "lookupBy": ["preconstructionPostedSpeedMph", "shoulderWidthBand"]},
+             "dimensioned": True, "consumesStation": True,
+             "note": "Consumes station on this sheet (no merging taper / gap-A overlay pattern)."},
+            {"id": "bufferSpace", "order": 8, "kind": "buffer", "sheetLabel": "BUFFER SPACE",
+             "sheetReference": "(SEE TABLE 301-03)",
+             "lengthSource": {"table": "301-03", "column": "longitudinalBufferSpace",
+                              "lookupBy": ["preconstructionPostedSpeedMph"]},
+             "dimensioned": True, "mustBeEmpty": True, "mustBeEmptyReason": "Note 3."},
+            {"id": "protectiveVehicle", "order": 9, "kind": "symbol", "sheetLabel": "PVH",
+             "lengthSource": None,
+             "note": "PVH+TMIA per Table 301-01. Shares datum with roll-ahead start (extract_plan_geometry)."},
+            {"id": "rollAheadDistance", "order": 10, "kind": "clearance", "sheetLabel": "ROLL AHEAD DISTANCE",
+             "sheetReference": "(SEE TABLE 301-02)",
+             "lengthSource": {"table": "301-02", "column": "range",
+                              "lookupBy": ["protectiveVehicleGvwLbs"]},
+             "dimensioned": True, "mustBeEmpty": True, "mustBeEmptyReason": "Note 3."},
+            {"id": "workArea", "order": 11, "kind": "workArea", "sheetLabel": "WORK AREA",
+             "lengthSource": None, "hatched": True, "dimensioned": False},
+            {"id": "spotter", "order": 12, "kind": "symbol", "sheetLabel": "SPOTTER RECOMMENDED",
+             "lengthSource": None, "required": False},
+            {"id": "downstreamTaper", "order": 13, "kind": "taper", "sheetLabel": "DOWNSTREAM TAPER",
+             "lengthSource": {"fixedRange": {"minFt": 50, "maxFt": 100}}, "sheetText": "50'-100'",
+             "dimensioned": True},
+            {"id": "gapEndRoadWork", "order": 14, "kind": "gap", "sheetLabel": None,
+             "lengthSource": {"fixedRange": {"minFt": 80, "maxFt": 400}}, "dimensioned": False},
+            {"id": "signEndRoadWork", "order": 15, "kind": "sign", "signCode": "G20-2",
+             "sheetLegend": "END ROAD WORK"},
+        ],
+    },
+    "orderTable": {
+        "confidence": "drawing",
+        "description": "Shoulder-closure walk: Roll Ahead, Buffer, Shoulder Taper, then W21-5aR / W21-5bR / W20-1. No merging taper, no Vehicle Space.",
+        "alignments": [
+            {
+                "alignIdx": 1,
+                "name": "Upstream",
+                "station0": "Upstream edge of the WORK AREA",
+                "walkDirection": "Upstream, against traffic",
+                "rows": [
+                    {"rowNum": 1, "type": "Non-Sign", "zone": "rollAheadDistance", "label": "ROLL AHEAD DISTANCE"},
+                    {"rowNum": 2, "type": "Non-Sign", "zone": "bufferSpace", "label": "BUFFER SPACE"},
+                    {"rowNum": 3, "type": "Non-Sign", "zone": "shoulderTaper", "label": "SHOULDER TAPER"},
+                    {"rowNum": 4, "type": "Sign", "zone": "signA", "signCode": "W21-5aR", "spacingZone": "gapA"},
+                    {"rowNum": 5, "type": "Sign", "zone": "signB", "signCode": "W21-5bR", "spacingZone": "gapB"},
+                    {"rowNum": 6, "type": "Sign", "zone": "signC", "signCode": "W20-1", "spacingZone": "gapC"},
+                ],
+                "excludedRows": [
+                    {"label": "MERGING TAPER", "reason": "Shoulder closure — no merging/lane taper."},
+                    {"label": "Vehicle Space", "reason": "Not on this sheet."},
+                    {"label": "Upstream Taper Temp Barrier", "reason": "No temporary barrier on short-term 301."},
+                    {"label": "Upstream Taper Box/Corr Beam", "reason": "No box/corr beam."},
+                ],
+            },
+            {
+                "alignIdx": 2,
+                "name": "Downstream",
+                "station0": "Downstream edge of the WORK AREA",
+                "walkDirection": "Downstream, with traffic",
+                "rows": [
+                    {"rowNum": 1, "type": "Non-Sign", "zone": "downstreamTaper", "label": "DOWNSTREAM TAPER"},
+                    {"rowNum": 2, "type": "Sign", "zone": "signEndRoadWork", "signCode": "G20-2",
+                     "spacingZone": "gapEndRoadWork"},
+                ],
+            },
+        ],
+    },
+    "signs": {
+        "confidence": "verbatim",
+        "note": "Shoulder-closed set. W21-5bR uses SignLibrary W21-05bR* legend variants; W21-5aR is fixed W21-05aR. W7-3a/G20-1 conditional per Notes 6-7.",
+        "items": [
+            {"signCode": "W20-1", "sheetLegend": "ROAD WORK XX", "shape": "diamond", "warningFlags": True,
+             "postMounted": True, "corridorZone": "signC",
+             "sizeNonFreeway": "36x36", "sizeFreeway": "48x48",
+             "signLibraryKey": "W20-01RM",
+             "signLibraryNote": "Plan uses mile-based XX on freeway; no spacing table — fixed freeway mile key."},
+            {"signCode": "W21-5bR", "sheetLegend": "RIGHT SHOULDER CLOSED AHEAD/YY",
+             "shape": "diamond", "postMounted": True, "corridorZone": "signB",
+             "sizeNonFreeway": "36x36", "sizeFreeway": "48x48", "signLibraryKey": "W21-05bRM"},
+            {"signCode": "W21-5aR", "sheetLegend": "RIGHT SHOULDER CLOSED",
+             "shape": "diamond", "postMounted": True, "corridorZone": "signA",
+             "sizeNonFreeway": "36x36", "sizeFreeway": "48x48", "signLibraryKey": "W21-05aR"},
+            {"signCode": "G20-2", "sheetLegend": "END ROAD WORK", "shape": "rectangle",
+             "postMounted": True, "corridorZone": "signEndRoadWork",
+             "sizeNonFreeway": "36x18", "sizeFreeway": "48x24", "signLibraryKey": "G20-02"},
+            {"signCode": "W7-3a", "sheetLegend": "NEXT XX MILES", "shape": "rectangle",
+             "postMounted": True, "required": False,
+             "sizeNonFreeway": "24x18", "sizeFreeway": "36x30", "signLibraryKey": "W07-03aP",
+             "note": "Note 6 — supplemental plaque on W20-1 when work span > 2 miles."},
+            {"signCode": "G20-1", "sheetLegend": "ROAD WORK NEXT XX MILES", "shape": "rectangle",
+             "postMounted": True, "required": False,
+             "sizeNonFreeway": "36x18", "sizeFreeway": "48x24", "signLibraryKey": "G20-01",
+             "note": "Note 7 — every 2 miles when multiple work locations."},
+            {"signCode": "WARNING FLAG", "shape": "flag", "postMounted": False,
+             "mountedOn": "W20-1", "sizeNonFreeway": "18x18", "sizeFreeway": "18x18"},
+            {"signCode": "R2-1 OR NYR2-2", "shape": "rectangle", "postMounted": True,
+             "required": True, "sizeNonFreeway": "30x36", "sizeFreeway": "36x48",
+             "signLibraryKey": "R2-1", "note": "Note 9 — mid A/B regulatory speed."},
+            {"signCode": "NYR2-6", "shape": "rectangle", "postMounted": True, "required": False,
+             "sizeNonFreeway": None, "sizeFreeway": None},
+        ],
+    },
+    "symbols": {
+        "confidence": "drawing",
+        "items": [
+            {"id": "protectiveVehicle", "sheetLabel": "PVH", "required": True,
+             "stationAnchor": {"zone": "rollAheadDistance", "end": "upstream"},
+             "cellHint": "TWZWVA_P", "note": "PVH+TMIA per 301-01."},
+            {"id": "arrowPanel", "sheetLabel": "ARROW PANEL", "required": False,
+             "stationAnchor": {"zone": "shoulderTaper", "end": "upstream"},
+             "note": "Plan shows CAUTION MODE callout."},
+            {"id": "spotter", "sheetLabel": "SPOTTER RECOMMENDED", "required": False,
+             "stationAnchor": {"zone": "workArea", "end": "downstream"}},
+            {"id": "channelizingDevices", "sheetLabel": "CHANNELIZING DEVICES", "required": True,
+             "longitudinalSpacing": {"maxFt": 40, "sheetText": "Note 5 — not to exceed 40'."},
+             "runs": [
+                 {"id": "shoulderTaperRun", "zone": "shoulderTaper",
+                  "deviceCountSource": {"table": "301-03", "column": "shoulderTaper.devices"}},
+                 {"id": "longitudinalRun", "zone": "bufferSpace..workArea", "deviceCountSource": None},
+                 {"id": "downstreamRun", "zone": "downstreamTaper", "deviceCountSource": None},
+             ],
+             "transverse": {
+                 "required": "conditional",
+                 "condition": "Paved shoulder 8' or wider closed > 800'",
+                 "maxSpacingFt": 800, "sheetText": "Note 8",
+             },
+            },
+            {"id": "workAreaHatch", "sheetLabel": "WORK AREA", "required": True,
+             "stationAnchor": {"zone": "workArea", "end": "both"}, "hatched": True},
+        ],
+    },
+    "annotations": {
+        "confidence": "drawing",
+        "dimensions": [
+            {"zone": "gapC", "label": "1320'", "reference": None},
+            {"zone": "gapB", "label": "1500'", "reference": None},
+            {"zone": "gapA", "label": "1000'", "reference": None},
+            {"zone": "shoulderTaper", "label": "SHOULDER TAPER", "reference": "(SEE TABLE 301-03)"},
+            {"zone": "bufferSpace", "label": "BUFFER SPACE", "reference": "(SEE TABLE 301-03)"},
+            {"zone": "rollAheadDistance", "label": "ROLL AHEAD DISTANCE", "reference": "(SEE TABLE 301-02)"},
+            {"zone": "downstreamTaper", "label": "50'-100' DOWNSTREAM TAPER", "reference": None},
+        ],
+        "labels": [
+            {"text": "WORK AREA", "zone": "workArea"},
+            {"text": "SPOTTER RECOMMENDED", "zone": "spotter"},
+            {"text": "ARROW PANEL (CAUTION MODE)", "zone": "shoulderTaper"},
+        ],
+    },
+    "details": {},
+    "notes": {
+        "confidence": "verbatim",
+        "printed": draft["notes"]["printed"],
+        "planCallouts": [],
+        "tableNotes": draft["tables"]["301-01"].get("tableNotes", []),
+    },
+    "rules": [
+        {"id": "shoulder-taper-consumes-station", "severity": "error", "source": "Plan layout",
+         "assert": "SHOULDER TAPER is a sequential upstream row (not a gap-A overlay).",
+         "commonFailure": "Treating it as Family 2's overlay-inside-A pattern."},
+        {"id": "no-merging-taper", "severity": "error", "source": "Plan + Table 301-03",
+         "assert": "No MERGING TAPER / lane taper row.",
+         "commonFailure": "Cloning Family 2's merging-taper walk."},
+        {"id": "sign-order-shoulder", "severity": "error", "source": "Plan layout",
+         "assert": "Advance signs upstream: W21-5aR, then W21-5bR, then W20-1.",
+         "commonFailure": "Using W20-5R/W4-2R from lane-closure sheets."},
+        {"id": "roll-ahead-by-gvw", "severity": "error", "source": "Table 301-02",
+         "assert": "Roll ahead MIN/MAX comes from PV GVW band, not posted speed.",
+         "commonFailure": "Looking up 302-style speed bands."},
+        {"id": "plan-spacing-not-table", "severity": "error", "source": "Absence of spacing table",
+         "assert": "A/B/C gaps are fixed plan callouts (1000/1500/1320), not Table 011-06 FREEWAY.",
+         "commonFailure": "Applying FREEWAY A=1000 B=1500 C=2640 from Family 2."},
+        {"id": "cone-spacing-40", "severity": "warning", "source": "Note 5",
+         "assert": "Channelizing spacing <= 40 ft in active work space.",
+         "commonFailure": "Using intermediate 20 ft from Family 2 402."},
+    ],
+    "knownCodeDeviations": [
+        {"id": "fixed-spacing-placement", "severity": "warning",
+         "assert": "Bridge still builds from payload spacings — OK if order table uses fixedFt gaps."},
+        {"id": "w7-3a-g20-1-conditional", "severity": "warning",
+         "assert": "W7-3a and G20-1 are conditional (Notes 6-7) and not in the base order-table walk."},
+        {"id": "nonfreeway-sizes-inferred", "severity": "warning",
+         "assert": "301-04 NON-FREEWAY sizes filled from typical values — rotated PDF omitted that column."},
+    ],
+    "knownExcerpts": {
+        "from619-302": ["301-03 buffer+shoulder on 45-65 mph match 302-02 shoulder/buffer cells"],
+        "differsFrom302": [
+            "No advance-warning table; plan 1320/1500/1000",
+            "No merging taper; shoulder taper sequential",
+            "Roll ahead by GVW; PVH+TMIA; W21-5aR/W21-5bR",
+            "Speeds 45-65 only; 9 notes",
+        ],
+    },
+}
+
+out = ROOT / "Data/sheet-specs/619-301.json"
+out.write_text(json.dumps(s, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+print("wrote", out)

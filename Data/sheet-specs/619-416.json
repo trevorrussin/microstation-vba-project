@@ -1,0 +1,900 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-416",
+    "title": "WORK ZONE TRAFFIC CONTROL FREEWAY PARTIAL EXIT RAMP CLOSURE",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "INTERMEDIATE TERM OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2022-04-08",
+    "issuedUnder": "EI 22-008",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-416.pdf",
+    "localPdf": "Bridge/captures/619-416.pdf",
+    "localRender": null,
+    "pdfPages": 2,
+    "pageRotation": 0,
+    "transcribedBy": "Cursor (Family 5 ramp-adjacent)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Family 5 intermediate partial exit ramp. 7-band shoulder; gaps 1000/500; W21-5aR (not W20-5)."
+  },
+  "applicability": {
+    "roadType": "Freeway",
+    "roadway": "Freeway ramp-adjacent",
+    "closure": "FREEWAY PARTIAL EXIT RAMP CLOSURE",
+    "duration": "Intermediate",
+    "durationDefinition": "1. INTERMEDIATE-TERM STATIONARY IS WORK THAT OCCUPIES A LOCATION MORE THAN ONE DAYLIGHT PERIOD UP TO 3 DAYS, OR NIGHTTIME WORK LASTING MORE THAN 1 HOUR.",
+    "speedRangeMph": {
+      "allowed": [
+        45,
+        50,
+        55,
+        65
+      ]
+    },
+    "laneWidthFt": [
+      10,
+      11,
+      12
+    ],
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft",
+      "9 ft",
+      "10 ft",
+      "11 ft",
+      "12 ft"
+    ],
+    "areaTypes": null,
+    "areaTypeNote": "Fixed plan gaps; no AW spacing table."
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "type": "integer",
+      "allowed": [
+        45,
+        50,
+        55,
+        65
+      ],
+      "usedBy": [
+        "416-01",
+        "416-02"
+      ]
+    },
+    {
+      "id": "laneWidthFt",
+      "type": "integer",
+      "allowed": [
+        10,
+        11,
+        12
+      ],
+      "usedBy": [
+        "416-01"
+      ]
+    },
+    {
+      "id": "shoulderWidthBand",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft",
+        "9 ft",
+        "10 ft",
+        "11 ft",
+        "12 ft"
+      ],
+      "default": ">= 8 ft",
+      "usedBy": [
+        "416-01"
+      ]
+    },
+    {
+      "id": "exposureCondition",
+      "type": "enum",
+      "allowed": [
+        "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+        "OTHER HAZARDS NO WORKERS EXPOSED"
+      ],
+      "usedBy": [
+        "416-pv"
+      ]
+    },
+    {
+      "id": "closureType",
+      "type": "enum",
+      "allowed": [
+        "LANE CLOSURE OR ENCROACHMENT",
+        "SHOULDER CLOSURE OR ENCROACHMENT"
+      ],
+      "default": "LANE CLOSURE OR ENCROACHMENT",
+      "usedBy": [
+        "416-pv"
+      ]
+    },
+    {
+      "id": "signSizeClass",
+      "type": "enum",
+      "allowed": [
+        "NON-FREEWAY",
+        "FREEWAY"
+      ],
+      "default": "FREEWAY",
+      "usedBy": [
+        "416-sign"
+      ]
+    }
+  ],
+  "tableRoles": {
+    "note": "Roles by CONTENT.",
+    "taperAndBuffer": "416-01",
+    "rollAheadDistance": "416-02",
+    "protectiveVehicle": "416-pv",
+    "signSizes": "416-sign"
+  },
+  "tables": {
+    "416-01": {
+      "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph",
+        "laneWidthFt",
+        "shoulderWidthBand"
+      ],
+      "rows": [
+        {
+          "speedMph": 45,
+          "longitudinalBufferSpace": {
+            "ft": 360,
+            "skipLines": 9
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "11": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "12": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            ">= 8 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "9 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "10 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "11 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "12 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 50,
+          "longitudinalBufferSpace": {
+            "ft": 425,
+            "skipLines": 11
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "11": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "12": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "9 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "10 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "11 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "12 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 55,
+          "longitudinalBufferSpace": {
+            "ft": 495,
+            "skipLines": 13
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "11": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            },
+            "12": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "9 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "10 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "11 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            },
+            "12 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          }
+        },
+        {
+          "speedMph": 65,
+          "longitudinalBufferSpace": {
+            "ft": 645,
+            "skipLines": 16
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 240,
+              "skipLines": 6,
+              "devices": 7
+            },
+            "11": {
+              "ft": 280,
+              "skipLines": 7,
+              "devices": 8
+            },
+            "12": {
+              "ft": 280,
+              "skipLines": 7,
+              "devices": 8
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            ">= 8 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            },
+            "9 ft": {
+              "ft": 240,
+              "skipLines": 6,
+              "devices": 7
+            },
+            "10 ft": {
+              "ft": 240,
+              "skipLines": 6,
+              "devices": 7
+            },
+            "11 ft": {
+              "ft": 280,
+              "skipLines": 7,
+              "devices": 8
+            },
+            "12 ft": {
+              "ft": 280,
+              "skipLines": 7,
+              "devices": 8
+            }
+          }
+        }
+      ],
+      "note": "seven-band"
+    },
+    "416-02": {
+      "title": "ROLL AHEAD DISTANCE",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "rows": [
+        {
+          "speedBand": ">= 55 MPH",
+          "minMph": 55,
+          "maxMph": null,
+          "min": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "speedBand": "45 - 50 MPH",
+          "minMph": 45,
+          "maxMph": 50,
+          "min": {
+            "ft": 80,
+            "skipLines": 2
+          },
+          "max": {
+            "ft": 160,
+            "skipLines": 4
+          }
+        }
+      ],
+      "usageNote": "MIN/MAX range."
+    },
+    "416-pv": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition"
+      ],
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS NO WORKERS EXPOSED",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS NO WORKERS EXPOSED",
+          "FREEWAY": "PVH+TMIA"
+        }
+      ],
+      "legend": {
+        "PVH": "PROTECTIVE VEHICLE HEAVY",
+        "TMIA": "TMIA REQUIRED"
+      }
+    },
+    "416-sign": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "rows": [
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5aR",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "Fixed gaps {'A': 1000, 'B': 500}; MERGING+DOWNSTREAM corridor.",
+    "zones": [
+      {
+        "id": "signC",
+        "order": 1,
+        "kind": "sign",
+        "signCode": "W20-1",
+        "sheetLegend": "ROAD WORK AHEAD"
+      },
+      {
+        "id": "gapC",
+        "order": 2,
+        "kind": "gap",
+        "sheetLabel": "C",
+        "lengthSource": {
+          "fixedFt": 500
+        },
+        "dimensioned": true,
+        "spans": "W20-1 to W21"
+      },
+      {
+        "id": "signB",
+        "order": 3,
+        "kind": "sign",
+        "signCode": "W21-5aR",
+        "sheetLegend": "SHOULDER CLOSED / SHOULDER WORK"
+      },
+      {
+        "id": "gapB",
+        "order": 4,
+        "kind": "gap",
+        "sheetLabel": "B",
+        "lengthSource": {
+          "fixedFt": 1000
+        },
+        "dimensioned": true,
+        "spans": "W21-5aR to shoulder taper"
+      },
+      {
+        "id": "shoulderTaper",
+        "order": 5,
+        "kind": "taper",
+        "sheetLabel": "SHOULDER TAPER",
+        "sheetReference": "(SEE TABLE 416-01)",
+        "lengthSource": {
+          "table": "416-01",
+          "column": "shoulderTaper",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph",
+            "shoulderWidthBand"
+          ]
+        },
+        "dimensioned": true
+      },
+      {
+        "id": "bufferSpace",
+        "order": 6,
+        "kind": "buffer",
+        "sheetLabel": "BUFFER SPACE",
+        "sheetReference": "(SEE TABLE 416-01)",
+        "lengthSource": {
+          "table": "416-01",
+          "column": "longitudinalBufferSpace",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph"
+          ]
+        },
+        "dimensioned": true,
+        "mustBeEmpty": true
+      },
+      {
+        "id": "protectiveVehicle",
+        "order": 7,
+        "kind": "symbol",
+        "sheetLabel": "PVH",
+        "lengthSource": null
+      },
+      {
+        "id": "rollAheadDistance",
+        "order": 8,
+        "kind": "clearance",
+        "sheetLabel": "ROLL AHEAD DISTANCE",
+        "lengthSource": {
+          "table": "416-02",
+          "column": "range",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph"
+          ]
+        },
+        "dimensioned": true,
+        "mustBeEmpty": true
+      },
+      {
+        "id": "workArea",
+        "order": 9,
+        "kind": "workArea",
+        "sheetLabel": "WORK AREA",
+        "lengthSource": null,
+        "hatched": true,
+        "dimensioned": false
+      },
+      {
+        "id": "downstreamTaper",
+        "order": 10,
+        "kind": "taper",
+        "sheetLabel": "DOWNSTREAM TAPER",
+        "lengthSource": {
+          "fixedRange": {
+            "minFt": 50,
+            "maxFt": 100
+          }
+        },
+        "sheetText": "50'-100'",
+        "dimensioned": true
+      },
+      {
+        "id": "gapEndRoadWork",
+        "order": 11,
+        "kind": "gap",
+        "sheetLabel": null,
+        "lengthSource": {
+          "fixedRange": {
+            "minFt": 80,
+            "maxFt": 400
+          }
+        },
+        "dimensioned": false
+      },
+      {
+        "id": "signEndRoadWork",
+        "order": 12,
+        "kind": "sign",
+        "signCode": "G20-2",
+        "sheetLegend": "END ROAD WORK"
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "Upstream merging corridor walk.",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Upstream edge of the WORK AREA",
+        "walkDirection": "Upstream, against traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "rollAheadDistance",
+            "label": "ROLL AHEAD DISTANCE"
+          },
+          {
+            "rowNum": 2,
+            "type": "Non-Sign",
+            "zone": "bufferSpace",
+            "label": "BUFFER SPACE"
+          },
+          {
+            "rowNum": 3,
+            "type": "Non-Sign",
+            "zone": "shoulderTaper",
+            "label": "SHOULDER TAPER"
+          },
+          {
+            "rowNum": 4,
+            "type": "Sign",
+            "zone": "signB",
+            "signCode": "W21-5aR",
+            "spacingZone": "gapB"
+          },
+          {
+            "rowNum": 5,
+            "type": "Sign",
+            "zone": "signC",
+            "signCode": "W20-1",
+            "spacingZone": "gapC"
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "MERGING TAPER",
+            "reason": "Partial exit ramp — shoulder taper only."
+          },
+          {
+            "label": "Vehicle Space",
+            "reason": "Not on this sheet."
+          }
+        ]
+      },
+      {
+        "alignIdx": 2,
+        "name": "Downstream",
+        "station0": "Downstream edge of the WORK AREA",
+        "walkDirection": "Downstream, with traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "downstreamTaper",
+            "label": "DOWNSTREAM TAPER"
+          },
+          {
+            "rowNum": 2,
+            "type": "Sign",
+            "zone": "signEndRoadWork",
+            "signCode": "G20-2",
+            "spacingZone": "gapEndRoadWork"
+          }
+        ]
+      }
+    ]
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "items": [
+      {
+        "signCode": "W20-1",
+        "sheetLegend": "ROAD WORK AHEAD",
+        "legendSubstitution": null,
+        "shape": "diamond",
+        "warningFlags": true,
+        "postMounted": true,
+        "corridorZone": "signC",
+        "sizeNonFreeway": "48x48",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W20-01RA"
+      },
+      {
+        "signCode": "W21-5aR",
+        "sheetLegend": "RIGHT SHOULDER CLOSED",
+        "legendSubstitution": null,
+        "shape": "diamond",
+        "warningFlags": false,
+        "postMounted": true,
+        "corridorZone": "signB",
+        "sizeNonFreeway": "48x48",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W21-05aR"
+      },
+      {
+        "signCode": "G20-2",
+        "sheetLegend": "END ROAD WORK",
+        "legendSubstitution": null,
+        "shape": "rectangle",
+        "warningFlags": false,
+        "postMounted": true,
+        "corridorZone": "signEndRoadWork",
+        "sizeNonFreeway": "36x18",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": "G20-02"
+      },
+      {
+        "signCode": "WARNING FLAG",
+        "sheetLegend": null,
+        "legendSubstitution": null,
+        "shape": "flag",
+        "warningFlags": false,
+        "postMounted": false,
+        "corridorZone": null,
+        "sizeNonFreeway": "18x18",
+        "sizeFreeway": "18x18",
+        "signLibraryKey": null,
+        "mountedOn": "W20-1, W4-2R"
+      }
+    ]
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "arrowPanel",
+        "sheetLabel": "ARROW PANEL",
+        "required": true,
+        "stationAnchor": {
+          "zone": "shoulderTaper",
+          "end": "upstream"
+        }
+      },
+      {
+        "id": "protectiveVehicle",
+        "sheetLabel": "VEH",
+        "required": true,
+        "stationAnchor": {
+          "zone": "rollAheadDistance",
+          "end": "upstream"
+        }
+      },
+      {
+        "id": "channelizingDevices",
+        "sheetLabel": "CHANNELIZING DEVICES",
+        "required": true,
+        "runs": [
+          {
+            "id": "shoulderTaperRun",
+            "zone": "shoulderTaper",
+            "deviceCountSource": null
+          },
+          {
+            "id": "downstreamRun",
+            "zone": "downstreamTaper",
+            "deviceCountSource": null
+          }
+        ]
+      },
+      {
+        "id": "workAreaHatch",
+        "sheetLabel": "WORK AREA",
+        "required": true,
+        "hatched": true
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "dimensions": [
+      {
+        "zone": "gapC",
+        "label": "C",
+        "reference": null
+      },
+      {
+        "zone": "gapB",
+        "label": "B",
+        "reference": null
+      },
+      {
+        "zone": "shoulderTaper",
+        "label": "SHOULDER TAPER",
+        "reference": null
+      },
+      {
+        "zone": "bufferSpace",
+        "label": "BUFFER SPACE",
+        "reference": null
+      },
+      {
+        "zone": "rollAheadDistance",
+        "label": "ROLL AHEAD DISTANCE",
+        "reference": null
+      },
+      {
+        "zone": "downstreamTaper",
+        "label": "50'-100' DOWNSTREAM TAPER",
+        "reference": null
+      }
+    ],
+    "lateralDimensions": [],
+    "leaderCallouts": [],
+    "notLabeled": []
+  },
+  "details": {},
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. INTERMEDIATE-TERM STATIONARY IS WORK THAT OCCUPIES A LOCATION MORE THAN ONE DAYLIGHT PERIOD UP TO 3 DAYS, OR NIGHTTIME WORK LASTING MORE THAN 1 HOUR.",
+      "2. CHANNELIZING DEVICE SPACING (CENTER TO CENTER) SHALL NOT EXCEED 20' IN THE ACTIVE WORK SPACE.",
+      "3. NO WORK ACTIVITY, EQUIPMENT, OR STORAGE OF VEHICLES, OR MATERIAL SHALL OCCUR WITHIN THE BUFFER SPACE AT ANY TIME."
+    ],
+    "planCallouts": []
+  },
+  "rules": [
+    {
+      "id": "no-occupancy-buffer-rollahead",
+      "severity": "error",
+      "source": "Notes",
+      "assert": "No workers/equipment in bufferSpace or rollAheadDistance.",
+      "commonFailure": "Hatching through roll ahead."
+    },
+    {
+      "id": "sign-order",
+      "severity": "error",
+      "source": "Plan layout",
+      "assert": "Upstream advance signs: W4-2R, then W20-5, then W20-1 (furthest).",
+      "commonFailure": "Reversed advance warning order."
+    },
+    {
+      "id": "fixed-gaps",
+      "severity": "error",
+      "source": "Plan callouts",
+      "assert": "A/B/C(/D) gaps are fixed plan callouts, not an AW spacing table.",
+      "commonFailure": "Applying 302-03 FREEWAY 1000/1500/2640 when sheet prints 1320."
+    },
+    {
+      "id": "end-road-work-side",
+      "severity": "error",
+      "source": "G20-2 callout",
+      "assert": "G20-2 downstream 80-400 ft past downstream taper.",
+      "commonFailure": "G20-2 on upstream alignment."
+    },
+    {
+      "id": "cone-spacing",
+      "severity": "warning",
+      "source": "Notes",
+      "assert": "Channelizing spacing <= 40 ft in active work space (short-term) or per duration note.",
+      "commonFailure": "Bare polyline without spacing."
+    }
+  ],
+  "knownCodeDeviations": []
+}

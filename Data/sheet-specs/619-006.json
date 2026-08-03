@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "kind": "referenceLibrary",
+    "kindNote": "Not a corridor/plan sheet — no station walk / order table. schemaVersion 1.1 referenceLibrary pattern per 619-011.",
+    "number": "619-006",
+    "title": "SPEED FEEDBACK IN WORK ZONES",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "units": "U.S. CUSTOMARY STANDARD SHEET",
+    "scale": "NOT TO SCALE",
+    "approved": "2024-09-01",
+    "issuedUnder": "EI 24-008",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-006.pdf",
+    "localPdf": "Bridge/captures/619-006.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 0,
+    "transcribedBy": "Cursor (Misc reference/detail)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "PVMS radar speed-feedback supplemental detail. Used with appropriate corridor sheets (not standalone order table). live-build n/a."
+  },
+  "tableRoles": {
+    "pvmsMessaging": "006-01",
+    "pvmsPlacement": "006-02"
+  },
+  "tables": {
+    "006-01": {
+      "title": "PVMS MESSAGING",
+      "confidence": "drawing",
+      "keyedBy": [
+        "message"
+      ],
+      "note": "Radar speed feedback display rules; full phase text on PDF.",
+      "rows": [
+        {
+          "message": "YOUR SPEED XX",
+          "note": "Primary speed feedback legend on PVMS."
+        },
+        {
+          "message": "CLOSURE MESSAGE",
+          "note": "Supplemental messages per Note 4; no flashing/strobing."
+        }
+      ]
+    },
+    "006-02": {
+      "title": "PLACEMENT OF PVMS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "columnMeaning": "X (FEET) from protective vehicle VEH#2",
+      "rows": [
+        {
+          "speedMph": 45,
+          "xFt": 160,
+          "skipLines": 4
+        },
+        {
+          "speedMph": 55,
+          "xFt": 200,
+          "skipLines": 5
+        },
+        {
+          "speedMph": 65,
+          "xFt": 240,
+          "skipLines": 6
+        }
+      ]
+    }
+  },
+  "legend": {
+    "confidence": "drawing",
+    "items": [
+      "PORTABLE VARIABLE MESSAGE SIGN WITH RADAR SPEED FEEDBACK",
+      "PROTECTIVE VEHICLE",
+      "ARROW PANEL",
+      "MERGING TAPER",
+      "BUFFER SPACE",
+      "SHOULDER TAPER",
+      "CHANNELIZING DEVICE"
+    ]
+  },
+  "details": {
+    "006A": {
+      "title": "DETAIL 006A — RIGHT LANE CLOSURE",
+      "confidence": "drawing",
+      "note": "Shows PVMS placement relative to VEH#1/#2 on a right-lane closure typical."
+    }
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. PORTABLE VARIABLE MESSAGE SIGN (PVMS) WITH RADAR SPEED FEEDBACK MAY BE USED TO INFORM MOTORISTS OF THEIR SPEED AND ALERT THEM IF THEY ARE EXCEEDING THE POSTED SPEED LIMIT.",
+      "2. THE PVMS WITH RADAR SPEED FEEDBACK UNIT SHALL BE LOCATED AT A DISTANCE X (SEE TABLE 006-02) FROM THE PROTECTIVE VEHICLE (VEH# 2).",
+      "3. THIS STANDARD SHEET SHALL BE USED AS A SUPPLEMENT TO APPROPRIATE STANDARD SHEETS FOR THE COMPLETE WORK ZONE SETUP.",
+      "4. PVMS DISPLAY SHALL FOLLOW THE MESSAGING SHOWN IN TABLE 006-01. USE OF FLASHING, STROBING, OR ANY OTHER DYNAMIC ELEMENTS ARE PROHIBITED."
+    ]
+  }
+}

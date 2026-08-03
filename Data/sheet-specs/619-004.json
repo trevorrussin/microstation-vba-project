@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "kind": "referenceLibrary",
+    "kindNote": "Not a corridor/plan sheet — no station walk / order table. schemaVersion 1.1 referenceLibrary pattern per 619-011.",
+    "number": "619-004",
+    "title": "PORTABLE TEMPORARY WOODEN SIGN SUPPORT",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "units": "U.S. CUSTOMARY STANDARD SHEET",
+    "scale": "NOT TO SCALE",
+    "approved": "2024-06-18",
+    "issuedUnder": "EI 21-028",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-004.pdf",
+    "localPdf": "Bridge/captures/619-004.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 0,
+    "transcribedBy": "Cursor (Misc reference/detail)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Detail sheet for portable temporary wooden sign stand. Not corridor-driven. live-build n/a."
+  },
+  "tableRoles": {
+    "note": "Dimensional limits transcribed as a small lookup table from plan callouts.",
+    "standDimensions": "004-01"
+  },
+  "tables": {
+    "004-01": {
+      "title": "TEMPORARY WOODEN SIGN STAND DIMENSION LIMITS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "dimension"
+      ],
+      "rows": [
+        {
+          "dimension": "BOTTOM_FRAME_WIDTH_W",
+          "max": "32.5 in",
+          "note": "W (32½\" MAX.)"
+        },
+        {
+          "dimension": "BOTTOM_FRAME_LENGTH_L",
+          "max": "144 in",
+          "note": "L (144\" MAX.)"
+        },
+        {
+          "dimension": "SIGN_MOUNTING_HEIGHT_MIN",
+          "min": "5 ft",
+          "note": "Measured from bottom of skid base to bottom of sign."
+        },
+        {
+          "dimension": "FOLDED_CLEAR_ZONE_HEIGHT_MAX",
+          "max": "4 in",
+          "note": "When folded down within clear zone."
+        }
+      ]
+    }
+  },
+  "legend": {
+    "confidence": "drawing",
+    "items": [
+      "TEMPORARY WOODEN SIGN STAND",
+      "UPRIGHT FRAME",
+      "BOTTOM FRAME",
+      "DIAGONAL SUPPORT",
+      "CORNER BRACE DETAIL"
+    ]
+  },
+  "details": {
+    "004A": {
+      "title": "CORNER BRACE DETAIL",
+      "confidence": "drawing",
+      "note": "Corner braces with 8D coated nails; carriage bolts for folding connections."
+    }
+  },
+  "notes": {
+    "confidence": "drawing",
+    "printed": [
+      "12. 11.",
+      "10. 9.",
+      "8. 7.",
+      "6. 5.",
+      "4. 3.",
+      "2. 1."
+    ]
+  }
+}

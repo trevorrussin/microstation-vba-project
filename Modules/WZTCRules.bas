@@ -360,6 +360,100 @@ Public Sub GetDefaultUpstreamItems(sp As WZTCSpacing, _
 End Sub
 
 ' ============================================================
+' SHEET-SPEC ALIGNMENT ITEMS — fills the same five parallel arrays
+' GetDefaultUpstreamItems does, but from rows a standard-sheet spec
+' resolved ("alignIdx:label:spacing"), so the station walk matches the
+' sheet instead of the generic default set.
+' ============================================================
+Private Sub GetSpecItemsForAlignment(aIdx As Integer, _
+                                     specRows() As String, specRowCount As Integer, _
+                                     ByRef rowTypes() As String, ByRef rowLabels() As String, _
+                                     ByRef rowSpacings() As String, ByRef rowSizes() As String, _
+                                     ByRef rowSides() As String, ByRef rowCount As Integer)
+    Dim i As Integer, n As Integer
+    n = 0
+    For i = 0 To specRowCount - 1
+        If Trim(specRows(i)) <> "" Then
+            If CInt(Split(specRows(i), ":")(0)) = aIdx Then n = n + 1
+        End If
+    Next i
+
+    rowCount = n
+    ReDim rowTypes(1 To IIf(n = 0, 1, n))
+    ReDim rowLabels(1 To IIf(n = 0, 1, n))
+    ReDim rowSpacings(1 To IIf(n = 0, 1, n))
+    ReDim rowSizes(1 To IIf(n = 0, 1, n))
+    ReDim rowSides(1 To IIf(n = 0, 1, n))
+    If n = 0 Then Exit Sub
+
+    Dim k As Integer, f() As String
+    k = 0
+    For i = 0 To specRowCount - 1
+        If Trim(specRows(i)) <> "" Then
+            f = Split(specRows(i), ":")
+            If CInt(f(0)) = aIdx Then
+                k = k + 1
+                rowTypes(k) = "Non-Sign"
+                rowLabels(k) = f(1)
+                If UBound(f) >= 2 Then
+                    rowSpacings(k) = Format(CDbl(f(2)), "0.0")
+                Else
+                    rowSpacings(k) = "0.0"
+                End If
+                rowSizes(k) = ""
+                rowSides(k) = "One Side"
+            End If
+        End If
+    Next i
+End Sub
+
+' Overwrites one SharedState spacing scalar with a sheet-derived value.
+' Silently ignores unknown names so a newer spec resolver can send fields
+' this build doesn't know about without breaking the call.
+Private Sub ApplySpacingOverride(kv As String)
+    Dim p() As String
+    p = Split(kv, "=")
+    If UBound(p) < 1 Then Exit Sub
+
+    Dim nm As String, v As String
+    nm = LCase(Trim(p(0)))
+    v = Trim(p(1))
+    If v = "" Then Exit Sub
+
+    Select Case nm
+        Case "downstreamtaper":        wztcDownstreamTaper = v
+        Case "rollahead":              wztcRollAhead = v
+        Case "vehiclespace":           wztcVehicleSpace = v
+        Case "bufferspace":            wztcBufferSpace = v
+        Case "mergingtaper":           wztcMergingTaper = v
+        Case "shouldertapers":         wztcShoulderTapers = v
+        Case "advancedwarningspacing": wztcAdvancedWarningSpacing = v
+        Case "uptaperbarrier":         wztcUpTaperBarrier = v
+        Case "uptaperbeam":            wztcUpTaperBeam = v
+        ' skipLines / channelizing are handled in BuildOrderTable, where the
+        ' ComputeSpacing result is in scope — see the comment there.
+    End Select
+End Sub
+
+' Reads one "name=value" out of an overrides string, "" if absent.
+Private Function GetOverrideValue(overridesTSV As String, wantName As String) As String
+    GetOverrideValue = ""
+    If Trim(overridesTSV) = "" Then Exit Function
+
+    Dim parts() As String, kv() As String, i As Integer
+    parts = Split(overridesTSV, "|")
+    For i = 0 To UBound(parts)
+        kv = Split(parts(i), "=")
+        If UBound(kv) >= 1 Then
+            If LCase(Trim(kv(0))) = LCase(Trim(wantName)) Then
+                GetOverrideValue = Trim(kv(1))
+                Exit Function
+            End If
+        End If
+    Next i
+End Function
+
+' ============================================================
 ' DEFAULT DOWNSTREAM ALIGNMENT ITEMS (alignment 2) — 1 spacing row
 ' ============================================================
 Public Sub GetDefaultDownstreamItems(sp As WZTCSpacing, _
@@ -400,11 +494,26 @@ End Sub
 ' basic presence — at least one Sign row in alignment 1 — is kept
 ' since it's a real engineering-completeness requirement, not UI
 ' nagging).
+'
+' specRows / specRowCount: Non-Sign rows resolved from a standard-sheet spec
+' (Data/sheet-specs/<sheet>.json) by mcp-server/sheet_spec.py, one entry per
+' row as "alignIdx:label:spacing". When supplied these REPLACE the generic
+' GetDefaultUpstreamItems / GetDefaultDownstreamItems rows, because those are
+' the same 7 upstream rows for every sheet and invent stations no sheet shows
+' (Vehicle Space, temp barrier, box/corr beam on 619-311). Empty = no spec for
+' this sheet, keep the legacy defaults.
+'
+' overridesTSV: "name=value|..." applied to the SharedState spacing scalars
+' after ComputeSpacing, for the values where the sheet and ComputeSpacing
+' disagree. The sheet wins — ComputeSpacing interpolates shoulder tapers per
+' foot above 8 ft, which Table 311-02 does not do.
 ' ============================================================
 Public Function BuildOrderTable(category As String, sheetNum As String, _
                                 speedMph As Integer, roadType As String, _
                                 laneWidthFt As Integer, shoulderWidthKey As String, _
-                                signRows() As String, signRowCount As Integer) As String
+                                signRows() As String, signRowCount As Integer, _
+                                specRows() As String, specRowCount As Integer, _
+                                overridesTSV As String) As String
     Dim hasAlign1Sign As Boolean: hasAlign1Sign = False
     Dim i As Integer
     For i = 0 To signRowCount - 1
@@ -432,6 +541,33 @@ Public Function BuildOrderTable(category As String, sheetNum As String, _
     wztcUpTaperBarrier = Format(sp.UpTaperBarrier, "0.0")
     wztcUpTaperBeam = Format(sp.UpTaperBeam, "0.0")
 
+    If Trim(overridesTSV) <> "" Then
+        Dim ovParts() As String
+        ovParts = Split(overridesTSV, "|")
+        For i = 0 To UBound(ovParts)
+            Call ApplySpacingOverride(ovParts(i))
+        Next i
+
+        ' Device counts need sp in scope, so they aren't done in
+        ' ApplySpacingOverride. The sheet gives skip lines and devices per
+        ' TAPER only; it says nothing about the buffer or roll ahead, whose
+        ' skip lines therefore stay as ComputeSpacing produced them rather
+        ' than being re-invented here. wztcSkipLines is a four-part sum
+        ' (merge + shoulder + buffer + roll ahead), so only the two taper
+        ' terms are replaced.
+        Dim ltSkip As String, stSkip As String, ltDev As String, stDev As String
+        ltSkip = GetOverrideValue(overridesTSV, "lanetaperskips")
+        stSkip = GetOverrideValue(overridesTSV, "shouldertaperskips")
+        ltDev = GetOverrideValue(overridesTSV, "lanetaperdevices")
+        stDev = GetOverrideValue(overridesTSV, "shouldertaperdevices")
+        If ltSkip <> "" And stSkip <> "" Then
+            wztcSkipLines = CStr(CInt(ltSkip) + CInt(stSkip) + sp.SkipBuffer + sp.SkipRollAhead)
+        End If
+        If ltDev <> "" And stDev <> "" Then
+            wztcChannelizing = CStr(CInt(ltDev) + CInt(stDev))
+        End If
+    End If
+
     wztcCategory = category
     wztcSheet = sheetNum
     wztcSpeed = CStr(speedMph)
@@ -441,11 +577,22 @@ Public Function BuildOrderTable(category As String, sheetNum As String, _
 
     Dim defTypes1() As String, defLabels1() As String, defSpacings1() As String
     Dim defSizes1() As String, defSides1() As String, defCount1 As Integer
-    GetDefaultUpstreamItems sp, defTypes1, defLabels1, defSpacings1, defSizes1, defSides1, defCount1
-
     Dim defTypes2() As String, defLabels2() As String, defSpacings2() As String
     Dim defSizes2() As String, defSides2() As String, defCount2 As Integer
-    GetDefaultDownstreamItems sp, defTypes2, defLabels2, defSpacings2, defSizes2, defSides2, defCount2
+
+    If specRowCount > 0 Then
+        GetSpecItemsForAlignment 1, specRows, specRowCount, _
+                                 defTypes1, defLabels1, defSpacings1, defSizes1, defSides1, defCount1
+        GetSpecItemsForAlignment 2, specRows, specRowCount, _
+                                 defTypes2, defLabels2, defSpacings2, defSizes2, defSides2, defCount2
+        If defCount1 = 0 Then
+            BuildOrderTable = "sheet spec supplied no Non-Sign rows for alignment 1 (Upstream)"
+            Exit Function
+        End If
+    Else
+        GetDefaultUpstreamItems sp, defTypes1, defLabels1, defSpacings1, defSizes1, defSides1, defCount1
+        GetDefaultDownstreamItems sp, defTypes2, defLabels2, defSpacings2, defSizes2, defSides2, defCount2
+    End If
 
     wztcAlignCount = 2
     wztcAlignNames(1) = "Upstream"

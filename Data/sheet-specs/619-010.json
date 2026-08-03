@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "kind": "referenceLibrary",
+    "kindNote": "Not a corridor/plan sheet — no station walk / order table. schemaVersion 1.1 referenceLibrary pattern per 619-011.",
+    "number": "619-010",
+    "title": "WORK ZONE TRAFFIC CONTROL GENERAL NOTES",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "units": "U.S. CUSTOMARY STANDARD SHEET",
+    "scale": "NOT TO SCALE",
+    "approved": "2022-12-22",
+    "issuedUnder": "EI 22-033",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-010.pdf",
+    "localPdf": "Bridge/captures/619-010.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 0,
+    "transcribedBy": "Cursor (Misc reference/detail)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Master general-notes library (duration definitions, urban/rural criteria, channelizing, signs, lane widths, protective vehicles). referenceLibrary. live-build n/a."
+  },
+  "tableRoles": {
+    "note": "Duration definitions mirrored from printed GENERAL NOTES — same semantics as 011-01 durationDefinitions.",
+    "workDurationDefinitions": "010-01"
+  },
+  "tables": {
+    "010-01": {
+      "title": "WORK DURATION DEFINITIONS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "duration"
+      ],
+      "rows": [
+        {
+          "duration": "LONG_TERM",
+          "definition": "STATIONARY WORK THAT OCCUPIES A LOCATION MORE THAN 3 CONSECUTIVE DAYS."
+        },
+        {
+          "duration": "INTERMEDIATE_TERM",
+          "definition": "STATIONARY WORK THAT OCCUPIES A LOCATION MORE THAN ONE DAYLIGHT PERIOD UP TO 3 CONSECUTIVE DAYS, OR NIGHTTIME WORK LASTING MORE THAN 1 HOUR."
+        },
+        {
+          "duration": "SHORT_TERM",
+          "definition": "STATIONARY DAYTIME WORK THAT OCCUPIES A LOCATION FOR MORE THAN 1 HOUR WITHIN A SINGLE DAYLIGHT PERIOD."
+        },
+        {
+          "duration": "SHORT_DURATION",
+          "definition": "WORK THAT OCCUPIES A LOCATION UP TO 1 HOUR."
+        },
+        {
+          "duration": "MOBILE",
+          "definition": "WORK THAT MOVES INTERMITTENTLY OR CONTINUOUSLY WHERE THE WORK AT ANY SPECIFIC LOCATION COMPLETES WITHIN 15 MINUTES."
+        }
+      ]
+    }
+  },
+  "legend": {
+    "confidence": "drawing",
+    "title": "GENERAL NOTES SECTIONS",
+    "items": [
+      "WORK DURATION DEFINITIONS",
+      "URBAN / RURAL CRITERIA",
+      "LANE WIDTHS",
+      "PROTECTIVE VEHICLES",
+      "CHANNELIZING DEVICES",
+      "SIGNS",
+      "LANE CLOSURES",
+      "PUBLIC ACCESS",
+      "ACTIVITY AREA",
+      "SPECIAL OPERATIONS"
+    ]
+  },
+  "notes": {
+    "confidence": "drawing",
+    "printed": [
+      "SPECIAL OPERATIONS INCLUDE: (A) STOP AND GO OPERATIONS — WORK THAT COMPLETES WITHIN 5 MINUTES AND ALLOWS WORKERS ON FOOT; (B) OTHER OPERATIONS INCLUDING MOWING, MULCHING/HERBICIDE OPERATIONS, TEMPORARY ROAD/INTERSECTION CLOSURES, ETC.",
+      "See PDF for complete GENERAL NOTES N1+ and nighttime-work notes."
+    ]
+  }
+}

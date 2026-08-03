@@ -1,0 +1,634 @@
+{
+  "sheetNumber": "619-303",
+  "sourcePdf": "Bridge/captures/619-303.pdf",
+  "extractedBy": "Cursor subagent (PyMuPDF words_in_window / group_rows / assert_row_count)",
+  "extractedOn": "2026-08-03",
+  "confidence": "verbatim",
+  "tableRoles": {
+    "note": "Table numbering differs from 619-302: on 303, 02=roll ahead, 04=taper+buffer, 05=sign sizes. Roles assigned by CONTENT.",
+    "protectiveVehicle": "303-01",
+    "rollAheadDistance": "303-02",
+    "advanceWarningSpacing": "303-03",
+    "taperAndBuffer": "303-04",
+    "signSizes": "303-05"
+  },
+  "tables": {
+    "303-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition",
+        "roadTypeForProtectiveVehicle",
+        "preconstructionPostedSpeedMph"
+      ],
+      "note": "Matches 011-01 SHORT_TERM on all 16 cells. Differs from 619-302.json SHOULDER/OTHER/ge45 (302.json says P); re-extract of 302.pdf also prints P, TMIA — 302.json bug, not sheet diff.",
+      "speedBands": [
+        {
+          "id": "ge45",
+          "label": ">= 45 MPH",
+          "minMph": 45,
+          "maxMph": null
+        },
+        {
+          "id": "b35to40",
+          "label": "35 - 40 MPH",
+          "minMph": 35,
+          "maxMph": 40
+        },
+        {
+          "id": "le30",
+          "label": "<= 30 MPH",
+          "minMph": null,
+          "maxMph": 30
+        }
+      ],
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "P, TMIA",
+          "ge45": "P, TMIA",
+          "b35to40": "P, TMIA",
+          "le30": "P"
+        },
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS NO WORKERS EXPOSED",
+          "FREEWAY": "P, TMIA",
+          "ge45": "P, TMIA",
+          "b35to40": "P",
+          "le30": "SEE NOTE 2"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "P, TMIA",
+          "ge45": "P, TMIA",
+          "b35to40": "P",
+          "le30": "P"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS NO WORKERS EXPOSED",
+          "FREEWAY": "P, TMIA",
+          "ge45": "P, TMIA",
+          "b35to40": "P",
+          "le30": "SEE NOTE 2"
+        }
+      ],
+      "legend": {
+        "P": "PROTECTIVE VEHICLE REQUIRED FOR EACH CLOSED LANE & EACH CLOSED PAVED SHOULDER 8' OR WIDER, IF THE WORK SPACE MOVES WITHIN THE STATIONARY CLOSURE, THE PROTECTIVE VEHICLE SHALL BE REPOSITIONED ACCORDINGLY",
+        "TMIA": "TMIA REQUIRED"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUMES THERE IS NO POSITIVE PROTECTION PRESENT",
+        "2. EITHER A PROTECTIVE VEHICLE OR THE STANDARD BUFFER SPACE SHALL BE PROVIDED"
+      ]
+    },
+    "303-02": {
+      "title": "ROLL AHEAD DISTANCE",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES FOR VEHICLES - STATIONARY OPERATION - MIN and MAX",
+      "note": "STATIONARY OPERATION only. Identical to 302-05 / 011-04 stationary.",
+      "rows": [
+        {
+          "speedBand": ">= 55 MPH",
+          "minMph": 55,
+          "maxMph": null,
+          "min": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "speedBand": "45 - 50 MPH",
+          "minMph": 45,
+          "maxMph": 50,
+          "min": {
+            "ft": 80,
+            "skipLines": 2
+          },
+          "max": {
+            "ft": 160,
+            "skipLines": 4
+          }
+        },
+        {
+          "speedBand": "<= 40 MPH",
+          "minMph": null,
+          "maxMph": 40,
+          "min": {
+            "ft": 40,
+            "skipLines": 1
+          },
+          "max": {
+            "ft": 120,
+            "skipLines": 3
+          }
+        }
+      ],
+      "usageNote": "MIN/MAX range, not a single value."
+    },
+    "303-03": {
+      "title": "ADVANCE WARNING SIGN SPACING",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "roadTypeForSignSpacing"
+      ],
+      "columnMeaning": {
+        "A": "DISTANCE BETWEEN SIGNS - A (FT.)",
+        "B": "DISTANCE BETWEEN SIGNS - B (FT.)",
+        "C": "DISTANCE BETWEEN SIGNS - C (FT.)",
+        "XX": "SIGN LEGEND substituted into W20-1: 'ROAD WORK XX'",
+        "YY": "SIGN LEGEND substituted into W20-5aR: 'RIGHT LANES CLOSED YY' (two-lane; plan shows RIGHT LANES CLOSED)"
+      },
+      "note": "Identical to 302-03 / 011-06 on all 5 rows. FREEWAY YY printed as U+2022 bullet + MILE; transcribed as ½ MILE.",
+      "rows": [
+        {
+          "roadType": "URBAN",
+          "speedBand": "<= 30 MPH",
+          "minMph": null,
+          "maxMph": 30,
+          "A": 100,
+          "B": 100,
+          "C": 100,
+          "XX": "AHEAD",
+          "YY": "AHEAD"
+        },
+        {
+          "roadType": "URBAN",
+          "speedBand": "35-40 MPH",
+          "minMph": 35,
+          "maxMph": 40,
+          "A": 200,
+          "B": 200,
+          "C": 200,
+          "XX": "AHEAD",
+          "YY": "AHEAD"
+        },
+        {
+          "roadType": "URBAN",
+          "speedBand": ">= 45 MPH",
+          "minMph": 45,
+          "maxMph": null,
+          "A": 350,
+          "B": 350,
+          "C": 350,
+          "XX": "1000 FT.",
+          "YY": "AHEAD"
+        },
+        {
+          "roadType": "RURAL",
+          "speedBand": "ALL",
+          "minMph": null,
+          "maxMph": null,
+          "A": 500,
+          "B": 500,
+          "C": 500,
+          "XX": "1500 FT.",
+          "YY": "1000 FT."
+        },
+        {
+          "roadType": "FREEWAY",
+          "speedBand": "ALL",
+          "minMph": null,
+          "maxMph": null,
+          "A": 1000,
+          "B": 1500,
+          "C": 2640,
+          "XX": "1 MILE",
+          "YY": "½ MILE"
+        }
+      ]
+    },
+    "303-04": {
+      "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "columnMeaning": {
+        "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES",
+        "laneTaper": "TAPER LENGTH: L (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES, FOR LANE WIDTH IN FT.",
+        "shoulderTaper": "SHOULDER TAPER LENGTH: L/3 (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES, FOR SHOULDER WIDTH"
+      },
+      "note": "8 rows (25-55, 65 — no 60). Identical to 302-02. y_tol=6.0 required (45 mph row splits at tol=3).",
+      "rows": [
+        {
+          "speedMph": 25,
+          "longitudinalBufferSpace": {
+            "ft": 155,
+            "skipLines": 4
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "11": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "12": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            "5 - 7 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            ">= 8 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            }
+          }
+        },
+        {
+          "speedMph": 30,
+          "longitudinalBufferSpace": {
+            "ft": 200,
+            "skipLines": 5
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "11": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "12": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            "5 - 7 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            ">= 8 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            }
+          }
+        },
+        {
+          "speedMph": 35,
+          "longitudinalBufferSpace": {
+            "ft": 250,
+            "skipLines": 6
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            },
+            "11": {
+              "ft": 240,
+              "skipLines": 6,
+              "devices": 7
+            },
+            "12": {
+              "ft": 240,
+              "skipLines": 6,
+              "devices": 7
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            "5 - 7 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            ">= 8 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            }
+          }
+        },
+        {
+          "speedMph": 40,
+          "longitudinalBufferSpace": {
+            "ft": 305,
+            "skipLines": 8
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 280,
+              "skipLines": 7,
+              "devices": 8
+            },
+            "11": {
+              "ft": 320,
+              "skipLines": 8,
+              "devices": 9
+            },
+            "12": {
+              "ft": 320,
+              "skipLines": 8,
+              "devices": 9
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 40,
+              "skipLines": 1,
+              "devices": 2
+            },
+            "5 - 7 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            ">= 8 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            }
+          }
+        },
+        {
+          "speedMph": 45,
+          "longitudinalBufferSpace": {
+            "ft": 360,
+            "skipLines": 9
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 440,
+              "skipLines": 11,
+              "devices": 12
+            },
+            "11": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "12": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            ">= 8 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            }
+          }
+        },
+        {
+          "speedMph": 50,
+          "longitudinalBufferSpace": {
+            "ft": 425,
+            "skipLines": 11
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "11": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "12": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 55,
+          "longitudinalBufferSpace": {
+            "ft": 495,
+            "skipLines": 13
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "11": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            },
+            "12": {
+              "ft": 680,
+              "skipLines": 17,
+              "devices": 18
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 65,
+          "longitudinalBufferSpace": {
+            "ft": 645,
+            "skipLines": 16
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 640,
+              "skipLines": 16,
+              "devices": 17
+            },
+            "11": {
+              "ft": 720,
+              "skipLines": 18,
+              "devices": 19
+            },
+            "12": {
+              "ft": 800,
+              "skipLines": 20,
+              "devices": 21
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            ">= 8 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          }
+        }
+      ],
+      "knownAnomalies": [
+        {
+          "cell": "speedMph=65, laneTaper[12]",
+          "printed": "800/20/21",
+          "issue": "Same cross-sheet discrepancy as 302-02 vs 011-02: this sheet and 302 print 800/20/21 (internally consistent); 011-02 prints 800/19/20 (internally inconsistent). Transcribed as printed on THIS sheet.",
+          "recommendation": "Prefer this sheet's own value when resolving 619-303."
+        }
+      ]
+    },
+    "303-05": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "note": "6 rows incl WARNING FLAG. W20-5aR (two-lane) not W20-5R (single-lane on 302).",
+      "rows": [
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "NYW8-33",
+          "NON-FREEWAY": "48x24",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "W4-2R",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W20-5aR",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. SHORT-TERM STATIONARY IS DAYTIME WORK THAT OCCUPIES A LOCATION FOR MORE THAN 1 HOUR WITHIN A SINGLE DAYLIGHT PERIOD.",
+      "2. IN URBAN CONDITIONS, ADVANCE WARNING SIGN SPACINGS MAY BE ADJUSTED IN ORDER TO ACCOMMODATE SIDE STREETS AND DRIVEWAYS. IF THERE IS A CONFLICT, MOVE THE SIGN UPSTREAM.",
+      "3. THERE SHALL BE NO WORKERS, EQUIPMENT OR OTHER VEHICLES IN THE BUFFER SPACE OR THE ROLL AHEAD DISTANCE.",
+      "4. THE PROTECTIVE VEHICLE(S) SHALL MAINTAIN THE APPROPRIATE ROLL AHEAD DISTANCE, BE AN UNOCCUPIED TRUCK POSITIONED PARALLEL TO TRAFFIC, PARKING BRAKE SET, PLACED IN 2ND GEAR (MANUAL TRANSMISSIONS /ENGINE OFF) OR PARK / NEUTRAL (AUTOMATIC TRANSMISSIONS) AND HAVE THE FRONT WHEELS ALIGNED WITH THE LANE STRIPING.",
+      "5. LEFT LANE CLOSURES ARE SYMMETRICAL TO RIGHT LANE CLOSURES. SUBSTITUTE THE W20-5a SIGN AND THE CORRESPONDING W4-2 SIGN.",
+      "6. CHANNELIZING DEVICES SHALL BE PLACED TRANSVERSELY A MINIMUM OF EVERY 800' AS SHOWN WHEN A PAVED SHOULDER HAVING A WIDTH OF 8' OR GREATER IS CLOSED FOR A DISTANCE GREATER THAN 800'.",
+      "7. CHANNELIZING DEVICE SPACING (CENTER TO CENTER) SHALL NOT EXCEED 40' IN THE ACTIVE WORK SPACE.",
+      "8. THE MINIMUM LANE WIDTH SHALL BE 11' FOR FREEWAYS AND 10' FOR NON-FREEWAYS.",
+      "9. VEH #2 IS ONLY NEEDED WHEN THE SHOULDER WIDTH IS >= 8'."
+    ],
+    "notesOrderNote": "9 notes (302 has 8). Notes 1-4 content-match 302 notes 1-4. Note 5 differs: cites W20-5a and W4-2 (two-lane), not W20-5/W4-2L. Notes 6-7 match 302 notes 6-7. Note 8 is NEW on 303 (minimum lane width). Note 9 = 302 Note 8 (VEH #2 when shoulder >= 8'). Do not assume note-N means the same thing across sheets."
+  },
+  "findings": [
+    "303-01 vs 302-01.json SHOULDER/OTHER HAZARD/ge45: 303='P, TMIA' 302.json='P' (re-extract of 302.pdf also prints P, TMIA here — 302.json transcription bug, not a genuine sheet difference)",
+    "303-01: 4 rows asserted; matches 011-01 SHORT_TERM on all 16 cells",
+    "303-02: 3 rows asserted; identical to 302-05 and 011-04 stationary",
+    "303-03: 5 rows asserted; identical to 302-03 and 011-06 (FREEWAY YY: PDF encodes half as U+2022 bullet; transcribed as ½ MILE)",
+    "303-04: 8 speed rows asserted (25,30,35,40,45,50,55,65) — NO 60 mph (confirmed by assert_row_count and page search in table band)",
+    "303-04: identical to 302-02 on all 8 rows (incl speedMph=65 laneTaper[12]=800/20/21)",
+    "CROSS-SHEET: 303-04 speedMph=65 laneTaper[12]=800/20/21 vs 011-02=800/19/20 (same known anomaly as 302-02; 303/302 skip*40=ft consistent; 011 inconsistent)",
+    "303-05: 6 rows asserted; W20-5aR (not W20-5R) — two-lane closure; sizes otherwise match 302-04",
+    "303-05 W20-5aR sizes 36x36/48x48 match 302-04 W20-5R sizes (code differs, sizes same)",
+    "notes.printed: 9 notes (not 8 like 302) — Note 8 is NEW (min lane width 11' freeway / 10' non-freeway); Note 9 = 302 Note 8 (VEH #2); Note 5 cites W20-5a (not W20-5)",
+    "tableRoles by CONTENT (numbering differs from 302): 01=protectiveVehicle, 02=rollAheadDistance (was 05 on 302), 03=advanceWarningSpacing, 04=taperAndBuffer (was 02 on 302), 05=signSizes (was 04 on 302)"
+  ]
+}

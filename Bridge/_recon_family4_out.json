@@ -1,0 +1,930 @@
+﻿{
+  "family4": {
+    "619-306": {
+      "sheet": "619-306",
+      "path": "C:\\repos\\microstation-vba-project\\Bridge\\captures\\619-306.pdf",
+      "bytes": 110340,
+      "pageCount": 1,
+      "pages": [
+        {
+          "index": 0,
+          "rotation": 0,
+          "mediabox": [
+            0.0,
+            0.0,
+            1224.0,
+            792.0
+          ],
+          "wordCount": 553,
+          "charCount": 3410,
+          "topTitleBlock": [
+            "NOTES:",
+            "TABLE 306-01: PROTECTIVE VEHICLE REQUIREMENTS 1. SHORT-TERM STATIONARY IS DAYTIME WORK THAT OCCUPIES A",
+            "LOCATION FOR MORE THAN 1 HOUR WITHIN A SINGLE DAYLIGHT",
+            "PERIOD.",
+            "CLOSURE TYPE ROAD TYPE & SPEED FREEWAY 2. THE PROTECTIVE VEHICLE(S) SHALL MAINTAIN THE APPROPRIATE",
+            "ROLL AHEAD DISTANCE, BE AN UNOCCUPIED TRUCK POSITIONED 1 END END",
+            "EXPOSURE CONDITIONS PARALLEL TO TRAFFIC, PARKING BRAKE SET, PLACED IN 2ND END END",
+            "ROAD ROAD WORK WORK GEAR (MANUAL TRANSMISSIONS /ENGINE OFF) OR PARK / NEUTRAL",
+            "ROAD ROAD WORK WORK WORKERS ON FOOT OR",
+            "(AUTOMATIC TRANSMISSIONS) AND HAVE THE FRONT WHEELS",
+            "VEHICLE EXPOSED TO P, TMIA ALIGNED WITH THE LANE STRIPING.",
+            "50'-100' TRAFFIC",
+            "LANE CLOSURE OR DOWNSTREAM"
+          ]
+        }
+      ],
+      "tablesListed": [
+        {
+          "id": "306-01",
+          "page": 0
+        },
+        {
+          "id": "306-03",
+          "page": 0
+        },
+        {
+          "id": "306-02",
+          "page": 0
+        },
+        {
+          "id": "306-04",
+          "page": 0
+        },
+        {
+          "id": "306-01",
+          "page": 0
+        },
+        {
+          "id": "306-02",
+          "page": 0
+        },
+        {
+          "id": "306-03",
+          "page": 0
+        },
+        {
+          "id": "306-03",
+          "page": 0
+        }
+      ],
+      "signs": [
+        "G20-2",
+        "W20-1",
+        "W20-5R",
+        "W4-2R"
+      ],
+      "keywords": {
+        "merging_taper": true,
+        "merging_taper_count": 1,
+        "shoulder_taper": true,
+        "shoulder_taper_count": 1,
+        "downstream_taper": true,
+        "downstream_taper_count": 1,
+        "flagger": false,
+        "parkway": true,
+        "parkway_count": 1,
+        "short_term": true,
+        "short_duration": false,
+        "mobile": false,
+        "mowing": false,
+        "shoulder_lt8": true,
+        "channelizing": true,
+        "roll_ahead": true,
+        "buffer": true,
+        "workspace": true
+      },
+      "spacingTokens": [
+        "1000",
+        "1500",
+        "2640"
+      ],
+      "titleLines": [
+        "USER = oboatwright"
+      ],
+      "durationHints": [
+        "SHORT TERM OPERATION"
+      ],
+      "roadTypeHints": [
+        "FREEWAY",
+        "FREEWAY",
+        "FREEWAY",
+        "PARKWAY - SHOULDER < 8 FOOT"
+      ],
+      "notesCount": 2,
+      "tableRoles": [
+        {
+          "id": "306-01",
+          "page": 0,
+          "roleGuess": "rollAhead",
+          "headerSnippet": "TABLE 306-01: PROTECTIVE VEHICLE REQUIREMENTS 1. SHORT-TERM STATIONARY IS DAYTIME WORK THAT OCCUPIES A LOCATION FOR MORE THAN 1 HOUR WITHIN A SINGLE DAYLIGHT PERIOD. CLOSURE TYPE ROAD TYPE & SPEED FREEWAY 2. THE PROTECTIVE VEHICLE(S) SHALL MAINTAIN THE APPROPRIATE ROLL AHEAD DIST",
+          "yBand": [
+            43.4,
+            206.5
+          ]
+        },
+        {
+          "id": "306-02",
+          "page": 0,
+          "roleGuess": "protectiveVehicle",
+          "headerSnippet": "(SEE TABLE 306-02) WORK WORK W20-1 W4-2R LEGEND 1 1 MILE MILE VEH #2 P: PROTECTIVE VEHICLE REQUIRED FOR EACH CLOSED LANE & EACH CLOSED PAVED SHOULDER 8' OR WIDER, IF THE WORK SPACE MOVES WITHIN THE STATIONARY CLOSURE, THE PROTECTIVE VEHICLE SHALL BE REPOSITIONED ACCORDINGLY RIGHT",
+          "yBand": [
+            211.5,
+            307.1
+          ]
+        },
+        {
+          "id": "306-03",
+          "page": 0,
+          "roleGuess": "operation/mowing",
+          "headerSnippet": "(SEE TABLE 306-03) VEHICLES STATIONARY OPERATION PRECONSTRUCTION CONE POSTED SPEED 24000 LB PROTECTIVE MIN MAX LIMIT (MPH) VEHICLE WITH TMIA",
+          "yBand": [
+            332.1,
+            369.7
+          ]
+        },
+        {
+          "id": "306-04",
+          "page": 0,
+          "roleGuess": "signSize",
+          "headerSnippet": "TABLE 306-04: REQUIRED SIGN SIZES 1500' SIGN FREEWAY FREEWAY (3 REFERENCE MARKERS) G20-2 48x24 RIGHT RIGHT 48x48 W4-2R LANE LANE 48x48 W20-1 CLOSED CLOSED 12 12 12 12 MILE MILE 48x48 W20-5R 18x18 WARNING FLAG U.S. CUSTOMARY STANDARD SHEET 2640' 15:58 WORK ZONE TRAFFIC CONTROL 06-",
+          "yBand": [
+            573.9,
+            792.0
+          ]
+        }
+      ],
+      "planLabels": [
+        "3) BUFFER SPACE (SEE TABLE 306-03) MERGING TAPER LENGTH (2 REFERENCE MARKERS) 1000'",
+        "VICES (FT.)/ # OF SKIP LINES/ # OF SHOULDER TAPER LENGTH: L/3 FOR SHOULDER WIDTH 80/",
+        "MARKERS) 1500' PAST THE END OF THE DOWNSTREAM TAPER. DISTANCE OF 80 FT AND MAXIMUM OF",
+        "PAVED SHOULDER 8' OR WIDER, IF THE WORK SPACE MOVES P: PROTECTIVE VEHICLE REQUI",
+        "0/17/18 TABLE 306-03: LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS (LATERAL",
+        "ER # OF SKIP LINES DISTANCE (FT.)/ BUFFER SPACE LONGITUDINAL (SEE TABLE 30",
+        "LONGITUDINAL (SEE TABLE 306-03) BUFFER SPACE (SEE TABLE 306-03) MERGING T",
+        "STREAM 50'-100' 2640' W4-2R IN THE BUFFER SPACE OR ROLL AHEAD DISTANCE.",
+        "4 560/14/15 45 360/9 TABLE 306-02: ROLL AHEAD DISTANCE 120/3 LIMIT (MPH) POSTED",
+        "TRAFFIC CONTROL (SEE TABLE 306-02) ROLL AHEAD DISTANCE G20-2 TRAVEL LANE TRAVEL",
+        "2640' W4-2R IN THE BUFFER SPACE OR ROLL AHEAD DISTANCE. THERE SHALL BE NO",
+        "PARKING BRAKE SET, PLACED IN 2ND ROLL AHEAD DISTANCE, BE AN UNOCCUPIED TRUCK P",
+        "THAT OCCUPIES A 1. NOTES: VEHICLES ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES FOR",
+        "55 120/3/4 120/3/4 160/4/5 160/4/5 CHANNELIZING DEVICES (FT.)/ # OF SKIP LINES/",
+        "W PATH) FOR LANE WIDTH IN FT. # OF CHANNELIZING DEVICES TAPER LENGTH: L (FT.)/",
+        "48x24 48x48 48x48 TABLE 306-01: PROTECTIVE VEHICLE REQUIREMENTS CLOSURE TYPE ROAD TYP",
+        "WITHIN THE STATIONARY CLOSURE, THE PROTECTIVE VEHICLE CLOSED PAVED SHOULDER 8' OR WIDER,",
+        "WIDER, IF THE WORK SPACE MOVES P: PROTECTIVE VEHICLE REQUIRED FOR EACH CLOSED LANE & EA",
+        "N UNOCCUPIED TRUCK POSITIONED THE PROTECTIVE VEHICLE(S) SHALL MAINTAIN THE APPROPRIATE",
+        "AD 1 MILE WORK ROAD (CAUTION MODE) ARROW PANEL END END ROAD WORK ROAD WORK END EN",
+        "LINES/ # OF SHOULDER TAPER LENGTH: L/3 FOR SHOULDER WIDTH 80/2/3 80/2/3 5"
+      ],
+      "operationLine": "STATIONARY OPERATION",
+      "familySimilarity": {
+        "family1_311": 3,
+        "family2_302": 4,
+        "family3_301": 6,
+        "notes": [
+          "Has MERGING TAPER -> lane-closure family shape",
+          "1000' spacing token present"
+        ],
+        "closestFamily": "FAMILY3 301"
+      },
+      "deep": {
+        "tableTitles": [
+          {
+            "id": "306-03",
+            "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS"
+          },
+          {
+            "id": "306-02",
+            "title": "ROLL AHEAD DISTANCE"
+          },
+          {
+            "id": "306-04",
+            "title": "REQUIRED SIGN SIZES"
+          },
+          {
+            "id": "306-01",
+            "title": "PROTECTIVE VEHICLE REQUIREMENTS"
+          }
+        ],
+        "signsAll": [
+          "G20-2",
+          "W20-1",
+          "W20-5R",
+          "W4-2R"
+        ],
+        "spacing": [
+          "1000",
+          "1500",
+          "2640"
+        ],
+        "phrases": {
+          "MERGING TAPER": true,
+          "SHOULDER TAPER": true,
+          "DOWNSTREAM TAPER": true,
+          "FLAGGER": false,
+          "PARKWAY": true,
+          "MOBILE": false,
+          "MOWING": false,
+          "SHORT TERM": true,
+          "SHORT DURATION": false,
+          "MOVING OPERATION": false,
+          "STATIONARY OPERATION": true,
+          "ADVANCE WARNING": false,
+          "SIGN SPACING": false,
+          "ORDER OF PLACEMENT": false,
+          "SHOULDER < 8": true,
+          "SHOULDER LESS THAN 8": false
+        },
+        "titleLines": [
+          "ENCROACHMENT",
+          "LANE CLOSURE OR",
+          "OR ENCROACHMENT",
+          "RIGHT LANE CLOSURE",
+          "PARKWAY - SHOULDER < 8 FOOT",
+          "WORK ZONE TRAFFIC CONTROL"
+        ]
+      }
+    },
+    "619-212": {
+      "sheet": "619-212",
+      "path": "C:\\repos\\microstation-vba-project\\Bridge\\captures\\619-212.pdf",
+      "bytes": 100933,
+      "pageCount": 1,
+      "pages": [
+        {
+          "index": 0,
+          "rotation": 0,
+          "mediabox": [
+            0.0,
+            0.0,
+            1224.0,
+            792.0
+          ],
+          "wordCount": 511,
+          "charCount": 3152,
+          "topTitleBlock": [
+            "TABLE 212-01: PROTECTIVE VEHICLE REQUIREMENTS NOTES:",
+            "1. SHORT DURATION IS WORK THAT OCCUPIES A LOCATION FOR UP TO",
+            "1 HOUR.",
+            "CLOSURE TYPE ROAD TYPE & SPEED FREEWAY",
+            "2. THE OPERATOR(S) SHALL REMAIN IN THE PROTECTIVE VEHICLE(S) 1",
+            "EXPOSURE CONDITIONS WITH THE SAFETY BELT AND HEADREST PROPERLY ADJUSTED,",
+            "MAINTAIN VEHICLE SPACING, AND KEEP THE WHEELS ALIGNED",
+            "WORKERS ON FOOT OR WITH THE LANE STRIPING. TWO-WAY RADIOS SHOULD BE USED",
+            "VEHICLE EXPOSED TO P, TMIA TO COMMUNICATE BETWEEN THE OPERATOR AND THE WORK CREW.",
+            "TRAFFIC LANE CLOSURE OR",
+            "3. THERE SHALL BE NO WORKERS, EQUIPMENT, OR OTHER VEHICLES"
+          ]
+        }
+      ],
+      "tablesListed": [
+        {
+          "id": "212-02",
+          "page": 0
+        },
+        {
+          "id": "212-01",
+          "page": 0
+        },
+        {
+          "id": "212-03",
+          "page": 0
+        },
+        {
+          "id": "212-04",
+          "page": 0
+        },
+        {
+          "id": "212-01",
+          "page": 0
+        },
+        {
+          "id": "212-02",
+          "page": 0
+        },
+        {
+          "id": "212-03",
+          "page": 0
+        }
+      ],
+      "signs": [
+        "NYW8-33",
+        "W20-1",
+        "W20-5R",
+        "W4-2R"
+      ],
+      "keywords": {
+        "merging_taper": false,
+        "shoulder_taper": true,
+        "shoulder_taper_count": 1,
+        "downstream_taper": false,
+        "flagger": false,
+        "parkway": true,
+        "parkway_count": 1,
+        "short_term": false,
+        "short_duration": true,
+        "mobile": false,
+        "mowing": false,
+        "shoulder_lt8": false,
+        "channelizing": true,
+        "roll_ahead": true,
+        "buffer": true,
+        "workspace": true
+      },
+      "spacingTokens": [
+        "500",
+        "1500"
+      ],
+      "titleLines": [
+        "USER = oboatwright"
+      ],
+      "durationHints": [
+        "SHORT DURATION OPERATION",
+        "SHORT DURATION IS WORK THAT OCCUPIES A LOCATION FOR UP TO"
+      ],
+      "roadTypeHints": [
+        "PARKWAY",
+        "FREEWAY",
+        "FREEWAY",
+        "FREEWAY"
+      ],
+      "notesCount": 2,
+      "tableRoles": [
+        {
+          "id": "212-01",
+          "page": 0,
+          "roleGuess": "rollAhead",
+          "headerSnippet": "TABLE 212-01: PROTECTIVE VEHICLE REQUIREMENTS NOTES: 1. SHORT DURATION IS WORK THAT OCCUPIES A LOCATION FOR UP TO 1 HOUR. CLOSURE TYPE ROAD TYPE & SPEED FREEWAY 2. THE OPERATOR(S) SHALL REMAIN IN THE PROTECTIVE VEHICLE(S) 1 EXPOSURE CONDITIONS WITH THE SAFETY BELT AND HEADREST PR",
+          "yBand": [
+            42.0,
+            237.4
+          ]
+        },
+        {
+          "id": "212-02",
+          "page": 0,
+          "roleGuess": "unknown",
+          "headerSnippet": "SEE TABLE 212-02 W20-5R WORK VEHICLE 1. THE EXPOSURE CONDITIONS ASSUMES THERE IS NO POSITIVE CLOSED CONE SPACING NOT TO 12 12 MILE PROTECTION PRESENT EXCEED 40' (1 SKIP LINE)",
+          "yBand": [
+            276.0,
+            304.1
+          ]
+        },
+        {
+          "id": "212-03",
+          "page": 0,
+          "roleGuess": "unknown",
+          "headerSnippet": "(SEE TABLE 212-03)",
+          "yBand": [
+            422.3,
+            428.3
+          ]
+        },
+        {
+          "id": "212-04",
+          "page": 0,
+          "roleGuess": "signSize",
+          "headerSnippet": "TABLE 212-04: REQUIRED SIGN SIZES RIGHT SIGN FREEWAY FREEWAY LANE SEE NOTE 4 CLOSED NYW8-33 48x24 12 12 MILE W4-2R 48x48 1/2 MILE 48x48 W20-1 48x48 W20-5R U.S. CUSTOMARY STANDARD SHEET 18x18 WARNING FLAG 15:49 ROAD ROAD ROAD ROAD WORK ZONE TRAFFIC CONTROL WORK WORK WORK WORK 06-D",
+          "yBand": [
+            584.7,
+            792.0
+          ]
+        }
+      ],
+      "planLabels": [
+        "VICES (FT.)/ # OF SKIP LINES/ # OF SHOULDER TAPER LENGTH: L/3 4 FT. l 5 - 7 FT. 8 F",
+        "PAVED SHOULDER 8' OR WIDER, IF THE WORK SPACE MOVES P: PROTECTIVE VEHICLE REQUI",
+        "0/17/18 TABLE 212-03: LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS (LATERAL",
+        "13 # OF SKIP LINES DISTANCE (FT.)/ BUFFER SPACE LONGITUDINAL 65 645/16 640/1",
+        "D LANE & EACH LEGEND TABLE 212-02: ROLL AHEAD DISTANCE 120/3 LIMIT (MPH) POSTED",
+        "HT LANE CLOSURE. SIMILAR 4. IN THE ROLL AHEAD DISTANCE. THERE SHALL BE NO WORKER",
+        "ATION FOR UP TO 1. NOTES: VEHICLES ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES FOR",
+        "W PATH) FOR LANE WIDTH IN FT. # OF CHANNELIZING DEVICES TAPER LENGTH: L (FT.)/",
+        "/5 120/3/4 160/4/5 160/4/5 200/5/6 CHANNELIZING DEVICES (FT.)/ # OF SKIP LINES/",
+        "48x48 W4-2R W20-5R TABLE 212-01: PROTECTIVE VEHICLE REQUIREMENTS CLOSURE TYPE ROAD TYP",
+        "WITHIN THE STATIONARY CLOSURE, THE PROTECTIVE VEHICLE CLOSED PAVED SHOULDER 8' OR WIDER,",
+        "WIDER, IF THE WORK SPACE MOVES P: PROTECTIVE VEHICLE REQUIRED FOR EACH CLOSED LANE & EA",
+        "HE OPERATOR(S) SHALL REMAIN IN THE PROTECTIVE VEHICLE(S) 2. 1 HOUR. SHORT DURATION IS WO",
+        "RK ROAD 1 MILE WORK ROAD WORK AREA ARROW PANEL SEE NOTE 4 SEE NOTE 4 1/2 MILE REC",
+        "LINES/ # OF SHOULDER TAPER LENGTH: L/3 4 FT. l 5 - 7 FT. 8 FT. w FOR SH"
+      ],
+      "operationLine": "SHORT DURATION OPERATION",
+      "familySimilarity": {
+        "family1_311": 2,
+        "family2_302": 1,
+        "family3_301": 6,
+        "notes": [],
+        "closestFamily": "FAMILY3 301"
+      },
+      "deep": {
+        "tableTitles": [
+          {
+            "id": "212-03",
+            "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS"
+          },
+          {
+            "id": "212-04",
+            "title": "REQUIRED SIGN SIZES"
+          },
+          {
+            "id": "212-01",
+            "title": "PROTECTIVE VEHICLE REQUIREMENTS"
+          },
+          {
+            "id": "212-02",
+            "title": "ROLL AHEAD DISTANCE"
+          }
+        ],
+        "signsAll": [
+          "NYW8-33",
+          "W20-1",
+          "W20-5R",
+          "W4-2R"
+        ],
+        "spacing": [
+          "500",
+          "1500"
+        ],
+        "phrases": {
+          "MERGING TAPER": false,
+          "SHOULDER TAPER": true,
+          "DOWNSTREAM TAPER": false,
+          "FLAGGER": false,
+          "PARKWAY": true,
+          "MOBILE": false,
+          "MOWING": false,
+          "SHORT TERM": false,
+          "SHORT DURATION": true,
+          "MOVING OPERATION": false,
+          "STATIONARY OPERATION": true,
+          "ADVANCE WARNING": false,
+          "SIGN SPACING": false,
+          "ORDER OF PLACEMENT": false,
+          "SHOULDER < 8": false,
+          "SHOULDER LESS THAN 8": false
+        },
+        "titleLines": [
+          "RIGHT/LEFT LANE CLOSURE",
+          "PARKWAY",
+          "WORK ZONE TRAFFIC CONTROL",
+          "ENCROACHMENT",
+          "LANE CLOSURE OR",
+          "OR ENCROACHMENT",
+          "LANE CLOSURE SIGNS.",
+          "SET UP CAN BE USED FOR LEFT LANE CLOSURE WITH APPROPRIATE"
+        ]
+      }
+    },
+    "619-114": {
+      "sheet": "619-114",
+      "path": "C:\\repos\\microstation-vba-project\\Bridge\\captures\\619-114.pdf",
+      "bytes": 94990,
+      "pageCount": 1,
+      "pages": [
+        {
+          "index": 0,
+          "rotation": 0,
+          "mediabox": [
+            0.0,
+            0.0,
+            1224.0,
+            792.0
+          ],
+          "wordCount": 496,
+          "charCount": 3046,
+          "topTitleBlock": [
+            "TABLE 114-01: PROTECTIVE VEHICLE REQUIREMENTS",
+            "CLOSURE TYPE ROAD TYPE & SPEED FREEWAY",
+            "1 EXPOSURE CONDITIONS",
+            "WORKERS ON FOOT OR",
+            "VEHICLE EXPOSED TO P, TMIA",
+            "TRAFFIC LANE CLOSURE OR"
+          ]
+        }
+      ],
+      "tablesListed": [
+        {
+          "id": "114-02",
+          "page": 0
+        },
+        {
+          "id": "114-01",
+          "page": 0
+        },
+        {
+          "id": "114-02",
+          "page": 0
+        },
+        {
+          "id": "114-03",
+          "page": 0
+        },
+        {
+          "id": "114-01",
+          "page": 0
+        }
+      ],
+      "signs": [
+        "NYW8-33",
+        "W20-5R"
+      ],
+      "keywords": {
+        "merging_taper": false,
+        "shoulder_taper": false,
+        "downstream_taper": false,
+        "flagger": false,
+        "parkway": true,
+        "parkway_count": 1,
+        "short_term": false,
+        "short_duration": false,
+        "mobile": true,
+        "mowing": false,
+        "shoulder_lt8": false,
+        "channelizing": false,
+        "roll_ahead": true,
+        "buffer": false,
+        "workspace": true
+      },
+      "spacingTokens": [
+        "500",
+        "1500"
+      ],
+      "titleLines": [
+        "USER = oboatwright",
+        "MOBILE OPERATION",
+        "LANE CLOSURE",
+        "PARKWAY",
+        "WORK ZONE TRAFFIC CONTROL"
+      ],
+      "durationHints": [
+        "MOBILE OPERATION",
+        "MOBILE WORK IS WORK THAT MOVES INTERMITTENTLY OR"
+      ],
+      "roadTypeHints": [
+        "PARKWAY",
+        "FREEWAY",
+        "FREEWAY",
+        "FREEWAY"
+      ],
+      "notesCount": 2,
+      "tableRoles": [
+        {
+          "id": "114-01",
+          "page": 0,
+          "roleGuess": "protectiveVehicle",
+          "headerSnippet": "TABLE 114-01: PROTECTIVE VEHICLE REQUIREMENTS CLOSURE TYPE ROAD TYPE & SPEED FREEWAY 1 EXPOSURE CONDITIONS WORKERS ON FOOT OR VEHICLE EXPOSED TO P, TMIA TRAFFIC LANE CLOSURE OR ENCROACHMENT OTHER HAZARDS NO NA WORKERS EXPOSED WORKERS ON FOOT OR P, TMIA VEHICLE EXPOSED TO TRAFFIC ",
+          "yBand": [
+            40.5,
+            269.0
+          ]
+        },
+        {
+          "id": "114-02",
+          "page": 0,
+          "roleGuess": "unknown",
+          "headerSnippet": "SEE TABLE 114-02 NOTES: 1. THE EXPOSURE CONDITIONS ASSUMES THERE IS NO POSITIVE PROTECTION PRESENT",
+          "yBand": [
+            274.0,
+            315.2
+          ]
+        },
+        {
+          "id": "114-03",
+          "page": 0,
+          "roleGuess": "rollAhead",
+          "headerSnippet": "TABLE 114-03: REQUIRED SIGN SIZES 1. MOBILE WORK IS WORK THAT MOVES INTERMITTENTLY OR CONTINUOUSLY WHERE WORK AT ANY SPECIFIC LOCATION COMPLETES WITHIN 15 MINUTES. SIGN FREEWAY FREEWAY 500' (MINIMUM) NYW8-33 (13 SKIP LINES) AND 2. SHOULD THE WORK DURATION CONTINUE ON LONGER THAN ",
+          "yBand": [
+            453.2,
+            741.6
+          ]
+        }
+      ],
+      "planLabels": [
+        "PAVED SHOULDER 8' OR WIDER, IF THE WORK SPACE MOVES P: PROTECTIVE VEHICLE REQUI",
+        "5 - 50 MIN MAX NA NA TABLE 114-02: ROLL AHEAD DISTANCE TABLE 114-03: REQUIRED SI",
+        ". SHALL NOT EXCEED THE APPROPRIATE ROLL AHEAD VISIBILITY FROM THE REAR OF THE OP",
+        "TERMITTENTLY OR 1. NOTES: VEHICLES ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES FOR",
+        "ED SIGN SIZES W20-5R TABLE 114-01: PROTECTIVE VEHICLE REQUIREMENTS PROTECTION PRESENT 1.",
+        "WITHIN THE STATIONARY CLOSURE, THE PROTECTIVE VEHICLE CLOSED PAVED SHOULDER 8' OR WIDER,",
+        "WIDER, IF THE WORK SPACE MOVES P: PROTECTIVE VEHICLE REQUIRED FOR EACH CLOSED LANE & EA",
+        "RK VEHICLE CLOSED LANE CLOSED LANE ARROW PANEL 619-114 CLOSED LANE CLOSED LANE"
+      ],
+      "operationLine": "MOBILE OPERATION",
+      "familySimilarity": {
+        "family1_311": 1,
+        "family2_302": 1,
+        "family3_301": 6,
+        "notes": [
+          "Mobile operation -> closer to 619-205 mobile shoulder pattern"
+        ],
+        "closestFamily": "FAMILY3 301"
+      },
+      "deep": {
+        "tableTitles": [
+          {
+            "id": "114-02",
+            "title": "ROLL AHEAD DISTANCE"
+          },
+          {
+            "id": "114-03",
+            "title": "REQUIRED SIGN SIZES"
+          },
+          {
+            "id": "114-01",
+            "title": "PROTECTIVE VEHICLE REQUIREMENTS"
+          }
+        ],
+        "signsAll": [
+          "NYW8-33",
+          "W20-5R"
+        ],
+        "spacing": [
+          "500",
+          "1500"
+        ],
+        "phrases": {
+          "MERGING TAPER": false,
+          "SHOULDER TAPER": false,
+          "DOWNSTREAM TAPER": false,
+          "FLAGGER": false,
+          "PARKWAY": true,
+          "MOBILE": true,
+          "MOWING": false,
+          "SHORT TERM": false,
+          "SHORT DURATION": false,
+          "MOVING OPERATION": true,
+          "STATIONARY OPERATION": false,
+          "ADVANCE WARNING": false,
+          "SIGN SPACING": false,
+          "ORDER OF PLACEMENT": false,
+          "SHOULDER < 8": false,
+          "SHOULDER LESS THAN 8": false
+        },
+        "titleLines": [
+          "LANE CLOSURE",
+          "PARKWAY",
+          "WORK ZONE TRAFFIC CONTROL",
+          "ENCROACHMENT",
+          "LANE CLOSURE OR",
+          "OR ENCROACHMENT",
+          "THE 15 MINUTE MAXIMUM THE WORK ZONE TRAFFIC CONTROL"
+        ]
+      }
+    },
+    "619-041": {
+      "sheet": "619-041",
+      "path": "C:\\repos\\microstation-vba-project\\Bridge\\captures\\619-041.pdf",
+      "bytes": 73361,
+      "pageCount": 1,
+      "pages": [
+        {
+          "index": 0,
+          "rotation": 0,
+          "mediabox": [
+            0.0,
+            0.0,
+            1224.0,
+            792.0
+          ],
+          "wordCount": 420,
+          "charCount": 2614,
+          "topTitleBlock": [
+            "TABLE 041-01: PROTECTIVE VEHICLE REQUIREMENTS",
+            "CLOSURE TYPE NON-FREEWAY",
+            "ROAD TYPE & SPEED",
+            "w 45 MPH 35 - 40 MPH l 30 MPH",
+            "1 EXPOSURE CONDITIONS",
+            "WORKERS ON FOOT OR",
+            "P VEHICLE EXPOSED TO P, TMIA P, TMIA"
+          ]
+        }
+      ],
+      "tablesListed": [
+        {
+          "id": "041-02",
+          "page": 0
+        },
+        {
+          "id": "041-01",
+          "page": 0
+        },
+        {
+          "id": "041-01",
+          "page": 0
+        },
+        {
+          "id": "041-02",
+          "page": 0
+        },
+        {
+          "id": "041-03",
+          "page": 0
+        },
+        {
+          "id": "041-01",
+          "page": 0
+        }
+      ],
+      "signs": [
+        "W8-23"
+      ],
+      "keywords": {
+        "merging_taper": false,
+        "shoulder_taper": false,
+        "downstream_taper": false,
+        "flagger": false,
+        "parkway": false,
+        "short_term": false,
+        "short_duration": false,
+        "mobile": false,
+        "mowing": false,
+        "shoulder_lt8": false,
+        "channelizing": false,
+        "roll_ahead": true,
+        "buffer": false,
+        "workspace": true
+      },
+      "spacingTokens": [],
+      "titleLines": [
+        "USER = oboatwright",
+        "SHOULDER",
+        "SHOULDER"
+      ],
+      "durationHints": [],
+      "roadTypeHints": [
+        "NON-FREEWAY",
+        "FREEWAY",
+        "NON-FREEWAY",
+        "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE",
+        "NON-FREEWAY"
+      ],
+      "notesCount": 2,
+      "tableRoles": [
+        {
+          "id": "041-01",
+          "page": 0,
+          "roleGuess": "protectiveVehicle",
+          "headerSnippet": "TABLE 041-01: PROTECTIVE VEHICLE REQUIREMENTS CLOSURE TYPE NON-FREEWAY ROAD TYPE & SPEED w 45 MPH 35 - 40 MPH l 30 MPH 1 EXPOSURE CONDITIONS WORKERS ON FOOT OR P VEHICLE EXPOSED TO P, TMIA P, TMIA TRAFFIC LANE CLOSURE OR ENCROACHMENT OTHER HAZARDS NO NA NA NA WORKERS EXPOSED",
+          "yBand": [
+            41.5,
+            256.9
+          ]
+        },
+        {
+          "id": "041-02",
+          "page": 0,
+          "roleGuess": "rollAhead",
+          "headerSnippet": "TABLE 041-02: ROLL AHEAD DISTANCE REPOSITIONED ACCORDINGLY ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES FOR TMIA: TMIA REQUIRED VEHICLES NA: NOT APPLICABLE NOTES: MOVING OPERATION 1. THE EXPOSURE CONDITIONS ASSUMES THERE PRECONSTRUCTION (BASED ON PROTECTIVE IS NO POSITIVE PROTECTION",
+          "yBand": [
+            261.9,
+            341.4
+          ]
+        },
+        {
+          "id": "041-03",
+          "page": 0,
+          "roleGuess": "rollAhead",
+          "headerSnippet": "TABLE 041-03: REQUIRED SIGN SIZES* (MIN.) 2. SHOULD THE WORK DURATION EXCEED 5 MINUTES, THE WZTC SETUP SHALL BE RECONFIGURED TO MEET THE REQUIREMENTS SIGN NON-FREEWAY FREEWAY OF STANDARD SHEET 619-201. NO W8-23 36x36 48x48 3. THIS STANDARD SHEET MAY BE USED FOR OPERATIONS SUCH AS",
+          "yBand": [
+            432.1,
+            698.3
+          ]
+        }
+      ],
+      "planLabels": [
+        "PROTECTIVE VEHICLE SHALL BE IF THE WORK SPACE MOVES WITHIN THE STATIONARY LANE &",
+        "/3 200/5 240/6 280/7 TABLE 041-02: ROLL AHEAD DISTANCE TABLE 041-03: REQUIRED SI",
+        ". SHALL NOT EXCEED THE APPROPRIATE ROLL AHEAD DISTANCE ENHANCE VISIBILITY FROM T",
+        "G OR OPERATIONS 1. NOTES: VEHICLES ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES FOR",
+        "OSITIONED ACCORDINGLY CLOSURE, THE PROTECTIVE VEHICLE SHALL BE IF THE WORK SPACE MOVES W",
+        "ED PAVED SHOULDER 8' OR WIDER, P: PROTECTIVE VEHICLE REQUIRED FOR EACH CLOSED LEGEND TA",
+        "R EACH CLOSED LEGEND TABLE 041-01: PROTECTIVE VEHICLE REQUIREMENTS SIGN FREEWAY NON-FREE",
+        "TO ACCOMMODATE CHANGING SIGHT THE PROTECTIVE VEHICLE SHALL STAY AS FAR RIGHT AS POSSIBL",
+        "THE REAR OF THE OPERATION. AND THE PROTECTIVE VEHICLE SHALL BE PLACED TO OPTIMIZE AND 5.",
+        "NO SEE TABLE 041-02 (CAUTION MODE) ARROW PANEL SEE TABLE 041-01 VEHICLE WITH TMIA"
+      ],
+      "operationLine": "MOVING OPERATION",
+      "familySimilarity": {
+        "family1_311": 0,
+        "family2_302": 0,
+        "family3_301": 3,
+        "notes": [],
+        "closestFamily": "FAMILY3 301"
+      },
+      "deep": {
+        "tableTitles": [
+          {
+            "id": "041-01",
+            "title": "PROTECTIVE VEHICLE REQUIREMENTS"
+          },
+          {
+            "id": "041-02",
+            "title": "ROLL AHEAD DISTANCE"
+          },
+          {
+            "id": "041-03",
+            "title": "REQUIRED SIGN SIZES*"
+          }
+        ],
+        "signsAll": [
+          "W8-23"
+        ],
+        "spacing": [],
+        "phrases": {
+          "MERGING TAPER": false,
+          "SHOULDER TAPER": false,
+          "DOWNSTREAM TAPER": false,
+          "FLAGGER": false,
+          "PARKWAY": false,
+          "MOBILE": false,
+          "MOWING": false,
+          "SHORT TERM": false,
+          "SHORT DURATION": false,
+          "MOVING OPERATION": true,
+          "STATIONARY OPERATION": false,
+          "ADVANCE WARNING": false,
+          "SIGN SPACING": false,
+          "ORDER OF PLACEMENT": false,
+          "SHOULDER < 8": false,
+          "SHOULDER LESS THAN 8": false
+        },
+        "titleLines": [
+          "ENCROACHMENT",
+          "LANE CLOSURE OR",
+          "OR ENCROACHMENT",
+          "SHOULDER CLOSURE/LANE ENCROACHMENT",
+          "WORK ZONE TRAFFIC CONTROL"
+        ]
+      }
+    }
+  },
+  "referenceSheets": {
+    "619-302": {
+      "pages": 1,
+      "tables": [
+        {
+          "id": "302-04",
+          "title": "REQUIRED SIGN SIZES*"
+        },
+        {
+          "id": "302-01",
+          "title": "PROTECTIVE VEHICLE REQUIREMENTS"
+        },
+        {
+          "id": "302-03",
+          "title": "ADVANCE WARNING SIGN SPACING"
+        },
+        {
+          "id": "302-05",
+          "title": "ROLL AHEAD DISTANCE"
+        },
+        {
+          "id": "302-02",
+          "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS"
+        }
+      ],
+      "phrases": {
+        "MERGING TAPER": true,
+        "SHOULDER TAPER": true,
+        "PARKWAY": false,
+        "MOBILE": false
+      }
+    },
+    "619-304": {
+      "missing": true
+    },
+    "619-206": {
+      "missing": true
+    },
+    "619-111": {
+      "missing": true
+    },
+    "619-205": {
+      "pages": 1,
+      "tables": [
+        {
+          "id": "205-03",
+          "title": "REQUIRED SIGN SIZES"
+        },
+        {
+          "id": "205-02",
+          "title": "ROLL AHEAD DISTANCE"
+        },
+        {
+          "id": "205-01",
+          "title": "PROTECTIVE VEHICLE REQUIREMENTS"
+        }
+      ],
+      "phrases": {
+        "MERGING TAPER": false,
+        "SHOULDER TAPER": false,
+        "PARKWAY": false,
+        "MOBILE": false
+      }
+    },
+    "619-031": {
+      "missing": true
+    }
+  }
+}

@@ -1,0 +1,355 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-321",
+    "title": "WORK ZONE TRAFFIC CONTROL SIDEWALK DETOUR OR DIVERSION",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "SHORT TERM OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2021-12-02",
+    "issuedUnder": "EI 21-028",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-321.pdf",
+    "localPdf": "Bridge/captures/619-321.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 270,
+    "transcribedBy": "Cursor (Family 6 two-lane two-way / flagger)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Pedestrian/sidewalk sheet. Sign sizes + channelizing only — NO AW/buffer/taper/roll corridor tables."
+  },
+  "applicability": {
+    "roadType": "Non-Freeway",
+    "roadway": "Two-lane two-way (pedestrian)",
+    "closure": "Sidewalk detour / diversion",
+    "duration": "Short Term",
+    "speedRangeMph": {
+      "allowed": [
+        25,
+        30,
+        35,
+        40,
+        45,
+        50,
+        55
+      ],
+      "note": "No speed-keyed corridor tables on this sheet."
+    },
+    "laneWidthFt": null,
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft"
+    ],
+    "areaTypes": null
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "type": "integer",
+      "allowed": [
+        25,
+        30,
+        35,
+        40,
+        45,
+        50,
+        55
+      ],
+      "usedBy": []
+    },
+    {
+      "id": "shoulderWidthBand",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft"
+      ],
+      "default": ">= 8 ft",
+      "usedBy": []
+    },
+    {
+      "id": "signSizeClass",
+      "type": "enum",
+      "allowed": [
+        "NON-FREEWAY",
+        "FREEWAY"
+      ],
+      "default": "NON-FREEWAY",
+      "usedBy": [
+        "321-01"
+      ]
+    }
+  ],
+  "tableRoles": {
+    "note": "Pedestrian/sidewalk sheet. Sign sizes + channelizing only — NO AW/buffer/taper/roll corridor tables.",
+    "signSizes": "321-01",
+    "channelizingApplication": "321-02"
+  },
+  "tables": {
+    "321-01": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "rows": [
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "R9-11L",
+          "NON-FREEWAY": null,
+          "FREEWAY": null
+        },
+        {
+          "signCode": "R9-11R",
+          "NON-FREEWAY": null,
+          "FREEWAY": null
+        },
+        {
+          "signCode": "R9-9",
+          "NON-FREEWAY": null,
+          "FREEWAY": null
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": null,
+          "FREEWAY": null
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": null,
+          "FREEWAY": null
+        }
+      ]
+    },
+    "321-02": {
+      "title": "CHANNELIZING DEVICE APPLICATION",
+      "confidence": "drawing",
+      "keyedBy": [],
+      "rows": [],
+      "note": "Pedestrian channelizing matrix on sheet."
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "Pedestrian detour — channelizing + sidewalk-closed signs; no vehicle corridor taper walk.",
+    "zones": [
+      {
+        "id": "workArea",
+        "order": 1,
+        "kind": "workArea",
+        "sheetLabel": "SIDEWALK CLOSED / DETOUR",
+        "lengthSource": null,
+        "hatched": true,
+        "dimensioned": false
+      },
+      {
+        "id": "signEndRoadWork",
+        "order": 2,
+        "kind": "sign",
+        "signCode": "G20-2",
+        "sheetLegend": "END ROAD WORK"
+      },
+      {
+        "id": "gapEndRoadWork",
+        "order": 3,
+        "kind": "gap",
+        "lengthSource": {
+          "fixedRange": {
+            "minFt": 80,
+            "maxFt": 400
+          }
+        }
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "Pedestrian sheets do not drive a vehicle upstream taper walk. Minimal downstream G20-2 only for live-build smoke.",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Sidewalk work",
+        "walkDirection": "N/A — pedestrian",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Sign",
+            "zone": "signEndRoadWork",
+            "signCode": "G20-2",
+            "spacingZone": "gapEndRoadWork"
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "MERGING TAPER",
+            "reason": "Pedestrian sheet."
+          },
+          {
+            "label": "BUFFER SPACE",
+            "reason": "No buffer table."
+          },
+          {
+            "label": "ROLL AHEAD DISTANCE",
+            "reason": "No roll table."
+          },
+          {
+            "label": "LANE TAPER",
+            "reason": "Pedestrian sheet."
+          },
+          {
+            "label": "SHOULDER TAPER",
+            "reason": "Pedestrian sheet."
+          },
+          {
+            "label": "Vehicle Space",
+            "reason": "Pedestrian sheet."
+          }
+        ]
+      }
+    ],
+    "liveBuild": "n/a",
+    "liveBuildNote": "Pedestrian sheet — no vehicle order-table build."
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "items": [
+      {
+        "signCode": "G20-2",
+        "shape": "rectangle",
+        "postMounted": true,
+        "corridorZone": "signEndRoadWork",
+        "sizeNonFreeway": "36x18",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": "G20-02"
+      },
+      {
+        "signCode": "R9-9",
+        "shape": "rectangle",
+        "postMounted": true,
+        "corridorZone": "workArea",
+        "sizeNonFreeway": "24x24",
+        "sizeFreeway": "24x24",
+        "signLibraryKey": "R09-09"
+      },
+      {
+        "signCode": "R9-11L",
+        "shape": "rectangle",
+        "postMounted": true,
+        "corridorZone": "workArea",
+        "sizeNonFreeway": "24x24",
+        "sizeFreeway": "24x24",
+        "signLibraryKey": "R09-11L"
+      },
+      {
+        "signCode": "R9-11R",
+        "shape": "rectangle",
+        "postMounted": true,
+        "corridorZone": "workArea",
+        "sizeNonFreeway": "24x24",
+        "sizeFreeway": "24x24",
+        "signLibraryKey": "R09-11R"
+      },
+      {
+        "signCode": "W20-1",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "workArea",
+        "sizeNonFreeway": "24x24",
+        "sizeFreeway": "24x24",
+        "signLibraryKey": "W20-01RA"
+      },
+      {
+        "signCode": "WARNING FLAG",
+        "shape": "flag",
+        "postMounted": false,
+        "corridorZone": "workArea",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "mountedOn": "W20-1",
+        "signLibraryKey": null,
+        "note": "Present on size table; confirm library key if placing."
+      }
+    ]
+  },
+  "geometry": {
+    "confidence": "drawing",
+    "stationing": {},
+    "crossSection": {}
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "flagger",
+        "sheetLabel": "FLAGGER",
+        "required": true,
+        "note": "24\" min STOP/SLOW paddle preferred."
+      },
+      {
+        "id": "centerlineCones",
+        "sheetLabel": "CENTERLINE CONES",
+        "required": false,
+        "note": "Optional — enhance flagger visibility; 100 ft min from flagger."
+      },
+      {
+        "id": "channelizingDevices",
+        "sheetLabel": "CHANNELIZING DEVICES",
+        "required": true,
+        "longitudinalSpacing": {
+          "maxFt": 40,
+          "sheetText": "Not to exceed 40' (1 skip line)."
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "dimensions": [],
+    "callouts": []
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "items": []
+  },
+  "rules": [
+    {
+      "id": "no-merging-taper",
+      "severity": "error",
+      "source": "Sheet structure / flagger operation",
+      "assert": "Do not place MERGING TAPER or LANE TAPER — flagger operation uses stop/slow control, not a merge.",
+      "commonFailure": "Cloning 302/311 merging taper corridor onto a flagger sheet."
+    },
+    {
+      "id": "optional-pv",
+      "severity": "warning",
+      "source": "Plan note (PV may be used)",
+      "assert": "Protective vehicle with roll-ahead is optional; if used, provide buffer space.",
+      "commonFailure": "Always requiring PV or omitting buffer when PV is placed."
+    },
+    {
+      "id": "w3-4-conditional",
+      "severity": "warning",
+      "source": "Plan Note (queue past W20-4)",
+      "assert": "Add W3-4 if traffic is expected to queue past the W20-4 sign.",
+      "commonFailure": "Always placing W3-4 as a default order-table row."
+    }
+  ],
+  "knownAnomalies": [
+    {
+      "id": "live-build-n-a",
+      "severity": "info",
+      "issue": "BUILD_WZTC_ORDER_TABLE is vehicle-corridor oriented; pedestrian/sidewalk/crosswalk sheets have no upstream non-sign taper/buffer walk. Live-build gate is n/a (same class as 619-011 reference library). Structural/invariants/round-trip still apply."
+    }
+  ],
+  "openQuestions": []
+}

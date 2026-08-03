@@ -177,8 +177,22 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = BridgeDefineAlignmentSegment(reqId, params)
         Case "COMMIT_ALIGNMENT"
             ExecuteOpInner = BridgeCommitAlignment(reqId, params)
+        Case "ADOPT_ALIGNMENT_ELEMENT"
+            ExecuteOpInner = BridgeAdoptAlignmentElement(reqId, params)
         Case "PLACE_ORDER_TABLE_STATIONS"
             ExecuteOpInner = BridgePlaceOrderTableStations(reqId, params)
+        Case "PLACE_ORDER_TABLE_LABELS"
+            ExecuteOpInner = BridgePlaceOrderTableLabels(reqId, params)
+        Case "PLACE_ORDER_TABLE_DIMENSIONS"
+            ExecuteOpInner = BridgePlaceOrderTableDimensions(reqId, params)
+        Case "PLACE_SHEET_SYMBOL_CELLS"
+            ExecuteOpInner = BridgePlaceSheetSymbolCells(reqId, params)
+        Case "PLACE_ORDER_TABLE_WORKSPACE"
+            ExecuteOpInner = BridgePlaceOrderTableWorkspace(reqId, params)
+        Case "PLACE_ORDER_TABLE_CHANNELIZING"
+            ExecuteOpInner = BridgePlaceOrderTableChannelizing(reqId, params)
+        Case "PLACE_DIMENSION"
+            ExecuteOpInner = BridgePlaceDimension(reqId, params)
         Case "PLACE_PERP_LINE"
             ExecuteOpInner = BridgePlacePerpLine(reqId, params)
         Case "PLACE_SIGN"
@@ -197,6 +211,8 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = BridgeHandoff(reqId, params)
         Case "UNDO_LAST_OP"
             ExecuteOpInner = ExecUndoLastOp(reqId, params)
+        Case "CLEAR_PLAN_ELEMENTS"
+            ExecuteOpInner = ExecClearPlanElements(reqId, params)
         Case "GET_JOURNAL"
             ExecuteOpInner = ExecGetJournal(reqId, params)
         Case "LIST_DEFERRED_HANDOFFS"
@@ -673,10 +689,39 @@ Private Function ExecBuildOrderTable(reqId As String, params As Object) As Strin
         ReDim signRows(0 To -1)
     End If
 
+    ' Non-Sign rows resolved from Data/sheet-specs/<sheet>.json by
+    ' mcp-server/sheet_spec.py. Absent = no spec for this sheet, so
+    ' BuildOrderTable falls back to the generic WZTCRules defaults.
+    Dim specRows() As String
+    Dim specRowCount As Integer: specRowCount = 0
+    If params.Exists("nonSignRowsTSV") Then
+        Dim rawSpec() As String
+        rawSpec = Split(CStr(params("nonSignRowsTSV")), "|")
+        Dim j As Integer
+        For j = 0 To UBound(rawSpec)
+            If Trim(rawSpec(j)) <> "" Then specRowCount = specRowCount + 1
+        Next j
+    End If
+    If specRowCount > 0 Then
+        ReDim specRows(0 To specRowCount - 1)
+        Dim m As Integer: m = 0
+        For j = 0 To UBound(rawSpec)
+            If Trim(rawSpec(j)) <> "" Then
+                specRows(m) = Trim(rawSpec(j))
+                m = m + 1
+            End If
+        Next j
+    Else
+        ReDim specRows(0 To -1)
+    End If
+
+    Dim overridesTSV As String: overridesTSV = ""
+    If params.Exists("spacingOverridesTSV") Then overridesTSV = CStr(params("spacingOverridesTSV"))
+
     Dim errMsg As String
     errMsg = WZTCRules.BuildOrderTable(category, sheetNum, CInt(params("speed")), CStr(params("roadType")), _
                                        CInt(params("laneWidth")), CStr(params("shoulderWidth")), _
-                                       signRows, signRowCount)
+                                       signRows, signRowCount, specRows, specRowCount, overridesTSV)
     If errMsg <> "" Then
         ExecBuildOrderTable = reqId & vbTab & "ERROR" & vbTab & "note=" & errMsg
         Exit Function
@@ -895,6 +940,21 @@ WErr:
     BridgeCommitAlignment = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
+' Required: alignIdx, elementId — adopt existing LINE as alignment (no redraw).
+Private Function BridgeAdoptAlignmentElement(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("alignIdx") And params.Exists("elementId")) Then
+        BridgeAdoptAlignmentElement = reqId & vbTab & "ERROR" & vbTab & "note=missing alignIdx/elementId"
+        Exit Function
+    End If
+    Dim result As String
+    result = AlignmentTool.AdoptExistingAlignmentElement(CInt(params("alignIdx")), CDbl(params("elementId")))
+    BridgeAdoptAlignmentElement = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeAdoptAlignmentElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
 ' Required params: alignIdx. Optional: resetSession ("Y" to clear
 ' wztcPerpLineIDCount/wztcPlacedSignCount before starting -- pass "Y"
 ' for the first alignment in a fresh agent-driven session, omit/"N"
@@ -928,6 +988,183 @@ Private Function BridgePlaceOrderTableStations(reqId As String, params As Object
     Exit Function
 WErr:
     BridgePlaceOrderTableStations = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: alignIdx. Optional: outwardSign (+1 CCW / -1 CW, default -1 south),
+' textExtraAlong (ft past tip, default 20), sheetElements (pipe list gate).
+Private Function BridgePlaceOrderTableLabels(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("alignIdx") Then
+        BridgePlaceOrderTableLabels = reqId & vbTab & "ERROR" & vbTab & "note=missing alignIdx"
+        Exit Function
+    End If
+    Dim outwardSign As Double: outwardSign = -1#
+    If params.Exists("outwardSign") Then outwardSign = CDbl(params("outwardSign"))
+    Dim extra As Double: extra = 20#
+    If params.Exists("textExtraAlong") Then extra = CDbl(params("textExtraAlong"))
+    Dim elems As String: elems = ""
+    If params.Exists("sheetElements") Then elems = CStr(params("sheetElements"))
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim rows() As String
+    rows = PerpPlacement.PlaceOrderTableLabels(CInt(params("alignIdx")), outwardSign, extra, elems)
+    If rows(0) = "error" Then
+        BridgePlaceOrderTableLabels = reqId & vbTab & "ERROR" & vbTab & "note=" & rows(1)
+        Exit Function
+    End If
+    Dim result As String
+    result = WriteResultRows(reqId, rows)
+    result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgePlaceOrderTableLabels = result
+    Exit Function
+WErr:
+    BridgePlaceOrderTableLabels = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: alignIdx. Optional: outwardSign (default -1), offsetDist (default 15),
+' sheetElements (pipe list gate — same as labels).
+Private Function BridgePlaceOrderTableDimensions(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("alignIdx") Then
+        BridgePlaceOrderTableDimensions = reqId & vbTab & "ERROR" & vbTab & "note=missing alignIdx"
+        Exit Function
+    End If
+    Dim outwardSign As Double: outwardSign = -1#
+    If params.Exists("outwardSign") Then outwardSign = CDbl(params("outwardSign"))
+    Dim offsetDist As Double: offsetDist = 15#
+    If params.Exists("offsetDist") Then offsetDist = CDbl(params("offsetDist"))
+    Dim elems As String: elems = ""
+    If params.Exists("sheetElements") Then elems = CStr(params("sheetElements"))
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("PLACE_DIMENSION")
+    If gateMsg <> "" Then
+        BridgePlaceOrderTableDimensions = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim rows() As String
+    rows = PerpPlacement.PlaceOrderTableDimensions(CInt(params("alignIdx")), outwardSign, offsetDist, elems)
+    If rows(0) = "error" Then
+        BridgePlaceOrderTableDimensions = reqId & vbTab & "ERROR" & vbTab & "note=" & rows(1)
+        Exit Function
+    End If
+    Dim result As String
+    result = WriteResultRows(reqId, rows)
+    result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgePlaceOrderTableDimensions = result
+    Exit Function
+WErr:
+    BridgePlaceOrderTableDimensions = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: alignIdx, sheetElements (pipe list). Optional: outwardSign (default -1).
+Private Function BridgePlaceSheetSymbolCells(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("alignIdx") Then
+        BridgePlaceSheetSymbolCells = reqId & vbTab & "ERROR" & vbTab & "note=missing alignIdx"
+        Exit Function
+    End If
+    Dim elems As String: elems = ""
+    If params.Exists("sheetElements") Then elems = CStr(params("sheetElements"))
+    Dim outwardSign As Double: outwardSign = -1#
+    If params.Exists("outwardSign") Then outwardSign = CDbl(params("outwardSign"))
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim rows() As String
+    rows = PerpPlacement.PlaceSheetSymbolCells(CInt(params("alignIdx")), outwardSign, elems)
+    If rows(0) = "error" Then
+        BridgePlaceSheetSymbolCells = reqId & vbTab & "ERROR" & vbTab & "note=" & rows(1)
+        Exit Function
+    End If
+    Dim result As String
+    result = WriteResultRows(reqId, rows)
+    result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgePlaceSheetSymbolCells = result
+    Exit Function
+WErr:
+    BridgePlaceSheetSymbolCells = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: alignIdx. Optional: outwardSign, laneWidth.
+Private Function BridgePlaceOrderTableWorkspace(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("alignIdx") Then
+        BridgePlaceOrderTableWorkspace = reqId & vbTab & "ERROR" & vbTab & "note=missing alignIdx"
+        Exit Function
+    End If
+    Dim outwardSign As Double: outwardSign = -1#
+    If params.Exists("outwardSign") Then outwardSign = CDbl(params("outwardSign"))
+    Dim laneW As Double: laneW = 12#
+    If params.Exists("laneWidth") Then laneW = CDbl(params("laneWidth"))
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = PerpPlacement.PlaceOrderTableWorkspace(CInt(params("alignIdx")), outwardSign, laneW)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgePlaceOrderTableWorkspace = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgePlaceOrderTableWorkspace = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: alignIdx. Optional: outwardSign, laneWidth.
+Private Function BridgePlaceOrderTableChannelizing(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("alignIdx") Then
+        BridgePlaceOrderTableChannelizing = reqId & vbTab & "ERROR" & vbTab & "note=missing alignIdx"
+        Exit Function
+    End If
+    Dim outwardSign As Double: outwardSign = -1#
+    If params.Exists("outwardSign") Then outwardSign = CDbl(params("outwardSign"))
+    Dim laneW As Double: laneW = 12#
+    If params.Exists("laneWidth") Then laneW = CDbl(params("laneWidth"))
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = PerpPlacement.PlaceOrderTableChannelizing(CInt(params("alignIdx")), outwardSign, laneW)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgePlaceOrderTableChannelizing = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgePlaceOrderTableChannelizing = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: x1,y1,x2,y2,ox,oy. Optional: z, styleName (default ny_Plan).
+Private Function BridgePlaceDimension(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("x1") And params.Exists("y1") And _
+            params.Exists("x2") And params.Exists("y2") And _
+            params.Exists("ox") And params.Exists("oy")) Then
+        BridgePlaceDimension = reqId & vbTab & "ERROR" & vbTab & "note=missing x1/y1/x2/y2/ox/oy"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("PLACE_DIMENSION")
+    If gateMsg <> "" Then
+        BridgePlaceDimension = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim z As Double: z = 0
+    If params.Exists("z") Then z = CDbl(params("z"))
+    Dim styleName As String: styleName = "ny_Plan"
+    If params.Exists("styleName") Then
+        If Len(Trim(CStr(params("styleName")))) > 0 Then styleName = CStr(params("styleName"))
+    End If
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlaceDimension(CDbl(params("x1")), CDbl(params("y1")), _
+                                         CDbl(params("x2")), CDbl(params("y2")), _
+                                         CDbl(params("ox")), CDbl(params("oy")), z, styleName)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgePlaceDimension = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgePlaceDimension = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 ' Required params: elementIds (comma-separated element IDs)
@@ -1497,6 +1734,137 @@ Private Function BridgeHandoff(reqId As String, params As Object) As String
     Exit Function
 HErr:
     BridgeHandoff = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' CLEAR PLAN ELEMENTS (idempotent rebuild)
+' Deletes every element this session's journal recorded under
+' createdElementIds= that still exists in the model, except
+' alignment geometry when keepAlignments=Y (default). That is the
+' difference between "rebuild the plan on the same corridor" and
+' "wipe the corridor too".
+'
+' Why not fence-delete: a corridor wipe can catch engineer-drawn
+' elements the agent never owned. Journal IDs are exactly what the
+' agent created (ownElementOnly convention).
+'
+' Marks each cleared create-op UNDONE so UNDO_LAST_OP does not try
+' to re-delete them. Safe to call when nothing has been placed yet
+' (deleted=0).
+' ============================================================
+Private Function ExecClearPlanElements(reqId As String, params As Object) As String
+    On Error GoTo CErr
+
+    Dim keepAlign As Boolean: keepAlign = True
+    If params.Exists("keepAlignments") Then
+        Dim kv As String: kv = UCase(Trim(CStr(params("keepAlignments"))))
+        If kv = "N" Or kv = "0" Or kv = "FALSE" Then keepAlign = False
+    End If
+
+    Dim allLines() As String
+    Dim n As Integer
+    n = ReadAllLines(JOURNAL_FILE, allLines)
+
+    Dim undone As Object
+    Set undone = CreateObject("Scripting.Dictionary")
+    Dim opByReq As Object
+    Set opByReq = CreateObject("Scripting.Dictionary")
+    Dim ids As Object
+    Set ids = CreateObject("Scripting.Dictionary")
+    Dim clearedReqs As Object
+    Set clearedReqs = CreateObject("Scripting.Dictionary")
+
+    Dim i As Integer, ln As String, parts() As String
+    Dim origReq As String, opName As String, csv As String, oneId As String
+    Dim idParts() As String
+    Dim j As Integer, k As Integer
+    For i = 1 To n
+        ln = allLines(i)
+        If InStr(ln, vbTab & "UNDONE" & vbTab) > 0 Then
+            parts = Split(ln, vbTab)
+            If UBound(parts) >= 2 Then undone(parts(2)) = True
+        ElseIf InStr(ln, vbTab & "REQ" & vbTab) > 0 Then
+            parts = Split(ln, vbTab)
+            ' timestamp REQ reqId OP ...
+            If UBound(parts) >= 3 Then opByReq(parts(2)) = UCase(Trim(parts(3)))
+        End If
+    Next i
+
+    For i = 1 To n
+        ln = allLines(i)
+        If InStr(ln, vbTab & "RESP" & vbTab) = 0 Then GoTo ClearNextLine
+        parts = Split(ln, vbTab)
+        If UBound(parts) < 3 Then GoTo ClearNextLine
+        origReq = parts(2)
+        If undone.Exists(origReq) Then GoTo ClearNextLine
+        If UCase(Trim(parts(3))) <> "OK" Then GoTo ClearNextLine
+
+        opName = ""
+        If opByReq.Exists(origReq) Then opName = CStr(opByReq(origReq))
+        If keepAlign Then
+            If opName = "DEFINE_ALIGNMENT_SEGMENT" Or opName = "COMMIT_ALIGNMENT" Or _
+               opName = "ADOPT_ALIGNMENT_ELEMENT" Then GoTo ClearNextLine
+        End If
+        ' Queries / state / this clear op itself never own geometry to wipe.
+        If opName = "CLEAR_PLAN_ELEMENTS" Or opName = "DELETE_ELEMENT" Or _
+           opName = "UNDO_LAST_OP" Or opName = "BUILD_WZTC_ORDER_TABLE" Or _
+           opName = "COMPUTE_SPACING" Or opName = "GET_JOURNAL" Or _
+           opName = "HANDOFF" Then GoTo ClearNextLine
+
+        For j = 0 To UBound(parts)
+            If Left(parts(j), Len("createdElementIds=")) = "createdElementIds=" Then
+                csv = Mid(parts(j), Len("createdElementIds=") + 1)
+                idParts = Split(csv, ",")
+                For k = 0 To UBound(idParts)
+                    oneId = Trim(idParts(k))
+                    If oneId <> "" Then
+                        ids(oneId) = True
+                        clearedReqs(origReq) = True
+                    End If
+                Next k
+            End If
+        Next j
+ClearNextLine:
+    Next i
+
+    Dim idList As String: idList = ""
+    Dim key As Variant
+    For Each key In ids.Keys
+        If idList <> "" Then idList = idList & ","
+        idList = idList & CStr(key)
+    Next key
+
+    Dim delResult As String
+    If idList = "" Then
+        delResult = "OK" & vbTab & "deleted=0" & vbTab & "note=no journal-owned plan elements to clear"
+    Else
+        delResult = WZTCExec.ExecDeleteElementsByID(idList)
+    End If
+
+    ' Mark every create-op we targeted as UNDONE so undo won't re-hit them.
+    Dim fnum As Integer: fnum = FreeFile
+    Open JOURNAL_FILE For Append As #fnum
+    For Each key In clearedReqs.Keys
+        Print #fnum, Now & vbTab & "UNDONE" & vbTab & CStr(key) & vbTab & _
+            "clearedBy=" & reqId & vbTab & "note=CLEAR_PLAN_ELEMENTS"
+    Next key
+    Close #fnum
+
+    Dim keepFlag As String, keepNote As String
+    keepFlag = "N": keepNote = " (alignments included)"
+    If keepAlign Then
+        keepFlag = "Y"
+        keepNote = " (alignments kept)"
+    End If
+
+    ExecClearPlanElements = reqId & vbTab & delResult & vbTab & _
+        "clearedReqCount=" & clearedReqs.Count & vbTab & _
+        "keepAlignments=" & keepFlag & vbTab & _
+        "notUndoable=Y" & vbTab & _
+        "note=idempotent rebuild: deleted journal-owned plan elements" & keepNote
+    Exit Function
+CErr:
+    ExecClearPlanElements = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 ' ============================================================

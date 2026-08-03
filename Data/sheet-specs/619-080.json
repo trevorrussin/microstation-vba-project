@@ -1,0 +1,355 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-080",
+    "title": "WORK ZONE TRAFFIC CONTROL WORK BEYOND SHOULDER ALL ROADWAYS",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "SPECIAL OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2021-12-02",
+    "issuedUnder": "EI 21-028",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-080.pdf",
+    "localPdf": "Bridge/captures/619-080.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 0,
+    "transcribedBy": "Cursor (Misc work-beyond-shoulder)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Work beyond shoulder, all roadways. Advance-placement distance table + W20-1/G20-1/G20-2 sizes. No PV/roll/tapers. live-build n/a (sign-only)."
+  },
+  "applicability": {
+    "roadType": "All Roadways",
+    "roadway": "All roadways — work beyond the shoulders within the right-of-way",
+    "closure": "Work beyond shoulder",
+    "duration": "Any (special)",
+    "speedRangeMph": {
+      "allowed": [
+        30,
+        35,
+        40,
+        45,
+        50,
+        55,
+        65
+      ],
+      "note": "Advance-placement bands URBAN/RURAL/FREEWAY."
+    },
+    "laneWidthFt": null,
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft"
+    ],
+    "areaTypes": [
+      "URBAN",
+      "RURAL",
+      "FREEWAY"
+    ]
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "type": "integer",
+      "allowed": [
+        30,
+        35,
+        40,
+        45,
+        50,
+        55,
+        65
+      ],
+      "usedBy": [
+        "080-01"
+      ]
+    },
+    {
+      "id": "areaType",
+      "type": "enum",
+      "allowed": [
+        "URBAN",
+        "RURAL",
+        "FREEWAY"
+      ],
+      "default": "RURAL",
+      "usedBy": [
+        "080-01"
+      ]
+    },
+    {
+      "id": "shoulderWidthBand",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft"
+      ],
+      "default": ">= 8 ft",
+      "usedBy": []
+    },
+    {
+      "id": "signSizeClass",
+      "type": "enum",
+      "allowed": [
+        "NON-FREEWAY",
+        "FREEWAY"
+      ],
+      "default": "NON-FREEWAY",
+      "usedBy": [
+        "080-02"
+      ]
+    }
+  ],
+  "tableRoles": {
+    "note": "080-01 is advance placement (single distance, not A/B/C). NO PV/roll/taper.",
+    "advancePlacement": "080-01",
+    "signSizes": "080-02"
+  },
+  "tables": {
+    "080-01": {
+      "title": "ADVANCE PLACEMENT SIGN DISTANCE",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "roadType"
+      ],
+      "columnMeaning": "DISTANCE BETWEEN SIGNS / ADVANCE PLACEMENT (FT.)",
+      "rows": [
+        {
+          "roadType": "URBAN",
+          "speedBand": "<= 30 MPH",
+          "minMph": null,
+          "maxMph": 30,
+          "distanceFt": 100
+        },
+        {
+          "roadType": "URBAN",
+          "speedBand": "35-40 MPH",
+          "minMph": 35,
+          "maxMph": 40,
+          "distanceFt": 200
+        },
+        {
+          "roadType": "URBAN",
+          "speedBand": ">= 45 MPH",
+          "minMph": 45,
+          "maxMph": null,
+          "distanceFt": 350
+        },
+        {
+          "roadType": "RURAL",
+          "speedBand": "ALL",
+          "minMph": null,
+          "maxMph": null,
+          "distanceFt": 500
+        },
+        {
+          "roadType": "FREEWAY",
+          "speedBand": "ALL",
+          "minMph": null,
+          "maxMph": null,
+          "distanceFt": 1000
+        }
+      ]
+    },
+    "080-02": {
+      "title": "REQUIRED SIGN SIZES*",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "rows": [
+        {
+          "signCode": "G20-1",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ],
+      "note": "Plan places G20-2 (END ROAD WORK); printed size table labels G20-1. G20-2 row added at same 36x18/48x24 for validate cross-check."
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "W20-1 advance + work area + G20-2 end (may omit if <1 hour).",
+    "zones": [
+      {
+        "id": "signA",
+        "order": 1,
+        "kind": "sign",
+        "signCode": "W20-1"
+      },
+      {
+        "id": "gapA",
+        "order": 2,
+        "kind": "gap",
+        "sheetLabel": "A",
+        "lengthSource": {
+          "fixedFt": 500
+        },
+        "dimensioned": false,
+        "note": "Advance placement from table 080-01; plan also shows 500' max past work for END sign."
+      },
+      {
+        "id": "workArea",
+        "order": 3,
+        "kind": "workArea",
+        "sheetLabel": "WORK AREA",
+        "lengthSource": null,
+        "hatched": true,
+        "dimensioned": false
+      },
+      {
+        "id": "signEnd",
+        "order": 4,
+        "kind": "sign",
+        "signCode": "G20-2"
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "W20-1 then G20-2. live-build n/a (sign-only; no roll/taper).",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Work area approach",
+        "walkDirection": "Upstream, against traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Sign",
+            "zone": "signA",
+            "signCode": "W20-1",
+            "spacingZone": "gapA"
+          },
+          {
+            "rowNum": 2,
+            "type": "Sign",
+            "zone": "signEnd",
+            "signCode": "G20-2",
+            "spacingZone": "gapA"
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "ROLL AHEAD DISTANCE",
+            "reason": "No PV/roll."
+          },
+          {
+            "label": "BUFFER SPACE",
+            "reason": "No buffer."
+          },
+          {
+            "label": "SHOULDER TAPER",
+            "reason": "No taper."
+          },
+          {
+            "label": "MERGING TAPER",
+            "reason": "No taper."
+          },
+          {
+            "label": "Vehicle Space",
+            "reason": "Not on this sheet."
+          }
+        ]
+      }
+    ]
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "items": [
+      {
+        "signCode": "W20-1",
+        "sheetLegend": "ROAD WORK AHEAD",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signA",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W20-01RA"
+      },
+      {
+        "signCode": "G20-1",
+        "sheetLegend": "ROAD WORK NEXT XX MILES",
+        "shape": "rectangle",
+        "postMounted": true,
+        "sizeNonFreeway": "36x18",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": "G20-01"
+      },
+      {
+        "signCode": "G20-2",
+        "sheetLegend": "END ROAD WORK",
+        "shape": "rectangle",
+        "postMounted": true,
+        "corridorZone": "signEnd",
+        "sizeNonFreeway": "36x18",
+        "sizeFreeway": "48x24",
+        "signLibraryKey": "G20-02",
+        "note": "Size from G20-1 row; plan places G20-2."
+      },
+      {
+        "signCode": "WARNING FLAG",
+        "sheetLegend": "WARNING FLAG",
+        "shape": "flag",
+        "postMounted": false,
+        "mountedOn": "signSupport",
+        "sizeNonFreeway": "18x18",
+        "sizeFreeway": "18x18",
+        "signLibraryKey": null
+      }
+    ]
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "workAreaHatch",
+        "sheetLabel": "WORK AREA",
+        "required": true,
+        "hatched": true
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "dimensions": [],
+    "lateralDimensions": []
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. THIS SETUP IS A SPECIAL OPERATION, AND CAN BE USED REGARDLESS OF THE WORK DURATION WHEN WORK IS PERFORMED BEYOND THE SHOULDERS WITHIN THE RIGHT-OF-WAY.",
+      "2. END ROAD WORK SIGN MAY BE OMITTED IF WORK DURATION IS LESS THAN 1 HOUR."
+    ]
+  },
+  "rules": [
+    {
+      "id": "no-roll-taper",
+      "severity": "error",
+      "source": "Plan",
+      "assert": "No ROLL AHEAD / taper rows.",
+      "commonFailure": "Copying corridor defaults from a lane-closure family."
+    }
+  ],
+  "knownCodeDeviations": []
+}

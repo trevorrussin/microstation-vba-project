@@ -1,0 +1,56 @@
+{
+  "sheet": 322,
+  "meta": {
+    "pages": 2,
+    "rotation": 0
+  },
+  "tableRoles": {
+    "note": "Crosswalk closure. 322-01=sizes, 322-02=channelizing, 322-03=advance placement guidelines (not A/B/C).",
+    "signSizes": "322-01",
+    "channelizingApplication": "322-02",
+    "advancePlacementGuidelines": "322-03"
+  },
+  "signSizes": [
+    {
+      "signCode": "G20-2",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R11-2",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R8-3",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R9-10",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R9-11L",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R9-11R",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "R9-9",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    },
+    {
+      "signCode": "W20-1",
+      "NON-FREEWAY": null,
+      "FREEWAY": null
+    }
+  ],
+  "schema": "crosswalk"
+}

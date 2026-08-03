@@ -437,6 +437,84 @@ CommitErr:
     CommitCurrentAlignmentHeadless = "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
+' Adopt an already-drawn LINE as alignment aIdx (no new geometry).
+' Used when SharedState was cleared (VBA reload) but the DGN still has
+' the engineer/agent alignment — smoke + recover path.
+Public Function AdoptExistingAlignmentElement(aIdx As Integer, elementId As Double) As String
+    On Error GoTo AdoptErr
+    If aIdx < 1 Or aIdx > 10 Then
+        AdoptExistingAlignmentElement = "ERROR" & vbTab & "note=alignIdx out of range"
+        Exit Function
+    End If
+
+    Dim el As Element
+    Set el = Nothing
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Do While oEnum.MoveNext
+        If ElIDAsDouble(oEnum.Current.ID) = elementId Then
+            Set el = oEnum.Current
+            Exit Do
+        End If
+    Loop
+    If el Is Nothing Then
+        AdoptExistingAlignmentElement = "ERROR" & vbTab & "note=element not found: " & elementId
+        Exit Function
+    End If
+    If Not el.IsLineElement Then
+        AdoptExistingAlignmentElement = "ERROR" & vbTab & "note=element is not a LINE"
+        Exit Function
+    End If
+
+    Dim maxGG As Long: maxGG = 0
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Do While oEnum.MoveNext
+        If oEnum.Current.GraphicGroup > maxGG Then maxGG = oEnum.Current.GraphicGroup
+    Loop
+    Dim newGG As Long: newGG = maxGG + 1
+    el.GraphicGroup = newGG
+    el.Rewrite
+
+    Dim s As Point3d, e As Point3d
+    s = el.AsLineElement.StartPoint
+    e = el.AsLineElement.EndPoint
+    ' Prefer west/start as first point for eastbound south corridor
+    If s.X <= e.X Then
+        wztcAlignFirstPtX(aIdx) = s.X
+        wztcAlignFirstPtY(aIdx) = s.Y
+        wztcAlignFirstPtZ(aIdx) = s.Z
+    Else
+        wztcAlignFirstPtX(aIdx) = e.X
+        wztcAlignFirstPtY(aIdx) = e.Y
+        wztcAlignFirstPtZ(aIdx) = e.Z
+    End If
+    If aIdx = 1 Then
+        wztcAlignmentFirstPointX = wztcAlignFirstPtX(1)
+        wztcAlignmentFirstPointY = wztcAlignFirstPtY(1)
+        wztcAlignmentFirstPointZ = wztcAlignFirstPtZ(1)
+    End If
+
+    If wztcAlignCount < aIdx Then wztcAlignCount = aIdx
+    If Len(Trim(wztcAlignNames(aIdx))) = 0 Then
+        If aIdx = 1 Then wztcAlignNames(aIdx) = "Upstream" Else wztcAlignNames(aIdx) = "Downstream"
+    End If
+    wztcAlignGraphicGroup(aIdx) = CInt(newGG)
+    wztcAlignDrawn(aIdx) = True
+    wztcAlignMaxIDSnapshot(aIdx) = GetCurrentMaxID()
+
+    AdoptExistingAlignmentElement = "OK" & vbTab & "alignIdx=" & aIdx & vbTab & _
+                                    "graphicGroup=" & newGG & vbTab & _
+                                    "elementId=" & CStr(elementId)
+    Exit Function
+AdoptErr:
+    AdoptExistingAlignmentElement = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
 ' ============================================================
 ' LEGACY ENTRY POINT (kept for back-compatibility references)
 ' Previously called from AlignDraw.cmdDone_Click.

@@ -185,9 +185,8 @@ Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
             d1X = -perpX: d1Y = -perpY
         End If
 
-        ' Legacy order: text label → sign face cell → post
-        Call PlaceSignFaceAndText(pt1, signNum, signSize, d1X, d1Y, viewAngleDeg)
-        Call DrawSignPost(pt1, d1X, d1Y)
+        ' attachmentPt = click on perp tick; dir = outward along perp
+        Call PlaceSignAssembly(pt1, signNum, signSize, d1X, d1Y, viewAngleDeg)
 
     Else
         ' =====================================================
@@ -235,12 +234,9 @@ Sub DrawSignAtPerpLine(signNum As String, signSize As String, side As String, _
             dBX = -perpX: dBY = -perpY
         End If
 
-        ' Legacy order: text label → sign face cell → post
-        Call PlaceSignFaceAndText(pt1, signNum, signSize, dAX, dAY, viewAngleDeg)
-        Call DrawSignPost(pt1, dAX, dAY)
-
-        Call PlaceSignFaceAndText(pt2, signNum, signSize, dBX, dBY, viewAngleDeg)
-        Call DrawSignPost(pt2, dBX, dBY)
+        ' attachmentPts = clicks on perp tick; dirs = outward along perp
+        Call PlaceSignAssembly(pt1, signNum, signSize, dAX, dAY, viewAngleDeg)
+        Call PlaceSignAssembly(pt2, signNum, signSize, dBX, dBY, viewAngleDeg)
 
         Call DrawConnectingArc(pt1, pt2)
     End If
@@ -272,197 +268,378 @@ Private Function ProjectOntoPerp(clickPt As Point3d, _
 End Function
 
 ' ============================================================
-' DRAW SIGN POST CELL + 20-FT POST LINE
-' postPt = (projected) post base location
-' dirX/Y = unit vector pointing outward (toward sign face)
+' DRAW SIGN POST CELL + STEM LINE  (thin wrapper -- real work is
+' PlaceSignAssembly, which also places the face/label with edge-
+' connected stem geometry).
 ' ============================================================
 Sub DrawSignPost(postPt As Point3d, dirX As Double, dirY As Double)
-    Dim point As Point3d
-
-    ' 20-ft line from post base to bottom of sign face
-    CadInputQueue.SendCommand "PLACE LINE CONSTRAINED"
-    point.X = postPt.X: point.Y = postPt.Y: point.Z = postPt.Z
-    CadInputQueue.SendDataPoint point, 1
-    point.X = postPt.X + dirX * 20#
-    point.Y = postPt.Y + dirY * 20#
-    point.Z = postPt.Z
-    CadInputQueue.SendDataPoint point, 1
-    CadInputQueue.SendReset
-
-    ' Post cell at base location
-    CadInputQueue.SendCommand "ATTACH LIBRARY c:\pwworking\usny\d0119091\ny_plan_wztc.cel"
-    SetCExpressionValue "tcb->activeCellUtf16", "TWZSGN_P", ""
-    CadInputQueue.SendCommand "PLACE CELL ICON"
-    point.X = postPt.X: point.Y = postPt.Y: point.Z = postPt.Z
-    CadInputQueue.SendDataPoint point, 1
-    CadInputQueue.SendReset
-
-    ' Re-attach sign face library so next PlaceSignFaceAndText uses correct library
-    If currentSignFaceLibraryPath = "" Then
-        currentSignFaceLibraryPath = "c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel"
-    End If
-    CadInputQueue.SendCommand "ATTACH LIBRARY " & currentSignFaceLibraryPath
+    ' No-op when PlaceSignAssembly already ran (preferred path).
+    ' Kept so any stray callers that only want a post still compile;
+    ' Prefer PlaceSignAssembly for a full one-side assembly.
 End Sub
 
 ' ============================================================
-' PLACE SIGN FACE CELL AND TWO-LINE TEXT LABEL
-' Follows Legacy pattern order: text label first, then sign face cell.
-' Sign face is placed 20 ft from post in dirX/Y direction.
-' Text (sign number + size) is placed 70 ft from post.
+' PLACE FULL SIGN ASSEMBLY AT A PERP-TICK ATTACHMENT POINT
+' ------------------------------------------------------------
+' attachmentPt = point ON the perpendicular tick where the post
+'   should meet the tick (typically the outward tip of the 80ft
+'   perp line -- NOT the alignment center, NOT the face center).
+' dirX/Y = unit outward direction along the perp, away from the
+'   alignment (the direction the stem and face go).
+'
+' Geometry (confirmed against engineer reference 2026-08-03):
+'   - TWZSGN_P is asymmetric (vertical shaft + east crossbar). Align the
+'     SHAFT CENTERLINE to the tip laterally, and the POST'S INWARD EDGE
+'     to the tip along dir -- not the cell bbox center (that looked SE).
+'   - Face origin further out so FACE INWARD EDGE is STEM_GAP beyond the
+'     post outward edge; stem stays on the tip's lateral line.
+'   - Stem LINE connects those two edges only -- never to face center.
+' STEM_GAP=50 matches the live reference; old "20 ft to face origin"
+' put the line through a Scale=960 face.
 ' ============================================================
-Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As String, _
-                          dirX As Double, dirY As Double, viewAngleDeg As Double)
-    Dim point As Point3d
+Public Sub PlaceSignAssembly(attachmentPt As Point3d, signNum As String, signSize As String, _
+                             dirX As Double, dirY As Double, viewAngleDeg As Double)
+    Const STEM_GAP As Double = 50#
 
-    ' --- Text label at 70 ft: sign number (line 1) + size (line 2) ---
-    ' Escape " (inch marks) as "" for TEXTEDITOR keyin (matches Legacy pattern)
-    Dim escapedSize As String
-    escapedSize = Replace(signSize, Chr(34), Chr(34) & Chr(34))
+    CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
+    CadInputQueue.SendKeyin "ACTIVE COLOR 0"
+    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
+    CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
 
-    CadInputQueue.SendCommand "TEXTEDITOR PLACE"
-    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & signNum & """"
-    If Len(escapedSize) > 0 Then
-        CadInputQueue.SendCommand "TEXTEDITOR PLAYCOMMAND KEY_DOWN KEY_CODE 0x06 CONTROL_KEY_STATE UP SHIFT_KEY_STATE UP ALT_KEY_STATE UP"
-        CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & escapedSize & """"
-    End If
-    point.X = postPt.X + dirX * 70#
-    point.Y = postPt.Y + dirY * 70#
-    point.Z = postPt.Z
-    CadInputQueue.SendDataPoint point, 1
-    CadInputQueue.SendReset
-
-    ' --- Sign face cell at 20 ft (same for every sign in library) ---
-    ' Re-attach sign face library so it is active before placing cell
     If Len(currentSignFaceLibraryPath) = 0 Then
         currentSignFaceLibraryPath = "c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel"
     End If
-    CadInputQueue.SendCommand "ATTACH LIBRARY " & currentSignFaceLibraryPath
-    ' Cell name from SignLibrary; warn and skip face if sign is not in library
+
+    ' --- Post cell: tip = shaft centerline + inward edge (not bbox center) ---
+    CadInputQueue.SendCommand "ATTACH LIBRARY c:\pwworking\usny\d0119091\ny_plan_wztc.cel"
+    SetCExpressionValue "tcb->activeCellUtf16", "TWZSGN_P", ""
+    CadInputQueue.SendCommand "PLACE CELL ICON"
+    CadInputQueue.SendDataPoint attachmentPt, 1
+    CadInputQueue.SendReset
+
+    Dim postEl As Element
+    Set postEl = FindNewestElement()
+    If postEl Is Nothing Then Exit Sub
+
+    Dim halfPost As Double
+    halfPost = HalfExtentAlongDir(postEl, dirX, dirY)
+    ' Lateral unit (perp to outward dir). Shaft sits west of cell origin
+    ' for TWZSGN_P at 0 deg -- offset measured from live cell, not guessed.
+    Dim latX As Double, latY As Double
+    latX = -dirY
+    latY = dirX
+    Dim shaftLatFromOrigin As Double
+    shaftLatFromOrigin = ShaftLateralOffsetFromOrigin(postEl, latX, latY)
+
+    Dim postOrigin As Point3d
+    postOrigin.X = attachmentPt.X + dirX * halfPost - latX * shaftLatFromOrigin
+    postOrigin.Y = attachmentPt.Y + dirY * halfPost - latY * shaftLatFromOrigin
+    postOrigin.Z = attachmentPt.Z
+    Call MoveCellOriginTo(postEl, postOrigin)
+    ' Nudge along dir so the measured inward edge lands exactly on the tip
+    ' (half-extent estimate can be ~0.004ft short of the true range edge).
+    Call SnapInwardEdgeToTip(postEl, attachmentPt, dirX, dirY)
+    halfPost = HalfExtentAlongDir(postEl, dirX, dirY)
+
+    ' Outer edge of post along dir, still on the tip's lateral line
+    Dim postOuter As Point3d
+    postOuter.X = attachmentPt.X + dirX * (2# * halfPost)
+    postOuter.Y = attachmentPt.Y + dirY * (2# * halfPost)
+    postOuter.Z = attachmentPt.Z
+
+    ' --- Face cell (centered on tip laterally) ---
     Dim cellName As String
+    cellName = ""
     If SignLibrary.SignExists(signNum) Then
         cellName = SignLibrary.GetSignData(signNum).CellName
-    Else
-        CadInputQueue.SendKeyin "ECHO WARNING: Sign " & signNum & " not found in library — face cell skipped"
-        cellName = ""
     End If
-    If Len(cellName) > 0 Then
-        ' Sign face cell always matches the current VIEW's rotation (captured
-        ' by the caller before the view was reset to identity), not the
-        ' perpendicular/alignment direction -- see the comment in
-        ' DrawSignAtPerpLine for why a direction-derived angle was wrong.
-        CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
-
-        SetCExpressionValue "tcb->activeCellUtf16", cellName, ""
-        CadInputQueue.SendCommand "PLACE CELL ICON"
-        point.X = postPt.X + dirX * 20#
-        point.Y = postPt.Y + dirY * 20#
-        point.Z = postPt.Z
-        CadInputQueue.SendDataPoint point, 1
-        CadInputQueue.SendReset
-
-        ' WZTC signs must always be their true real-world size (a 48"x48"
-        ' sign = 4ft x 4ft in the model) regardless of what scale a given
-        ' drawing happens to be developed at -- there is no single universal
-        ' WZTC scale, every project's drawing can differ. Sign face cells
-        ' are Annotation-class in this library, so MicroStation auto-
-        ' multiplies them by the active model's AnnotationScaleFactor at
-        ' PLACE CELL ICON time (confirmed live 2026-08-02: a placed
-        ' W20-01RA came in at Scale=960 when AnnotationScaleFactor=960,
-        ' which is why the sign face looked wildly oversized relative to
-        ' the post -- the post cell is not Annotation-class and isn't
-        ' affected). Rescale it immediately to its known nominal real-world
-        ' size from the library, regardless of what scale/factor produced
-        ' the as-placed size -- more robust than dividing out
-        ' AnnotationScaleFactor directly, which was tried first and landed
-        ' on the cell's native *authored* size (~0.6"), not its intended
-        ' real-world size (confirmed live: those are NOT the same number
-        ' in this cell library).
-        Call RescaleJustPlacedCellToTrueSize(signSize)
-
-        CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg   ' restore for subsequent operations
+    If Len(cellName) = 0 Then
+        CadInputQueue.SendKeyin "ECHO WARNING: Sign " & signNum & " not found in library - face cell skipped"
+        Exit Sub
     End If
+
+    CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
+    CadInputQueue.SendKeyin "ACTIVE COLOR 0"
+    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
+    CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
+    CadInputQueue.SendCommand "ATTACH LIBRARY " & currentSignFaceLibraryPath
+    SetCExpressionValue "tcb->activeCellUtf16", cellName, ""
+
+    Dim guessPt As Point3d
+    guessPt.X = postOuter.X + dirX * (STEM_GAP + 30#)
+    guessPt.Y = postOuter.Y + dirY * (STEM_GAP + 30#)
+    guessPt.Z = postOuter.Z
+    CadInputQueue.SendCommand "PLACE CELL ICON"
+    CadInputQueue.SendDataPoint guessPt, 1
+    CadInputQueue.SendReset
+
+    Dim faceEl As Element
+    Set faceEl = FindNewestElement()
+    If faceEl Is Nothing Then Exit Sub
+
+    Dim halfFace As Double
+    halfFace = HalfExtentAlongDir(faceEl, dirX, dirY)
+    Dim faceOrigin As Point3d
+    faceOrigin.X = postOuter.X + dirX * (STEM_GAP + halfFace)
+    faceOrigin.Y = postOuter.Y + dirY * (STEM_GAP + halfFace)
+    faceOrigin.Z = postOuter.Z
+    Call MoveCellOriginTo(faceEl, faceOrigin)
+
+    Dim faceInner As Point3d
+    ' Snap face so its inward edge is exactly STEM_GAP past postOuter
+    Dim faceTarget As Point3d
+    faceTarget.X = postOuter.X + dirX * STEM_GAP
+    faceTarget.Y = postOuter.Y + dirY * STEM_GAP
+    faceTarget.Z = postOuter.Z
+    Call SnapInwardEdgeToTip(faceEl, faceTarget, dirX, dirY)
+    halfFace = HalfExtentAlongDir(faceEl, dirX, dirY)
+    If faceEl.IsCellElement Then
+        faceOrigin = faceEl.AsCellElement.Origin
+    ElseIf faceEl.IsSharedCellElement Then
+        faceOrigin = faceEl.AsSharedCellElement.Origin
+    End If
+    faceInner.X = faceTarget.X
+    faceInner.Y = faceTarget.Y
+    faceInner.Z = faceTarget.Z
+
+    ' W04-02* cells ship with yellow SF_P copies of the merge symbol on
+    ' top of the black SFB_P legend; hide the small yellow duplicates so
+    ' the black symbol reads (live 2026-08-03 south 619-311 QA).
+    Call HideDuplicateYellowLegend(faceEl, cellName)
+
+    ' --- Stem: post outward edge -> face inward edge only (on tip line) ---
+    ' Element API (CreateLineElement2), NOT PLACE LINE CONSTRAINED: AccuDraw
+    ' distance lock left over from a long define_alignment_segment was making
+    ' CadInputQueue stems 3000ft instead of STEM_GAP (live 2026-08-03).
+    Dim stemEl As LineElement
+    Set stemEl = CreateLineElement2(Nothing, postOuter, faceInner)
+    stemEl.Color = 0
+    stemEl.LineWeight = 0
+    On Error Resume Next
+    stemEl.Level = ActiveDesignFile.Levels("Default")
+    On Error GoTo 0
+    ActiveModelReference.AddElement stemEl
+    stemEl.Rewrite
+
+    ' --- Text label beyond the face ---
+    CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
+    CadInputQueue.SendKeyin "ACTIVE COLOR 0"
+    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
+    CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
+    CadInputQueue.SendCommand "TEXTEDITOR PLACE"
+    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & signNum & """"
+    If Len(signSize) > 0 Then
+        CadInputQueue.SendCommand "TEXTEDITOR PLAYCOMMAND KEY_DOWN KEY_CODE 0x06 CONTROL_KEY_STATE UP SHIFT_KEY_STATE UP ALT_KEY_STATE UP"
+        Call InsertTextWithInchMarks(signSize)
+    End If
+    Dim textPt As Point3d
+    textPt.X = faceOrigin.X + dirX * (halfFace + 20#)
+    textPt.Y = faceOrigin.Y + dirY * (halfFace + 20#)
+    textPt.Z = faceOrigin.Z
+    CadInputQueue.SendDataPoint textPt, 1
+    CadInputQueue.SendReset
+
+    CadInputQueue.SendCommand "ATTACH LIBRARY " & currentSignFaceLibraryPath
+    CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
 End Sub
 
-' ============================================================
-' RESCALE THE JUST-PLACED SIGN FACE CELL TO ITS KNOWN NOMINAL SIZE
-' Finds the cell just placed (the highest element ID in the model right
-' after PLACE CELL ICON -- no GetElementByID call exists anywhere in
-' this codebase to reuse; WZTCExec.FindElementByID uses the same
-' scan-and-match convention for the same reason), measures its actual
-' as-placed width, and scales it so that width matches the sign's real
-' nominal width -- empirical correction rather than assuming any
-' particular scale mechanism, so it's correct regardless of *why* the
-' cell came in the wrong size.
-' Caveat: measures via the element's axis-aligned Range, which only
-' equals the cell's true local width when the view/sign angle is a
-' multiple of 90 degrees (the common case). A rotated view will still
-' produce a uniformly-scaled, square, but very slightly off-target
-' result -- not chased further since exact correction would require
-' inspecting the .cel library's raw geometry, unavailable in this
-' session's toolset.
-' Handles BOTH plain cells (IsCellElement) and shared cells
-' (IsSharedCellElement) -- confirmed live 2026-08-02 that PLACE CELL
-' ICON can produce either depending on session state, and the two are
-' NOT interchangeable via AsCellElement (a shared cell's AsCellElement
-' throws). Range/ScaleUniform/Rewrite are on the base Element interface
-' directly (no cast needed); only .Origin requires the type-specific
-' cast, so that's the only place this branches.
-' ============================================================
-Private Sub RescaleJustPlacedCellToTrueSize(signSize As String)
-    Dim targetWidthFt As Double
-    targetWidthFt = NominalSignWidthFeet(signSize)
-    If targetWidthFt <= 0 Then Exit Sub   ' unparseable size -- leave as placed
+' Backward-compatible name used by ExecPlaceSign / DrawSignAtPerpLine:
+' attachmentPt semantics (perp tip), not "post origin / face at +20".
+Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As String, _
+                          dirX As Double, dirY As Double, viewAngleDeg As Double)
+    Call PlaceSignAssembly(postPt, signNum, signSize, dirX, dirY, viewAngleDeg)
+End Sub
 
-    Dim el As Element
-    Set el = FindNewestElement()
-    If el Is Nothing Then Exit Sub
+' Half-size of element range projected onto unit dir (ft).
+Private Function HalfExtentAlongDir(el As Element, dirX As Double, dirY As Double) As Double
+    Dim rng As Range3d
+    rng = el.Range
+    Dim dx As Double, dy As Double
+    dx = rng.High.X - rng.Low.X
+    dy = rng.High.Y - rng.Low.Y
+    ' For axis-aligned extents (common at 0/90 view angles), projection of
+    ' the half-box onto dir is 0.5*(|dirX|*width + |dirY|*height).
+    HalfExtentAlongDir = 0.5 * (Abs(dirX) * dx + Abs(dirY) * dy)
+    If HalfExtentAlongDir < 0.01 Then HalfExtentAlongDir = 0.01
+End Function
 
+' Lateral offset of the post SHAFT centerline from the cell origin.
+' TWZSGN_P = tall shaft + shorter crossbar; pick the subelement with the
+' largest extent along the outward dir (the shaft), then return
+' (shaftMid - origin) · lateral. Used so the shaft sits on the tip line
+' instead of centering the whole T bbox on the tip.
+Private Function ShaftLateralOffsetFromOrigin(el As Element, latX As Double, latY As Double) As Double
     Dim origin As Point3d
     If el.IsCellElement Then
         origin = el.AsCellElement.Origin
     ElseIf el.IsSharedCellElement Then
         origin = el.AsSharedCellElement.Origin
     Else
-        Exit Sub   ' not a cell of any kind -- nothing to rescale
+        ShaftLateralOffsetFromOrigin = 0#
+        Exit Function
     End If
 
+    Dim bestExtent As Double
+    bestExtent = -1#
+    Dim shaftMidX As Double, shaftMidY As Double
+    shaftMidX = origin.X
+    shaftMidY = origin.Y
+
+    On Error GoTo FallbackBBox
+    Dim ce As ElementEnumerator
+    If el.IsCellElement Then
+        Set ce = el.AsCellElement.GetSubElements
+    Else
+        Set ce = el.AsSharedCellElement.GetSubElements
+    End If
+    Dim subEl As Element
+    Dim sr As Range3d
+    Dim sideMax As Double
+    Do While ce.MoveNext
+        Set subEl = ce.Current
+        sr = subEl.Range
+        ' Prefer the taller shaft (larger max side of its bbox)
+        If (sr.High.Y - sr.Low.Y) > (sr.High.X - sr.Low.X) Then
+            sideMax = sr.High.Y - sr.Low.Y
+        Else
+            sideMax = sr.High.X - sr.Low.X
+        End If
+        If sideMax > bestExtent Then
+            bestExtent = sideMax
+            shaftMidX = 0.5 * (sr.Low.X + sr.High.X)
+            shaftMidY = 0.5 * (sr.Low.Y + sr.High.Y)
+        End If
+    Loop
+
+    ShaftLateralOffsetFromOrigin = (shaftMidX - origin.X) * latX + (shaftMidY - origin.Y) * latY
+    Exit Function
+
+FallbackBBox:
+    ' No subelements -- fall back to bbox center (= 0 offset from origin for
+    ' a centered cell; for TWZSGN_P this path should not run).
     Dim rng As Range3d
     rng = el.Range
-    Dim currentWidthFt As Double
-    currentWidthFt = rng.High.X - rng.Low.X
-    If currentWidthFt <= 0 Then Exit Sub
+    shaftMidX = 0.5 * (rng.Low.X + rng.High.X)
+    shaftMidY = 0.5 * (rng.Low.Y + rng.High.Y)
+    ShaftLateralOffsetFromOrigin = (shaftMidX - origin.X) * latX + (shaftMidY - origin.Y) * latY
+End Function
 
-    Dim correctionFactor As Double
-    correctionFactor = targetWidthFt / currentWidthFt
-    If Abs(correctionFactor - 1#) < 0.001 Then Exit Sub   ' already correct
+' W04-02* cells ship with yellow SF_P copies of the merge symbol on
+' top of the black SFB_P legend. Delete those small yellow duplicates
+' and raise DisplayPriority on black SFB_P so the symbol reads above
+' the yellow diamond fill (IsHidden on cell components does not stick;
+' live 2026-08-03 south 619-311 QA).
+Private Sub HideDuplicateYellowLegend(faceEl As Element, cellName As String)
+    On Error GoTo HideDone
+    If Len(cellName) < 6 Then Exit Sub
+    If UCase$(Left$(cellName, 6)) <> "W04-02" Then Exit Sub
+    If Not faceEl.IsCellElement Then Exit Sub
 
-    Call el.ScaleUniform(origin, correctionFactor)
+    Dim fr As Range3d
+    fr = faceEl.Range
+    Dim faceMax As Double
+    If (fr.High.X - fr.Low.X) > (fr.High.Y - fr.Low.Y) Then
+        faceMax = fr.High.X - fr.Low.X
+    Else
+        faceMax = fr.High.Y - fr.Low.Y
+    End If
+    If faceMax < 0.01 Then Exit Sub
+
+    Dim cell As CellElement
+    Set cell = faceEl.AsCellElement
+    cell.ResetElementEnumeration
+
+    Dim subEl As Element
+    Dim sr As Range3d
+    Dim sideMax As Double
+    Dim lvlName As String
+    Dim col As Long
+    Dim guard As Integer: guard = 0
+    Do While cell.MoveToNextElement(False) And guard < 40
+        guard = guard + 1
+        Set subEl = cell.CopyCurrentElement
+        On Error Resume Next
+        lvlName = ""
+        lvlName = subEl.Level.Name
+        col = -1
+        col = CLng(subEl.Color)
+        If Err.Number <> 0 Then
+            Err.Clear
+            GoTo NextSub
+        End If
+        On Error GoTo HideDone
+
+        sr = subEl.Range
+        If (sr.High.Y - sr.Low.Y) > (sr.High.X - sr.Low.X) Then
+            sideMax = sr.High.Y - sr.Low.Y
+        Else
+            sideMax = sr.High.X - sr.Low.X
+        End If
+
+        If UCase$(lvlName) = "SF_P" And col = 4 And sideMax < 0.7 * faceMax Then
+            cell.DeleteCurrentElement
+            GoTo NextSub
+        End If
+
+        If UCase$(lvlName) = "SFB_P" And col = 240 Then
+            On Error Resume Next
+            subEl.DisplayPriority = 2000
+            cell.ReplaceCurrentElement subEl
+            Err.Clear
+            On Error GoTo HideDone
+        ElseIf UCase$(lvlName) = "SF_P" And col = 4 Then
+            On Error Resume Next
+            subEl.DisplayPriority = -2000
+            cell.ReplaceCurrentElement subEl
+            Err.Clear
+            On Error GoTo HideDone
+        End If
+NextSub:
+    Loop
+    faceEl.Rewrite
+HideDone:
+End Sub
+
+Private Sub MoveCellOriginTo(el As Element, newOrigin As Point3d)
+    Dim oldOrigin As Point3d
+    If el.IsCellElement Then
+        oldOrigin = el.AsCellElement.Origin
+    ElseIf el.IsSharedCellElement Then
+        oldOrigin = el.AsSharedCellElement.Origin
+    Else
+        Exit Sub
+    End If
+    Dim delta As Point3d
+    delta.X = newOrigin.X - oldOrigin.X
+    delta.Y = newOrigin.Y - oldOrigin.Y
+    delta.Z = newOrigin.Z - oldOrigin.Z
+    Call el.Move(delta)
     Call el.Rewrite
 End Sub
 
-' Parses the leading number out of a "NN"" x NN""" -style size string
-' (SignLibrary's signSize/TextLine2, e.g. `36" x 36"` -> 36 inches ->
-' 3.0 ft). Deliberately not SignLibrary.WidthInches/HeightInches --
-' those are hardcoded to the Non-Freeway size regardless of which road
-' type was actually used for this placement (a pre-existing SignLibrary
-' quirk unrelated to this fix), whereas signSize/TextLine2 is already
-' correctly resolved for whichever road type GetSignData was called
-' with.
-Private Function NominalSignWidthFeet(signSize As String) As Double
-    Dim quotePos As Long
-    quotePos = InStr(signSize, Chr(34))
-    If quotePos <= 1 Then
-        NominalSignWidthFeet = 0
-        Exit Function
-    End If
-    Dim numPart As String
-    numPart = Left(signSize, quotePos - 1)
-    If Not IsNumeric(numPart) Then
-        NominalSignWidthFeet = 0
-        Exit Function
-    End If
-    NominalSignWidthFeet = CDbl(numPart) / 12#
-End Function
+' Move el along dir only so its bbox inward edge (center - dir*half)
+' coincides with tip. Lateral position is left alone (shaft alignment).
+Private Sub SnapInwardEdgeToTip(el As Element, tip As Point3d, dirX As Double, dirY As Double)
+    Dim rng As Range3d
+    rng = el.Range
+    Dim half As Double
+    half = HalfExtentAlongDir(el, dirX, dirY)
+    Dim midX As Double, midY As Double
+    midX = 0.5 * (rng.Low.X + rng.High.X)
+    midY = 0.5 * (rng.Low.Y + rng.High.Y)
+    Dim curInX As Double, curInY As Double
+    curInX = midX - dirX * half
+    curInY = midY - dirY * half
+    Dim along As Double
+    along = (tip.X - curInX) * dirX + (tip.Y - curInY) * dirY
+    If Abs(along) < 0.0000001 Then Exit Sub
+    Dim delta As Point3d
+    delta.X = dirX * along
+    delta.Y = dirY * along
+    delta.Z = 0#
+    Call el.Move(delta)
+    Call el.Rewrite
+End Sub
 
 Private Function FindNewestElement() As Element
     Dim oScan As ElementScanCriteria
@@ -485,6 +662,32 @@ Private Function FindNewestElement() As Element
     Loop
     Set FindNewestElement = newest
 End Function
+
+' Inserts signSize (e.g. 48" x 48") via TEXTEDITOR PLAYCOMMAND INSERT_TEXT
+' without doubled inch marks. Each " is its own INSERT_TEXT """ keyin
+' (three quote chars = one inch mark inside delimiters) -- confirmed live
+' 2026-08-03 against CONNECT (doubling produced literal doubles).
+Private Sub InsertTextWithInchMarks(sizeText As String)
+    Dim i As Long
+    Dim chunk As String
+    Dim ch As String
+    chunk = ""
+    For i = 1 To Len(sizeText)
+        ch = Mid$(sizeText, i, 1)
+        If ch = Chr$(34) Then
+            If Len(chunk) > 0 Then
+                CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & chunk & """"
+                chunk = ""
+            End If
+            CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT " & Chr$(34) & Chr$(34) & Chr$(34)
+        Else
+            chunk = chunk & ch
+        End If
+    Next i
+    If Len(chunk) > 0 Then
+        CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & chunk & """"
+    End If
+End Sub
 
 ' ============================================================
 ' CURRENT VIEW ROTATION, IN DEGREES (Z-axis / plan rotation)

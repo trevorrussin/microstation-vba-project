@@ -1,0 +1,447 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-022",
+    "title": "WORK ZONE TRAFFIC CONTROL SHOULDER CLOSURE/LANE ENCROACHMENT NON-FREEWAY MOWING",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "MOWING OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2021-12-02",
+    "issuedUnder": "EI 21-028",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-022.pdf",
+    "localPdf": "Bridge/captures/619-022.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 270,
+    "transcribedBy": "Cursor (Family 9 mowing/mulching/marking)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Non-freeway mowing shoulder closure / lane encroachment. PVH/PVL matrix for both LANE and SHOULDER closures; GVW×speed roll-ahead; W21-8 + W8-23."
+  },
+  "applicability": {
+    "roadType": "Non-Freeway",
+    "roadway": "Non-freeway",
+    "closure": "Shoulder closure / lane encroachment",
+    "duration": "Mowing (special)",
+    "durationDefinition": "Special mowing operation; daylight; suspend in poor visibility (Note 1).",
+    "speedRangeMph": {
+      "allowed": [
+        30,
+        35,
+        40,
+        45,
+        50,
+        55
+      ],
+      "note": "PV <=30/35-40/>=45; roll <=40 / 45-55."
+    },
+    "laneWidthFt": null,
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft"
+    ],
+    "areaTypes": null
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "type": "integer",
+      "allowed": [
+        30,
+        35,
+        40,
+        45,
+        50,
+        55
+      ],
+      "usedBy": [
+        "022-01",
+        "022-02"
+      ]
+    },
+    {
+      "id": "shoulderWidthBand",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft"
+      ],
+      "default": ">= 8 ft",
+      "usedBy": []
+    },
+    {
+      "id": "exposureCondition",
+      "type": "enum",
+      "allowed": [
+        "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC"
+      ],
+      "usedBy": [
+        "022-01"
+      ]
+    },
+    {
+      "id": "closureType",
+      "type": "enum",
+      "allowed": [
+        "LANE CLOSURE OR ENCROACHMENT",
+        "SHOULDER CLOSURE OR ENCROACHMENT"
+      ],
+      "default": "SHOULDER CLOSURE OR ENCROACHMENT",
+      "usedBy": [
+        "022-01"
+      ]
+    },
+    {
+      "id": "signSizeClass",
+      "type": "enum",
+      "allowed": [
+        "NON-FREEWAY",
+        "FREEWAY"
+      ],
+      "default": "NON-FREEWAY",
+      "usedBy": [
+        "022-03"
+      ]
+    }
+  ],
+  "tableRoles": {
+    "note": "3 tables. NO taperAndBuffer / advanceWarningSpacing.",
+    "protectiveVehicle": "022-01",
+    "rollAheadDistance": "022-02",
+    "signSizes": "022-03"
+  },
+  "tables": {
+    "022-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition",
+        "preconstructionPostedSpeedMph"
+      ],
+      "note": "Both LANE and SHOULDER workers-exposed rows; same PVH+TMIA/PVL+TMIA/PVL pattern. No OTHER HAZARDS value rows.",
+      "speedBands": [
+        {
+          "id": "ge45",
+          "label": ">= 45 MPH",
+          "minMph": 45,
+          "maxMph": null
+        },
+        {
+          "id": "b35to40",
+          "label": "35 - 40 MPH",
+          "minMph": 35,
+          "maxMph": 40
+        },
+        {
+          "id": "le30",
+          "label": "<= 30 MPH",
+          "minMph": null,
+          "maxMph": 30
+        }
+      ],
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "ge45": "PVH+TMIA",
+          "b35to40": "PVL+TMIA",
+          "le30": "PVL"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "ge45": "PVH+TMIA",
+          "b35to40": "PVL+TMIA",
+          "le30": "PVL"
+        }
+      ],
+      "legend": {
+        "PVH": "PROTECTIVE VEHICLE HEAVY (MINIMUM GROSS WEIGHT 22,000 LBS. OR GREATER)",
+        "PVL": "PROTECTIVE VEHICLE LIGHT (MINIMUM GROSS WEIGHT 9,500 LBS. OR GREATER) (SEE NOTE 3)",
+        "TMIA": "TRUCK/TRAILER MOUNTED IMPACT ATTENUATOR"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUME THERE IS NO POSITIVE PROTECTION PRESENT.",
+        "2. TRUCK/TRAILER MOUNTED IMPACT ATTENUATORS (TMIA) SHALL NOT BE MOUNTED/INSTALLED ON VEHICLES WITH A GROSS VEHICLE WEIGHT (GVW) LESS THAN WHAT IS MINIMALLY REQUIRED BY THE MANUFACTURER OF THE TMIA.",
+        "3. THE USE OF A PROTECTIVE VEHICLE LIGHT (PVL) AS A SHADOW VEHICLE IS LIMITED TO NON-FREEWAY ROADWAYS WHERE THE POSTED SPEED LIMITS IS <= 40 MPH UNLESS OTHERWISE AUTHORIZED BY THE ENGINEER."
+      ]
+    },
+    "022-02": {
+      "title": "ROLL AHEAD DISTANCE FOR PROTECTIVE VEHICLES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "note": "Same GVW×speed matrix as 023-02.",
+      "rows": [
+        {
+          "speedBand": "45 - 55 MPH",
+          "minMph": 45,
+          "maxMph": 55,
+          "lightGvw": {
+            "ft": 200,
+            "skipLines": 5
+          },
+          "heavyGvw": {
+            "ft": 160,
+            "skipLines": 4
+          },
+          "min": {
+            "ft": 160,
+            "skipLines": 4
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "speedBand": "<= 40 MPH",
+          "minMph": null,
+          "maxMph": 40,
+          "lightGvw": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "heavyGvw": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "min": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "max": {
+            "ft": 120,
+            "skipLines": 3
+          }
+        }
+      ],
+      "usageNote": "MIN/MAX = heavy/light GVW for the speed band."
+    },
+    "022-03": {
+      "title": "REQUIRED SIGN SIZES*",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "rows": [
+        {
+          "signCode": "W21-8",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W8-23",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "Moving operation: ROLL AHEAD + W21-8. No tapers.",
+    "zones": [
+      {
+        "id": "signA",
+        "order": 1,
+        "kind": "sign",
+        "signCode": "W21-8"
+      },
+      {
+        "id": "gapA",
+        "order": 2,
+        "kind": "gap",
+        "sheetLabel": "A",
+        "lengthSource": {
+          "fixedFt": 500
+        },
+        "dimensioned": false,
+        "note": "500 FT. (MINIMUM) AND 2 MILE (MAXIMUM)"
+      },
+      {
+        "id": "protectiveVehicle",
+        "order": 3,
+        "kind": "symbol",
+        "sheetLabel": "PROTECTIVE VEHICLE / WORK VEHICLE",
+        "lengthSource": null
+      },
+      {
+        "id": "rollAheadDistance",
+        "order": 4,
+        "kind": "clearance",
+        "sheetLabel": "ROLL AHEAD DISTANCE",
+        "lengthSource": {
+          "table": "022-02",
+          "column": "range",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph"
+          ]
+        },
+        "dimensioned": true,
+        "sheetReference": "(SEE TABLE 022-02)"
+      },
+      {
+        "id": "workArea",
+        "order": 5,
+        "kind": "workArea",
+        "sheetLabel": "WORK AREA",
+        "lengthSource": null,
+        "hatched": true,
+        "dimensioned": false
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "Roll Ahead + W21-8 only.",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Work / protective vehicle",
+        "walkDirection": "Upstream, against traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "rollAheadDistance",
+            "label": "ROLL AHEAD DISTANCE"
+          },
+          {
+            "rowNum": 2,
+            "type": "Sign",
+            "zone": "signA",
+            "signCode": "W21-8",
+            "spacingZone": "gapA"
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "BUFFER SPACE",
+            "reason": "No buffer on mowing/mulching sheet."
+          },
+          {
+            "label": "SHOULDER TAPER",
+            "reason": "No taper."
+          },
+          {
+            "label": "MERGING TAPER",
+            "reason": "No taper."
+          },
+          {
+            "label": "Vehicle Space",
+            "reason": "Not on this sheet."
+          }
+        ]
+      }
+    ]
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "items": [
+      {
+        "signCode": "W21-8",
+        "sheetLegend": "MOWING AHEAD",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signA",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W21-08"
+      },
+      {
+        "signCode": "W8-23",
+        "sheetLegend": "NO SHOULDER",
+        "shape": "diamond",
+        "postMounted": true,
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W08-23"
+      },
+      {
+        "signCode": "WARNING FLAG",
+        "sheetLegend": "WARNING FLAG",
+        "shape": "flag",
+        "postMounted": false,
+        "mountedOn": "workVehicle",
+        "sizeNonFreeway": "18x18",
+        "sizeFreeway": "18x18",
+        "signLibraryKey": null
+      }
+    ]
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "protectiveVehicle",
+        "sheetLabel": "PVH OR PVL",
+        "required": true
+      },
+      {
+        "id": "arrowPanel",
+        "sheetLabel": "ARROW PANEL (CAUTION MODE)",
+        "required": true
+      },
+      {
+        "id": "mower",
+        "sheetLabel": "MOWER",
+        "required": true
+      },
+      {
+        "id": "workAreaHatch",
+        "sheetLabel": "WORK AREA",
+        "required": true,
+        "hatched": true
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "dimensions": [
+      {
+        "zone": "rollAheadDistance",
+        "label": "ROLL AHEAD DISTANCE"
+      }
+    ],
+    "lateralDimensions": [
+      {
+        "label": "10' MIN.",
+        "note": "Minimum open width beside work."
+      }
+    ]
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. THE MOWING OPERATION IS A SPECIAL OPERATION. IT SHALL BE SCHEDULED AND COMPLETED DURING DAYLIGHT WORK SHIFTS. THE WORK SHALL BE SUSPENDED DURING PERIODS OF POOR VISIBILITY.",
+      "2. TRACTOR MOWERS SHALL HAVE AN AMBER BEACON OPERATING AT ALL TIMES.",
+      "3. APPROVED PERSONAL PROTECTIVE EQUIPMENT (PPE) SHALL BE WORN WHILE ON TRACTORS NOT EQUIPPED WITH AN ENCLOSED CAB. PPE IS REQUIRED WHEN EXITING TRACTOR WITHIN RIGHT OF WAY.",
+      "4. IF SHOULDER AREA BECOMES TOO NARROW FOR THE PROTECTIVE VEHICLE(S) TO BE COMPLETELY ON THE SHOULDER, THE VEHICLES SHALL STAY ON THE WIDER SHOULDER AREA UNTIL OPERATORS CAN SAFELY DRIVE AROUND THE NARROW SHOULDER TO NEW SET-UP POINT.",
+      "5. VEH #2 SHALL BE PLACED TO OPTIMIZE AND ENHANCE VISIBILITY FROM THE REAR OF THE OPERATION AND SHALL NOT EXCEED THE APPROPRIATE ROLL AHEAD DISTANCE VALUES."
+    ]
+  },
+  "rules": [
+    {
+      "id": "no-tapers",
+      "severity": "error",
+      "source": "Plan",
+      "assert": "No taper/buffer rows.",
+      "commonFailure": "Emitting default MERGING/SHOULDER TAPER from another family."
+    }
+  ],
+  "knownCodeDeviations": []
+}

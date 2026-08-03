@@ -1,0 +1,586 @@
+{
+  "sheetNumber": "619-315",
+  "sourcePdf": "Bridge/captures/619-315.pdf",
+  "sourcePdfRevision": "619-315_E1.pdf (2 pages, rotation=270 both, mediabox portrait)",
+  "pdfPages": 2,
+  "pageRotation": {
+    "page0": 270,
+    "page1": 270
+  },
+  "extractedBy": "Cursor subagent (PyMuPDF words_in_window / assert_row_count)",
+  "extractedOn": "2026-08-03",
+  "confidence": "verbatim",
+  "tableRoles": {
+    "note": "Family 3 ramp-approach short-term. Roles by CONTENT: 315-01=protectiveVehicle, 315-02=rollAheadDistance (GVW, like 301-02), 315-03=taperAndBuffer (expanded ramp), 315-04=signSizes, 315-05=channelizingApplication (NEW vs 301). NO advanceWarningSpacing table — spacing on plan (2640'/1500'/1000').",
+    "protectiveVehicle": "315-01",
+    "rollAheadDistance": "315-02",
+    "taperAndBuffer": "315-03",
+    "signSizes": "315-04",
+    "channelizingApplication": "315-05"
+  },
+  "tables": {
+    "315-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition",
+        "roadTypeForProtectiveVehicle",
+        "preconstructionPostedSpeedMph"
+      ],
+      "note": "Identical to 301-01: 2 shoulder rows, all PVH+TMIA.",
+      "speedBands": [
+        {
+          "id": "ge45",
+          "label": ">= 45 MPH",
+          "minMph": 45,
+          "maxMph": null
+        },
+        {
+          "id": "b35to40",
+          "label": "35 - 40 MPH",
+          "minMph": 35,
+          "maxMph": 40
+        },
+        {
+          "id": "le30",
+          "label": "<= 30 MPH",
+          "minMph": null,
+          "maxMph": 30
+        }
+      ],
+      "rows": [
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "ge45": "PVH+TMIA",
+          "b35to40": "PVH+TMIA",
+          "le30": "PVH+TMIA",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS, EXCAVATION)",
+          "ge45": "PVH+TMIA",
+          "b35to40": "PVH+TMIA",
+          "le30": "PVH+TMIA",
+          "FREEWAY": "PVH+TMIA"
+        }
+      ],
+      "legend": {
+        "PVH": "PROTECTIVE VEHICLE HEAVY (MINIMUM GROSS WEIGHT 22,000 LBS. OR GREATER)",
+        "TMIA": "TRUCK/TRAILER MOUNTED IMPACT ATTENUATOR"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUME THERE IS NO POSITIVE PROTECTION PRESENT.",
+        "2. TRUCK/TRAILER MOUNTED IMPACT ATTENUATORS (TMIA) SHALL NOT BE MOUNTED/INSTALLED ON VEHICLES WITH A GROSS VEHICLE WEIGHT (GVW) LESS THAN WHAT IS MINIMALLY REQUIRED BY THE MANUFACTURER OF THE TMIA."
+      ]
+    },
+    "315-02": {
+      "title": "ROLL AHEAD DISTANCE FOR PROTECTIVE VEHICLES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "protectiveVehicleGvwLbs"
+      ],
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN and MAX, by protective-vehicle gross vehicle weight (not posted speed).",
+      "note": "Identical to 301-02: roll-ahead keyed by protective-vehicle GVW.",
+      "rows": [
+        {
+          "gvwBand": "9,500 TO 21,999 LBS.",
+          "minGvwLbs": 9500,
+          "maxGvwLbs": 21999,
+          "min": {
+            "ft": 160,
+            "skipLines": 4
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "gvwBand": "22,000 LBS. OR GREATER",
+          "minGvwLbs": 22000,
+          "maxGvwLbs": null,
+          "min": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "max": {
+            "ft": 160,
+            "skipLines": 4
+          }
+        }
+      ],
+      "usageNote": "MIN/MAX range, not a single value."
+    },
+    "315-03": {
+      "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph",
+        "laneWidthFt",
+        "shoulderWidthBand"
+      ],
+      "columnMeaning": {
+        "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES",
+        "lateralShiftTaper": "LATERAL TAPER LENGTH (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES FOR LANE WIDTH (LATERAL SHIFT OF TRAFFIC FLOW PATH)",
+        "shoulderTaper": "SHOULDER TAPER LENGTH (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES FOR SHOULDER WIDTH — 7 bands (<=4 through 12 ft) on ramp sheet"
+      },
+      "note": "4 speed columns (45,50,55,65). Buffer + first 3 shoulder bands match 301-03; adds lateralShiftTaper (lane 10/11/12) and shoulder bands 9-12 ft.",
+      "rows": [
+        {
+          "speedMph": 65,
+          "longitudinalBufferSpace": {
+            "ft": 645,
+            "skipLines": 16
+          },
+          "lateralShiftTaper": {
+            "10": {
+              "ft": 640,
+              "skipLines": 16,
+              "devices": 17
+            },
+            "11": {
+              "ft": 720,
+              "skipLines": 18,
+              "devices": 19
+            },
+            "12": {
+              "ft": 800,
+              "skipLines": 20,
+              "devices": 21
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            ">= 8 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            },
+            "9 ft": {
+              "ft": 240,
+              "skipLines": 6,
+              "devices": 7
+            },
+            "10 ft": {
+              "ft": 240,
+              "skipLines": 6,
+              "devices": 7
+            },
+            "11 ft": {
+              "ft": 280,
+              "skipLines": 7,
+              "devices": 8
+            },
+            "12 ft": {
+              "ft": 280,
+              "skipLines": 7,
+              "devices": 8
+            }
+          }
+        },
+        {
+          "speedMph": 55,
+          "longitudinalBufferSpace": {
+            "ft": 495,
+            "skipLines": 13
+          },
+          "lateralShiftTaper": {
+            "10": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "11": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            },
+            "12": {
+              "ft": 680,
+              "skipLines": 17,
+              "devices": 18
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "9 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "10 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "11 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            },
+            "12 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          }
+        },
+        {
+          "speedMph": 50,
+          "longitudinalBufferSpace": {
+            "ft": 425,
+            "skipLines": 11
+          },
+          "lateralShiftTaper": {
+            "10": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "11": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "12": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "9 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "10 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "11 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            "12 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 45,
+          "longitudinalBufferSpace": {
+            "ft": 360,
+            "skipLines": 9
+          },
+          "lateralShiftTaper": {
+            "10": {
+              "ft": 440,
+              "skipLines": 11,
+              "devices": 12
+            },
+            "11": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "12": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            ">= 8 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "9 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "10 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "11 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            "12 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        }
+      ]
+    },
+    "315-04": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "note": "Shoulder-closure ramp set: W21-5aR/W21-5bR, W7-3a, G20-2. W3-7a ramp plaque in Note 8 only (not table row). No R2-1/NYR2-6/G20-1 in table.",
+      "rows": [
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        },
+        {
+          "signCode": "W21-5bR",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5aR",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W7-3a",
+          "NON-FREEWAY": null,
+          "FREEWAY": "36x30"
+        },
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x24"
+        }
+      ]
+    },
+    "315-05": {
+      "title": "CHANNELIZING DEVICE APPLICATION FOR SHORT-TERM STATIONARY WORK ZONES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "workZoneProvision",
+        "channelizingDeviceType"
+      ],
+      "note": "NEW vs 619-301. Short-term matrix; 20/40 FT spacing rows (not 402's intermediate 20' note).",
+      "columnHeaders": [
+        "cones",
+        "type1_markers",
+        "standard_cones",
+        "extra_tall_cones",
+        "temporary_tubular_markers",
+        "interim_tubular_markers",
+        "vertical_panels",
+        "oversized_vertical_panels",
+        "type_iii_barricades"
+      ],
+      "provisionRows": [
+        {
+          "provisionId": "shoulderMergingShiftingTapers",
+          "label": "SHOULDER/MERGING/SHIFTING TAPERS",
+          "spacingReference": "40 FT.",
+          "allowedByDeviceType": {
+            "cones": "X",
+            "type1_markers": "X",
+            "standard_cones": "X",
+            "extra_tall_cones": "X",
+            "temporary_tubular_markers": "X",
+            "interim_tubular_markers": "X",
+            "vertical_panels": "X",
+            "oversized_vertical_panels": "X"
+          }
+        },
+        {
+          "provisionId": "markingForTransverseBumps",
+          "label": "MARKING FOR TRANSVERSE BUMPS",
+          "allowedByDeviceType": {
+            "cones": "X2",
+            "type1_markers": "X2"
+          }
+        },
+        {
+          "provisionId": "transverseDeviceWithinClosedLaneOrShoulder",
+          "label": "TRANSVERSE DEVICE WITHIN CLOSED TRAFFIC LANE AND/OR SHOULDER",
+          "spacingReference": "800 FT.",
+          "allowedByDeviceType": {
+            "cones": "X",
+            "type1_markers": "X",
+            "standard_cones": "X",
+            "extra_tall_cones": "X",
+            "temporary_tubular_markers": "X",
+            "interim_tubular_markers": "X",
+            "vertical_panels": "X",
+            "oversized_vertical_panels": "X"
+          }
+        },
+        {
+          "provisionId": "removalOfExistingGuideRail",
+          "label": "REMOVAL OF EXISTING GUIDE RAIL",
+          "spacingReference": "80 FT. / 40 FT.",
+          "allowedByDeviceType": {
+            "cones": "X",
+            "type1_markers": "X",
+            "standard_cones": "X",
+            "extra_tall_cones": "X",
+            "temporary_tubular_markers": "X",
+            "interim_tubular_markers": "X",
+            "vertical_panels": "X",
+            "oversized_vertical_panels": "X",
+            "type_iii_barricades": "X2"
+          }
+        }
+      ],
+      "spacingRows": [
+        {
+          "spacingId": "spacing20ft",
+          "label": "20 FT.",
+          "allowedByDeviceType": {
+            "cones": "X",
+            "type1_markers": "X"
+          }
+        },
+        {
+          "spacingId": "spacing40ft",
+          "label": "40 FT.",
+          "allowedByDeviceType": {
+            "cones": "X",
+            "type1_markers": "X",
+            "standard_cones": "X",
+            "extra_tall_cones": "X",
+            "temporary_tubular_markers": "X",
+            "interim_tubular_markers": "X",
+            "vertical_panels": "X",
+            "oversized_vertical_panels": "X"
+          }
+        }
+      ],
+      "tableNotes": [
+        "NOTES: X= ALLOWED, BLANK = NOT ALLOWED, X2 = DOUBLE APPLICATION",
+        "1. - A TYPE 1 OBJECT MARKER MAY BE USED IN LIEU OF CHANNELIZING DEVICE.",
+        "2. - CHANNELIZING DEVICES SHALL BE EQUIPPED WITH A FLASHING WARNING LIGHT."
+      ]
+    }
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. SHORT-TERM STATIONARY IS DAYTIME WORK THAT OCCUPIES A LOCATION FOR MORE THAN 1 HOUR WITHIN A SINGLE DAYLIGHT PERIOD.",
+      "2. NO WORK ACTIVITY OR STORAGE OF EQUIPMENT, VEHICLES, OR MATERIAL SHOULD OCCUR WITHIN A BUFFER SPACE.",
+      "3. CHANNELIZING DEVICE SPACING (CENTER TO CENTER) SHALL NOT EXCEED 40' IN THE ACTIVE WORK SPACE.",
+      "4. XX IS THE EXPECTED OVERALL LENGTH OF THE OPERATION TO BE COMPLETED WITHIN THE WORK DAY. A SUPPLEMENTAL DISTANCE PLAQUE W7-3a SHALL BE USED WITH SIGN W20-1 WHEN THE DISTANCE BETWEEN THE ADVANCE WARNING SIGNS AND WORK MAY BECOME GREATER THAN 2 MILES AS A RESULT OF THE DISTANCE BETWEEN THE W20-1 SIGN AND THE FARTHEST WORK LOCATION. THE SUPPLEMENT SIGN W7-3a SHALL INDICATE THE MAXIMUM ANTICIPATED DISTANCE.",
+      "5. WHEN MULTIPLE WORK LOCATIONS ARE ANTICIPATED WITHIN XX MILES FROM THE W20-1 SIGN AS A RESULT OF THE FOLLOWING SITUATIONS: THE DISTANCE BETWEEN THE ADVANCE WARNING SIGNS AND WORK MAY BECOME GREATER THAN 2 MILES.",
+      "6. THE PROTECTIVE VEHICLE(S) SHALL MAINTAIN THE APPROPRIATE ROLL AHEAD DISTANCE, BE AN UNOCCUPIED TRUCK POSITIONED PARALLEL TO TRAFFIC, PARKING BRAKE SET, PLACED IN 2ND GEAR (MANUAL TRANSMISSIONS /ENGINE OFF) OR PARK / NEUTRAL (AUTOMATIC TRANSMISSIONS) AND HAVE THE FRONT WHEELS ALIGNED WITH THE LANE STRIPING.",
+      "7. CHANNELIZING DEVICES SHALL BE PLACED TRANSVERSELY A MINIMUM OF EVERY 800' AS SHOWN WHEN A PAVED SHOULDER HAVING A WIDTH OF 8' OR GREATER IS CLOSED FOR A DISTANCE GREATER THAN 800'.",
+      "8. A SUPPLEMENTAL DISTANCE PLAQUE W3-7a SHALL BE USED WITH SIGN W20-1 WHEN THE DISTANCE BETWEEN THE ADVANCE WARNING SIGNS AND WORK MAY BECOME GREATER THAN 2 MILES AS A RESULT OF THE DISTANCE BETWEEN THE W20-1 SIGN AND THE FARTHEST WORK LOCATION ON A RAMP APPROACH. THE SUPPLEMENT SIGN W3-7a SHALL INDICATE THE MAXIMUM ANTICIPATED DISTANCE."
+    ],
+    "notesOrderNote": "8 numbered notes (plan column, rotation=270). Like 301 Notes 1-7 plus ramp-specific Note 8 (W3-7a). No 301 Note 9 regulatory R2-1 requirement in PDF text layer."
+  },
+  "corridorHints": {
+    "confidence": "drawing",
+    "fromPlanLabels": [
+      "ramp approach: plan label RAMP; spacing 2640'/1500'/1000' (freeway advance-warning pattern)",
+      "advance signs: W20-1 -> W21-5bR -> W21-5aR (shoulder closed, not lane-closed W20-5R)",
+      "supplement W7-3a on W20-1 when work span > 2 miles (Note 4); W3-7a for ramp approach (Note 8)",
+      "G20-1 every 2 miles when multiple work locations within XX miles (Note 5)",
+      "500' downstream taper (L/3) on plan — longer than 301 50'-100' callout",
+      "SHOULDER TAPER L/3 + lateral shift of traffic flow path (table 315-03)",
+      "BUFFER SPACE + ROLL AHEAD (315-02 GVW) + PVH protective vehicle",
+      "optional CAUTION ARROW PANEL on plan",
+      "Detail 315A referenced on plan for ramp taper geometry"
+    ]
+  },
+  "findings": [
+    "pdfPages=2 rotation=270 both display_rect=Rect(0.0, 0.0, 1224.0, 792.0)",
+    "ramp-approach plan: 2640'/1500'/1000' + RAMP label; 500' downstream taper (L/3)",
+    "315-01: 2 shoulder rows — all PVH+TMIA (matches 301-01)",
+    "315-02: 2 GVW rows — identical to 301-02",
+    "315-03 vs 301-03: overlapping shoulder bands (<=4, 5-7, >=8) ALL 12 cells identical",
+    "315-03 NEW vs 301: lateralShiftTaper lane 10/11/12 + shoulder bands 9-12 ft (7 bands total)",
+    "315-04: 6 sign rows (301-04 has 9 incl R2-1/NYR2-6/G20-1); W3-7a ramp plaque NOT in table — plan Note 8 only",
+    "315-05: SHORT-TERM channelizing matrix (4 provisions + 20/40 FT rows) — NEW vs 301 (301 has no table 05)",
+    "notes: 8 numbered (301 has 9 — 315 drops R2-1 Note 9, adds ramp W3-7a Note 8)",
+    "SURPRISE: W3-7a ramp distance plaque (Note 8) — not on 301",
+    "SURPRISE: 315-03 lateral shift taper by lane width 10/11/12 ft",
+    "SURPRISE: shoulder taper bands extend to 9-12 ft on ramp sheet",
+    "SURPRISE: 5 tables (315-01..05) vs 301's 4 — adds short-term channelizing matrix"
+  ],
+  "comparisonVs301": {
+    "tables_present": "315 has 5 tables vs 301's 4 — adds 315-05 channelizing",
+    "315-01_vs_301-01": "identical",
+    "315-02_vs_301-02": "identical",
+    "315-03_vs_301-03": "buffer + shoulder <=8 ft identical; adds lateralShiftTaper + shoulder 9-12 ft",
+    "315-04_vs_301-04": "6 vs 9 sign rows; no R2-1/NYR2-6/G20-1; W3-7a plan-only",
+    "absent_vs_301": [
+      "301 Note 9 regulatory R2-1/NYR2-2 requirement"
+    ],
+    "added_vs_301": [
+      "315-05 channelizing matrix",
+      "W3-7a ramp distance plaque (Note 8)",
+      "lateral shift taper columns",
+      "shoulder width bands 9-12 ft",
+      "500' downstream taper on plan"
+    ]
+  }
+}

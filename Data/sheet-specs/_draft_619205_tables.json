@@ -1,0 +1,182 @@
+{
+  "sheetNumber": "619-205",
+  "sourcePdf": "Bridge/captures/619-205.pdf",
+  "sourcePdfRevision": "619-205.pdf (1 page, rotation=0)",
+  "pdfPages": 1,
+  "pageRotation": {
+    "page0": 0
+  },
+  "extractedBy": "Cursor subagent (PyMuPDF words_in_window / group_rows / assert_row_count)",
+  "extractedOn": "2026-08-03",
+  "confidence": "verbatim",
+  "tableRoles": {
+    "note": "Family 3 short-duration shoulder. 3 tables only — NO taperAndBuffer role. 205-02=rollAheadDistance (speed bands). 205-03=signSizes.",
+    "protectiveVehicle": "205-01",
+    "rollAheadDistance": "205-02",
+    "signSizes": "205-03"
+  },
+  "tables": {
+    "205-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition",
+        "roadTypeForProtectiveVehicle"
+      ],
+      "note": "Short-duration: 4 rows (lane+shoulder). FREEWAY column only in PDF text layer. P+TMIA codes — not 301-01 PVH+TMIA.",
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "P+TMIA",
+          "ge45": null,
+          "b35to40": null,
+          "le30": null
+        },
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS, EXCAVATION)",
+          "FREEWAY": "P+TMIA",
+          "ge45": null,
+          "b35to40": null,
+          "le30": null
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "P+TMIA",
+          "ge45": null,
+          "b35to40": null,
+          "le30": null
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS, EXCAVATION)",
+          "FREEWAY": "P+TMIA",
+          "ge45": null,
+          "b35to40": null,
+          "le30": null
+        }
+      ],
+      "legend": {
+        "P": "PROTECTIVE VEHICLE",
+        "TMIA": "TRUCK/TRAILER MOUNTED IMPACT ATTENUATOR"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUMES THERE IS NO POSITIVE PROTECTION PRESENT."
+      ]
+    },
+    "205-02": {
+      "title": "ROLL AHEAD DISTANCE",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN and MAX by posted speed (not GVW like 301-02).",
+      "note": "2 speed bands (>=55, 45-50). Values match 401-02/402-02 first two rows.",
+      "rows": [
+        {
+          "speedBand": ">= 55 MPH",
+          "minMph": 55,
+          "maxMph": null,
+          "min": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "speedBand": "45 - 50 MPH",
+          "minMph": 45,
+          "maxMph": 50,
+          "min": {
+            "ft": 80,
+            "skipLines": 2
+          },
+          "max": {
+            "ft": 160,
+            "skipLines": 4
+          }
+        }
+      ],
+      "usageNote": "MIN/MAX range, not a single value."
+    },
+    "205-03": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "note": "Minimal short-duration sign set: W20-1, generic W21-5, WARNING FLAG.",
+      "rows": [
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48",
+          "note": "Generic W21-5 (not split W21-5aR/W21-5bR like 301-04)"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. THE EXPOSURE CONDITIONS ASSUMES THERE IS NO POSITIVE PROTECTION PRESENT.",
+      "1. SHORT DURATION IS WORK THAT OCCUPIES A LOCATION FOR UP TO 1 HOUR.",
+      "2. THE OPERATOR(S) SHALL REMAIN IN THE PROTECTIVE VEHICLE(S) WITH THE SAFETY BELT AND HEADREST PROPERLY ADJUSTED, MAINTAIN VEHICLE SPACING, AND KEEP THE WHEELS ALIGNED WITH THE LANE STRIPING. TWO-WAY RADIOS SHOULD BE USED TO COMMUNICATE BETWEEN THE OPERATOR AND THE WORK CREW.",
+      "3. THERE SHALL BE NO WORKERS, EQUIPMENT, OR OTHER VEHICLES IN THE ROLL AHEAD DISTANCE."
+    ],
+    "notesOrderNote": "4 notes: table 205-01 footnote + 3 plan notes. Note 2 requires operator in PV with two-way radio — differs from 301 Note 2 (unoccupied PV)."
+  },
+  "corridorHints": {
+    "confidence": "drawing",
+    "fromPlanLabels": [
+      "advance signs: W20-1 -> W21-5 (generic shoulder closed, not W21-5aR/W21-5bR split)",
+      "CONE SPACING NOT TO EXCEED 40' (1 SKIP LINE) on plan",
+      "24000 LB PROTECTIVE VEHICLE WITH TMIA callout",
+      "NO buffer/taper dimension table — short duration mobile operation",
+      "SPOTTER callout on plan"
+    ]
+  },
+  "findings": [
+    "pdfPages=1 rotation=0 display_rect=Rect(0.0, 0.0, 1224.0, 792.0)",
+    "205-01: 4 rows (lane+shoulder) — FREEWAY column P+TMIA; NOT 301-01 PVH+TMIA or 2 shoulder-only rows",
+    "205-02: 2 rows keyed by posted speed (>=55 vs 45-50) — same values as 401-02/402-02, NOT 301-02 GVW",
+    "205-03: 3 entries — W20-1 + generic W21-5; no W7-3a/G20-1/R2-1 (short duration)",
+    "notes.printed: 4 (1 table + 3 plan); operator-in-PV + radio (not 301 roll-ahead unoccupied)",
+    "SURPRISE vs 301: NO taper/buffer table (205-03 is sign sizes, not 301-03)",
+    "SURPRISE: P+TMIA not PVH+TMIA; operator remains in PV (Note 2)",
+    "SURPRISE: only 3 tables (205-01..03); no channelizing matrix",
+    "SURPRISE: W21-5 generic sign; plan shows 40' cone spacing callout",
+    "SURPRISE: 1-page sheet rotation=0 (301 is rotation=270)",
+    "comparisonVs301: NO 301-03 taper/buffer; 205-02 speed-keyed not GVW-keyed"
+  ],
+  "comparisonVs301": {
+    "tables_present": "205 has 3 tables vs 301's 4 — no taperAndBuffer (301-03)",
+    "205-01_vs_301-01": "P+TMIA vs PVH+TMIA; 4 lane+shoulder rows vs 2 shoulder-only rows",
+    "205-02_vs_301-02": "speed bands (2 rows) vs GVW bands (2 rows); same numeric ranges on overlap",
+    "205-03_vs_301-04": "W21-5 generic vs W21-5aR/W21-5bR + W7-3a/G20-1/R2-1",
+    "absent_vs_301": [
+      "301-03 longitudinal buffer + shoulder taper table",
+      "W7-3a supplement plaque",
+      "G20-1 multi-location signs",
+      "R2-1 regulatory speed sign note",
+      "800' transverse channelizing note"
+    ]
+  }
+}

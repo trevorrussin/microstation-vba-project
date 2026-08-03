@@ -635,7 +635,7 @@ Call AddSign("W19-03",     "Freeway Ends",                 "W19-03",       celPa
 Call AddSign("W19-04",     "Expressway Ends",              "W19-04",       celPath, "W19-04",      "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)            '481
 Call AddSign("W19-05",     "All Traffic Must Exit",        "W19-05",       celPath, "W19-05",      "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)            '482
 
-Call AddSign("W20-01RA",   "Work (Road) (Ahead)",          "W20-01RA",     celPath, "W20-01RA",    "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)           '483
+Call AddSign("W20-01RA",   "Work (Road) (Ahead)",          "W20-01RA",     celPath, "W20-01RA",    "48"" x 48""", "48"" x 48""", 48, 48, postType, postPath, defSpacing)           '483
 Call AddSign("W20-01RF",   "Work (Road) (Feet)",           "W20-01RF",     celPath, "W20-01RF",    "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)           '484
 Call AddSign("W20-01RM",   "Work (Road) (Mile)",           "W20-01RM",     celPath, "W20-01RM",    "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)           '485
 Call AddSign("W20-01RPM",  "Work (Road) (Part Mile)",      "W20-01RPM",    celPath, "W20-01RPM",   "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)          '486

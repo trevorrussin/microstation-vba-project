@@ -1,0 +1,103 @@
+{
+  "sheetNumber": "619-114",
+  "sourcePdf": "Bridge/captures/619-114.pdf",
+  "extractedOn": "2026-08-03",
+  "tableRoles": {
+    "protectiveVehicle": "114-01",
+    "rollAheadDistance": "114-02",
+    "signSizes": "114-03",
+    "note": "NO taperAndBuffer role"
+  },
+  "tables": {
+    "114-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "P, TMIA"
+        },
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS NO WORKERS EXPOSED",
+          "FREEWAY": "NA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "P, TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS NO WORKERS EXPOSED",
+          "FREEWAY": "NA"
+        }
+      ]
+    },
+    "114-02": {
+      "title": "ROLL AHEAD DISTANCE",
+      "rows": [
+        {
+          "speedBand": ">= 55 MPH",
+          "minMph": 55,
+          "maxMph": null,
+          "min": {
+            "ft": 200,
+            "skipLines": 5
+          },
+          "max": {
+            "ft": 280,
+            "skipLines": 7
+          }
+        },
+        {
+          "speedBand": "45 - 50 MPH",
+          "minMph": 45,
+          "maxMph": 50,
+          "min": {
+            "ft": 160,
+            "skipLines": 4
+          },
+          "max": {
+            "ft": 240,
+            "skipLines": 6
+          }
+        }
+      ]
+    },
+    "114-03": {
+      "title": "REQUIRED SIGN SIZES",
+      "rows": [
+        {
+          "signCode": "NYW8-33",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "W20-5R",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "planGaps": {
+    "minRollOrGap": 500,
+    "maxMention": "2 MILE / 1500"
+  },
+  "signsOnSheet": [
+    "NYW8-33",
+    "W20-5R",
+    "WARNING FLAG"
+  ],
+  "findings": [
+    "114-01: OTHER HAZARDS rows are NA (mobile)",
+    "114-02: MOVING operation roll-ahead (higher than stationary 306/212)",
+    "NO taper tables; plan 500' minimum roll-ahead / spacing; signs NYW8-33+W20-5R only"
+  ]
+}

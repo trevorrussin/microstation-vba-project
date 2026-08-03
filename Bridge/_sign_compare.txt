@@ -1,0 +1,25 @@
+=== cells near corridor ===
+TWZSGN_P   xy=(1022110.87,217353.75) scale=(960.0,960.0) wh=(5.6,8.6) c=240 wt=3 lvl=None
+W20-01RA   xy=(1022130.87,217353.75) scale=(960.0,960.0) wh=(49.0,49.0) c=240 wt=3 lvl=None
+TWZSGN_P   xy=(1022112.45,217309.43) scale=(960.0,960.0) wh=(5.6,8.6) c=0 wt=0 lvl=None
+W20-01RA   xy=(1022110.89,217230.59) scale=(960.0,960.0) wh=(49.0,49.0) c=0 wt=0 lvl=None
+
+=== distinct Y clusters: [217354.0, 217309.0, 217231.0] ===
+
+=== all W20/TWZSGN with y in 217100..217360, x in 1021000..1022500 ===
+TWZSGN_P   xy=(1022110.87,217353.75) scaleX=960.0 wh=(5.6,8.6) c=240 wt=3 lvl=None
+W20-01RA   xy=(1022130.87,217353.75) scaleX=960.0 wh=(49.0,49.0) c=240 wt=3 lvl=None
+TWZSGN_P   xy=(1022112.45,217309.43) scaleX=960.0 wh=(5.6,8.6) c=0 wt=0 lvl=None
+W20-01RA   xy=(1022110.89,217230.59) scaleX=960.0 wh=(49.0,49.0) c=0 wt=0 lvl=None
+
+=== lines near sign posts ===
+LINE (1021460.87,217313.75)->(1021460.87,217393.75) len=80.0 c=0 wt=0 lvl=Default
+LINE (1021540.87,217313.75)->(1021540.87,217393.75) len=80.0 c=0 wt=0 lvl=Default
+LINE (1021661.87,217313.75)->(1021661.87,217393.75) len=80.0 c=0 wt=0 lvl=Default
+LINE (1021760.87,217313.75)->(1021760.87,217393.75) len=80.0 c=0 wt=0 lvl=Default
+LINE (1022110.87,217313.75)->(1022110.87,217393.75) len=80.0 c=0 wt=0 lvl=Default
+LINE (1022110.87,217353.75)->(1022130.87,217353.75) len=20.0 c=240 wt=3 lvl=SF_P
+LINE (1022110.89,217305.10)->(1022110.89,217255.10) len=50.0 c=0 wt=0 lvl=Default
+
+=== text near corridor ===
+TEXT '[textnode]' xy=(1022196.02,217347.50) wh=(30.3,17.5) c=240 lvl=SF_P

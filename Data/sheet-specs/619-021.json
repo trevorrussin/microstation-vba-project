@@ -1,0 +1,317 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-021",
+    "title": "WORK ZONE TRAFFIC CONTROL WORK BEYOND SHOULDER NON-FREEWAY MOWING",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "MOWING OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2021-12-02",
+    "issuedUnder": "EI 21-028",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-021.pdf",
+    "localPdf": "Bridge/captures/619-021.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 270,
+    "transcribedBy": "Cursor (Family 9 mowing/mulching/marking)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Work beyond shoulder mowing. AW spacing table + W21-8 sizes. No PV/roll. Plan places W21-8 at 500' min / 2 mile max. live-build n/a (sign-only, no roll row)."
+  },
+  "applicability": {
+    "roadType": "Non-Freeway",
+    "roadway": "Non-freeway, work beyond shoulder",
+    "closure": "Work beyond shoulder",
+    "duration": "Mowing (special)",
+    "speedRangeMph": {
+      "allowed": [
+        30,
+        35,
+        40,
+        45,
+        50,
+        55
+      ],
+      "note": "AW URBAN bands + RURAL."
+    },
+    "laneWidthFt": null,
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft"
+    ],
+    "areaTypes": [
+      "URBAN",
+      "RURAL"
+    ]
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "type": "integer",
+      "allowed": [
+        30,
+        35,
+        40,
+        45,
+        50,
+        55
+      ],
+      "usedBy": [
+        "021-01"
+      ]
+    },
+    {
+      "id": "areaType",
+      "type": "enum",
+      "allowed": [
+        "URBAN",
+        "RURAL"
+      ],
+      "default": "RURAL",
+      "usedBy": [
+        "021-01"
+      ]
+    },
+    {
+      "id": "shoulderWidthBand",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft"
+      ],
+      "default": ">= 8 ft",
+      "usedBy": []
+    },
+    {
+      "id": "signSizeClass",
+      "type": "enum",
+      "allowed": [
+        "NON-FREEWAY",
+        "FREEWAY"
+      ],
+      "default": "NON-FREEWAY",
+      "usedBy": [
+        "021-02"
+      ]
+    }
+  ],
+  "tableRoles": {
+    "note": "2 tables. NO PV/roll/taper. Plan gap is fixed 500'-2mi (not AW A/B/C).",
+    "advanceWarningSpacing": "021-01",
+    "signSizes": "021-02"
+  },
+  "tables": {
+    "021-01": {
+      "title": "ADVANCE WARNING SIGN SPACING",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "roadType"
+      ],
+      "note": "Same URBAN/RURAL shape as 011-06 (no FREEWAY row on this non-freeway sheet).",
+      "rows": [
+        {
+          "roadType": "URBAN",
+          "speedBand": "<= 30 MPH",
+          "minMph": null,
+          "maxMph": 30,
+          "A": 100,
+          "B": 100,
+          "C": 100,
+          "XX": "AHEAD",
+          "YY": "AHEAD"
+        },
+        {
+          "roadType": "URBAN",
+          "speedBand": "35-40 MPH",
+          "minMph": 35,
+          "maxMph": 40,
+          "A": 200,
+          "B": 200,
+          "C": 200,
+          "XX": "AHEAD",
+          "YY": "AHEAD"
+        },
+        {
+          "roadType": "URBAN",
+          "speedBand": ">= 45 MPH",
+          "minMph": 45,
+          "maxMph": null,
+          "A": 350,
+          "B": 350,
+          "C": 350,
+          "XX": "AHEAD",
+          "YY": "AHEAD"
+        },
+        {
+          "roadType": "RURAL",
+          "speedBand": "ALL",
+          "minMph": null,
+          "maxMph": null,
+          "A": 500,
+          "B": 500,
+          "C": 500,
+          "XX": "1500 FT.",
+          "YY": "1000 FT."
+        }
+      ]
+    },
+    "021-02": {
+      "title": "REQUIRED SIGN SIZES*",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "rows": [
+        {
+          "signCode": "W21-8",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "Work beyond shoulder: W21-8 only at 500' min / 2 mi max. No PV/roll/tapers.",
+    "zones": [
+      {
+        "id": "signA",
+        "order": 1,
+        "kind": "sign",
+        "signCode": "W21-8"
+      },
+      {
+        "id": "gapA",
+        "order": 2,
+        "kind": "gap",
+        "sheetLabel": "A",
+        "lengthSource": {
+          "fixedFt": 500
+        },
+        "dimensioned": false,
+        "note": "500 FT. (MINIMUM) AND 2 MILE (MAXIMUM)"
+      },
+      {
+        "id": "workArea",
+        "order": 3,
+        "kind": "workArea",
+        "sheetLabel": "MOWER / WORK AREA",
+        "lengthSource": null,
+        "hatched": false,
+        "dimensioned": false
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "W21-8 only — no roll/taper. live-build n/a (sign-only payload).",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Mower",
+        "walkDirection": "Upstream, against traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Sign",
+            "zone": "signA",
+            "signCode": "W21-8",
+            "spacingZone": "gapA"
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "BUFFER SPACE",
+            "reason": "No buffer on mowing/mulching sheet."
+          },
+          {
+            "label": "SHOULDER TAPER",
+            "reason": "No taper."
+          },
+          {
+            "label": "MERGING TAPER",
+            "reason": "No taper."
+          },
+          {
+            "label": "Vehicle Space",
+            "reason": "Not on this sheet."
+          },
+          {
+            "label": "ROLL AHEAD DISTANCE",
+            "reason": "No protective vehicle / roll-ahead on this sheet."
+          }
+        ]
+      }
+    ]
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "items": [
+      {
+        "signCode": "W21-8",
+        "sheetLegend": "MOWING AHEAD",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signA",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W21-08"
+      },
+      {
+        "signCode": "WARNING FLAG",
+        "sheetLegend": "WARNING FLAG",
+        "shape": "flag",
+        "postMounted": false,
+        "mountedOn": "workVehicle",
+        "sizeNonFreeway": "18x18",
+        "sizeFreeway": "18x18",
+        "signLibraryKey": null
+      }
+    ]
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "mower",
+        "sheetLabel": "MOWER",
+        "required": true
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "dimensions": [],
+    "lateralDimensions": []
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. THE MOWING OPERATION IS A SPECIAL OPERATION. IT SHALL BE SCHEDULED AND COMPLETED DURING DAYLIGHT WORK SHIFTS. THE WORK SHALL BE SUSPENDED DURING PERIODS OF POOR VISIBILITY.",
+      "2. TRACTOR MOWERS SHALL HAVE AN AMBER BEACON OPERATING AT ALL TIMES. (2' MIN. FROM FACE OF CURB OR 6' MIN. FROM EDGE OF SHOULDER)",
+      "3. \"MOWING AHEAD\" SIGN IS NECESSARY ON BOTH SIDES SIMULTANEOUSLY IF THE WORK WILL OCCUR ON BOTH SIDES OF THE ROAD.",
+      "4. APPROVED PERSONAL PROTECTIVE EQUIPMENT (PPE) SHALL BE WORN WHILE ON TRACTORS NOT EQUIPPED WITH AN ENCLOSED CAB. PPE IS REQUIRED WHEN EXITING TRACTOR WITHIN RIGHT OF WAY."
+    ]
+  },
+  "rules": [
+    {
+      "id": "no-roll",
+      "severity": "error",
+      "source": "Plan",
+      "assert": "No ROLL AHEAD / taper rows.",
+      "commonFailure": "Copying mobile roll-ahead order from 022/023."
+    }
+  ],
+  "knownCodeDeviations": []
+}

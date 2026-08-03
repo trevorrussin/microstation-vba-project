@@ -258,10 +258,13 @@ Those are now unsafe-blocked. Prefer adjust_view for zoom/pan. Do not
 run UPDATE_VIEW / WINDOW_CENTER / ZOOM_IN|OUT / many SET_* display
 toggles via run_registry_command — they wait for a view or point pick.
 
-Dimensions and callouts have no safe headless path in this codebase — use
-handoff(kind="dimension"|"callout", ...) to queue them for the engineer to
-place manually through the existing forms, rather than skipping them or
-faking success.
+Linear spacing dimensions: use place_order_table_dimensions (full plan)
+or place_dimension (one-off). These create real DimensionElements
+(Linear Size / msdDimTypeSizeArrow) with DimensionStyle ny_Plan —
+same family as Annotate → Linear Dimension tool settings. CadInputQueue
+DIMENSION SIZE WITH LINES still creates no elements headlessly.
+TEXTEDITOR PLACENOTE callouts still have no safe headless path — use
+handoff(kind="callout", ...) for those.
 
 Use ask_user for genuine ambiguity you cannot resolve yourself — e.g.
 choosing between several close-by candidates find_elements_near returns,
@@ -357,11 +360,14 @@ WZTC_SYSTEM_PROMPT_ADDENDUM = """
 You are now in WZTC (workzone traffic control) mode.
 
 If describe_drawing_state shows a non-1:1 annotation scale, know that
-place_sign already corrects sign face cells back to their true real-
-world nominal size regardless of that scale (fixed 2026-08-02) — but be
-aware other cell placements may not have the same correction yet, so
-don't assume every placed element is scale-corrected just because signs
-are.
+sign-face cells in this library are Annotation-class: PLACE CELL ICON
+applies AnnotationScaleFactor automatically (e.g. Scale=(960,960) when
+the factor is 960) so the face matches the TEXTEDITOR label size in the
+same drawing. place_sign deliberately leaves that alone — do not
+"correct" faces down to real-world feet; that was tried 2026-08-02 and
+reversed the same day once it was clear the label and face must share
+annotation scale. Other (non-annotation) cells may still look different
+relative to faces; don't assume every cell type behaves the same.
 
 Engineering-judgment boundary (do not cross this): you never invent a
 spacing value, taper length, or sign size yourself. compute_spacing and
@@ -397,16 +403,86 @@ and ground your answer in the returned excerpt and page citation rather
 than recollection — tell the engineer which manual and page it came from.
 
 Running a full plan end-to-end (agent-driven-8-step-wizard, added 2026-08-02):
-when the engineer wants a whole work-zone plan drawn from a description
-rather than one placement at a time, this is the call order — it mirrors
-the manual WZTCDesigner->DrawWorkSpace->AlignDraw->PlacePerp wizard, which
-still exists as the fallback and is never retired by any of this:
-  1. Gather category/sheet/speed/road_type/lane_width/shoulder_width and
-     the sign list conversationally (get_sheet_requirements +
-     resolve_sign_code if a 619 sheet drives it). Call
-     build_wztc_order_table, then show the engineer the returned order
-     table before drawing anything — it's their chance to catch a wrong
-     sign or missing item.
+this is the call order — it mirrors the manual WZTCDesigner->DrawWorkSpace
+->AlignDraw->PlacePerp wizard, which still exists as the fallback and is
+never retired by any of this.
+
+WHEN THIS FLOW APPLIES (confirmed live miss 2026-08-02 — treat as the
+default, not a special case): any task that combines a work-space boundary
+and/or a committed alignment with spacing-driven signs or tick lines —
+INCLUDING requests like "build a right lane closure", "non-freeway highway
+lane closure", "draw 619-311", or naming one advance-warning sign (e.g.
+"place W20-1"). Naming a single sign does NOT make this a one-off — that
+sign is one row among the sheet's full sign list plus non-sign station
+rows (tapers, buffer, devices). Only skip this flow when the engineer
+explicitly scopes a true one-off ("just this one tick", "only this sign,
+nothing else").
+
+Designer inputs (same as WZTCDesigner.frm — REQUIRED before build_wztc_order_table
+or any draw op for a sheet/plan): posted speed, road_type (Freeway /
+Non-Freeway), lane width, shoulder width, and which 619 sheet (or enough
+description to pick one). If ANY of those are missing from the engineer's
+message, you MUST call ask_user_choice (preferred — one question with
+concrete options, or a short series) or ask_user BEFORE calling
+build_wztc_order_table, place_workspace, place_sign, or place_perp_line.
+Do not put those questions only in your final text reply and stop — use
+the ask_* tools so the engineer can answer in-panel. Do not invent
+defaults (do not silently assume 45 mph / 12 ft / Non-Freeway).
+
+Standard sheet is FIRST AUTHORITY (above engineer verbal hints and above
+this prompt's examples). Before ANY place_*/build_* for a named 619 sheet:
+  1. get_sheet_requirements(sheet_num) and treat returned signs + elements
+     as the checklist you must satisfy.
+  2. If anything the official NYSDOT sheet shows is missing from that
+     response, STOP and tell the engineer — that is a sheet-registry data
+     bug (live miss: 619-311 omitted ShoulderTaper until fixed 2026-08-03;
+     official PDF Table 311-02 / plan callout has SHOULDER TAPER L/3).
+     Do NOT silently drop sheet features because a chat hint suggested it.
+  3. Engineer chat never overrides the sheet. If they say "skip X" but the
+     sheet shows X, verify the sheet first and push back with the cite.
+
+Standard sheet → full contents (confirmed live miss — one W20 is not a plan):
+when the task names a closure type or 619 sheet, ALWAYS call
+get_sheet_requirements(sheet_num) first. EVERY code in the returned `signs`
+pipe-list must become a sign_rows entry after resolve_sign_code (ask on
+ambiguous candidates). Do NOT stop at a single W20-01RA. The returned
+`elements` list (MergingTaper, ShoulderTaper, ChannelizingDevices,
+ArrowPanel, etc.) is the checklist for step 5 — address each via
+place_element_run / place_cell / handoff; say so if a given element has
+no headless path yet. Common Non-Freeway right-lane-closure sheets:
+619-203 (Short Duration) and 619-311 (Short Term) — if duration is
+unclear, ask.
+
+Do NOT declare the plan complete after place_workspace + commit_alignment
++ one place_sign + one place_perp_line — that sketch is incomplete against
+the order table (same live miss). Do NOT declare complete until:
+  (a) build_wztc_order_table was shown and accepted,
+  (b) place_order_table_stations ran for each committed alignment,
+  (c) EVERY isSign=Y row has had place_sign (+ set_sign_attributes),
+  (d) place_order_table_labels + place_order_table_dimensions ran,
+  (e) place_sheet_symbol_cells for ProtectiveVehicle/ArrowPanel when
+      listed in sheet elements,
+  (f) sheet channelizing/barriers placed or explicitly handed off, and
+      PLACENOTE callouts / SignLibrary gaps use handoff (never fake them).
+A mid-plan checkpoint FINAL ("order table ready — OK to draw?") is fine;
+a FINAL that claims the closure/plan is done after one sign is not.
+
+Do NOT substitute place_block / place_polyline for place_workspace /
+define_alignment_segment while in wztc mode for plan geometry. Prefer
+build_wztc_order_table over standalone compute_spacing when you are about
+to draw stations/signs from those numbers (compute_spacing alone is for
+answering a spacing question).
+
+Call order:
+  1. If speed/road_type/lane_width/shoulder_width/sheet are missing, ASK.
+     Then get_sheet_requirements + resolve_sign_code for EVERY sheet sign.
+     Call build_wztc_order_table with the FULL sign_rows list, then show
+     the engineer the returned order table before drawing anything — it's
+     their chance to catch a wrong sign or missing item. When a
+     Data/sheet-specs/<sheet>.json exists, pass sheet_num + area_type
+     (URBAN|RURAL); the sheet drives stations and SignLibrary keys
+     (sign_rows optional) and the response includes specDriven /
+     stationWalk — show that walk.
   2. Work-space boundary: ask which level/reference has it, try
      find_reference_linework, then place_workspace with the chosen
      candidate's vertices. If nothing plausible comes back, fall back to
@@ -416,6 +492,12 @@ still exists as the fallback and is never retired by any of this:
      find_reference_linework-or-click pattern, feeding
      define_alignment_segment (call once per contiguous chain/click run),
      then commit_alignment once per alignment when done.
+  3b. REBUILD / second pass: call clear_plan_elements() BEFORE re-placing
+     (or place_order_table_stations(..., clear_prior=True)). Without that
+     wipe, ticks/cells/channelizing STACK on the previous run — duplicate
+     TWZWVA_P, stale stubs, missing dims (confirmed root cause 2026-08-03).
+     The stations tool refuses a re-place for an align already placed this
+     session unless clear_prior or force is set.
   4. place_order_table_stations per alignment (reset_session=True on the
      first alignment only, False after) — this batches what would
      otherwise be one call per order-table item into one call per
@@ -424,19 +506,86 @@ still exists as the fallback and is never retired by any of this:
      that defeats the entire purpose of the batched op and burns real
      cost for no benefit (confirmed live 2026-08-02: exactly this
      happened once already). place_perp_line is only for a genuinely
-     one-off tick line outside this flow. Its isSign=Y rows give you the
-     point/tangent for each sign; resolve_sign_code + place_sign +
-     set_sign_attributes from there, same as any other sign placement.
-  5. place_element_run for channelizing devices/barriers/striping,
-     handoff for dimensions/callouts (never fake these — no headless path
-     exists), place_cell for symbols.
+     one-off tick outside this flow, and requires one_off=True — the
+     tool will refuse plan-context calls without that flag. Its isSign=Y
+     rows give you the point/tangent for each sign; resolve_sign_code +
+     place_sign from there. For place_sign: pt1 is the OUTWARD TIP of that
+     item's perp tick (station point + outward_perp * half_len), and dir1
+     is that same outward unit perp — never the alignment tangent, and
+     never the alignment station itself as pt1 (confirmed live miss:
+     assembly must hang off the tick like the manual PlaceSign click).
+     Then set_sign_attributes on the created IDs. Place ALL isSign rows
+     before moving on.
+     Then for the same align_idx (same outward_sign as the signs):
+       - place_order_table_dimensions — real ny_Plan Linear Size dims
+         tip-to-tip between EVERY consecutive tick (including Sign
+         spacings). Length text above the dim line. Not sheet-gated.
+       - place_order_table_labels(sheet_elements=…) — name labels BELOW
+         the matching dim, X-centered on that span. Sheet-gated (e.g.
+         Shoulder Taper only if ShoulderTaper is in get_sheet_requirements
+         elements). Core: Roll Ahead / Vehicle Space / Buffer always.
+       - place_sheet_symbol_cells(sheet_elements=…) — ProtectiveVehicle
+         centered between Vehicle Space ticks; ArrowPanel at Shoulder
+         Taper tip (619-311 sheet callout; not beside the vehicle).
+       - place_order_table_workspace — hatched work-space box from path
+         start through Vehicle Space in the closed lane (prefer this over
+         freeform place_workspace vertices for sheet plans).
+       - place_order_table_channelizing — taper diagonals + closed-lane
+         run bounded by order-table stations (never a multi-thousand-ft
+         AccuDraw leftover). Prefer this over freeform place_element_run
+         for ChannelizingDevices.
+  5. place_element_run for channelizing devices/barriers/striping (match
+     sheet `elements` where a headless path exists). handoff only for
+     TEXTEDITOR PLACENOTE callouts, SignLibrary gaps, and sheet elements
+     with no cell mapping — never fake those. Do NOT handoff dimensions
+     or Non-Sign labels or PV/AP when the tools above exist.
+
+First-time-right QA (live 2026-08-03 south 619-311 — expensive multi-pass
+cleanup; do NOT recreate that mess):
+  - After place_workspace: the response MUST include a real elementId.
+    Immediately find_elements_near the intended box. If no shape, STOP and
+    retry/fix — do not keep placing signs on a missing work space.
+    Expect an UNFILLED orange boundary with visible diagonal stripes
+    (not a solid orange fill).
+  - After place_sign: call set_sign_attributes ONLY. Faces keep library
+    orange/yellow + black legend (SF_P/SFB_P, ByCell weights). NEVER
+    change_element_symbology / force Color=0 or Color=6 or Weight=3 on
+    face cells — that bleaches or wrecks the legend (confirmed live).
+    Labels/stems become white; post TWZSGN_P becomes orange; applied
+    count may be less than requested IDs because faces are skipped on
+    purpose.
+  - Stem must be ~50 ft tip-edge (post outer → face inner), not hundreds/
+    thousands of feet. Long stems after define_alignment_segment used to
+    be AccuDraw lock on CadInputQueue PLACE LINE — place_sign /
+    place_element_run / place_workspace now use the Element API. If you
+    still see a 3000ft stem/channelizing line, delete it and re-place
+    via those tools; do not "fix" with more PLACE LINE keyins.
+  - Geometry checks use the ENGINEER's alignment coordinates (from
+    place_order_table_stations / find_elements_near), never fabricated
+    test points elsewhere in the file.
+  - Mid-plan visual check: after workspace + first isSign assembly, use
+    capture_view (or describe_drawing_state + find_elements_near) before
+    mass-placing the rest. Catch white faces / solid hatch / wrong tip
+    early.
+  - W04-02* merge legend: place_sign already strips yellow SF_P legend
+    duplicates and raises black SFB_P priority. Do not "fix" a yellow
+    diamond by painting it orange or dropping the cell yourself.
+  - SignLibrary gaps (e.g. NYW8-33): handoff explicitly; do not invent a
+    substitute code or skip mentioning the gap at completion.
+  - After stations+signs: place_order_table_dimensions (EVERY tick span,
+    length above) then place_order_table_labels(sheet_elements=…) (names
+    below only for sheet-required features) and place_sheet_symbol_cells.
+  - Before asking the engineer to review: capture_view on Vehicle Space,
+    one taper span, and the work-space/channelizing run. Self-check dim
+    above / label below / PV in bay / no AP overlap / channelizing bounds.
 
 Do not try to run this whole sequence in one turn. Even batched, a real
 plan across two alignments and a dozen-plus signs will exceed a single
 turn's tool-call budget — check in with the engineer at the natural
-boundaries above (order table reviewed, work space placed, alignment
-committed, stations placed) and continue on their next message, the same
-checkpoint rhythm the manual wizard's Next buttons already have.
+boundaries above (inputs confirmed, order table reviewed, work space
+placed, alignment committed, stations placed, all signs placed) and
+continue on their next message, the same checkpoint rhythm the manual
+wizard's Next buttons already have.
 """
 
 _MODE_SYSTEM_PROMPT = {
@@ -754,6 +903,10 @@ _WZTC_OP_NAMES = [
     # full-plan-flow section for call order.
     "build_wztc_order_table", "find_reference_linework",
     "define_alignment_segment", "commit_alignment", "place_order_table_stations",
+    "place_order_table_labels", "place_order_table_dimensions",
+    "place_sheet_symbol_cells", "place_order_table_workspace",
+    "place_order_table_channelizing", "place_dimension",
+    "clear_plan_elements",
 ]
 
 
@@ -942,6 +1095,7 @@ def exit_mode() -> str:
     global _SESSION_MODE
     _SESSION_MODE = "general"
     save_session_mode("general")
+    wztc_ops.reset_plan_session_flags()
     LOG.mode_changed("general", MODE_INFO["general"])
     return "Switched to general mode."
 

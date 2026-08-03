@@ -1,0 +1,390 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-110",
+    "title": "WORK ZONE TRAFFIC CONTROL FREEWAY SHOULDER CLOSURE",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "MOBILE OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2021-12-02",
+    "issuedUnder": "EI 21-028",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-110.pdf",
+    "localPdf": "Bridge/captures/619-110.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 270,
+    "transcribedBy": "Cursor (Family 7 mobile)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Freeway mobile shoulder closure (no lane encroachment, shoulder >=8'). 3 tables. W8-23 only. PV matrix uses PVH+TMIA (like 301), NOT P,TMIA. Roll-ahead is GVW-keyed MOVING values (200/5-240/6 light; 160/4-200/5 heavy) \u2014 header '45-60 / w 55' is context like 301, not row keys. Fallback 619-205. Errata 1 Eff. 09/01/23 (EB 23-016)."
+  },
+  "applicability": {
+    "roadType": "Freeway",
+    "roadway": "Freeway",
+    "closure": "Shoulder closure without lane encroachment",
+    "duration": "Mobile",
+    "durationDefinition": "Work that moves intermittently or continuously where work at any specific location completes within 15 minutes (Note 1).",
+    "speedRangeMph": {
+      "allowed": [
+        45,
+        50,
+        55,
+        65
+      ],
+      "note": "Header context 45-60 / >=55; roll-ahead keyed by GVW not speed."
+    },
+    "laneWidthFt": null,
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft"
+    ],
+    "areaTypes": null
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "type": "integer",
+      "allowed": [
+        45,
+        50,
+        55,
+        65
+      ],
+      "usedBy": [],
+      "note": "Not used by roll-ahead (GVW-keyed)."
+    },
+    {
+      "id": "protectiveVehicleGvwLbs",
+      "type": "integer",
+      "allowed": [
+        9500,
+        22000
+      ],
+      "default": 22000,
+      "usedBy": [
+        "110-02"
+      ],
+      "note": "Roll-ahead keyed by PV GVW band."
+    },
+    {
+      "id": "shoulderWidthBand",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft"
+      ],
+      "default": ">= 8 ft",
+      "usedBy": []
+    },
+    {
+      "id": "exposureCondition",
+      "type": "enum",
+      "allowed": [
+        "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC"
+      ],
+      "usedBy": [
+        "110-01"
+      ]
+    },
+    {
+      "id": "closureType",
+      "type": "enum",
+      "allowed": [
+        "LANE CLOSURE OR ENCROACHMENT",
+        "SHOULDER CLOSURE OR ENCROACHMENT"
+      ],
+      "default": "SHOULDER CLOSURE OR ENCROACHMENT",
+      "usedBy": [
+        "110-01"
+      ]
+    },
+    {
+      "id": "signSizeClass",
+      "type": "enum",
+      "allowed": [
+        "NON-FREEWAY",
+        "FREEWAY"
+      ],
+      "default": "FREEWAY",
+      "usedBy": [
+        "110-03"
+      ]
+    }
+  ],
+  "tableRoles": {
+    "note": "3 tables. NO taperAndBuffer / advanceWarningSpacing. Roll-ahead GVW-keyed.",
+    "protectiveVehicle": "110-01",
+    "rollAheadDistance": "110-02",
+    "signSizes": "110-03"
+  },
+  "tables": {
+    "110-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition"
+      ],
+      "note": "PVH+TMIA for both lane and shoulder workers-exposed rows. Single FREEWAY column.",
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        }
+      ],
+      "legend": {
+        "PVH": "PROTECTIVE VEHICLE HEAVY (MINIMUM GROSS WEIGHT 22,000 LBS. OR GREATER)",
+        "TMIA": "TRUCK/TRAILER MOUNTED IMPACT ATTENUATOR"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUME THERE IS NO POSITIVE PROTECTION PRESENT.",
+        "2. TRUCK/TRAILER MOUNTED IMPACT ATTENUATORS (TMIA) SHALL NOT BE MOUNTED/INSTALLED ON VEHICLES WITH A GROSS VEHICLE WEIGHT (GVW) LESS THAN WHAT IS MINIMALLY REQUIRED BY THE MANUFACTURER OF THE TMIA."
+      ]
+    },
+    "110-02": {
+      "title": "ROLL AHEAD DISTANCE FOR PROTECTIVE VEHICLES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "protectiveVehicleGvwLbs"
+      ],
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES \u2014 MOVING OPERATION MIN and MAX, by protective-vehicle gross vehicle weight (not posted speed).",
+      "note": "Header prints PRECONSTRUCTION POSTED SPEED LIMIT 45-60 / w 55 context but data rows are GVW bands (same structural pattern as 301-02, moving values).",
+      "rows": [
+        {
+          "gvwBand": "9,500 TO 21,999 LBS.",
+          "minGvwLbs": 9500,
+          "maxGvwLbs": 21999,
+          "min": {
+            "ft": 200,
+            "skipLines": 5
+          },
+          "max": {
+            "ft": 240,
+            "skipLines": 6
+          }
+        },
+        {
+          "gvwBand": "22,000 LBS. OR GREATER",
+          "minGvwLbs": 22000,
+          "maxGvwLbs": null,
+          "min": {
+            "ft": 160,
+            "skipLines": 4
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        }
+      ],
+      "usageNote": "MIN/MAX range."
+    },
+    "110-03": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "rows": [
+        {
+          "signCode": "W8-23",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        }
+      ]
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "Mobile shoulder: ROLL AHEAD (GVW table) + W8-23 on shoulder. PVH+TMIA + arrow panel caution. No tapers.",
+    "zones": [
+      {
+        "id": "signA",
+        "order": 1,
+        "kind": "sign",
+        "signCode": "W8-23",
+        "sheetLegend": "NO SHOULDER"
+      },
+      {
+        "id": "gapA",
+        "order": 2,
+        "kind": "gap",
+        "sheetLabel": "A",
+        "lengthSource": {
+          "fixedFt": 0
+        },
+        "dimensioned": false,
+        "note": "W8-23 sits at the protective vehicle \u2014 no numbered advance-gap callout."
+      },
+      {
+        "id": "protectiveVehicle",
+        "order": 3,
+        "kind": "symbol",
+        "sheetLabel": "PVH WITH TMIA",
+        "lengthSource": null
+      },
+      {
+        "id": "rollAheadDistance",
+        "order": 4,
+        "kind": "clearance",
+        "sheetLabel": "ROLL AHEAD DISTANCE",
+        "sheetReference": "(SEE TABLE 110-02)",
+        "lengthSource": {
+          "table": "110-02",
+          "column": "range",
+          "lookupBy": [
+            "protectiveVehicleGvwLbs"
+          ]
+        },
+        "dimensioned": true
+      },
+      {
+        "id": "workArea",
+        "order": 5,
+        "kind": "workArea",
+        "sheetLabel": "WORK AREA",
+        "lengthSource": null,
+        "hatched": true,
+        "dimensioned": false
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "Roll Ahead + W8-23 only.",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Protective vehicle",
+        "walkDirection": "Upstream, against traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "rollAheadDistance",
+            "label": "ROLL AHEAD DISTANCE"
+          },
+          {
+            "rowNum": 2,
+            "type": "Sign",
+            "zone": "signA",
+            "signCode": "W8-23",
+            "spacingZone": "gapA"
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "BUFFER SPACE",
+            "reason": "No buffer on mobile sheet."
+          },
+          {
+            "label": "SHOULDER TAPER",
+            "reason": "No taper."
+          },
+          {
+            "label": "MERGING TAPER",
+            "reason": "No taper."
+          },
+          {
+            "label": "Vehicle Space",
+            "reason": "Not on this sheet."
+          }
+        ]
+      }
+    ]
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "items": [
+      {
+        "signCode": "W8-23",
+        "sheetLegend": "NO SHOULDER",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signA",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W08-23"
+      }
+    ]
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "protectiveVehicle",
+        "sheetLabel": "PVH WITH TMIA",
+        "required": true
+      },
+      {
+        "id": "workVehicle",
+        "sheetLabel": "WORK VEHICLE",
+        "required": true
+      },
+      {
+        "id": "arrowPanel",
+        "sheetLabel": "ARROW PANEL (CAUTION MODE)",
+        "required": true
+      },
+      {
+        "id": "workAreaHatch",
+        "sheetLabel": "WORK AREA",
+        "required": true,
+        "hatched": true
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "dimensions": [
+      {
+        "zone": "rollAheadDistance",
+        "label": "ROLL AHEAD DISTANCE (SEE TABLE 110-02)"
+      }
+    ]
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. MOBILE WORK IS WORK THAT MOVES INTERMITTENTLY OR CONTINUOUSLY WHERE WORK AT ANY SPECIFIC LOCATION COMPLETES WITHIN 15 MINUTES.",
+      "2. SHOULD THE WORK DURATION CONTINUE ON LONGER THAN THE 15 MINUTE MAXIMUM THE WORK ZONE TRAFFIC CONTROL SETUP SHALL BE RECONFIGURED AND ADJUSTED TO MEET THE REQUIREMENTS OF STANDARD SHEET 619-205.",
+      "3. THIS TYPICAL MAY BE USED FOR VEHICLE BASED OPERATIONS SUCH AS SETTING UP STATIONARY TRAFFIC CONTROL (PLACING CONES, DRUMS AND SIGNS), BUT IS NOT TO BE USED FOR OPERATIONS THAT INVOLVE WORKERS ON FOOT PERFORMING ROADWAY AND / OR APPURTENANCE REPAIRS.",
+      "4. VEHICLES SHALL BE PLACED TO OPTIMIZE AND ENHANCE VISIBILITY FROM THE REAR OF THE OPERATION AND SHALL NOT EXCEED THE APPROPRIATE ROLL AHEAD DISTANCE VALUES."
+    ]
+  },
+  "rules": [
+    {
+      "id": "fifteen-minute-cap",
+      "severity": "error",
+      "source": "Notes 1-2",
+      "assert": "Mobile duration <=15 min; else use 619-205.",
+      "commonFailure": "Ignoring this sheet-specific rule and using a generic default from another family."
+    },
+    {
+      "id": "no-tapers",
+      "severity": "error",
+      "source": "Plan",
+      "assert": "No merging/shoulder/downstream taper rows.",
+      "commonFailure": "Ignoring this sheet-specific rule and using a generic default from another family."
+    },
+    {
+      "id": "roll-ahead-by-gvw",
+      "severity": "error",
+      "source": "Table 110-02",
+      "assert": "Roll ahead MIN/MAX comes from PV GVW band, not posted speed.",
+      "commonFailure": "Ignoring this sheet-specific rule and using a generic default from another family."
+    }
+  ],
+  "knownCodeDeviations": []
+}

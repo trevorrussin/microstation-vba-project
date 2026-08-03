@@ -131,15 +131,14 @@ Public Function ExecPlaceSign(signNum As String, roadType As String, side As Str
     Dim pt1 As Point3d
     pt1.X = pt1X: pt1.Y = pt1Y: pt1.Z = pt1Z
 
-    ' Legacy order (DrawSign.DrawSignAtPerpLine): text label -> sign face cell -> post
-    Call DrawSign.PlaceSignFaceAndText(pt1, signNum, signSize, dir1X, dir1Y, viewAngleDeg)
-    Call DrawSign.DrawSignPost(pt1, dir1X, dir1Y)
+    ' pt1 = attachment on the perp tick (outward tip); dir = outward along perp.
+    ' PlaceSignAssembly places post/face/stem/label with edge-connected stem.
+    Call DrawSign.PlaceSignAssembly(pt1, signNum, signSize, dir1X, dir1Y, viewAngleDeg)
 
     If bothSides Then
         Dim pt2 As Point3d
         pt2.X = pt2X: pt2.Y = pt2Y: pt2.Z = pt2Z
-        Call DrawSign.PlaceSignFaceAndText(pt2, signNum, signSize, dir2X, dir2Y, viewAngleDeg)
-        Call DrawSign.DrawSignPost(pt2, dir2X, dir2Y)
+        Call DrawSign.PlaceSignAssembly(pt2, signNum, signSize, dir2X, dir2Y, viewAngleDeg)
         Call DrawSign.DrawConnectingArc(pt1, pt2)
     End If
 
@@ -177,8 +176,8 @@ Public Function ExecPlaceElementRun(elementIdx As Integer, verticesTSV As String
         Exit Function
     End If
 
-    Dim lvl As String
-    lvl = DrawElements.GetElementLevel(elementIdx)
+    Dim lvlName As String
+    lvlName = DrawElements.GetElementLevel(elementIdx)
 
     Dim pts() As String
     pts = Split(verticesTSV, "|")
@@ -188,23 +187,31 @@ Public Function ExecPlaceElementRun(elementIdx As Integer, verticesTSV As String
         Exit Function
     End If
 
-    CadInputQueue.SendCommand "ACTIVE LEVEL """ & lvl & """"
-    CadInputQueue.SendCommand "ACTIVE COLOR 6"
-    CadInputQueue.SendCommand "ACTIVE WEIGHT 2"
-    CadInputQueue.SendCommand "PLACE LINE CONSTRAINED"
-
-    Dim i As Integer, coords() As String, pt As Point3d
+    ' Element API polyline — avoids AccuDraw distance lock from a prior
+    ' long alignment PLACE/define corrupting CadInputQueue PLACE LINE
+    ' (live 2026-08-03: channelizing came out as ~3000ft diagonals).
+    Dim vpts() As Point3d
+    ReDim vpts(0 To n - 1)
+    Dim i As Integer, coords() As String
     For i = 0 To n - 1
         coords = Split(pts(i), ",")
-        pt.X = CDbl(coords(0))
-        pt.Y = CDbl(coords(1))
-        If UBound(coords) >= 2 Then pt.Z = CDbl(coords(2)) Else pt.Z = 0
-        CadInputQueue.SendDataPoint pt, 1
+        vpts(i).X = CDbl(coords(0))
+        vpts(i).Y = CDbl(coords(1))
+        If UBound(coords) >= 2 Then vpts(i).Z = CDbl(coords(2)) Else vpts(i).Z = 0
     Next i
-    CadInputQueue.SendReset
-    CommandState.StartDefaultCommand
 
-    ExecPlaceElementRun = "OK" & vbTab & "level=" & lvl & vbTab & "vertexCount=" & n & vbTab & _
+    Dim lineEl As LineElement
+    Set lineEl = CreateLineElement1(Nothing, vpts)
+    lineEl.Color = 6
+    lineEl.LineWeight = 2
+    On Error Resume Next
+    lineEl.Level = ActiveDesignFile.Levels(lvlName)
+    On Error GoTo ElemError
+    ActiveModelReference.AddElement lineEl
+    lineEl.Rewrite
+
+    ExecPlaceElementRun = "OK" & vbTab & "level=" & lvlName & vbTab & "vertexCount=" & n & vbTab & _
+                          "elementId=" & CStr(ElIDAsDouble(lineEl.ID)) & vbTab & _
                           "note=placed " & DrawElements.GetElementName(elementIdx)
     Exit Function
 
@@ -235,54 +242,130 @@ Public Function ExecPlaceWorkspace(verticesTSV As String) As String
         Exit Function
     End If
 
-    Dim vx() As Double, vy() As Double, vz() As Double
-    ReDim vx(0 To n - 1): ReDim vy(0 To n - 1): ReDim vz(0 To n - 1)
+    Dim vpts() As Point3d
+    ReDim vpts(0 To n - 1)
     Dim i As Integer, coords() As String
     For i = 0 To n - 1
         coords = Split(pts(i), ",")
-        vx(i) = CDbl(coords(0))
-        vy(i) = CDbl(coords(1))
-        If UBound(coords) >= 2 Then vz(i) = CDbl(coords(2)) Else vz(i) = 0
+        vpts(i).X = CDbl(coords(0))
+        vpts(i).Y = CDbl(coords(1))
+        If UBound(coords) >= 2 Then vpts(i).Z = CDbl(coords(2)) Else vpts(i).Z = 0
     Next i
 
-    Dim beforeMaxID As Double
-    beforeMaxID = ScanMaxElementID()
+    ' Element API shape — PLACE SHAPE CONSTRAINED was returning OK with no
+    ' element after AccuDraw-tainted sessions (live 2026-08-03, 3 retries).
+    ' FillMode 0 = none. Named constant msdFillModeNone is NOT defined in
+    ' this MicroStation VBA project (compile: Variable not defined,
+    ' live 2026-08-03) — use the numeric enum. Passing fill as 3rd arg;
+    ' assigning .FillMode after create also raised a blocking error dialog.
+    Dim shapeEl As ShapeElement
+    Set shapeEl = CreateShapeElement1(Nothing, vpts, 0)
+    shapeEl.Color = 6
+    shapeEl.LineWeight = 2
+    On Error Resume Next
+    shapeEl.Level = ActiveDesignFile.Levels("TWZWS2_P")
+    On Error GoTo WsError
+    ActiveModelReference.AddElement shapeEl
+    shapeEl.Rewrite
 
-    CadInputQueue.SendCommand "ACTIVE LEVEL ""TWZWS2_P"""
-    CadInputQueue.SendCommand "ACTIVE COLOR 6"
-    CadInputQueue.SendCommand "ACTIVE WEIGHT 2"
-    CadInputQueue.SendCommand "PLACE SHAPE CONSTRAINED"
-
-    Dim pt As Point3d
-    For i = 0 To n - 1
-        pt.X = vx(i): pt.Y = vy(i): pt.Z = vz(i)
-        CadInputQueue.SendDataPoint pt, 1
-    Next i
-    ' Close explicitly by repeating the first vertex (matches
-    ' Legacy Files/LegacyElements.bas's recorded sequence)
-    pt.X = vx(0): pt.Y = vy(0): pt.Z = vz(0)
-    CadInputQueue.SendDataPoint pt, 1
-    CadInputQueue.SendReset
-    CommandState.StartDefaultCommand
-
-    Dim shapeEl As Element
-    Set shapeEl = FindNewestClosedElementAbove(beforeMaxID)
-    If shapeEl Is Nothing Then
-        ExecPlaceWorkspace = "OK" & vbTab & "vertexCount=" & n & vbTab & _
-            "note=shape placed but hatch skipped -- could not find new closed element"
-        Exit Function
-    End If
-
+    ' Spacing 2 ft so diagonal stripes read in a typical 12-ft-tall lane
+    ' work space (spacing 10 only showed ~1 line and looked solid).
+    ' Associative SetPattern alone is invisible when the view's Patterns
+    ' attribute is off (live 2026-08-03) — also draw real stripe lines.
     Dim hatchNote As String
-    hatchNote = ApplyHatchPatternToClosed(shapeEl, 10#, 45#)
+    hatchNote = ApplyHatchPatternToClosed(shapeEl, 2#, 45#)
+    Dim lineNote As String
+    lineNote = DrawDiagonalHatchLines(shapeEl, 2#, 45#)
 
     ExecPlaceWorkspace = "OK" & vbTab & "vertexCount=" & n & vbTab & _
                          "elementId=" & CStr(ElIDAsDouble(shapeEl.ID)) & vbTab & _
-                         "note=placed work space shape; " & hatchNote
+                         "note=placed work space shape (unfilled); " & hatchNote & "; " & lineNote
     Exit Function
 
 WsError:
     ExecPlaceWorkspace = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Draw visible 45-deg hatch stripes clipped to shape bbox (WYSIWYG even
+' when view Patterns attribute is off). spacing = perpendicular distance.
+Private Function DrawDiagonalHatchLines(shapeEl As Element, spacing As Double, angleDeg As Double) As String
+    On Error GoTo DrawErr
+    Dim rng As Range3d
+    rng = shapeEl.Range
+    Dim xmin As Double, xmax As Double, ymin As Double, ymax As Double
+    xmin = rng.Low.X: xmax = rng.High.X
+    ymin = rng.Low.Y: ymax = rng.High.Y
+
+    Dim stepC As Double
+    stepC = spacing * Sqr(2#)
+    Dim cMin As Double, cMax As Double, cVal As Double
+    cMin = xmin + ymin
+    cMax = xmax + ymax
+
+    Dim nLines As Integer: nLines = 0
+    Dim lvl As Level
+    On Error Resume Next
+    Set lvl = ActiveDesignFile.Levels("TWZWS2_P")
+    On Error GoTo DrawErr
+
+    cVal = cMin
+    Do While cVal <= cMax + 0.001
+        Dim ptsX(0 To 3) As Double, ptsY(0 To 3) As Double
+        Dim nPts As Integer: nPts = 0
+        Dim yL As Double, yR As Double, xB As Double, xT As Double
+        yL = cVal - xmin
+        If yL >= ymin - 0.0000001 And yL <= ymax + 0.0000001 Then
+            ptsX(nPts) = xmin: ptsY(nPts) = yL: nPts = nPts + 1
+        End If
+        yR = cVal - xmax
+        If yR >= ymin - 0.0000001 And yR <= ymax + 0.0000001 Then
+            ptsX(nPts) = xmax: ptsY(nPts) = yR: nPts = nPts + 1
+        End If
+        xB = cVal - ymin
+        If xB >= xmin - 0.0000001 And xB <= xmax + 0.0000001 Then
+            ptsX(nPts) = xB: ptsY(nPts) = ymin: nPts = nPts + 1
+        End If
+        xT = cVal - ymax
+        If xT >= xmin - 0.0000001 And xT <= xmax + 0.0000001 Then
+            ptsX(nPts) = xT: ptsY(nPts) = ymax: nPts = nPts + 1
+        End If
+
+        If nPts >= 2 Then
+            Dim i As Integer, j As Integer, keep As Integer
+            Dim ux(0 To 3) As Double, uy(0 To 3) As Double
+            keep = 0
+            For i = 0 To nPts - 1
+                Dim dup As Boolean: dup = False
+                For j = 0 To keep - 1
+                    If Abs(ptsX(i) - ux(j)) < 0.000001 And Abs(ptsY(i) - uy(j)) < 0.000001 Then
+                        dup = True: Exit For
+                    End If
+                Next j
+                If Not dup Then
+                    ux(keep) = ptsX(i): uy(keep) = ptsY(i): keep = keep + 1
+                End If
+            Next i
+            If keep >= 2 Then
+                Dim p1 As Point3d, p2 As Point3d
+                p1.X = ux(0): p1.Y = uy(0): p1.Z = 0
+                p2.X = ux(1): p2.Y = uy(1): p2.Z = 0
+                Dim ln As LineElement
+                Set ln = CreateLineElement2(Nothing, p1, p2)
+                ln.Color = shapeEl.Color
+                ln.LineWeight = shapeEl.LineWeight
+                If Not lvl Is Nothing Then ln.Level = lvl
+                ActiveModelReference.AddElement ln
+                ln.Rewrite
+                nLines = nLines + 1
+            End If
+        End If
+        cVal = cVal + stepC
+    Loop
+
+    DrawDiagonalHatchLines = "drew " & nLines & " hatch lines (spacing=" & spacing & ")"
+    Exit Function
+DrawErr:
+    DrawDiagonalHatchLines = "ERROR:" & Err.Description
 End Function
 
 ' ============================================================
@@ -374,22 +457,138 @@ Public Function ExecPlaceTextLabel(text As String, x As Double, y As Double, _
         Exit Function
     End If
 
-    CadInputQueue.SendCommand "TEXTEDITOR PLACE"
-    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & text & """"
-
+    ' Element API text, then Move so the glyph range is centered on (x,y).
+    ' Justification enum alone does not change origin vs range on this install.
     Dim pt As Point3d
     pt.X = x: pt.Y = y: pt.Z = z
-    CadInputQueue.SendDataPoint pt, 1
+    Dim te As TextElement
+    Set te = CreateTextElement1(Nothing, text, pt, Matrix3dIdentity)
+    te.Color = 0
+    te.LineWeight = 0
+    ActiveModelReference.AddElement te
+    te.Rewrite
 
-    CadInputQueue.SendReset
-    CommandState.StartDefaultCommand
+    Dim rng As Range3d
+    rng = te.Range
+    Dim cx As Double, cy As Double
+    cx = 0.5 * (rng.Low.X + rng.High.X)
+    cy = 0.5 * (rng.Low.Y + rng.High.Y)
+    Dim delta As Point3d
+    delta.X = x - cx: delta.Y = y - cy: delta.Z = 0
+    te.Move delta
+    te.Rewrite
 
-    ExecPlaceTextLabel = "OK" & vbTab & "x=" & x & vbTab & "y=" & y & vbTab & _
-                         "text=" & text & vbTab & "note=placed text label"
+    ExecPlaceTextLabel = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(te.ID)) & vbTab & _
+                         "x=" & x & vbTab & "y=" & y & vbTab & _
+                         "text=" & text & vbTab & "note=placed text label (center)"
     Exit Function
 
 TxtErr:
     ExecPlaceTextLabel = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' PLACE LINEAR DIMENSION — real DimensionElement (Linear Size /
+' msdDimTypeSizeArrow), matching PlaceElements.frm
+' "DIMENSION SIZE WITH LINES". CadInputQueue datapoints create
+' 0 elements headlessly; CreateDimensionElement1 works.
+' styleName: DGN DimensionStyles name (default ny_Plan = active
+' NYSDOT plan style). DimHeight = offset of dim line from segment.
+' ============================================================
+Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
+                                   x2 As Double, y2 As Double, _
+                                   ox As Double, oy As Double, _
+                                   Optional z As Double = 0, _
+                                   Optional styleName As String = "ny_Plan") As String
+    On Error GoTo DimErr
+
+    Dim dx As Double, dy As Double, L As Double
+    dx = x2 - x1: dy = y2 - y1
+    L = Sqr(dx * dx + dy * dy)
+    If L < 0.001 Then
+        ExecPlaceDimension = "ERROR" & vbTab & "note=dimension length too small"
+        Exit Function
+    End If
+
+    Dim ux As Double, uy As Double
+    ux = dx / L: uy = dy / L
+    Dim px As Double, py As Double
+    px = -uy: py = ux
+
+    Dim mx As Double, my As Double
+    mx = 0.5 * (x1 + x2): my = 0.5 * (y1 + y2)
+    Dim side As Double
+    If ((ox - mx) * px + (oy - my) * py) >= 0 Then side = 1# Else side = -1#
+    Dim off As Double
+    off = Abs((ox - mx) * px + (oy - my) * py)
+    If off < 0.01 Then off = 30#
+
+    ' Rotation: X along measured segment so text/terminators follow alignment
+    Dim rot As Matrix3d
+    rot = Matrix3dFromRowValues(ux, uy, 0#, _
+                                -uy, ux, 0#, _
+                                0#, 0#, 1#)
+
+    Dim oDim As DimensionElement
+    Set oDim = CreateDimensionElement1(Nothing, rot, msdDimTypeSizeArrow)
+
+    Dim p1 As Point3d, p2 As Point3d
+    p1.X = x1: p1.Y = y1: p1.Z = z
+    p2.X = x2: p2.Y = y2: p2.Z = z
+    oDim.AddReferencePoint ActiveModelReference, p1
+    oDim.AddReferencePoint ActiveModelReference, p2
+    oDim.DimHeight = side * off
+
+    ' ny_Plan has ShowSecondaryText=True (primary above + secondary
+    ' below). Force one measurement only for the placement copy —
+    ' do not OverrideTextHeight here (annotation scale would explode it).
+    On Error Resume Next
+    Dim oStyle As DimensionStyle
+    Set oStyle = ActiveDesignFile.DimensionStyles(styleName)
+    Dim savedSec As Boolean
+    If Not oStyle Is Nothing Then
+        savedSec = oStyle.ShowSecondaryText
+        oStyle.ShowSecondaryText = False
+        Set oDim.DimensionStyle = oStyle
+        oStyle.ShowSecondaryText = savedSec
+    End If
+    On Error GoTo DimErr
+
+    oDim.Color = 2
+    oDim.LineWeight = 0
+    ActiveModelReference.AddElement oDim
+    oDim.Rewrite
+
+    If Not oDim.IsDimensionElement Then
+        ExecPlaceDimension = "ERROR" & vbTab & "note=created element is not a DimensionElement"
+        Exit Function
+    End If
+
+    ExecPlaceDimension = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(oDim.ID)) & vbTab & _
+                         "lengthFt=" & Format(L, "0.0") & vbTab & _
+                         "style=" & styleName & vbTab & _
+                         "dimType=SizeArrow" & vbTab & _
+                         "note=real DimensionElement (ny_Plan Linear Size)"
+    Exit Function
+
+DimErr:
+    ExecPlaceDimension = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function FindNewestElementIdAbove(beforeMaxID As Double) As Double
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Dim best As Double: best = beforeMaxID
+    Dim el As Element
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        Dim idVal As Double: idVal = ElIDAsDouble(el.ID)
+        If idVal > best Then best = idVal
+    Loop
+    FindNewestElementIdAbove = best
 End Function
 
 ' Returns a short note string; prefix "ERROR:" on failure.
@@ -632,18 +831,38 @@ Public Function ExecSetSignAttributes(elementIdsTSV As String) As String
         Set el = oEnum.Current
         Dim idVal As Double: idVal = ElIDAsDouble(el.ID)
         If targetIds.Exists(idVal) Then
-            el.Level = sfLevel
-            el.Color = 240
-            el.LineWeight = 3
-            el.Rewrite
-            applied = applied + 1
+            ' Face cells must keep library symbology: ByCell weights and
+            ' SF_P/SFB_P levels on subelements. Forcing Level=SF_P +
+            ' LineWeight=3 on the cell (earlier) thickened every shape
+            ' inside the diamond and dropped SFB_P — live mismatch vs
+            ' engineer reference W20-01RA (2026-08-03).
+            If el.IsTextElement Or el.IsTextNodeElement Then
+                el.Level = sfLevel
+                el.Color = 0
+                el.LineWeight = 3
+                el.Rewrite
+                applied = applied + 1
+            ElseIf el.IsLineElement Then
+                el.Level = sfLevel
+                el.Color = 0
+                el.LineWeight = 0
+                el.Rewrite
+                applied = applied + 1
+            ElseIf el.IsCellElement Then
+                If UCase$(el.AsCellElement.Name) = "TWZSGN_P" Then
+                    el.Color = 6
+                    el.Rewrite
+                    applied = applied + 1
+                End If
+                ' else: sign-face cell — leave Level/Color/Weight alone
+            End If
         End If
     Loop
 
     ExecSetSignAttributes = "OK" & vbTab & "applied=" & applied & vbTab & _
                             "requested=" & (UBound(idStrs) + 1) & vbTab & _
-                            "note=set level=SF_P color=240 weight=3 " & _
-                            "(fillColor/elementClass not replicated - no confirmed VBA property path)"
+                            "note=labels/stems SF_P white; post TWZSGN_P color=6; " & _
+                            "face cells untouched (library weights/levels)"
     Exit Function
 
 AttrError:

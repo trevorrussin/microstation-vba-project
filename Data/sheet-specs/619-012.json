@@ -1,0 +1,537 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "kind": "referenceLibrary",
+    "kindNote": "Not a corridor/plan sheet — no station walk / order table. schemaVersion 1.1 referenceLibrary pattern per 619-011.",
+    "number": "619-012",
+    "title": "WORK ZONE TRAFFIC CONTROL SIGN TABLE",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "units": "U.S. CUSTOMARY STANDARD SHEET",
+    "scale": "NOT TO SCALE",
+    "approved": "2024-02-27",
+    "issuedUnder": "EI 21-028",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-012.pdf",
+    "localPdf": "Bridge/captures/619-012.pdf",
+    "localRender": null,
+    "pdfPages": 3,
+    "pageRotation": 0,
+    "transcribedBy": "Cursor (Misc reference/detail)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Master WZTC sign-size catalog (3 sheets) + color code legend. Plan sheets' REQUIRED SIGN SIZES tables excerpt from here. referenceLibrary. live-build n/a. Extracted 148 distinct sign-code tokens from PDF text layer."
+  },
+  "tableRoles": {
+    "note": "signCatalog lists codes present on the sheet; per-code NON-FREEWAY/FREEWAY sizes remain on the PDF graphics (path-heavy). Color legend is 012-02.",
+    "signCatalog": "012-01",
+    "colorCodeLegend": "012-02"
+  },
+  "tables": {
+    "012-01": {
+      "title": "SIGN TABLE — SIGN CODES PRESENT",
+      "confidence": "drawing",
+      "keyedBy": [
+        "signCode"
+      ],
+      "note": "Codes harvested from PDF text layer. Pair with PDF pages 1-3 for NON-FREEWAY/FREEWAY size cells (many size glyphs are path-only).",
+      "rows": [
+        {
+          "signCode": "M3-1"
+        },
+        {
+          "signCode": "G20-1"
+        },
+        {
+          "signCode": "G20-2"
+        },
+        {
+          "signCode": "M1-4"
+        },
+        {
+          "signCode": "M3-2"
+        },
+        {
+          "signCode": "M3-3"
+        },
+        {
+          "signCode": "M3-4"
+        },
+        {
+          "signCode": "M4-8"
+        },
+        {
+          "signCode": "M4-8a"
+        },
+        {
+          "signCode": "NYM3-3"
+        },
+        {
+          "signCode": "NYW4-17"
+        },
+        {
+          "signCode": "NYW8-30"
+        },
+        {
+          "signCode": "NYW8-31"
+        },
+        {
+          "signCode": "NYW8-32"
+        },
+        {
+          "signCode": "NYW8-33"
+        },
+        {
+          "signCode": "R1-1"
+        },
+        {
+          "signCode": "R1-2"
+        },
+        {
+          "signCode": "R2-1"
+        },
+        {
+          "signCode": "R4-1"
+        },
+        {
+          "signCode": "R4-7"
+        },
+        {
+          "signCode": "R4-9"
+        },
+        {
+          "signCode": "R5-1"
+        },
+        {
+          "signCode": "R9-8"
+        },
+        {
+          "signCode": "R9-9"
+        },
+        {
+          "signCode": "W1-6L"
+        },
+        {
+          "signCode": "W1-6R"
+        },
+        {
+          "signCode": "W1-8L"
+        },
+        {
+          "signCode": "W1-8R"
+        },
+        {
+          "signCode": "W3-1"
+        },
+        {
+          "signCode": "W3-2"
+        },
+        {
+          "signCode": "W3-3"
+        },
+        {
+          "signCode": "A4"
+        },
+        {
+          "signCode": "M4-9a"
+        },
+        {
+          "signCode": "M4-9b"
+        },
+        {
+          "signCode": "M4-9c"
+        },
+        {
+          "signCode": "M4-10L"
+        },
+        {
+          "signCode": "M4-10R"
+        },
+        {
+          "signCode": "M5-1"
+        },
+        {
+          "signCode": "M6-1"
+        },
+        {
+          "signCode": "M6-2"
+        },
+        {
+          "signCode": "M6-3"
+        },
+        {
+          "signCode": "M6-4"
+        },
+        {
+          "signCode": "NYM3-1"
+        },
+        {
+          "signCode": "NYM3-2"
+        },
+        {
+          "signCode": "E5-1"
+        },
+        {
+          "signCode": "G20-5aP"
+        },
+        {
+          "signCode": "R4-8"
+        },
+        {
+          "signCode": "R2-12"
+        },
+        {
+          "signCode": "G20-4"
+        },
+        {
+          "signCode": "R9-11aR"
+        },
+        {
+          "signCode": "R9-11aL"
+        },
+        {
+          "signCode": "R9-11R"
+        },
+        {
+          "signCode": "R9-11L"
+        },
+        {
+          "signCode": "W3-4"
+        },
+        {
+          "signCode": "NYR9-11"
+        },
+        {
+          "signCode": "R10-6"
+        },
+        {
+          "signCode": "R11-2"
+        },
+        {
+          "signCode": "W3-5"
+        },
+        {
+          "signCode": "NYR9-12"
+        },
+        {
+          "signCode": "R2-11"
+        },
+        {
+          "signCode": "R4-7c"
+        },
+        {
+          "signCode": "R4-8c"
+        },
+        {
+          "signCode": "R9-10R"
+        },
+        {
+          "signCode": "R9-10L"
+        },
+        {
+          "signCode": "M1-4t"
+        },
+        {
+          "signCode": "M1-1"
+        },
+        {
+          "signCode": "M1-1t"
+        },
+        {
+          "signCode": "M4-9R"
+        },
+        {
+          "signCode": "M4-9L"
+        },
+        {
+          "signCode": "M4-9"
+        },
+        {
+          "signCode": "M5-2"
+        },
+        {
+          "signCode": "W1-4R"
+        },
+        {
+          "signCode": "W1-4L"
+        },
+        {
+          "signCode": "W1-4bR"
+        },
+        {
+          "signCode": "W1-4bL"
+        },
+        {
+          "signCode": "W1-4cR"
+        },
+        {
+          "signCode": "W1-4cL"
+        },
+        {
+          "signCode": "W4-1R"
+        },
+        {
+          "signCode": "W4-1L"
+        },
+        {
+          "signCode": "W4-2R"
+        },
+        {
+          "signCode": "W4-2L"
+        },
+        {
+          "signCode": "R11-3a"
+        },
+        {
+          "signCode": "E5-2"
+        },
+        {
+          "signCode": "E5-2a"
+        },
+        {
+          "signCode": "R9-10"
+        },
+        {
+          "signCode": "R8-3"
+        },
+        {
+          "signCode": "NYW23-1"
+        },
+        {
+          "signCode": "W6-3"
+        },
+        {
+          "signCode": "W7-3aP"
+        },
+        {
+          "signCode": "W8-1"
+        },
+        {
+          "signCode": "W8-7"
+        },
+        {
+          "signCode": "W8-8"
+        },
+        {
+          "signCode": "W8-9"
+        },
+        {
+          "signCode": "W8-12"
+        },
+        {
+          "signCode": "W13-1P"
+        },
+        {
+          "signCode": "W16-4P"
+        },
+        {
+          "signCode": "W16-5PL"
+        },
+        {
+          "signCode": "W16-5PR"
+        },
+        {
+          "signCode": "W16-9P"
+        },
+        {
+          "signCode": "W20-1"
+        },
+        {
+          "signCode": "W20-2"
+        },
+        {
+          "signCode": "W20-3"
+        },
+        {
+          "signCode": "W20-4"
+        },
+        {
+          "signCode": "W21-5"
+        },
+        {
+          "signCode": "W22-2"
+        },
+        {
+          "signCode": "W22-3"
+        },
+        {
+          "signCode": "W21-5bL"
+        },
+        {
+          "signCode": "W22-1"
+        },
+        {
+          "signCode": "W21-5bR"
+        },
+        {
+          "signCode": "W16-7PL"
+        },
+        {
+          "signCode": "W16-7PR"
+        },
+        {
+          "signCode": "W8-15"
+        },
+        {
+          "signCode": "W8-14"
+        },
+        {
+          "signCode": "W21-8"
+        },
+        {
+          "signCode": "W8-17p"
+        },
+        {
+          "signCode": "W8-17"
+        },
+        {
+          "signCode": "W16-2P"
+        },
+        {
+          "signCode": "W8-23"
+        },
+        {
+          "signCode": "W21-1"
+        },
+        {
+          "signCode": "W21-4"
+        },
+        {
+          "signCode": "W21-5aR"
+        },
+        {
+          "signCode": "W21-5aL"
+        },
+        {
+          "signCode": "W23-2"
+        },
+        {
+          "signCode": "W5-4"
+        },
+        {
+          "signCode": "W5-1"
+        },
+        {
+          "signCode": "W8-3"
+        },
+        {
+          "signCode": "W13-4P"
+        },
+        {
+          "signCode": "W13-4"
+        },
+        {
+          "signCode": "W20-5a"
+        },
+        {
+          "signCode": "W9-3"
+        },
+        {
+          "signCode": "W11-15R"
+        },
+        {
+          "signCode": "W8-24"
+        },
+        {
+          "signCode": "W20-5"
+        },
+        {
+          "signCode": "W20-7"
+        },
+        {
+          "signCode": "W11-2R"
+        },
+        {
+          "signCode": "W11-1R"
+        },
+        {
+          "signCode": "W23-1"
+        },
+        {
+          "signCode": "NYR2-2"
+        },
+        {
+          "signCode": "NYR2-3"
+        },
+        {
+          "signCode": "NYR2-4"
+        },
+        {
+          "signCode": "NYR2-5"
+        },
+        {
+          "signCode": "NYR2-6"
+        },
+        {
+          "signCode": "W24-1L"
+        },
+        {
+          "signCode": "W24-1R"
+        },
+        {
+          "signCode": "W24-1aL"
+        },
+        {
+          "signCode": "W24-1aR"
+        },
+        {
+          "signCode": "W24-1bL"
+        },
+        {
+          "signCode": "W24-1bR"
+        }
+      ]
+    },
+    "012-02": {
+      "title": "COLOR CODE LEGEND",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "code"
+      ],
+      "rows": [
+        {
+          "code": "A",
+          "description": "BLACK LEGEND AND BORDER ON A WHITE BACKGROUND"
+        },
+        {
+          "code": "B",
+          "description": "WHITE LEGEND AND BORDER ON A GREEN BACKGROUND"
+        },
+        {
+          "code": "C",
+          "description": "WHITE LEGEND AND BORDER ON A RED BACKGROUND"
+        },
+        {
+          "code": "D",
+          "description": "RED LEGEND AND BORDER ON A WHITE BACKGROUND"
+        },
+        {
+          "code": "E",
+          "description": "BLACK LEGEND AND BORDER ON A FLOURESCENT YELLOW GREEN BACKGROUND"
+        },
+        {
+          "code": "F",
+          "description": "WHITE LEGEND AND BORDER ON A BLUE AND RED BACKGROUND"
+        },
+        {
+          "code": "G",
+          "description": "BLACK LEGEND AND BORDER ON AN ORANGE BACKGROUND"
+        }
+      ],
+      "note": "Color codes from sheet 3 COLOR CODE LEGEND; FLOURESCENT spelling is verbatim from the PDF."
+    }
+  },
+  "legend": {
+    "confidence": "drawing",
+    "title": "SIGN TABLE",
+    "items": [
+      "NON-FREEWAY SIZE COLUMN",
+      "FREEWAY SIZE COLUMN",
+      "COLOR CODE LEGEND"
+    ]
+  },
+  "notes": {
+    "confidence": "drawing",
+    "printed": [
+      "See PDF sheet 3 NOTES for mounting/color application rules."
+    ]
+  }
+}

@@ -204,6 +204,655 @@ Public Function PlaceAllOrderTableStations(aIdx As Integer, resetSession As Bool
 End Function
 
 ' ============================================================
+' Walk order-table stations WITHOUT placing perp ticks — same
+' cumulative-station math as PlaceAllOrderTableStations.
+' Returns rows: itemNum, label, type, cumulativeStationFt, ptX, ptY,
+' ptZ, tanX, tanY, isSign, spacingFt
+' ============================================================
+Public Function EnumerateOrderTableStations(aIdx As Integer) As String()
+    Dim rows() As String
+    Dim errMsg As String
+
+    If Not InitAlignmentPlacementHeadless(aIdx, errMsg) Then
+        ReDim rows(0 To 1)
+        rows(0) = "error"
+        rows(1) = errMsg
+        EnumerateOrderTableStations = rows
+        Exit Function
+    End If
+
+    Dim rCount As Integer: rCount = wztcAlignRowCounts(aIdx)
+    ReDim rows(0 To rCount)
+    rows(0) = "itemNum" & vbTab & "label" & vbTab & "type" & vbTab & "cumulativeStationFt" & vbTab & _
+              "ptX" & vbTab & "ptY" & vbTab & "ptZ" & vbTab & "tanX" & vbTab & "tanY" & vbTab & _
+              "isSign" & vbTab & "spacingFt"
+
+    Do While Not IsAllDone()
+        Dim itemNum As Integer: itemNum = GetCurrentItemNumber()
+        Dim itemLabel As String: itemLabel = GetCurrentItemLabel()
+        Dim rowType As String: rowType = wztcAlignRowTypes(aIdx, itemNum)
+        Dim spacing As Double: spacing = GetCurrentItemSuggestedSpacing()
+
+        currentPathPos = currentPathPos + spacing
+        Dim ptX As Double, ptY As Double, ptZ As Double, tanX As Double, tanY As Double
+        Call GetPointAndTangent(currentPathPos, ptX, ptY, ptZ, tanX, tanY)
+
+        rows(itemNum) = itemNum & vbTab & itemLabel & vbTab & rowType & vbTab & Format(currentPathPos, "0.0") & vbTab & _
+                       Format(ptX, "0.0####") & vbTab & Format(ptY, "0.0####") & vbTab & Format(ptZ, "0.0####") & vbTab & _
+                       Format(tanX, "0.0####") & vbTab & Format(tanY, "0.0####") & vbTab & _
+                       IIf(rowType = "Sign", "Y", "N") & vbTab & Format(spacing, "0.0")
+        currentItemIdx = currentItemIdx + 1
+    Loop
+
+    EnumerateOrderTableStations = rows
+End Function
+
+' Which Non-Sign rows get a NAME label BELOW the dim (dim length stays
+' above for every tick-to-tick span). Authority = standard sheet
+' get_sheet_requirements elements — never engineer verbal shortcuts.
+' Core layout names always labeled; tapers only when listed on the sheet.
+Private Function ShouldAnnotateNonSignLabel(label As String, sheetElements As String) As Boolean
+    Dim lab As String: lab = Trim(label)
+    Dim elems As String: elems = sheetElements
+    Select Case lab
+        Case "Roll Ahead Distance", "Vehicle Space", "Buffer Space"
+            ShouldAnnotateNonSignLabel = True
+        Case "Merging/Shifting Taper"
+            ShouldAnnotateNonSignLabel = (InStr(1, elems, "MergingTaper", vbTextCompare) > 0)
+        Case "Shoulder Taper"
+            ShouldAnnotateNonSignLabel = (InStr(1, elems, "ShoulderTaper", vbTextCompare) > 0)
+        Case "Downstream Taper"
+            ShouldAnnotateNonSignLabel = (InStr(1, elems, "DownstreamTaper", vbTextCompare) > 0)
+        Case "Upstream Taper Temp Barrier", "Upstream Taper Box/Corr Beam"
+            ' Alternate table lengths on the order form — not plan labels
+            ' unless the sheet lists a matching element token.
+            ShouldAnnotateNonSignLabel = False
+        Case Else
+            ShouldAnnotateNonSignLabel = False
+    End Select
+End Function
+
+' Outward unit perp from tangent + outwardSign.
+Private Sub OutwardUnit(tanX As Double, tanY As Double, outwardSign As Double, _
+                        ByRef outX As Double, ByRef outY As Double)
+    If outwardSign >= 0 Then
+        outX = -tanY: outY = tanX
+    Else
+        outX = tanY: outY = -tanX
+    End If
+End Sub
+
+' Alignment station at path start (station 0) — first tick's "from" end.
+Private Function PathStartPoint(ByRef x As Double, ByRef y As Double, _
+                                ByRef z As Double, ByRef tanX As Double, _
+                                ByRef tanY As Double) As Boolean
+    On Error GoTo PSFail
+    Call GetPointAndTangent(0#, x, y, z, tanX, tanY)
+    PathStartPoint = True
+    Exit Function
+PSFail:
+    PathStartPoint = False
+End Function
+
+' Place Non-Sign labels centered on the SAME tip-to-tip segment midpoint
+' as the matching dimension. sheetElementsPipe gates optional tapers.
+' textExtraAlong: feet past tip along outward (default 20; dims at tip).
+Public Function PlaceOrderTableLabels(aIdx As Integer, outwardSign As Double, _
+                                      Optional textExtraAlong As Double = 20#, _
+                                      Optional sheetElementsPipe As String = "") As String()
+    Dim rows() As String
+    Dim enumRows() As String
+    enumRows = EnumerateOrderTableStations(aIdx)
+    If enumRows(0) = "error" Then
+        PlaceOrderTableLabels = enumRows
+        Exit Function
+    End If
+
+    Dim errMsg As String
+    If Not InitAlignmentPlacementHeadless(aIdx, errMsg) Then
+        ReDim rows(0 To 1)
+        rows(0) = "error"
+        rows(1) = errMsg
+        PlaceOrderTableLabels = rows
+        Exit Function
+    End If
+    Dim sx As Double, sy As Double, sz As Double, stanX As Double, stanY As Double
+    Dim haveStart As Boolean
+    haveStart = PathStartPoint(sx, sy, sz, stanX, stanY)
+
+    Dim nOut As Integer: nOut = 0
+    ReDim rows(0 To 0)
+    rows(0) = "itemNum" & vbTab & "label" & vbTab & "text" & vbTab & "x" & vbTab & "y" & vbTab & "status"
+
+    Dim i As Integer
+    For i = 1 To UBound(enumRows)
+        Dim parts() As String
+        parts = Split(enumRows(i), vbTab)
+        If UBound(parts) < 10 Then GoTo NextLabel
+        If parts(9) = "Y" Then GoTo NextLabel
+
+        Dim label As String: label = parts(1)
+        If Not ShouldAnnotateNonSignLabel(label, sheetElementsPipe) Then GoTo NextLabel
+
+        Dim spacingFt As String: spacingFt = parts(10)
+        If Val(spacingFt) <= 0 Then GoTo NextLabel
+
+        Dim ptX As Double: ptX = CDbl(parts(4))
+        Dim ptY As Double: ptY = CDbl(parts(5))
+        Dim tanX As Double: tanX = CDbl(parts(7))
+        Dim tanY As Double: tanY = CDbl(parts(8))
+
+        Dim x1 As Double, y1 As Double
+        If i >= 2 Then
+            Dim prev() As String
+            prev = Split(enumRows(i - 1), vbTab)
+            If UBound(prev) < 5 Then GoTo NextLabel
+            x1 = CDbl(prev(4)): y1 = CDbl(prev(5))
+        ElseIf haveStart Then
+            x1 = sx: y1 = sy
+        Else
+            GoTo NextLabel
+        End If
+
+        Dim outX As Double, outY As Double
+        Call OutwardUnit(tanX, tanY, outwardSign, outX, outY)
+
+        ' Tip-to-tip midpoint (same X as dim). Place BELOW the dim line:
+        ' dim sits at tip+offsetDist (~15); label further outward so
+        ' length stays above the dim and the name sits below (sheet pattern).
+        Dim midX As Double, midY As Double
+        midX = 0.5 * (x1 + ptX) + outX * PERP_HALF_LEN
+        midY = 0.5 * (y1 + ptY) + outY * PERP_HALF_LEN
+        Dim labelOut As Double
+        labelOut = 15# + textExtraAlong   ' past dim line (default offsetDist=15)
+        Dim tx As Double, ty As Double
+        tx = midX + outX * labelOut
+        ty = midY + outY * labelOut
+
+        Dim txt As String
+        txt = label
+        If Len(Trim(spacingFt)) > 0 And Val(spacingFt) > 0 Then
+            txt = label & " " & Format(Val(spacingFt), "0") & "'"
+        End If
+
+        Dim result As String
+        result = WZTCExec.ExecPlaceTextLabel(txt, tx, ty, 0)
+
+        nOut = nOut + 1
+        ReDim Preserve rows(0 To nOut)
+        rows(nOut) = parts(0) & vbTab & label & vbTab & txt & vbTab & _
+                     Format(tx, "0.0####") & vbTab & Format(ty, "0.0####") & vbTab & result
+NextLabel:
+    Next i
+
+    PlaceOrderTableLabels = rows
+End Function
+
+' Dimension EVERY consecutive tick pair (tip-to-tip), including Sign
+' spacings and non-labeled Non-Sign rows. Length text sits above the
+' dim line; optional name labels below come from PlaceOrderTableLabels.
+' sheetElementsPipe retained for API compat but does NOT gate dims.
+Public Function PlaceOrderTableDimensions(aIdx As Integer, outwardSign As Double, _
+                                          Optional offsetDist As Double = 15#, _
+                                          Optional sheetElementsPipe As String = "") As String()
+    Dim rows() As String
+    Dim enumRows() As String
+    enumRows = EnumerateOrderTableStations(aIdx)
+    If enumRows(0) = "error" Then
+        PlaceOrderTableDimensions = enumRows
+        Exit Function
+    End If
+
+    Dim errMsg As String
+    If Not InitAlignmentPlacementHeadless(aIdx, errMsg) Then
+        ReDim rows(0 To 1)
+        rows(0) = "error"
+        rows(1) = errMsg
+        PlaceOrderTableDimensions = rows
+        Exit Function
+    End If
+    Dim sx As Double, sy As Double, sz As Double, stanX As Double, stanY As Double
+    Dim haveStart As Boolean
+    haveStart = PathStartPoint(sx, sy, sz, stanX, stanY)
+
+    Dim nOut As Integer: nOut = 0
+    ReDim rows(0 To 0)
+    rows(0) = "fromItem" & vbTab & "toItem" & vbTab & "spacingFt" & vbTab & "elementId" & vbTab & "status"
+
+    Dim i As Integer
+    For i = 1 To UBound(enumRows)
+        Dim b() As String
+        b = Split(enumRows(i), vbTab)
+        If UBound(b) < 10 Then GoTo NextDim
+
+        Dim spacing As Double: spacing = CDbl(b(10))
+        If spacing <= 0 Then GoTo NextDim
+
+        Dim x2a As Double: x2a = CDbl(b(4))
+        Dim y2a As Double: y2a = CDbl(b(5))
+        Dim tanX As Double: tanX = CDbl(b(7))
+        Dim tanY As Double: tanY = CDbl(b(8))
+
+        Dim x1a As Double, y1a As Double
+        Dim fromItem As String
+        If i >= 2 Then
+            Dim a() As String
+            a = Split(enumRows(i - 1), vbTab)
+            If UBound(a) < 5 Then GoTo NextDim
+            x1a = CDbl(a(4)): y1a = CDbl(a(5))
+            fromItem = a(0)
+        ElseIf haveStart Then
+            x1a = sx: y1a = sy
+            fromItem = "0"
+        Else
+            GoTo NextDim
+        End If
+
+        Dim outX As Double, outY As Double
+        Call OutwardUnit(tanX, tanY, outwardSign, outX, outY)
+
+        ' Measure at tick tips so dims line up with the ticks
+        Dim t1x As Double, t1y As Double, t2x As Double, t2y As Double
+        t1x = x1a + outX * PERP_HALF_LEN: t1y = y1a + outY * PERP_HALF_LEN
+        t2x = x2a + outX * PERP_HALF_LEN: t2y = y2a + outY * PERP_HALF_LEN
+
+        Dim ox As Double, oy As Double
+        ox = 0.5 * (t1x + t2x) + outX * offsetDist
+        oy = 0.5 * (t1y + t2y) + outY * offsetDist
+
+        Dim result As String
+        result = WZTCExec.ExecPlaceDimension(t1x, t1y, t2x, t2y, ox, oy, 0)
+
+        Dim eid As String: eid = ""
+        Dim fields() As String
+        fields = Split(result, vbTab)
+        Dim f As Integer
+        For f = 0 To UBound(fields)
+            If Left(fields(f), 10) = "elementId=" Then eid = Mid(fields(f), 11)
+        Next f
+
+        nOut = nOut + 1
+        ReDim Preserve rows(0 To nOut)
+        rows(nOut) = fromItem & vbTab & b(0) & vbTab & Format(spacing, "0.0") & vbTab & eid & vbTab & result
+NextDim:
+    Next i
+
+    PlaceOrderTableDimensions = rows
+End Function
+
+' ProtectiveVehicle centered between the two Vehicle Space ticks (scaled
+' to table length). ArrowPanel at Shoulder Taper tip (619-311 plan
+' clusters AP with SHOULDER TAPER); fallback Merging/Shifting Taper tip.
+' sheetElementsPipe: pipe list from get_sheet_requirements elements field.
+Public Function PlaceSheetSymbolCells(aIdx As Integer, outwardSign As Double, _
+                                      sheetElementsPipe As String) As String()
+    Dim rows() As String
+    Dim enumRows() As String
+    enumRows = EnumerateOrderTableStations(aIdx)
+    If enumRows(0) = "error" Then
+        PlaceSheetSymbolCells = enumRows
+        Exit Function
+    End If
+
+    Dim nOut As Integer: nOut = 0
+    ReDim rows(0 To 0)
+    rows(0) = "sheetElement" & vbTab & "cellName" & vbTab & "x" & vbTab & "y" & vbTab & "angleDeg" & vbTab & "status"
+
+    Dim wantPV As Boolean, wantAP As Boolean
+    wantPV = (InStr(1, sheetElementsPipe, "ProtectiveVehicle", vbTextCompare) > 0)
+    wantAP = (InStr(1, sheetElementsPipe, "ArrowPanel", vbTextCompare) > 0)
+    If Not wantPV And Not wantAP Then
+        nOut = 1
+        ReDim Preserve rows(0 To 1)
+        rows(1) = "-" & vbTab & "-" & vbTab & "0" & vbTab & "0" & vbTab & "0" & vbTab & _
+                  "OK note=no ProtectiveVehicle/ArrowPanel in sheet elements"
+        PlaceSheetSymbolCells = rows
+        Exit Function
+    End If
+
+    Dim vsIdx As Integer: vsIdx = 0
+    Dim vsLen As Double: vsLen = 50#
+    Dim apIdx As Integer: apIdx = 0
+    Dim i As Integer
+    For i = 1 To UBound(enumRows)
+        Dim parts() As String
+        parts = Split(enumRows(i), vbTab)
+        If UBound(parts) < 10 Then GoTo ContFind
+        If InStr(1, parts(1), "Vehicle Space", vbTextCompare) > 0 Then
+            vsIdx = i
+            If Val(parts(10)) > 0 Then vsLen = Val(parts(10))
+        End If
+        ' Prefer Shoulder Taper for AP (sheet callout); else Merging taper
+        If InStr(1, parts(1), "Shoulder Taper", vbTextCompare) > 0 Then
+            apIdx = i
+        ElseIf apIdx = 0 And InStr(1, parts(1), "Merging/Shifting Taper", vbTextCompare) > 0 Then
+            apIdx = i
+        End If
+ContFind:
+    Next i
+
+    If wantPV And vsIdx = 0 Then
+        ReDim rows(0 To 1)
+        rows(0) = "sheetElement" & vbTab & "cellName" & vbTab & "x" & vbTab & "y" & vbTab & "angleDeg" & vbTab & "status"
+        rows(1) = "-" & vbTab & "-" & vbTab & "0" & vbTab & "0" & vbTab & "0" & vbTab & _
+                  "ERROR note=Vehicle Space row not found in order table"
+        PlaceSheetSymbolCells = rows
+        Exit Function
+    End If
+
+    Dim errMsg As String
+    If Not InitAlignmentPlacementHeadless(aIdx, errMsg) Then
+        ReDim rows(0 To 1)
+        rows(0) = "error"
+        rows(1) = errMsg
+        PlaceSheetSymbolCells = rows
+        Exit Function
+    End If
+
+    Dim tanX As Double, tanY As Double, outX As Double, outY As Double
+    Dim angDeg As Double
+
+    If wantPV Then
+        Dim b() As String
+        b = Split(enumRows(vsIdx), vbTab)
+        Dim x2 As Double: x2 = CDbl(b(4))
+        Dim y2 As Double: y2 = CDbl(b(5))
+        tanX = CDbl(b(7)): tanY = CDbl(b(8))
+        Dim x1 As Double, y1 As Double
+        If vsIdx >= 2 Then
+            Dim a() As String
+            a = Split(enumRows(vsIdx - 1), vbTab)
+            x1 = CDbl(a(4)): y1 = CDbl(a(5))
+        Else
+            Dim sz As Double, stanX As Double, stanY As Double
+            If Not PathStartPoint(x1, y1, sz, stanX, stanY) Then
+                ReDim rows(0 To 1)
+                rows(0) = "error"
+                rows(1) = "cannot resolve Vehicle Space start station"
+                PlaceSheetSymbolCells = rows
+                Exit Function
+            End If
+        End If
+        Call OutwardUnit(tanX, tanY, outwardSign, outX, outY)
+        Dim tip1x As Double, tip1y As Double, tip2x As Double, tip2y As Double
+        tip1x = x1 + outX * PERP_HALF_LEN: tip1y = y1 + outY * PERP_HALF_LEN
+        tip2x = x2 + outX * PERP_HALF_LEN: tip2y = y2 + outY * PERP_HALF_LEN
+        Dim midX As Double, midY As Double
+        midX = 0.5 * (tip1x + tip2x)
+        midY = 0.5 * (tip1y + tip2y)
+        angDeg = Atn2Deg(tanY, tanX)
+        Dim cellNativeLen As Double: cellNativeLen = 45.7
+        Dim sc As Double: sc = vsLen / cellNativeLen
+        If sc < 0.1 Then sc = 1#
+        nOut = nOut + 1
+        ReDim Preserve rows(0 To nOut)
+        rows(nOut) = PlaceOneSheetCell("ProtectiveVehicle", "TWZWVA_P", midX, midY, angDeg, sc)
+    End If
+
+    If wantAP Then
+        If apIdx = 0 Then
+            nOut = nOut + 1
+            ReDim Preserve rows(0 To nOut)
+            rows(nOut) = "ArrowPanel" & vbTab & "TWZAP_P" & vbTab & "0" & vbTab & "0" & vbTab & "0" & vbTab & _
+                         "ERROR note=no Shoulder/Merging Taper row for ArrowPanel"
+        Else
+            Dim apParts() As String
+            apParts = Split(enumRows(apIdx), vbTab)
+            Dim apPx As Double: apPx = CDbl(apParts(4))
+            Dim apPy As Double: apPy = CDbl(apParts(5))
+            Dim apTx As Double: apTx = CDbl(apParts(7))
+            Dim apTy As Double: apTy = CDbl(apParts(8))
+            Call OutwardUnit(apTx, apTy, outwardSign, outX, outY)
+            ' Tip of the taper tick — sheet places AP on the closed-lane
+            ' side at the shoulder/lane taper, not next to Vehicle Space.
+            Dim apX As Double, apY As Double
+            apX = apPx + outX * PERP_HALF_LEN
+            apY = apPy + outY * PERP_HALF_LEN
+            angDeg = Atn2Deg(apTy, apTx)
+            nOut = nOut + 1
+            ReDim Preserve rows(0 To nOut)
+            rows(nOut) = PlaceOneSheetCell("ArrowPanel", "TWZAP_P", apX, apY, angDeg, 1#)
+        End If
+    End If
+
+    PlaceSheetSymbolCells = rows
+End Function
+
+' Work-space box in the closed lane from path start through end of
+' Vehicle Space (protected bay). laneWidthFt = closed-lane width.
+Public Function PlaceOrderTableWorkspace(aIdx As Integer, outwardSign As Double, _
+                                         Optional laneWidthFt As Double = 12#) As String
+    On Error GoTo WSErr
+    Dim enumRows() As String
+    enumRows = EnumerateOrderTableStations(aIdx)
+    If enumRows(0) = "error" Then
+        PlaceOrderTableWorkspace = "ERROR" & vbTab & "note=" & enumRows(1)
+        Exit Function
+    End If
+
+    Dim errMsg As String
+    If Not InitAlignmentPlacementHeadless(aIdx, errMsg) Then
+        PlaceOrderTableWorkspace = "ERROR" & vbTab & "note=" & errMsg
+        Exit Function
+    End If
+
+    Dim sx As Double, sy As Double, sz As Double, stanX As Double, stanY As Double
+    If Not PathStartPoint(sx, sy, sz, stanX, stanY) Then
+        PlaceOrderTableWorkspace = "ERROR" & vbTab & "note=path start unavailable"
+        Exit Function
+    End If
+
+    Dim vsIdx As Integer: vsIdx = 0
+    Dim i As Integer
+    For i = 1 To UBound(enumRows)
+        Dim parts() As String
+        parts = Split(enumRows(i), vbTab)
+        If UBound(parts) >= 1 Then
+            If InStr(1, parts(1), "Vehicle Space", vbTextCompare) > 0 Then vsIdx = i: Exit For
+        End If
+    Next i
+    If vsIdx = 0 Then
+        PlaceOrderTableWorkspace = "ERROR" & vbTab & "note=Vehicle Space row not found"
+        Exit Function
+    End If
+
+    Dim vs() As String
+    vs = Split(enumRows(vsIdx), vbTab)
+    Dim ex As Double: ex = CDbl(vs(4))
+    Dim ey As Double: ey = CDbl(vs(5))
+    Dim tanX As Double: tanX = CDbl(vs(7))
+    Dim tanY As Double: tanY = CDbl(vs(8))
+    Dim outX As Double, outY As Double
+    Call OutwardUnit(tanX, tanY, outwardSign, outX, outY)
+
+    ' Rectangle: align edge → closed-lane edge (laneWidth), start→VS end
+    Dim vtsv As String
+    vtsv = Format(sx, "0.0####") & "," & Format(sy, "0.0####") & "|" & _
+           Format(ex, "0.0####") & "," & Format(ey, "0.0####") & "|" & _
+           Format(ex + outX * laneWidthFt, "0.0####") & "," & Format(ey + outY * laneWidthFt, "0.0####") & "|" & _
+           Format(sx + outX * laneWidthFt, "0.0####") & "," & Format(sy + outY * laneWidthFt, "0.0####")
+
+    PlaceOrderTableWorkspace = WZTCExec.ExecPlaceWorkspace(vtsv)
+    Exit Function
+WSErr:
+    PlaceOrderTableWorkspace = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Channelizing: merging-taper diagonal + longitudinal run along the
+' closed lane from taper toe back to path start. Bounded by order-table
+' stations — never AccuDraw-length leftovers.
+Public Function PlaceOrderTableChannelizing(aIdx As Integer, outwardSign As Double, _
+                                            Optional laneWidthFt As Double = 12#) As String
+    On Error GoTo ChErr
+    Dim enumRows() As String
+    enumRows = EnumerateOrderTableStations(aIdx)
+    If enumRows(0) = "error" Then
+        PlaceOrderTableChannelizing = "ERROR" & vbTab & "note=" & enumRows(1)
+        Exit Function
+    End If
+
+    Dim errMsg As String
+    If Not InitAlignmentPlacementHeadless(aIdx, errMsg) Then
+        PlaceOrderTableChannelizing = "ERROR" & vbTab & "note=" & errMsg
+        Exit Function
+    End If
+
+    Dim sx As Double, sy As Double, sz As Double, stanX As Double, stanY As Double
+    If Not PathStartPoint(sx, sy, sz, stanX, stanY) Then
+        PlaceOrderTableChannelizing = "ERROR" & vbTab & "note=path start unavailable"
+        Exit Function
+    End If
+
+    Dim merIdx As Integer: merIdx = 0
+    Dim shIdx As Integer: shIdx = 0
+    Dim i As Integer
+    For i = 1 To UBound(enumRows)
+        Dim parts() As String
+        parts = Split(enumRows(i), vbTab)
+        If UBound(parts) < 1 Then GoTo ContCh
+        If InStr(1, parts(1), "Merging/Shifting Taper", vbTextCompare) > 0 Then merIdx = i
+        If InStr(1, parts(1), "Shoulder Taper", vbTextCompare) > 0 Then shIdx = i
+ContCh:
+    Next i
+    If merIdx = 0 Then
+        PlaceOrderTableChannelizing = "ERROR" & vbTab & "note=Merging/Shifting Taper row not found"
+        Exit Function
+    End If
+
+    ' Taper toe = start of merging segment (prev station); tip = merging end
+    Dim mer() As String
+    mer = Split(enumRows(merIdx), vbTab)
+    Dim tipX As Double: tipX = CDbl(mer(4))
+    Dim tipY As Double: tipY = CDbl(mer(5))
+    Dim tanX As Double: tanX = CDbl(mer(7))
+    Dim tanY As Double: tanY = CDbl(mer(8))
+    Dim toeX As Double, toeY As Double
+    If merIdx >= 2 Then
+        Dim prev() As String
+        prev = Split(enumRows(merIdx - 1), vbTab)
+        toeX = CDbl(prev(4)): toeY = CDbl(prev(5))
+    Else
+        toeX = sx: toeY = sy
+    End If
+
+    Dim outX As Double, outY As Double
+    Call OutwardUnit(tanX, tanY, outwardSign, outX, outY)
+
+    ' Optional shoulder taper: short lead-in on align before merging tip
+    Dim ids As String: ids = ""
+    If shIdx > merIdx Then
+        Dim sh() As String
+        sh = Split(enumRows(shIdx), vbTab)
+        Dim shX As Double: shX = CDbl(sh(4))
+        Dim shY As Double: shY = CDbl(sh(5))
+        ' Shoulder diagonal: align at sh end → partial offset at merging tip
+        Dim shVerts As String
+        shVerts = Format(shX, "0.0####") & "," & Format(shY, "0.0####") & "|" & _
+                  Format(tipX + outX * (laneWidthFt * 0.35), "0.0####") & "," & _
+                  Format(tipY + outY * (laneWidthFt * 0.35), "0.0####")
+        Dim shRes As String
+        shRes = WZTCExec.ExecPlaceElementRun(2, shVerts)
+        ids = ids & shRes & " || "
+    End If
+
+    ' Merging taper diagonal: align at upstream tip → full lane offset at toe
+    Dim merVerts As String
+    merVerts = Format(tipX, "0.0####") & "," & Format(tipY, "0.0####") & "|" & _
+               Format(toeX + outX * laneWidthFt, "0.0####") & "," & _
+               Format(toeY + outY * laneWidthFt, "0.0####")
+    Dim merRes As String
+    merRes = WZTCExec.ExecPlaceElementRun(2, merVerts)
+    ids = ids & merRes & " || "
+
+    ' Longitudinal closed-lane run: taper toe → path start (work end)
+    Dim longVerts As String
+    longVerts = Format(toeX + outX * laneWidthFt, "0.0####") & "," & _
+                Format(toeY + outY * laneWidthFt, "0.0####") & "|" & _
+                Format(sx + outX * laneWidthFt, "0.0####") & "," & _
+                Format(sy + outY * laneWidthFt, "0.0####")
+    Dim longRes As String
+    longRes = WZTCExec.ExecPlaceElementRun(2, longVerts)
+    ids = ids & longRes
+
+    PlaceOrderTableChannelizing = "OK" & vbTab & "note=taper+longitudinal channelizing" & vbTab & "details=" & ids
+    Exit Function
+ChErr:
+    PlaceOrderTableChannelizing = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function PlaceOneSheetCell(sheetEl As String, cellName As String, _
+                                   x As Double, y As Double, angleDeg As Double, _
+                                   Optional scaleFactor As Double = 1#) As String
+    On Error GoTo CellErr
+    Dim beforeMax As Double
+    beforeMax = 0
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Do While oEnum.MoveNext
+        Dim idv As Double: idv = ElIDAsDouble(oEnum.Current.ID)
+        If idv > beforeMax Then beforeMax = idv
+    Loop
+
+    CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
+    CadInputQueue.SendKeyin "ACTIVE COLOR 0"
+    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
+    CadInputQueue.SendKeyin "ACTIVE ANGLE " & angleDeg
+    CadInputQueue.SendKeyin "ACTIVE SCALE " & Format(scaleFactor, "0.#####") & "," & Format(scaleFactor, "0.#####")
+    CadInputQueue.SendCommand "ATTACH LIBRARY c:\pwworking\usny\d0119091\ny_plan_wztc.cel"
+    SetCExpressionValue "tcb->activeCellUtf16", cellName, ""
+    CadInputQueue.SendCommand "PLACE CELL ICON"
+    Dim pt As Point3d
+    pt.X = x: pt.Y = y: pt.Z = 0
+    CadInputQueue.SendDataPoint pt, 1
+    CadInputQueue.SendReset
+    CommandState.StartDefaultCommand
+    CadInputQueue.SendKeyin "ACTIVE SCALE 1,1"
+
+    Dim newId As Double: newId = beforeMax
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Do While oEnum.MoveNext
+        idv = ElIDAsDouble(oEnum.Current.ID)
+        If idv > newId Then newId = idv
+    Loop
+
+    Dim st As String
+    If newId > beforeMax Then
+        st = "OK elementId=" & CStr(newId) & " scale=" & Format(scaleFactor, "0.###")
+    Else
+        st = "ERROR note=no new cell element"
+    End If
+    PlaceOneSheetCell = sheetEl & vbTab & cellName & vbTab & _
+                        Format(x, "0.0####") & vbTab & Format(y, "0.0####") & vbTab & _
+                        Format(angleDeg, "0.0##") & vbTab & st
+    Exit Function
+CellErr:
+    On Error Resume Next
+    CadInputQueue.SendKeyin "ACTIVE SCALE 1,1"
+    PlaceOneSheetCell = sheetEl & vbTab & cellName & vbTab & _
+                        Format(x, "0.0####") & vbTab & Format(y, "0.0####") & vbTab & _
+                        Format(angleDeg, "0.0##") & vbTab & "ERROR note=" & Err.Description
+End Function
+
+Private Function Atn2Deg(y As Double, x As Double) As Double
+    Const PI As Double = 3.14159265358979
+    Dim a As Double
+    If Abs(x) < 0.0000001 Then
+        If y >= 0 Then Atn2Deg = 90 Else Atn2Deg = -90
+        Exit Function
+    End If
+    a = Atn(y / x)
+    If x < 0 Then
+        If y >= 0 Then a = a + PI Else a = a - PI
+    End If
+    Atn2Deg = a * 180# / PI
+End Function
+
+' ============================================================
 ' BUILD ALIGNMENT PATH
 ' Collects line/arc elements newer than wztcAlignmentStartMaxID,
 ' sorts them into a connected chain starting at the first

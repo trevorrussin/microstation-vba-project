@@ -1,0 +1,72 @@
+{
+  "sheet": "619-211",
+  "findings": [
+    "211 short-duration left shoulder on exit ramp"
+  ],
+  "tables": {
+    "211-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS NO WORKERS EXPOSED",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS NO WORKERS EXPOSED",
+          "FREEWAY": "PVH+TMIA"
+        }
+      ]
+    },
+    "211-02": {
+      "title": "REQUIRED SIGN SIZES",
+      "rows": [
+        {
+          "signCode": "W5-4",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W13-4P",
+          "NON-FREEWAY": null,
+          "FREEWAY": "36x36"
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5aL",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "planGapsFt": {
+    "A": 1000
+  },
+  "rollAheadFixed": {
+    "le45": 80,
+    "gt45": 160
+  },
+  "notesCount": 6,
+  "schema": "shortDurationShoulderRamp"
+}

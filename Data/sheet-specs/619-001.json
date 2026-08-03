@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "kind": "referenceLibrary",
+    "kindNote": "Not a corridor/plan sheet — no station walk / order table. schemaVersion 1.1 referenceLibrary pattern per 619-011.",
+    "number": "619-001",
+    "title": "TEMPORARY POSITIVE BARRIER",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "units": "U.S. CUSTOMARY STANDARD SHEET",
+    "scale": "NOT TO SCALE",
+    "approved": "2024-06-18",
+    "issuedUnder": "EI 21-028",
+    "signedBy": "ROBERT LIMOGES, P.E., DIRECTOR, OTSM",
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-001.pdf",
+    "localPdf": "Bridge/captures/619-001.pdf",
+    "localRender": null,
+    "pdfPages": 7,
+    "pageRotation": 270,
+    "transcribedBy": "Cursor (Misc reference/detail)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "6+ sheet temporary positive barrier detail library (bar lists, end sections, hardware, box-beam connections, posts). Not corridor-driven. live-build n/a."
+  },
+  "tableRoles": {
+    "note": "Detail library — bar schedule is the primary structured table; geometry lives in details.",
+    "barSchedule": "001-01"
+  },
+  "tables": {
+    "001-01": {
+      "title": "FULL SECTION BAR LIST (sheet 1 excerpt)",
+      "confidence": "drawing",
+      "keyedBy": [
+        "mark"
+      ],
+      "note": "Bar marks from sheet 1 FULL SECTION BAR LIST headers. Full length/qty cells are drawing-dense — see PDF for complete schedule.",
+      "rows": [
+        {
+          "mark": "6B5",
+          "note": "See PDF bar list for size/section/number/length"
+        },
+        {
+          "mark": "6B4",
+          "note": "See PDF bar list for size/section/number/length"
+        },
+        {
+          "mark": "6B3",
+          "note": "See PDF bar list for size/section/number/length"
+        },
+        {
+          "mark": "6B2",
+          "note": "See PDF bar list for size/section/number/length"
+        },
+        {
+          "mark": "4B5",
+          "note": "See PDF bar list for size/section/number/length"
+        },
+        {
+          "mark": "4B4",
+          "note": "See PDF bar list for size/section/number/length"
+        }
+      ]
+    }
+  },
+  "legend": {
+    "confidence": "drawing",
+    "title": "TEMPORARY POSITIVE BARRIER DETAILS",
+    "items": [
+      "FULL SECTION BAR LIST",
+      "CORNER DETAIL",
+      "REINFORCING DETAILS",
+      "TAPERED END SECTION",
+      "HOLE LAYOUT DETAIL",
+      "HARDWARE DETAILS",
+      "BOX BEAM GUIDE RAIL CONNECTION",
+      "STANDARD S3 X 5.7 HIGHWAY POSTS"
+    ]
+  },
+  "details": {
+    "note": "Sheets 1-7 cover barrier section, end treatments, hardware, and post details. Authoritative geometry is the PDF."
+  },
+  "notes": {
+    "confidence": "drawing",
+    "printed": [
+      "See PDF sheets 1-7 for complete construction notes and bar schedules."
+    ]
+  }
+}

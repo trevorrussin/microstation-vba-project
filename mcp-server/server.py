@@ -274,13 +274,16 @@ def resolve_sign_code(code: str) -> list[dict]:
 # later can see *why*, not just *what*.
 
 @mcp.tool()
-def place_perp_line(align_idx: int, sta: float, half_len: float = 40, reason: str = "") -> dict:
+def place_perp_line(align_idx: int, sta: float, half_len: float = 40,
+                    reason: str = "", one_off: bool = False) -> dict:
     """Place a SINGLE perpendicular reference tick line (2*half_len ft
     long, default 80ft) at a station along a committed alignment. For a
     full-plan run, prefer place_order_table_stations instead — it places
     every order-table item's tick line in ONE call. Use this one only
-    for a genuinely one-off tick line outside the order-table flow."""
-    return wztc_ops.place_perp_line(align_idx, sta, half_len, reason)
+    for a genuinely one-off tick line outside the order-table flow, and
+    pass one_off=True — without that flag the tool refuses when the
+    session already looks like a plan (workspace / order table)."""
+    return wztc_ops.place_perp_line(align_idx, sta, half_len, reason, one_off)
 
 
 @mcp.tool()
@@ -289,40 +292,53 @@ def place_sign(sign_num: str, road_type: str, side: str,
                pt2x: Optional[float] = None, pt2y: Optional[float] = None, pt2z: Optional[float] = None,
                dir2x: Optional[float] = None, dir2y: Optional[float] = None,
                reason: str = "") -> dict:
-    """Place a sign face + post + text label at a resolved point/direction —
-    typically from station_to_point, offset along the perpendicular to dodge
-    an obstruction found via find_elements_near/classify_site_features.
-    sign_num MUST be a SignLibrary.bas key (e.g. 'W20-01RA'), not a raw
-    sheet code — run it through resolve_sign_code first if it came from
-    get_sheet_requirements. side is 'One Side' or 'Both Sides'; pt2/dir2/
-    pt2z are required only for 'Both Sides' (a connecting arc is drawn
-    between the two). This tool only executes — it never decides where the
-    sign belongs; resolve the point first, then call this. Pass reason
-    whenever the point was adjusted from the default (e.g. "shifted 4 ft
-    off perp — utility pole at 3+20")."""
+    """Place a sign assembly (post + edge-connected stem + face + label).
+
+    pt1 is the ATTACHMENT on the perp tick — typically the OUTWARD TIP of
+    the 80ft tick (station + outward_perp * half_len), NOT the alignment
+    station and NOT the face center. dir1 is that same unit outward perp
+    — never the alignment tangent (live miss: assembly built along the
+    road). From an order-table row: outward = rotate tan 90deg toward the
+    side; tip = (ptX,ptY)+outward*half_len; place_sign(..., pt1=tip,
+    dir1=outward). Stem/post/face edge geometry is handled in VBA.
+    sign_num MUST be a SignLibrary.bas key — resolve_sign_code first if it
+    came from get_sheet_requirements. side is 'One Side' or 'Both Sides';
+    pt2/dir2 required only for Both Sides. Pass reason when the tip was
+    adjusted from the default (e.g. obstruction dodge)."""
     return wztc_ops.place_sign(sign_num, road_type, side, pt1x, pt1y, pt1z, dir1x, dir1y,
                                 pt2x, pt2y, pt2z, dir2x, dir2y, reason)
 
 
 @mcp.tool()
 def place_workspace(vertices: list[list[float]], reason: str = "") -> dict:
-    """Place the work space boundary shape + associative hatch.
-    vertices is an ordered list of [x, y, z] points — do not repeat the
-    first point to close it. Hatch uses Element API SetPattern."""
+    """Place the work space boundary (unfilled) + hatch stripes.
+    Verify returned elementId with find_elements_near before continuing."""
     return wztc_ops.place_workspace(vertices, reason)
 
 
 @mcp.tool()
 def build_wztc_order_table(speed: int, road_type: str, lane_width: int, shoulder_width: str,
-                            sign_rows: list[dict], category: str = "", sheet_num: str = "") -> dict:
-    """Headless equivalent of WZTCDesigner.frm's Submit & Draw — computes
-    spacing and builds the full per-alignment order table. sign_rows: list
-    of {"align_idx": 1|2, "sign_num": str, "side": "One Side"|"Both Sides",
-    "spacing_ft": optional, "size": optional}. At least one align_idx=1
-    row is required. Returns the full order table to show the engineer
-    before drawing."""
+                            sign_rows: list[dict] | None = None,
+                            category: str = "", sheet_num: str = "",
+                            area_type: str = "", closure_type: str = "",
+                            exposure_condition: str = "") -> dict:
+    """Build the full per-alignment order table (headless Submit & Draw).
+
+    Pass sheet_num AND area_type ("URBAN"/"RURAL"). If a spec exists for that
+    sheet, the sheet drives the station sequence, every spacing, and the sign
+    order and keys — sign_rows can be omitted entirely. The response includes
+    specDriven, stationWalk and signLegends; show the walk to the engineer
+    before drawing.
+
+    Without a spec it falls back to generic defaults (specDriven=False), which
+    emit the same 7 upstream rows for every sheet — say so rather than
+    presenting that table as sheet-faithful.
+
+    sign_rows: [{"align_idx": 1|2, "sign_num": SignLibrary key, "side":
+    "One Side"|"Both Sides", "spacing_ft": optional, "size": optional}]."""
     return wztc_ops.build_wztc_order_table(speed, road_type, lane_width, shoulder_width,
-                                            sign_rows, category, sheet_num)
+                                            sign_rows, category, sheet_num,
+                                            area_type, closure_type, exposure_condition)
 
 
 @mcp.tool()
@@ -353,7 +369,9 @@ def commit_alignment(align_idx: int) -> dict:
 
 
 @mcp.tool()
-def place_order_table_stations(align_idx: int, reset_session: bool = False) -> dict:
+def place_order_table_stations(align_idx: int, reset_session: bool = False,
+                                clear_prior: bool = False,
+                                force: bool = False) -> dict:
     """Batched replacement for PlacePerp.frm's interactive walk — places
     perp tick lines at EVERY row in align_idx's order table in one call.
     ALWAYS call this, not repeated place_perp_line calls, once an
@@ -362,9 +380,65 @@ def place_order_table_stations(align_idx: int, reset_session: bool = False) -> d
     and costs real money for no benefit.
     Requires build_wztc_order_table and commit_alignment for this
     align_idx first. reset_session=True for the first alignment in a
-    fresh plan run, False for subsequent alignments. Returns one row per
-    item; for isSign=Y rows, resolve_sign_code + place_sign next."""
-    return wztc_ops.place_order_table_stations(align_idx, reset_session)
+    fresh plan run, False for subsequent alignments.
+    clear_prior=True wipes journal-owned plan elements first (keeps
+    alignments) — REQUIRED when rebuilding, otherwise geometry stacks.
+    If stations were already placed for this align this session and
+    clear_prior/force are both False, this refuses.
+    Returns one row per item; for isSign=Y rows, resolve_sign_code then
+    place_sign at the OUTWARD PERP TIP (station + outward*half_len) with
+    dir1=outward — never at (ptX,ptY) with dir=tangent. Follow with
+    place_order_table_labels, place_order_table_dimensions, and
+    place_sheet_symbol_cells for a sheet-faithful plan."""
+    return wztc_ops.place_order_table_stations(align_idx, reset_session,
+                                                clear_prior, force)
+
+
+@mcp.tool()
+def place_order_table_labels(align_idx: int, outward_sign: float = -1.0,
+                             text_extra_along: float = 20.0,
+                             sheet_elements: str = "") -> dict:
+    """Sheet-gated Non-Sign labels, X-centered on matching dim midpoints."""
+    return wztc_ops.place_order_table_labels(align_idx, outward_sign,
+                                             text_extra_along, sheet_elements)
+
+
+@mcp.tool()
+def place_order_table_dimensions(align_idx: int, outward_sign: float = -1.0,
+                                 offset_dist: float = 15.0,
+                                 sheet_elements: str = "") -> dict:
+    """Tip-to-tick ny_Plan Linear Size dims (sheet-gated; single text)."""
+    return wztc_ops.place_order_table_dimensions(align_idx, outward_sign,
+                                                 offset_dist, sheet_elements)
+
+
+@mcp.tool()
+def place_sheet_symbol_cells(align_idx: int, sheet_elements: str,
+                             outward_sign: float = -1.0) -> dict:
+    """TWZWVA_P in Vehicle Space bay; TWZAP_P at Shoulder Taper tip."""
+    return wztc_ops.place_sheet_symbol_cells(align_idx, sheet_elements, outward_sign)
+
+
+@mcp.tool()
+def place_order_table_workspace(align_idx: int, outward_sign: float = -1.0,
+                                lane_width: float = 12.0) -> dict:
+    """Hatched work-space box: path start through Vehicle Space, closed lane."""
+    return wztc_ops.place_order_table_workspace(align_idx, outward_sign, lane_width)
+
+
+@mcp.tool()
+def place_order_table_channelizing(align_idx: int, outward_sign: float = -1.0,
+                                   lane_width: float = 12.0) -> dict:
+    """Sheet-bounded taper + closed-lane channelizing (not freeform length)."""
+    return wztc_ops.place_order_table_channelizing(align_idx, outward_sign, lane_width)
+
+
+@mcp.tool()
+def place_dimension(x1: float, y1: float, x2: float, y2: float,
+                    ox: float, oy: float, z: float = 0.0,
+                    style_name: str = "ny_Plan", reason: str = "") -> dict:
+    """One real Linear Size DimensionElement (prefer order-table batch)."""
+    return wztc_ops.place_dimension(x1, y1, x2, y2, ox, oy, z, style_name, reason)
 
 
 @mcp.tool()
@@ -537,12 +611,8 @@ def place_cell(cell_name: str, pt_x: float, pt_y: float, pt_z: float = 0, angle_
 
 @mcp.tool()
 def set_sign_attributes(element_ids: list[str], reason: str = "") -> dict:
-    """Apply standard sign display attributes (level=SF_P, color=240,
-    weight=3) to already-placed elements. element_ids are numeric IDs
-    returned by place_sign's createdElementIds or by find_elements_near —
-    never guessed. Note: fillColor/elementClass=CONSTRUCTION from the
-    original CHANGE ATTRIBUTES sequence aren't replicated (no confirmed
-    VBA property path) — flagged, not silently dropped."""
+    """Finish symbology after place_sign: white labels/stems, orange post.
+    Face cells stay library symbology — do not also recolor faces."""
     return wztc_ops.set_sign_attributes(element_ids, reason)
 
 
@@ -573,6 +643,18 @@ def undo_last_op() -> dict:
     once an op is undone it's marked so a second call won't re-target it."""
     return wztc_ops.undo_last_op()
 
+
+@mcp.tool()
+def clear_plan_elements(keep_alignments: bool = True) -> dict:
+    """Idempotent-rebuild wipe: delete every element this session's journal
+    recorded under createdElementIds= that still exists. Default
+    keep_alignments=True leaves the corridor alone so a rebuild reuses it.
+    Call BEFORE re-placing stations/labels/dims/symbols/workspace/
+    channelizing when iterating — otherwise geometry stacks (duplicate
+    cells, stale channelizing, missing dims). Safe when nothing placed
+    yet (deleted=0). place_order_table_stations(clear_prior=True) does
+    the same in one step."""
+    return wztc_ops.clear_plan_elements(keep_alignments)
 
 @mcp.tool()
 def get_journal(limit: int = 50) -> list[str]:

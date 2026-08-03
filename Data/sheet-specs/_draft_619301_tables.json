@@ -1,0 +1,352 @@
+{
+  "sheetNumber": "619-301",
+  "sourcePdf": "Bridge/captures/619-301.pdf",
+  "sourcePdfRevision": "619-301_E3.pdf (1 page, rotation=270, mediabox portrait)",
+  "pdfPages": 1,
+  "pageRotation": {
+    "page0": 270
+  },
+  "extractedBy": "Cursor subagent (PyMuPDF words_in_window / group_rows / assert_row_count)",
+  "extractedOn": "2026-08-03",
+  "confidence": "verbatim",
+  "tableRoles": {
+    "note": "Family 3 shoulder-closure reference. Only 4 numbered tables. 301-02=rollAheadDistance (was 05 on 302). 301-03=taperAndBuffer shoulder-only (was 02 on 302). NO advanceWarningSpacing role — spacing is plan-callout + Note 6/7.",
+    "protectiveVehicle": "301-01",
+    "rollAheadDistance": "301-02",
+    "taperAndBuffer": "301-03",
+    "signSizes": "301-04"
+  },
+  "tables": {
+    "301-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition",
+        "roadTypeForProtectiveVehicle",
+        "preconstructionPostedSpeedMph"
+      ],
+      "note": "Shoulder closure sheet: 2 exposure rows (not 302's 4 lane+shoulder rows). All cells PVH+TMIA — intermediate-term heavy-PV codes, not 302-01 P/TMIA.",
+      "speedBands": [
+        {
+          "id": "ge45",
+          "label": ">= 45 MPH",
+          "minMph": 45,
+          "maxMph": null
+        },
+        {
+          "id": "b35to40",
+          "label": "35 - 40 MPH",
+          "minMph": 35,
+          "maxMph": 40
+        },
+        {
+          "id": "le30",
+          "label": "<= 30 MPH",
+          "minMph": null,
+          "maxMph": 30
+        }
+      ],
+      "rows": [
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "ge45": "PVH+TMIA",
+          "b35to40": "PVH+TMIA",
+          "le30": "PVH+TMIA",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS, EXCAVATION)",
+          "ge45": "PVH+TMIA",
+          "b35to40": "PVH+TMIA",
+          "le30": "PVH+TMIA",
+          "FREEWAY": "PVH+TMIA"
+        }
+      ],
+      "legend": {
+        "PVH": "PROTECTIVE VEHICLE HEAVY (MINIMUM GROSS WEIGHT 22,000 LBS. OR GREATER)",
+        "TMIA": "TRUCK/TRAILER MOUNTED IMPACT ATTENUATOR"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUME THERE IS NO POSITIVE PROTECTION PRESENT.",
+        "2. TRUCK/TRAILER MOUNTED IMPACT ATTENUATORS (TMIA) SHALL NOT BE MOUNTED/INSTALLED ON VEHICLES WITH A GROSS VEHICLE WEIGHT (GVW) LESS THAN WHAT IS MINIMALLY REQUIRED BY THE MANUFACTURER OF THE TMIA."
+      ]
+    },
+    "301-02": {
+      "title": "ROLL AHEAD DISTANCE FOR PROTECTIVE VEHICLES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "protectiveVehicleGvwLbs"
+      ],
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN and MAX, by protective-vehicle gross vehicle weight (not posted speed).",
+      "note": "Header prints PRECONSTRUCTION POSTED SPEED LIMIT 45-55 / w 60 context but data rows are GVW bands. Differs structurally from 302-05.",
+      "rows": [
+        {
+          "gvwBand": "9,500 TO 21,999 LBS.",
+          "minGvwLbs": 9500,
+          "maxGvwLbs": 21999,
+          "min": {
+            "ft": 160,
+            "skipLines": 4
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "gvwBand": "22,000 LBS. OR GREATER",
+          "minGvwLbs": 22000,
+          "maxGvwLbs": null,
+          "min": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "max": {
+            "ft": 160,
+            "skipLines": 4
+          }
+        }
+      ],
+      "usageNote": "MIN/MAX range, not a single value."
+    },
+    "301-03": {
+      "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph",
+        "shoulderWidthBand"
+      ],
+      "columnMeaning": {
+        "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES",
+        "shoulderTaper": "SHOULDER TAPER LENGTH (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES, FOR SHOULDER WIDTH — NO lane/merging taper column on this sheet"
+      },
+      "note": "4 speed columns (45, 50, 55, 65 mph) in PDF text layer — not 8 rows like 302-02. Shoulder taper values on overlapping speeds match 302-02 shoulderTaper column.",
+      "rows": [
+        {
+          "speedMph": 45,
+          "longitudinalBufferSpace": {
+            "ft": 360,
+            "skipLines": 9
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            ">= 8 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            }
+          }
+        },
+        {
+          "speedMph": 50,
+          "longitudinalBufferSpace": {
+            "ft": 425,
+            "skipLines": 11
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 55,
+          "longitudinalBufferSpace": {
+            "ft": 495,
+            "skipLines": 13
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 65,
+          "longitudinalBufferSpace": {
+            "ft": 645,
+            "skipLines": 16
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            ">= 8 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          }
+        }
+      ]
+    },
+    "301-04": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "note": "Shoulder-closure sign set: W21-5aR/W21-5bR, W7-3a, G20-1/G20-2. NON-FREEWAY column largely absent from rotated PDF text layer — FREEWAY sizes extracted.",
+      "rows": [
+        {
+          "signCode": "NYR2-6",
+          "NON-FREEWAY": null,
+          "FREEWAY": null,
+          "note": "Listed under R2-1 group; no sizes in PDF text layer"
+        },
+        {
+          "signCode": "R2-1 OR NYR2-2",
+          "NON-FREEWAY": null,
+          "FREEWAY": "36x48",
+          "note": "PDF splits R2-1 OR / NYR2-2 across lines; only FREEWAY column extracted"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        },
+        {
+          "signCode": "W21-5bR",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48",
+          "note": "NON-FREEWAY size column absent from rotated PDF text layer"
+        },
+        {
+          "signCode": "W21-5aR",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48",
+          "note": "NON-FREEWAY size column absent from rotated PDF text layer"
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48",
+          "note": "NON-FREEWAY size column absent from rotated PDF text layer"
+        },
+        {
+          "signCode": "W7-3a",
+          "NON-FREEWAY": null,
+          "FREEWAY": "36x30",
+          "note": "NON-FREEWAY size column absent from rotated PDF text layer"
+        },
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x24",
+          "note": "NON-FREEWAY size column absent from rotated PDF text layer"
+        },
+        {
+          "signCode": "G20-1",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x24",
+          "note": "NON-FREEWAY size column absent from rotated PDF text layer"
+        }
+      ]
+    }
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. SHORT-TERM STATIONARY IS DAYTIME WORK THAT OCCUPIES A LOCATION FOR MORE THAN 1 HOUR WITHIN A SINGLE DAYLIGHT PERIOD.",
+      "2. THE PROTECTIVE VEHICLE(S) SHALL MAINTAIN THE APPROPRIATE ROLL AHEAD DISTANCE, BE AN UNOCCUPIED TRUCK POSITIONED PARALLEL TO TRAFFIC, PARKING BRAKE SET, PLACED IN 2ND GEAR (MANUAL TRANSMISSIONS /ENGINE OFF) OR PARK / NEUTRAL (AUTOMATIC TRANSMISSIONS) AND HAVE THE FRONT WHEELS ALIGNED WITH THE LANE STRIPING.",
+      "3. THERE SHALL BE NO WORKERS, EQUIPMENT, OR OTHER VEHICLES IN THE BUFFER SPACE OR THE ROLL AHEAD DISTANCE.",
+      "4. LEFT SHOULDER CLOSURES ARE SYMMETRICAL, SUBSTITUTE LEFT SHOULDER CLOSED AHEAD SIGN (W21-5bL) AND LEFT SHOULDER CLOSED SIGN (W21-5aL) FOR RIGHT SHOULDER CLOSED SIGNS (W21-5bR AND W21-5aR).",
+      "5. CHANNELIZING DEVICE SPACING (CENTER TO CENTER) SHALL NOT EXCEED 40' IN THE ACTIVE WORK SPACE.",
+      "6. XX IS THE EXPECTED OVERALL LENGTH OF THE OPERATION TO BE COMPLETED WITHIN THE WORK DAY. A SUPPLEMENTAL DISTANCE PLAQUE W7-3a SHALL BE USED WITH SIGN W20-1 WHEN THE DISTANCE BETWEEN THE ADVANCE WARNING SIGNS AND WORK MAY BECOME GREATER THAN 2 MILES AS A RESULT OF THE DISTANCE BETWEEN THE W20-1 SIGN AND THE FARTHEST WORK LOCATION. THE SUPPLEMENT SIGN W7-3a SHALL INDICATE THE MAXIMUM ANTICIPATED DISTANCE.",
+      "7. WHEN MULTIPLE WORK LOCATIONS EXIST WITHIN XX MILES FROM THE W20-1 SIGN. A G20-1 SIGN SHALL BE PLACED EVERY TWO MILES INDICATING THE DISTANCE FROM THE SIGN TO THE FARTHEST WORK LOCATION.",
+      "8. CHANNELIZING DEVICES SHALL BE PLACED TRANSVERSELY A MINIMUM OF EVERY 800' AS SHOWN WHEN A PAVED SHOULDER HAVING A WIDTH OF 8' OR GREATER IS CLOSED FOR A DISTANCE GREATER THAN 800'.",
+      "9. A REGULATORY SPEED LIMIT SIGN IS REQUIRED HALFWAY BETWEEN THE 1ST AND 2ND ADVANCE WARNING SIGNS UNLESS A REGULATORY SPEED LIMIT SIGN IS ALREADY PRESENT BETWEEN THOSE ADVANCED WARNING SIGNS OR A REGULATORY SPEED LIMIT REDUCTION IS AUTHORIZED AND THOSE SIGNS HAVE BEEN INSTALLED. ONE R2-1 OR NYR2-2 THROUGH NYR2-6 SHALL BE PROVIDED AS APPROPRIATE DEPENDING ON THE LOCATION. SEE STANDARD SHEET 619-012 FOR SIGN FACE AND SIZE."
+    ],
+    "notesOrderNote": "9 numbered notes (plan column, rotation=270 multi-column blocks). Note 4 cites W21-5bL/W21-5aL symmetry. Notes 6-7 add W7-3a + G20-1 multi-location. Note 9 adds R2-1/NYR2-2 regulatory speed sign requirement."
+  },
+  "corridorHints": {
+    "confidence": "drawing",
+    "fromPlanLabels": [
+      "advance signs: W20-1 -> W21-5bR -> W21-5aR (shoulder closed legends, not W20-5R/W4-2R)",
+      "supplement W7-3a on W20-1 when work span exceeds 2 miles (Note 6)",
+      "G20-1 every 2 miles when multiple work locations within XX miles (Note 7)",
+      "plan spacing callouts: 1320', 1500', 1000', MILE (no numbered advance-warning table)",
+      "SHOULDER TAPER L/3 only — no MERGING TAPER label on plan",
+      "BUFFER SPACE + ROLL AHEAD (table 301-02) + PVH protective vehicle",
+      "DOWNSTREAM TAPER 50'-100'; END ROAD WORK G20-2",
+      "optional ARROW PANEL callout on plan (not NYW8-33 lane-closed PV sign)",
+      "datum sharing: PVH overlay segments share y=377.5 (extract_plan_geometry.py)"
+    ],
+    "extractPlanGeometrySummary": "PVH dimension y=377-416; shoulder taper dimension y=753-1080; datum sharing at y=377.5 (overlay). No MERGING TAPER dimension segment."
+  },
+  "findings": [
+    "pdfPages=1 rotation=270 display_rect=Rect(0.0, 0.0, 1224.0, 792.0)",
+    "301-01: 2 rows (shoulder closure only) — all cells PVH+TMIA; uses heavy PV codes like 402-01, NOT 302-01 P/TMIA",
+    "301-02: 2 rows keyed by protective-vehicle GVW (9500-21999 vs >=22000), NOT 302-05/303-02 3-row speed bands",
+    "301-03: 4 speed columns (45,50,55,65 only) — NO 25/30/35/40/60 rows in PDF text layer",
+    "301-03 buffer+shoulder taper vs 302-02: ALL 16 cells identical on overlapping 45-65 rows",
+    "301-03: extra triple tokens below y=880 (9-12 FT header bleed) ignored — shoulder-only table has 3 width bands only",
+    "301-04: 9 entries — W21-5aR/W21-5bR + W7-3a + G20-1; no W20-5R/W4-2R/NYW8-33",
+    "notes.printed: 9 numbered notes (302 has 8; 301 adds G20-1/W7-3a/R2-1 notes)",
+    "SURPRISE vs Family 2 (302): NO advanceWarningSpacing table — spacing on plan only",
+    "SURPRISE: only 4 tables (301-01..04); no 302-03 analog",
+    "SURPRISE: 301-03 covers 45-65 mph only (not 8-row 25-65)",
+    "SURPRISE: 301-02 roll-ahead keyed by GVW not speed",
+    "SURPRISE: 301-01 PVH+TMIA heavy PV (intermediate-style), not P/TMIA",
+    "SURPRISE: shoulder-closure signs W21-5aR/W21-5bR + W7-3a; no lane-closed signs",
+    "SURPRISE: 9 notes incl regulatory R2-1/NYR2-2 and G20-1 multi-location"
+  ],
+  "comparisonVs302": {
+    "tables_present": "301 has 4 tables vs 302's 5 — no advance warning spacing table",
+    "301-01_vs_302-01": "PVH+TMIA vs P/TMIA; 2 shoulder rows vs 4 lane+shoulder rows",
+    "301-02_vs_302-05": "GVW bands (2 rows) vs speed bands (3 rows)",
+    "301-03_vs_302-02": "4 speeds shoulder+buffer only vs 8 speeds lane+shoulder; overlapping cells match",
+    "301-04_vs_302-04": "W21-5aR/W21-5bR/W7-3a/G20-1 replace W20-5R/W4-2R/NYW8-33",
+    "absent_vs_302": [
+      "302-03 advance warning spacing table",
+      "MERGING TAPER / lane taper table column",
+      "NYW8-33 lane-closed vehicle sign",
+      "W4-2R merge sign"
+    ]
+  }
+}

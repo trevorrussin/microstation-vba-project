@@ -1,0 +1,48 @@
+{
+  "sheet": "619-113",
+  "findings": [
+    "113 MOBILE left shoulder on exit ramp \u2014 2 tables only"
+  ],
+  "tables": {
+    "113-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "PVH+TMIA"
+        }
+      ]
+    },
+    "113-02": {
+      "title": "REQUIRED SIGN SIZES",
+      "rows": [
+        {
+          "signCode": "W5-4",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5AL",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        }
+      ]
+    }
+  },
+  "planGapsFt": {
+    "A": 1000
+  },
+  "rollAheadFixed": {
+    "le45": 80,
+    "gt45": 160
+  },
+  "notesCount": 5,
+  "pageRotation": 270,
+  "schema": "mobileOnly"
+}

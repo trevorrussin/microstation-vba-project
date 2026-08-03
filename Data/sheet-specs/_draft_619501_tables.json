@@ -1,0 +1,412 @@
+{
+  "sheetNumber": "619-501",
+  "sourcePdf": "Bridge/captures/619-501.pdf",
+  "sourcePdfRevision": "619-501_E3.pdf (2 pages, rotation=0)",
+  "pdfPages": 2,
+  "pageRotation": {
+    "page0": 0,
+    "page1": 0
+  },
+  "extractedBy": "Cursor subagent (PyMuPDF words_in_window / group_rows / assert_row_count)",
+  "extractedOn": "2026-08-03",
+  "confidence": "verbatim",
+  "tableRoles": {
+    "note": "Family 3 long-term shoulder with barrier. 4 tables — NO protectiveVehicle or rollAheadDistance (like 504). 501-01=taperAndBuffer. 501-03=positiveBarrierFlareRates.",
+    "taperAndBuffer": "501-01",
+    "channelizingApplication": "501-02",
+    "positiveBarrierFlareRates": "501-03",
+    "signSizes": "501-04"
+  },
+  "tables": {
+    "501-01": {
+      "title": "LONGITUDINAL BUFFER SPACE AND TAPER LENGTHS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph",
+        "shoulderWidthBand"
+      ],
+      "columnMeaning": {
+        "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES",
+        "laneTaper": "LANE TAPER for lane widths 10/11/12 ft",
+        "shoulderTaper": "SHOULDER TAPER L/3 by shoulder width band"
+      },
+      "note": "Identical to 401-03. Shoulder+buffer match 301-03 on 45-65.",
+      "rows": [
+        {
+          "speedMph": 45,
+          "longitudinalBufferSpace": {
+            "ft": 360,
+            "skipLines": 9
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 440,
+              "skipLines": 11,
+              "devices": 12
+            },
+            "11": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "12": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            ">= 8 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            }
+          }
+        },
+        {
+          "speedMph": 50,
+          "longitudinalBufferSpace": {
+            "ft": 425,
+            "skipLines": 11
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 520,
+              "skipLines": 13,
+              "devices": 14
+            },
+            "11": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "12": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 55,
+          "longitudinalBufferSpace": {
+            "ft": 495,
+            "skipLines": 13
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 560,
+              "skipLines": 14,
+              "devices": 15
+            },
+            "11": {
+              "ft": 600,
+              "skipLines": 15,
+              "devices": 16
+            },
+            "12": {
+              "ft": 680,
+              "skipLines": 17,
+              "devices": 18
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 120,
+              "skipLines": 3,
+              "devices": 4
+            },
+            ">= 8 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            }
+          }
+        },
+        {
+          "speedMph": 65,
+          "longitudinalBufferSpace": {
+            "ft": 645,
+            "skipLines": 16
+          },
+          "laneTaper": {
+            "10": {
+              "ft": 640,
+              "skipLines": 16,
+              "devices": 17
+            },
+            "11": {
+              "ft": 720,
+              "skipLines": 18,
+              "devices": 19
+            },
+            "12": {
+              "ft": 800,
+              "skipLines": 20,
+              "devices": 21
+            }
+          },
+          "shoulderTaper": {
+            "<= 4 ft": {
+              "ft": 80,
+              "skipLines": 2,
+              "devices": 3
+            },
+            "5 - 7 ft": {
+              "ft": 160,
+              "skipLines": 4,
+              "devices": 5
+            },
+            ">= 8 ft": {
+              "ft": 200,
+              "skipLines": 5,
+              "devices": 6
+            }
+          }
+        }
+      ]
+    },
+    "501-02": {
+      "title": "CHANNELIZING DEVICE APPLICATION FOR LONG-TERM STATIONARY WORK ZONES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "workZoneProvision",
+        "channelizingDeviceType"
+      ],
+      "note": "Long-term variant — 2 provisions + 2 spacing rows; no transverse/800' rows.",
+      "columnHeaders": [
+        "cones",
+        "temporary_cones_or_drums",
+        "type1_markers",
+        "type2_markers",
+        "type3_markers",
+        "tubular_markers",
+        "vertical_panels",
+        "oversized_vertical_panels",
+        "barricades",
+        "arrow_panels_type3"
+      ],
+      "provisionRows": [
+        {
+          "provisionId": "shoulderMergingShiftingTapers",
+          "label": "SHOULDER/MERGING/SHIFTING TAPERS",
+          "spacingReference": "40 FT.",
+          "allowedByDeviceType": {}
+        },
+        {
+          "provisionId": "removalOfExistingGuideRail",
+          "label": "REMOVAL OF EXISTING GUIDE RAIL",
+          "spacingReference": "80 FT. / 40 FT.",
+          "allowedByDeviceType": {}
+        }
+      ],
+      "spacingRows": [
+        {
+          "spacingId": "spacing20ft",
+          "label": "20 FT.",
+          "allowedByDeviceType": {}
+        },
+        {
+          "spacingId": "spacing40ft",
+          "label": "40 FT.",
+          "allowedByDeviceType": {}
+        }
+      ],
+      "tableNotes": [
+        "NOTES: X= ALLOWED, BLANK = NOT ALLOWED, O = OPTIONAL",
+        "1. - A TYPE 1 OBJECT MARKER MAY BE USED IN LIEU OF CHANNELIZING DEVICE.",
+        "2. - CHANNELIZING DEVICES SHALL BE EQUIPPED WITH A FLASHING WARNING LIGHT."
+      ]
+    },
+    "501-03": {
+      "title": "FLARE RATES FOR POSITIVE BARRIER",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "barrierType",
+        "preconstructionPostedSpeedMph"
+      ],
+      "speedColumnsMph": [
+        50,
+        55,
+        65
+      ],
+      "note": "3 speed columns (50/55/65) — subset of 504-03 (30-65). Same ratio pattern at overlap.",
+      "rows": [
+        {
+          "barrierType": "TEMPORARY POSITIVE BARRIER",
+          "flareRatesBySpeedMph": {
+            "50": "14:1",
+            "55": "16:1",
+            "65": "20:1"
+          }
+        },
+        {
+          "barrierType": "BOX BEAM OR HEAVY POST CORRUGATED BEAM",
+          "flareRatesBySpeedMph": {
+            "50": "11:1",
+            "55": "12:1",
+            "65": "15:1"
+          }
+        }
+      ]
+    },
+    "501-04": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
+      "note": "Shoulder long-term sign set with NYR9-11; W21-5aR/W21-5bR both classes.",
+      "rows": [
+        {
+          "signCode": "G20-1",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "G20-2",
+          "NON-FREEWAY": "36x18",
+          "FREEWAY": "48x24"
+        },
+        {
+          "signCode": "NYR9-11",
+          "NON-FREEWAY": "24x42",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W7-3a",
+          "NON-FREEWAY": "24x18",
+          "FREEWAY": "36x30"
+        },
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5aR",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5bR",
+          "NON-FREEWAY": "36x36",
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        },
+        {
+          "signCode": "R2-1 OR NYR2-2",
+          "NON-FREEWAY": "36x48",
+          "FREEWAY": "36x48",
+          "note": "PDF splits R2-1 OR / NYR2-2 across lines"
+        },
+        {
+          "signCode": "NYR2-6",
+          "NON-FREEWAY": null,
+          "FREEWAY": null,
+          "note": "Listed under R2-1 group; no sizes in PDF text layer"
+        }
+      ]
+    }
+  },
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. LONG-TERM IS STATIONARY WORK THAT OCCUPIES A LOCATION MORE THAN 3 CONSECUTIVE DAYS.",
+      "2. LEFT SHOULDER CLOSURES ARE SYMMETRICAL. SUBSTITUTE LEFT SHOULDER CLOSED SIGNS (W21-5bL AND W21-5aL), AND OBJECT MARKER (OM3-L) FOR RIGHT SHOULDER CLOSED SIGNS (W21-5bR AND W21-5aR), AND OBJECT MARKER (OM3-R).",
+      "3. XX IS THE EXPECTED OVERALL LENGTH OF THE OPERATION TO BE COMPLETED WITHIN THE WORK DAY. A SUPPLEMENTAL DISTANCE PLAQUE W7-3a SHALL BE USED WITH SIGN W20-1 WHEN THE DISTANCE BETWEEN THE ADVANCE WARNING SIGNS AND WORK MAY BECOME GREATER THAN 2 MILES AS A RESULT OF THE FOLLOWING SITUATIONS: *MULTIPLE WORK LOCATIONS ARE ANTICIPATED WITHIN XX MILES FROM W20-1 SIGN *WORK AREA WILL BE RELOCATED DURING THE DURATION OF THE WORK WITHIN XX MILES FROM THE W20-1 SIGN THE SUPPLEMENT SIGN W7-3a SHALL INDICATE THE MAXIMUM ANTICIPATED DISTANCE BETWEEN THE W20-1 SIGM AND THE FARTHEST WORK LOCATION.",
+      "4. WHEN MULTIPLE WORK LOCATIONS EXIST WITHIN XX MILES FROM THE W20-1 SIGN. A G20-1 SIGN SHALL BE PLACED EVERY TWO MILES INDICATING THE DISTANCE FROM THE SIGN TO THE FARTHEST WORK LOCATION.",
+      "5. THE TEMPORARY POSITIVE BARRIER SHALL NOT BE PLACED ALONG THE MERGING TAPER. THE SHOULDER SHALL BE CLOSED USING CHANNELIZING DEVICES.",
+      "6. A REGULATORY SPEED LIMIT SIGN IS REQUIRED HALFWAY BETWEEN THE 1ST AND 2ND ADVANCE WARNING SIGNS UNLESS A REGULATORY SPEED LIMIT SIGN IS ALREADY PRESENT BETWEEN THOSE ADVANCED WARNING SIGNS OR A REGULATORY SPEED LIMIT REDUCTION IS AUTHORIZED AND THOSE SIGNS HAVE BEEN INSTALLED. ONE R2-1 OR NYR2-2 THROUGH NYR2-6 SHALL BE PROVIDED AS APPROPRIATE DEPENDING ON THE LOCATION. SEE STANDARD SHEET 619-012 FOR SIGN FACE AND SIZE. NOTES FOR NIGHTTIME OPERATIONS:",
+      "N1. WORK OCCURRING AFTER SUNSET AND BEFORE SUNRISE WILL BE CONSIDERED NIGHTTIME OPERATIONS.",
+      "N2. ALL SIGNS, STOP/SLOW PADDLES AND RED FLAGS USED TO WARN/ALERT/CONTROL TRAFFIC SHALL BE RETROREFLECTIVE.",
+      "N3. ALL WORKERS INVOLVED SHALL WEAR PROTECTIVE HELMETS AND NIGHTTIME APPAREL IN ACCORDANCE WITH y 107-05A. HIGH VISIBILITY APPAREL AT ALL TIMES.",
+      "N4. VEHICLES OPERATING ON THE PAVEMENT OF A CLOSED ROADWAY OR TRAVEL LANE SHALL DISPLAY ROTATING AMBER BEACONS OR FLASHING LED BEACONS AT ALL TIMES.",
+      "N5. LEVEL I ILLUMINATION SHALL BE PROVIDED NEAR THE BEGINNING OF LANE CLOSURE TAPERS AND AT ROAD CLOSURES, INCLUDING THE SETUP AND REMOVAL OF THE CLOSURE TAPERS.",
+      "N6. LEVEL II ILLUMINATION SHALL BE PROVIDED FOR FLAGGING STATIONS, ASPHALT PAVING, MILLING, AND CONCRETE PLACEMENT AND/OR REMOVAL OPERATIONS, INCLUDING BRIDGE DECKS, 50 FEET AHEAD OF AND 100 FEET BEHIND A PAVING OR MILLING MACHINE. LEVEL III ILLUMINATION SHALL BE PROVIDED FOR PAVEMENT OR STRUCTURAL CRACK FILLING, JOINT REPAIR, PAVEMENT PATCHING AND REPAIRS, INSTALLATION OF SIGNAL EQUIPMENT OR OTHER ELECTRICAL/MECHANICAL EQUIPMENT, AND OTHER TASKS INVOLVING FINE DETAILS OR INTRICATE PARTS.",
+      "N6. LEVEL II ILLUMINATION SHALL BE PROVIDED FOR FLAGGING STATIONS, ASPHALT PAVING, MILLING, AND CONCRETE PLACEMENT AND/OR REMOVAL OPERATIONS, INCLUDING BRIDGE DECKS, 50 FEET AHEAD OF AND 100 FEET BEHIND A PAVING OR MILLING MACHINE. LEVEL III ILLUMINATION SHALL BE PROVIDED FOR PAVEMENT OR STRUCTURAL CRACK FILLING, JOINT REPAIR, PAVEMENT PATCHING AND REPAIRS, INSTALLATION OF SIGNAL EQUIPMENT OR OTHER ELECTRICAL/MECHANICAL EQUIPMENT, AND OTHER TASKS INVOLVING FINE DETAILS OR INTRICATE PARTS.",
+      "N7. LEVEL III ILLUMINATION SHALL BE PROVIDED FOR PAVEMENT OR STRUCTURAL CRACK FILLING, JOINT REPAIR, PAVEMENT PATCHING AND REPAIRS, INSTALLATION OF SIGNAL EQUIPMENT OR OTHER ELECTRICAL/MECHANICAL EQUIPMENT, AND OTHER TASKS INVOLVING FINE DETAILS OR INTRICATE PARTS AND EQUIPMENT.",
+      "N8. ALL LIGHTING SHALL BE DESIGNED, INSTALLED, AND OPERATED TO AVOID GLARE THAT AFFECTS TRAFFIC ON THE ROADWAY OR THAT CAUSES ANNOYANCE OR DISCOMFORT FOR RESIDENCES ADJOINING THE ROADWAY.",
+      "N9. PRIOR TO THE START OF NIGHTTIME OPERATIONS, A WRITTEN NIGHTTIME OPERATIONS AND LIGHTING PLAN IS REQUIRED FOR APPROVAL FROM THE DOT ENGINEER.",
+      "N10. SEE STANDARD SPECIFICATIONS y 619 FOR ADDITIONAL REQUIREMENTS AND CONSIDERATIONS.",
+      "N11. FLAGGERS SHALL USE A FLASHLIGHT WITH RED GLOW CONE/RED LED BATON FOR FLAGGING IN NON-ILLUMINATED FLAGGER STATIONS DURING NIGHTTIME OPERATIONS. THIS SIGN SHALL BE LOCATED A MINIMUM END END G20-2 DISTANCE OF 80 FT. AND MAXIMUM OF 400 FT. WORK WORK PAST THE END OF THE DOWNSTREAM TAPER W20-1 MILE REFER TO SHEET 2 OF 2 FOR ALL TABLES W7-3a (SEE NOTE 3) miles U.S. CUSTOMARY STANDARD SHEET WORK AREA WORK ZONE TRAFFIC CONTROL FREEWAY - SHOULDER >= 8 FOOT RIGHT SHOULDER CLOSURE LONG TERM OPERATION ERRATA 3 EFF. 05/01/24 (SHEET 1 OF 2) ISSUED WITH EB 24-007"
+    ],
+    "notesOrderNote": "6 numbered + N-nighttime block. Note 5 positive barrier placement. Note 2 OM3-L/OM3-R object markers for left-shoulder symmetry."
+  },
+  "corridorHints": {
+    "confidence": "drawing",
+    "fromPlanLabels": [
+      "TEMPORARY POSITIVE BARRIER along work area (flare per 501-03)",
+      "advance signs: W20-1 -> W21-5bR -> W21-5aR",
+      "SHOULDER TAPER L/3 + channelizing (barrier not on merging taper per Note 5)",
+      "TAPERED END SECTION OR TEMPORARY POSITIVE BARRIER callout",
+      "W7-3a + G20-1 multi-location (Notes 3-4)"
+    ]
+  },
+  "findings": [
+    "pdfPages=2 rotation=0 display_rect=Rect(0.0, 0.0, 1224.0, 792.0)",
+    "501-01 buffer+shoulder taper vs 301-03: ALL 16 cells identical on overlapping 45-65 rows",
+    "501-01 vs 401-03: 4 rows ALL cells identical",
+    "501-02: long-term channelizing — NO transverse-bumps or 800' rows (unlike 401-04/504-04)",
+    "501-03: flare table 50/55/65 mph only (504-03 uses 30-65); shoulder long-term subset",
+    "501-04: full NON-FREEWAY+FREEWAY columns; NYR9-11 48x48 (504 uses 48x84)",
+    "notes.printed: 6 numbered + N-nighttime block",
+    "SURPRISE vs 301: NO PV or roll-ahead tables — positive barrier on plan",
+    "SURPRISE: Note 5 barrier not on merging taper; shoulder closed with channelizing",
+    "SURPRISE: Note 2 OM3-L/OM3-R object markers for left/right shoulder symmetry",
+    "SURPRISE: TEMPORARY POSITIVE BARRIER on plan (see 501-03 flare rates)",
+    "SURPRISE: long-term >3 consecutive days (301 short-term >1 hour)"
+  ],
+  "comparisonVs301": {
+    "tables_present": "501 has 4 tables — no PV (301-01) or roll-ahead (301-02)",
+    "501-01_vs_301-03": "shoulder+buffer identical on 45-65; 501 adds laneTaper columns",
+    "501-04_vs_301-04": "adds NYR9-11; both NON-FREEWAY+FREEWAY columns (301 FREEWAY-only in text layer)",
+    "absent_vs_301": [
+      "301-01 protective vehicle",
+      "301-02 roll-ahead distance"
+    ],
+    "added_vs_301": [
+      "501-02 channelizing matrix",
+      "501-03 positive barrier flare rates",
+      "Note 5 barrier placement rule"
+    ]
+  }
+}

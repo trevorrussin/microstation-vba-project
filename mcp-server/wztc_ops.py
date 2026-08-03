@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+import sheet_spec
 import view_capture
 
 _bridge = None
@@ -762,8 +763,10 @@ def resolve_text_style(name: str = "") -> dict:
 
 def describe_drawing_state() -> dict:
     """Inspect the active model before making any edits: 2D/3D, master/sub
-    units and resolution, annotation scale (signs/cells are auto-multiplied
-    by this — see the 2026-08-02 sign-scale fix), active level/color/line
+    units and resolution, annotation scale (sign-face cells are Annotation-
+    class and PLACE CELL ICON applies this factor — e.g. Scale 960 when
+    the factor is 960; place_sign leaves that alone so faces match text),
+    active level/color/line
     style/weight, active ACS, open views (center/rotation/which is active),
     reference attachment count, current selection count, and file metadata.
     Call this at the start of a session and again whenever you're unsure
@@ -924,7 +927,28 @@ def resolve_sign_code(code: str) -> list[dict]:
 # obstruction dodge, a non-standard station) so a PE reviewing the journal
 # later can see *why*, not just *what*.
 
-def place_perp_line(align_idx: int, sta: float, half_len: float = 40, reason: str = "") -> dict:
+# In-process plan-session flags (chat_driver process lifetime). Soft
+# memory so place_perp_line can refuse the incomplete sketch pattern that
+# shipped live 2026-08-02 (workspace + alignment + one sign + one tick,
+# declared "done" with no order table). Cleared by reset_plan_session_flags
+# (exit_mode) or rebuilt when build_wztc_order_table runs.
+_PLAN_SESSION: dict = {
+    "placed_workspace": False,
+    "order_table_built": False,
+    "stations_placed_aligns": set(),
+}
+
+
+def reset_plan_session_flags() -> None:
+    """Drop plan-flow memory (call from exit_mode so a later general/wztc
+    task doesn't inherit a prior plan's gate state)."""
+    _PLAN_SESSION["placed_workspace"] = False
+    _PLAN_SESSION["order_table_built"] = False
+    _PLAN_SESSION["stations_placed_aligns"] = set()
+
+
+def place_perp_line(align_idx: int, sta: float, half_len: float = 40,
+                    reason: str = "", one_off: bool = False) -> dict:
     """Place a SINGLE perpendicular reference tick line (2*half_len ft
     long, default 80ft) at a station along a committed alignment. For a
     full-plan run, prefer place_order_table_stations instead — it places
@@ -932,7 +956,25 @@ def place_perp_line(align_idx: int, sta: float, half_len: float = 40, reason: st
     ONE call rather than one call per item, which is the whole point of
     the batched op. Use this one only for a genuinely one-off tick line
     outside the order-table flow (e.g. an ad hoc reference the engineer
-    asks for directly)."""
+    asks for directly) and pass one_off=True — without that flag this
+    tool refuses when the session already looks like a plan (workspace
+    placed and/or order table built but stations not yet batched)."""
+    if not one_off:
+        if _PLAN_SESSION["order_table_built"] and align_idx not in _PLAN_SESSION["stations_placed_aligns"]:
+            raise ValueError(
+                f"Order table exists but place_order_table_stations has not been called "
+                f"for align_idx={align_idx} yet. Call place_order_table_stations instead "
+                f"(not place_perp_line item-by-item). Pass one_off=True only if the "
+                f"engineer explicitly asked for a single ad-hoc tick outside the order table."
+            )
+        if _PLAN_SESSION["placed_workspace"] and not _PLAN_SESSION["order_table_built"]:
+            raise ValueError(
+                "place_workspace already ran this session — treat this as a work-zone plan. "
+                "Call build_wztc_order_table (show the engineer the table), commit_alignment "
+                "if needed, then place_order_table_stations. Do not place_perp_line + "
+                "place_sign by hand for the plan's stations. Pass one_off=True only if the "
+                "engineer explicitly asked for a single ad-hoc tick."
+            )
     return _ok_or_raise(
         _bridge.call("PLACE_PERP_LINE", alignIdx=align_idx, sta=sta, halfLen=half_len, reason=reason),
         "place_perp_line")
@@ -943,17 +985,25 @@ def place_sign(sign_num: str, road_type: str, side: str,
                pt2x: Optional[float] = None, pt2y: Optional[float] = None, pt2z: Optional[float] = None,
                dir2x: Optional[float] = None, dir2y: Optional[float] = None,
                reason: str = "") -> dict:
-    """Place a sign face + post + text label at a resolved point/direction —
-    typically from station_to_point, offset along the perpendicular to dodge
-    an obstruction found via find_elements_near/classify_site_features.
-    sign_num MUST be a SignLibrary.bas key (e.g. 'W20-01RA'), not a raw
-    sheet code — run it through resolve_sign_code first if it came from
-    get_sheet_requirements.
-    side is 'One Side' or 'Both Sides'; pt2/dir2/pt2z are required only for
-    'Both Sides' (a connecting arc is drawn between the two). This tool only
-    executes — it never decides where the sign belongs; resolve the point
-    first, then call this. Pass reason whenever the point was adjusted from
-    the default (e.g. "shifted 4 ft off perp — utility pole at 3+20")."""
+    """Place a sign assembly (post + edge-connected stem + face + label).
+
+    pt1 is the ATTACHMENT POINT ON THE PERPENDICULAR TICK — typically the
+    outward tip of the 80ft perp line from place_order_table_stations /
+    place_perp_line — NOT the alignment centerline station and NOT the
+    face center. dir1 is the unit OUTWARD direction along that perp
+    (away from the alignment). Do NOT pass the alignment tangent as dir1
+    (that was a live miss: assembly built along the road instead of off
+    the tick).
+
+    From an order-table station row (ptX/ptY/tanX/tanY), compute:
+      outward = rotate tan 90deg toward the chosen side (e.g. (-tanY, tanX))
+      tip = (ptX, ptY) + outward * half_len   # half_len default 40
+      place_sign(..., pt1=tip, dir1=outward)
+
+    The stem connects the post's outer edge to the face's inner edge only
+    (never through the face center). sign_num MUST be a SignLibrary.bas key.
+    side is 'One Side' or 'Both Sides'; pt2/dir2 required only for Both Sides.
+    """
     if side.strip().lower() == "both sides":
         missing = [n for n, v in
                    [("pt2x", pt2x), ("pt2y", pt2y), ("dir2x", dir2x), ("dir2y", dir2y)] if v is None]
@@ -968,12 +1018,17 @@ def place_sign(sign_num: str, road_type: str, side: str,
 
 
 def place_workspace(vertices: list[list[float]], reason: str = "") -> dict:
-    """Place the work space boundary shape + associative hatch.
+    """Place the work space boundary (unfilled shape) + hatch stripes.
     vertices is an ordered list of [x, y, z] points — do not repeat the
-    first point to close it. Hatch uses CreateHatchPattern1 + SetPattern
-    (Element API), not CadInputQueue HATCH ICON."""
+    first point to close it. Creates an unfilled TWZWS2_P shape plus
+    associative pattern AND real diagonal line stripes (view Patterns
+    attribute often hides associative hatch alone). Response must include
+    elementId — verify the shape exists with find_elements_near before
+    continuing the plan. Do not substitute place_block for this."""
     verts_tsv = "|".join(f"{p[0]},{p[1]},{p[2] if len(p) > 2 else 0}" for p in vertices)
-    return _ok_or_raise(_bridge.call("PLACE_WORKSPACE", verticesTSV=verts_tsv, reason=reason), "place_workspace")
+    resp = _ok_or_raise(_bridge.call("PLACE_WORKSPACE", verticesTSV=verts_tsv, reason=reason), "place_workspace")
+    _PLAN_SESSION["placed_workspace"] = True
+    return resp
 
 
 # ========================================================== Full-plan flow
@@ -983,35 +1038,98 @@ def place_workspace(vertices: list[list[float]], reason: str = "") -> dict:
 # is untouched and remains the fallback.
 
 def build_wztc_order_table(speed: int, road_type: str, lane_width: int, shoulder_width: str,
-                            sign_rows: list[dict], category: str = "", sheet_num: str = "") -> dict:
-    """Headless equivalent of WZTCDesigner.frm's Submit & Draw — computes
-    spacing (WZTCRules.ComputeSpacing) and builds the full per-alignment
-    order table (Non-Sign default rows + your sign_rows), writing the same
-    SharedState the manual form writes. ALWAYS call compute_spacing's
-    underlying values only through this (never estimate spacing yourself).
+                            sign_rows: Optional[list[dict]] = None,
+                            category: str = "", sheet_num: str = "",
+                            area_type: str = "", closure_type: str = "",
+                            exposure_condition: str = "") -> dict:
+    """Headless equivalent of WZTCDesigner.frm's Submit & Draw — builds the
+    full per-alignment order table and writes the same SharedState the manual
+    form writes. Never estimate spacing yourself; it comes from here.
 
-    sign_rows: list of dicts, each {"align_idx": 1 or 2, "sign_num": "...",
-    "side": "One Side"|"Both Sides", "spacing_ft": optional float override,
-    "size": optional str override}. sign_num must be a SignLibrary.bas key
-    (run resolve_sign_code first if it came from get_sheet_requirements).
-    At least one align_idx=1 (Upstream) row is required. Missing
-    spacing/size are auto-filled from SignLibrary for road_type — if a
-    sign isn't in SignLibrary, they come back as 0.0/"" (a real gap, not
-    silently invented).
+    If Data/sheet-specs/<sheet_num>.json exists, THE SHEET DRIVES THE TABLE:
+    the station sequence, every spacing, the sign order and each sign's
+    SignLibrary key all come from the sheet, and sign_rows/area_type are only
+    needed to disambiguate. This is the correct path — the generic fallback
+    below emits the same 7 upstream rows for every sheet, including stations
+    (Vehicle Space, temporary barrier, box/corr beam) that 619-311 does not
+    have, and interpolates shoulder taper values Table 311-02 doesn't print.
+    Pass area_type ("URBAN"/"RURAL") whenever a spec exists — the sheet's
+    advance-sign spacing and sign legends both depend on it.
 
-    Returns the full computed order table (rows: alignIdx, alignName,
-    rowNum, type, label, spacing, size, side) — show it to the engineer
-    before drawing anything."""
+    Without a spec, falls back to WZTCRules defaults and marks the result
+    specDriven=False, which you should relay to the engineer rather than
+    presenting the table as sheet-faithful.
+
+    sign_rows (optional when a spec exists): list of dicts, each
+    {"align_idx": 1|2, "sign_num": SignLibrary key, "side": "One Side"|
+    "Both Sides", "spacing_ft": optional, "size": optional}.
+
+    Returns the order table (rows: alignIdx, alignName, rowNum, type, label,
+    spacing, size, side) — show it to the engineer before drawing."""
+    sign_rows = list(sign_rows or [])
+    spec_rows_tsv = ""
+    overrides_tsv = ""
+    spec_info: dict = {"specDriven": False}
+
+    spec = sheet_spec.load(sheet_num) if sheet_num else None
+    if spec is not None:
+        if not area_type:
+            raise ValueError(
+                f"sheet {sheet_num} has a spec whose advance-sign spacing and sign "
+                f"legends depend on area type; pass area_type='URBAN' or 'RURAL' "
+                f"(Table {sheet_num.split('-')[1]}-03).")
+        resolved = sheet_spec.resolve(
+            spec, speed, lane_width, shoulder_width, area_type,
+            closure_type or None, exposure_condition or None)
+        payload = sheet_spec.order_table_rows(
+            spec, resolved,
+            size_class="FREEWAY" if road_type.strip().lower() == "freeway" else "NON-FREEWAY")
+        spec_rows_tsv = "|".join(payload["nonSignRows"])
+        if not sign_rows:
+            sign_rows = [{"align_idx": int(s.split(":")[0]), "sign_num": s.split(":")[1],
+                          "side": s.split(":")[2], "spacing_ft": s.split(":")[3],
+                          "size": s.split(":")[4]}
+                         for s in payload["signRows"]]
+        # Per-taper counts, not totals: wztcSkipLines is merge + shoulder +
+        # buffer + roll ahead, and the sheet gives no skip count for the last
+        # two. VBA substitutes only the taper terms and keeps ComputeSpacing's
+        # buffer/roll-ahead skips rather than inventing sheet-less numbers.
+        overrides_tsv = "|".join([
+            f"bufferSpace={resolved['bufferFt']}",
+            f"mergingTaper={resolved['laneTaper']['ft']}",
+            f"shoulderTapers={resolved['shoulderTaper']['ft']}",
+            f"rollAhead={resolved['rollAheadFt']['min']}",
+            f"laneTaperSkips={resolved['laneTaper']['skipLines']}",
+            f"shoulderTaperSkips={resolved['shoulderTaper']['skipLines']}",
+            f"laneTaperDevices={resolved['laneTaper']['devices']}",
+            f"shoulderTaperDevices={resolved['shoulderTaper']['devices']}",
+        ])
+        spec_info = {
+            "specDriven": True,
+            "sheet": spec["sheet"]["number"],
+            "shoulderBandUsed": resolved["shoulderBand"],
+            "signLegends": resolved["legend"],
+            "overlays": payload["overlays"],
+            "stationWalk": sheet_spec.station_walk(spec, resolved),
+            "note": "Stations, spacings and SignLibrary keys came from the standard "
+                    "sheet spec, not WZTCRules defaults.",
+        }
+
     rows_tsv = "|".join(
         f"{r['align_idx']}:{r['sign_num']}:{r.get('side', 'One Side')}:"
         f"{r.get('spacing_ft', '')}:{r.get('size', '')}"
         for r in sign_rows
     )
-    return _ok_or_raise(
+    resp = _ok_or_raise(
         _bridge.call("BUILD_WZTC_ORDER_TABLE", category=category, sheetNum=sheet_num,
                      speed=speed, roadType=road_type, laneWidth=lane_width,
-                     shoulderWidth=shoulder_width, signRowsTSV=rows_tsv),
+                     shoulderWidth=shoulder_width, signRowsTSV=rows_tsv,
+                     nonSignRowsTSV=spec_rows_tsv, spacingOverridesTSV=overrides_tsv),
         "build_wztc_order_table")
+    resp.update(spec_info)
+    _PLAN_SESSION["order_table_built"] = True
+    _PLAN_SESSION["stations_placed_aligns"] = set()
+    return resp
 
 
 def find_reference_linework(level_name_contains: str, include_references: bool = False,
@@ -1061,10 +1179,20 @@ def commit_alignment(align_idx: int) -> dict:
     align_idx into a graphic group, marking that alignment ready for
     place_order_table_stations. Call once per alignment after all its
     define_alignment_segment calls."""
-    return _ok_or_raise(_bridge.call("COMMIT_ALIGNMENT", alignIdx=align_idx), "commit_alignment")
+    resp = _ok_or_raise(_bridge.call("COMMIT_ALIGNMENT", alignIdx=align_idx), "commit_alignment")
+    if not _PLAN_SESSION["order_table_built"]:
+        resp["nextStep"] = (
+            "build_wztc_order_table (show engineer), then place_order_table_stations — "
+            "do not place_perp_line/place_sign by hand for plan stations"
+        )
+    elif align_idx not in _PLAN_SESSION["stations_placed_aligns"]:
+        resp["nextStep"] = f"place_order_table_stations(align_idx={align_idx}, reset_session=...)"
+    return resp
 
 
-def place_order_table_stations(align_idx: int, reset_session: bool = False) -> dict:
+def place_order_table_stations(align_idx: int, reset_session: bool = False,
+                                clear_prior: bool = False,
+                                force: bool = False) -> dict:
     """Batched replacement for PlacePerp.frm's interactive walk — places
     an 80ft perpendicular tick line at EVERY row in align_idx's order
     table in one call (instead of one place_perp_line-equivalent call per
@@ -1081,14 +1209,114 @@ def place_order_table_stations(align_idx: int, reset_session: bool = False) -> d
     for the FIRST alignment in a fresh plan run, False (default) for any
     subsequent alignment in the same run so sign geometry accumulates
     correctly across alignments rather than being wiped.
+    clear_prior=True calls clear_plan_elements() first (keeps alignments).
+    Use this when rebuilding — without it, a second place stacks ticks /
+    cells / channelizing on top of the previous run (the non-idempotent
+    failure mode). If stations were already placed for this align_idx
+    this session and clear_prior/force are both False, this refuses.
     Returns one row per order-table item (itemNum, label, type,
-    cumulativeStationFt, ptX, ptY, ptZ, tanX, tanY, isSign) — for isSign=Y
-    rows, resolve_sign_code + place_sign at that point/tangent next."""
+    cumulativeStationFt, ptX, ptY, ptZ, tanX, tanY, isSign). isSign=N rows
+    get a tick only at this step — follow with place_order_table_labels
+    (Non-Sign names), place_order_table_dimensions (spacings), and
+    place_sheet_symbol_cells (ProtectiveVehicle/ArrowPanel). For isSign=Y
+    rows: resolve_sign_code, then place_sign at the OUTWARD PERP TIP — NOT
+    at (ptX,ptY) and NOT with dir=tangent. Compute:
+      outward = rotate (tanX,tanY) 90deg toward the chosen side
+      tip = (ptX,ptY) + outward * half_len   # half_len default 40 (80ft tick)
+      place_sign(..., pt1=tip, dir1=outward)
+    VBA builds the edge-connected stem/post/face from that tip; wrong pt1/dir
+    is what produced assemblies along the road or floating off the tick."""
+    already = align_idx in _PLAN_SESSION["stations_placed_aligns"]
+    if already and not clear_prior and not force:
+        raise ValueError(
+            f"stations already placed for align_idx={align_idx} this session. "
+            f"Call clear_plan_elements() (or pass clear_prior=True) before "
+            f"rebuilding — otherwise ticks/cells/channelizing stack on the "
+            f"previous run. Pass force=True only for intentional additive placement."
+        )
+    cleared = None
+    if clear_prior:
+        cleared = clear_plan_elements(keep_alignments=True)
     resp = _ok_or_raise(
         _bridge.call("PLACE_ORDER_TABLE_STATIONS", alignIdx=align_idx,
                      resetSession="Y" if reset_session else "N"),
         "place_order_table_stations")
+    _PLAN_SESSION["stations_placed_aligns"].add(align_idx)
+    if cleared is not None:
+        resp["clearedPrior"] = cleared
     return resp
+
+
+def place_order_table_labels(align_idx: int, outward_sign: float = -1.0,
+                             text_extra_along: float = 20.0,
+                             sheet_elements: str = "") -> dict:
+    """Name labels BELOW tip-to-tip dims (X-centered). sheet_elements from
+    get_sheet_requirements gates optional tapers (Must include ShoulderTaper
+    when the official sheet shows it). Core Roll Ahead / Vehicle Space /
+    Buffer always. Dims are separate — place_order_table_dimensions does
+    every tick and is not sheet-gated."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_ORDER_TABLE_LABELS", alignIdx=align_idx,
+                     outwardSign=outward_sign, textExtraAlong=text_extra_along,
+                     sheetElements=sheet_elements),
+        "place_order_table_labels")
+
+
+def place_order_table_dimensions(align_idx: int, outward_sign: float = -1.0,
+                                 offset_dist: float = 15.0,
+                                 sheet_elements: str = "") -> dict:
+    """Real ny_Plan Linear Size dims tip-to-tip between EVERY consecutive
+    tick (including Sign spacings). Length above the dim line.
+    sheet_elements is not used for gating (API compat only)."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_ORDER_TABLE_DIMENSIONS", alignIdx=align_idx,
+                     outwardSign=outward_sign, offsetDist=offset_dist,
+                     sheetElements=sheet_elements),
+        "place_order_table_dimensions")
+
+
+def place_sheet_symbol_cells(align_idx: int, sheet_elements: str,
+                             outward_sign: float = -1.0) -> dict:
+    """ProtectiveVehicle→TWZWVA_P in Vehicle Space bay; ArrowPanel→TWZAP_P
+    at Shoulder Taper tip (sheet callout; fallback Merging Taper)."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_SHEET_SYMBOL_CELLS", alignIdx=align_idx,
+                     sheetElements=sheet_elements, outwardSign=outward_sign),
+        "place_sheet_symbol_cells")
+
+
+def place_order_table_workspace(align_idx: int, outward_sign: float = -1.0,
+                                lane_width: float = 12.0) -> dict:
+    """Hatched work-space box in the closed lane from path start through
+    Vehicle Space end (sheet work bay — not freeform vertices)."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_ORDER_TABLE_WORKSPACE", alignIdx=align_idx,
+                     outwardSign=outward_sign, laneWidth=lane_width),
+        "place_order_table_workspace")
+
+
+def place_order_table_channelizing(align_idx: int, outward_sign: float = -1.0,
+                                   lane_width: float = 12.0) -> dict:
+    """Sheet-bounded channelizing: shoulder/merging taper diagonals +
+    longitudinal closed-lane run from taper toe to path start. Does not
+    use freeform AccuDraw-length vertices."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_ORDER_TABLE_CHANNELIZING", alignIdx=align_idx,
+                     outwardSign=outward_sign, laneWidth=lane_width),
+        "place_order_table_channelizing")
+
+
+def place_dimension(x1: float, y1: float, x2: float, y2: float,
+                    ox: float, oy: float, z: float = 0.0,
+                    style_name: str = "ny_Plan", reason: str = "") -> dict:
+    """Place a real Linear Size DimensionElement (msdDimTypeSizeArrow)
+    between (x1,y1)-(x2,y2); dim-line offset toward (ox,oy). Uses DGN
+    DimensionStyles (default ny_Plan). Prefer place_order_table_dimensions
+    for full-plan spacing annotation."""
+    return _ok_or_raise(
+        _bridge.call("PLACE_DIMENSION", x1=x1, y1=y1, x2=x2, y2=y2,
+                     ox=ox, oy=oy, z=z, styleName=style_name, reason=reason),
+        "place_dimension")
 
 
 def hatch_element(element_id: str, spacing: float = 10.0, angle_deg: float = 45.0,
@@ -1304,12 +1532,13 @@ def place_cell(cell_name: str, pt_x: float, pt_y: float, pt_z: float = 0, angle_
 
 
 def set_sign_attributes(element_ids: list[str], reason: str = "") -> dict:
-    """Apply standard sign display attributes (level=SF_P, color=240,
-    weight=3) to already-placed elements. element_ids are numeric IDs
-    returned by place_sign's createdElementIds or by find_elements_near —
-    never guessed. Note: fillColor/elementClass=CONSTRUCTION from the
-    original CHANGE ATTRIBUTES sequence aren't replicated (no confirmed
-    VBA property path) — flagged, not silently dropped."""
+    """Finish symbology after place_sign. Labels/text → SF_P white wt=3;
+    stems → SF_P white; post cell TWZSGN_P → color 6 (orange). Face cells
+    are intentionally LEFT ALONE (library SF_P/SFB_P + ByCell weights) —
+    do NOT also call change_element_symbology on faces (forcing color 0/6
+    or weight 3 bleaches or wrecks the legend; live 2026-08-03).
+    element_ids from place_sign createdElementIds; applied count may be
+    less than requested because faces are skipped on purpose."""
     return _ok_or_raise(
         _bridge.call("SET_SIGN_ATTRIBUTES", elementIds=",".join(element_ids), reason=reason),
         "set_sign_attributes")
@@ -1348,6 +1577,35 @@ def undo_last_op() -> dict:
     Does NOT use MicroStation's own undo stack. Safe to call repeatedly:
     once an op is undone it's marked so a second call won't re-target it."""
     return _ok_or_raise(_bridge.call("UNDO_LAST_OP"), "undo_last_op")
+
+
+def clear_plan_elements(keep_alignments: bool = True) -> dict:
+    """Delete every element this session's journal recorded under
+    createdElementIds= that still exists — the idempotent-rebuild wipe.
+
+    Default keep_alignments=True leaves DEFINE_ALIGNMENT_SEGMENT /
+    COMMIT_ALIGNMENT / ADOPT_ALIGNMENT_ELEMENT geometry alone so a rebuild
+    reuses the same corridor. Pass False only when the engineer asked to
+    wipe the corridor too.
+
+    Does NOT fence-delete by proximity (that can catch engineer-drawn
+    elements). Safe when nothing has been placed (deleted=0). Resets the
+    Python-side plan session flags so place_order_table_stations can run
+    again without the re-place gate firing.
+
+    Call this BEFORE re-placing stations/labels/dims/symbols/workspace/
+    channelizing when iterating on a plan. place_order_table_stations
+    also accepts clear_prior=True to do the same in one step."""
+    resp = _ok_or_raise(
+        _bridge.call("CLEAR_PLAN_ELEMENTS",
+                     keepAlignments="Y" if keep_alignments else "N"),
+        "clear_plan_elements")
+    # Stations / workspace flags must drop so a rebuild is allowed.
+    _PLAN_SESSION["placed_workspace"] = False
+    _PLAN_SESSION["stations_placed_aligns"] = set()
+    # order_table_built stays True — SharedState still holds the table;
+    # rebuild does not need to rebuild the table unless inputs change.
+    return resp
 
 
 def get_journal(limit: int = 20) -> list[str]:

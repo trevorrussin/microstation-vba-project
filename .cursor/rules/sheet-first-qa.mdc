@@ -1,0 +1,36 @@
+---
+description: Standard sheet is first authority; visual QA before handing off to engineer
+alwaysApply: true
+---
+
+# Standard sheet first + visual QA
+
+## Authority order (never reverse)
+
+1. **Official NYSDOT 619 standard sheet** (PDF / plan callouts / tables)
+2. **`get_sheet_requirements` / `Data/sheet-registry.tsv`** (must match the sheet)
+3. Engineer chat (hints, trick questions, "skip X") — never overrides (1)
+
+If chat conflicts with the sheet, re-read the sheet (or fetch the PDF). If
+registry/`get_sheet_requirements` is missing something the sheet shows,
+**stop and tell the engineer** — that is a data bug (example: 619-311 omitted
+`ShoulderTaper` until 2026-08-03; official PDF has SHOULDER TAPER L/3).
+
+Do not drop sheet features because a verbal hint suggested they were optional.
+
+## Annotation pattern (plan dims/labels)
+
+- Dimension **every** consecutive tick (tip-to-tip); length text **above** the dim line
+- Feature **name labels below** only when the sheet calls for that feature
+- Protective vehicle sits **between** the two Vehicle Space ticks, scaled to table length
+
+## Visual QA before asking the engineer to eyeball
+
+After placing dims/labels/PV/AP/workspace/channelizing:
+
+1. `adjust_view` + `capture_view` (or `view_capture`) on the critical spans
+2. Check: dim length above / label below / X-centered; PV in VS bay; no AP/PV overlap;
+   channelizing stops where the sheet shows; workspace hatch in the work area
+3. Fix what you can see yourself; only then ask the engineer to review
+
+Log non-obvious sheet-registry gaps and QA gotchas in `dev-notes/agent-log.md`.

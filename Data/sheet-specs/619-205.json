@@ -1,0 +1,509 @@
+{
+  "schemaVersion": "1.1",
+  "sheet": {
+    "number": "619-205",
+    "title": "WORK ZONE TRAFFIC CONTROL MULTILANE DIVIDED ROADWAY AND FREEWAY RIGHT SHOULDER CLOSURE",
+    "series": "WORK ZONE TRAFFIC CONTROL",
+    "operation": "SHORT DURATION OPERATION",
+    "units": "U.S. CUSTOMARY",
+    "scale": "NOT TO SCALE",
+    "approved": "2021-12-06",
+    "issuedUnder": "E3 revision",
+    "signedBy": null,
+    "sourceUrl": "https://www.dot.ny.gov/main/business-center/engineering/cadd-info/drawings/standard-sheets-us-repository/619-205.pdf",
+    "localPdf": "Bridge/captures/619-205.pdf",
+    "localRender": null,
+    "pdfPages": 1,
+    "pageRotation": 0,
+    "transcribedBy": "Cursor (Family 3 short-duration sibling of 619-301)",
+    "transcribedOn": "2026-08-03",
+    "provenanceNote": "Short-duration shoulder. NO taper/buffer table. Operator remains in PV. Roll-ahead by speed. Plan spacing ~1000'. Signs W21-5 / W20-1. P+TMIA not PVH+TMIA."
+  },
+  "applicability": {
+    "roadType": "Freeway/Multilane Divided",
+    "roadway": "Multilane divided or freeway",
+    "closure": "Right shoulder closure",
+    "duration": "Short Duration",
+    "durationDefinition": "Work that occupies a location up to 1 hour (short duration) — operator stays in the protective vehicle.",
+    "speedRangeMph": {
+      "allowed": [
+        45,
+        50,
+        55,
+        65
+      ],
+      "note": "Roll-ahead table covers >=55 and 45-50 bands; 65 uses >=55 row."
+    },
+    "laneWidthFt": null,
+    "laneWidthNote": "No lane/merging taper on this sheet — lane width is not a lookup input.",
+    "shoulderWidthBands": [
+      "<= 4 ft",
+      "5 - 7 ft",
+      ">= 8 ft"
+    ],
+    "areaTypes": null,
+    "areaTypeNote": "No advance-warning spacing table; gaps are fixed plan callouts."
+  },
+  "inputs": [
+    {
+      "id": "preconstructionPostedSpeedMph",
+      "type": "integer",
+      "allowed": [
+        45,
+        50,
+        55,
+        65
+      ],
+      "usedBy": [
+        "205-02"
+      ]
+    },
+    {
+      "id": "shoulderWidthBand",
+      "type": "enum",
+      "allowed": [
+        "<= 4 ft",
+        "5 - 7 ft",
+        ">= 8 ft"
+      ],
+      "default": ">= 8 ft",
+      "usedBy": []
+    },
+    {
+      "id": "exposureCondition",
+      "type": "enum",
+      "allowed": [
+        "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+        "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS, EXCAVATION)"
+      ],
+      "usedBy": [
+        "205-01"
+      ]
+    },
+    {
+      "id": "closureType",
+      "type": "enum",
+      "allowed": [
+        "SHOULDER CLOSURE OR ENCROACHMENT"
+      ],
+      "default": "SHOULDER CLOSURE OR ENCROACHMENT",
+      "usedBy": [
+        "205-01"
+      ]
+    },
+    {
+      "id": "signSizeClass",
+      "type": "enum",
+      "allowed": [
+        "NON-FREEWAY",
+        "FREEWAY"
+      ],
+      "default": "FREEWAY"
+    }
+  ],
+  "tableRoles": {
+    "note": "Family 3 short-duration shoulder. 3 tables only — NO taperAndBuffer role. 205-02=rollAheadDistance (speed bands). 205-03=signSizes.",
+    "protectiveVehicle": "205-01",
+    "rollAheadDistance": "205-02",
+    "signSizes": "205-03"
+  },
+  "tables": {
+    "205-01": {
+      "title": "PROTECTIVE VEHICLE REQUIREMENTS",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "closureType",
+        "exposureCondition",
+        "roadTypeForProtectiveVehicle"
+      ],
+      "note": "Short-duration: 4 rows (lane+shoulder). FREEWAY column only in PDF text layer. P+TMIA codes — not 301-01 PVH+TMIA.",
+      "rows": [
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "P+TMIA",
+          "ge45": null,
+          "b35to40": null,
+          "le30": null
+        },
+        {
+          "closureType": "LANE CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS, EXCAVATION)",
+          "FREEWAY": "P+TMIA",
+          "ge45": null,
+          "b35to40": null,
+          "le30": null
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "WORKERS ON FOOT OR WORK VEHICLE EXPOSED TO TRAFFIC",
+          "FREEWAY": "P+TMIA",
+          "ge45": null,
+          "b35to40": null,
+          "le30": null
+        },
+        {
+          "closureType": "SHOULDER CLOSURE OR ENCROACHMENT",
+          "exposureCondition": "OTHER HAZARDS EXPOSED (IE EQUIPMENT, MATERIALS, EXCAVATION)",
+          "FREEWAY": "P+TMIA",
+          "ge45": null,
+          "b35to40": null,
+          "le30": null
+        }
+      ],
+      "legend": {
+        "P": "PROTECTIVE VEHICLE",
+        "TMIA": "TRUCK/TRAILER MOUNTED IMPACT ATTENUATOR"
+      },
+      "tableNotes": [
+        "1. THE EXPOSURE CONDITIONS ASSUMES THERE IS NO POSITIVE PROTECTION PRESENT."
+      ]
+    },
+    "205-02": {
+      "title": "ROLL AHEAD DISTANCE",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "preconstructionPostedSpeedMph"
+      ],
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN and MAX by posted speed (not GVW like 301-02).",
+      "note": "2 speed bands (>=55, 45-50). Values match 401-02/402-02 first two rows.",
+      "rows": [
+        {
+          "speedBand": ">= 55 MPH",
+          "minMph": 55,
+          "maxMph": null,
+          "min": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          }
+        },
+        {
+          "speedBand": "45 - 50 MPH",
+          "minMph": 45,
+          "maxMph": 50,
+          "min": {
+            "ft": 80,
+            "skipLines": 2
+          },
+          "max": {
+            "ft": 160,
+            "skipLines": 4
+          }
+        }
+      ],
+      "usageNote": "MIN/MAX range, not a single value."
+    },
+    "205-03": {
+      "title": "REQUIRED SIGN SIZES",
+      "confidence": "verbatim",
+      "keyedBy": [
+        "signCode",
+        "signSizeClass"
+      ],
+      "note": "Minimal short-duration sign set: W20-1, generic W21-5, WARNING FLAG.",
+      "rows": [
+        {
+          "signCode": "W20-1",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48"
+        },
+        {
+          "signCode": "W21-5",
+          "NON-FREEWAY": null,
+          "FREEWAY": "48x48",
+          "note": "Generic W21-5 (not split W21-5aR/W21-5bR like 301-04)"
+        },
+        {
+          "signCode": "WARNING FLAG",
+          "NON-FREEWAY": "18x18",
+          "FREEWAY": "18x18"
+        }
+      ]
+    }
+  },
+  "corridor": {
+    "confidence": "drawing",
+    "description": "Short-duration: ROLL AHEAD + occupied PV; advance W21-5 then W20-1 at ~1000'; no shoulder taper table/dimension.",
+    "zones": [
+      {
+        "id": "signC",
+        "order": 1,
+        "kind": "sign",
+        "signCode": "W20-1",
+        "sheetLegend": "ROAD WORK"
+      },
+      {
+        "id": "gapB",
+        "order": 2,
+        "kind": "gap",
+        "sheetLabel": "B",
+        "lengthSource": {
+          "fixedFt": 1000
+        },
+        "dimensioned": true,
+        "note": "Plan shows 1000' spacing callout."
+      },
+      {
+        "id": "signB",
+        "order": 3,
+        "kind": "sign",
+        "signCode": "W21-5",
+        "sheetLegend": "SHOULDER CLOSED / WORK"
+      },
+      {
+        "id": "gapA",
+        "order": 4,
+        "kind": "gap",
+        "sheetLabel": "A",
+        "lengthSource": {
+          "fixedFt": 1000
+        },
+        "dimensioned": true
+      },
+      {
+        "id": "protectiveVehicle",
+        "order": 5,
+        "kind": "symbol",
+        "sheetLabel": "WORK VEHICLE / PV",
+        "lengthSource": null,
+        "note": "Operator remains in vehicle (short duration)."
+      },
+      {
+        "id": "rollAheadDistance",
+        "order": 6,
+        "kind": "clearance",
+        "sheetLabel": "ROLL AHEAD DISTANCE",
+        "sheetReference": "(SEE TABLE 205-02)",
+        "lengthSource": {
+          "table": "205-02",
+          "column": "range",
+          "lookupBy": [
+            "preconstructionPostedSpeedMph"
+          ]
+        },
+        "dimensioned": true
+      },
+      {
+        "id": "workArea",
+        "order": 7,
+        "kind": "workArea",
+        "sheetLabel": "WORK AREA",
+        "lengthSource": null,
+        "hatched": true,
+        "dimensioned": false
+      },
+      {
+        "id": "spotter",
+        "order": 8,
+        "kind": "symbol",
+        "sheetLabel": "SPOTTER RECOMMENDED",
+        "lengthSource": null,
+        "required": false
+      }
+    ]
+  },
+  "orderTable": {
+    "confidence": "drawing",
+    "description": "Short-duration: Roll Ahead + W21-5 + W20-1. No taper/buffer rows.",
+    "alignments": [
+      {
+        "alignIdx": 1,
+        "name": "Upstream",
+        "station0": "Work vehicle / work area",
+        "walkDirection": "Upstream, against traffic",
+        "rows": [
+          {
+            "rowNum": 1,
+            "type": "Non-Sign",
+            "zone": "rollAheadDistance",
+            "label": "ROLL AHEAD DISTANCE"
+          },
+          {
+            "rowNum": 2,
+            "type": "Sign",
+            "zone": "signB",
+            "signCode": "W21-5",
+            "spacingZone": "gapA"
+          },
+          {
+            "rowNum": 3,
+            "type": "Sign",
+            "zone": "signC",
+            "signCode": "W20-1",
+            "spacingZone": "gapB"
+          }
+        ],
+        "excludedRows": [
+          {
+            "label": "BUFFER SPACE",
+            "reason": "No buffer table on short-duration sheet."
+          },
+          {
+            "label": "SHOULDER TAPER",
+            "reason": "No taper table on short-duration sheet."
+          },
+          {
+            "label": "MERGING TAPER",
+            "reason": "Shoulder / short-duration."
+          },
+          {
+            "label": "Vehicle Space",
+            "reason": "Not on this sheet."
+          }
+        ]
+      }
+    ]
+  },
+  "signs": {
+    "confidence": "verbatim",
+    "items": [
+      {
+        "signCode": "W20-1",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signC",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W20-01RA"
+      },
+      {
+        "signCode": "W21-5",
+        "shape": "diamond",
+        "postMounted": true,
+        "corridorZone": "signB",
+        "sizeNonFreeway": "36x36",
+        "sizeFreeway": "48x48",
+        "signLibraryKey": "W21-05",
+        "note": "Sheet prints W21-5 (generic); SignLibrary W21-05."
+      },
+      {
+        "signCode": "WARNING FLAG",
+        "shape": "flag",
+        "postMounted": false,
+        "mountedOn": "W20-1",
+        "sizeNonFreeway": "18x18",
+        "sizeFreeway": "18x18"
+      }
+    ]
+  },
+  "symbols": {
+    "confidence": "drawing",
+    "items": [
+      {
+        "id": "protectiveVehicle",
+        "sheetLabel": "WORK VEHICLE",
+        "required": true,
+        "stationAnchor": {
+          "zone": "rollAheadDistance",
+          "end": "upstream"
+        },
+        "note": "Operator stays in vehicle; two-way radio."
+      },
+      {
+        "id": "spotter",
+        "sheetLabel": "SPOTTER RECOMMENDED",
+        "required": false,
+        "stationAnchor": {
+          "zone": "workArea",
+          "end": "downstream"
+        }
+      },
+      {
+        "id": "channelizingDevices",
+        "sheetLabel": "CHANNELIZING DEVICES",
+        "required": true,
+        "longitudinalSpacing": {
+          "maxFt": 40,
+          "sheetText": "Plan — 40' cone spacing."
+        },
+        "runs": [
+          {
+            "id": "workRun",
+            "zone": "workArea",
+            "deviceCountSource": null
+          }
+        ]
+      }
+    ]
+  },
+  "annotations": {
+    "confidence": "drawing",
+    "dimensions": [
+      {
+        "zone": "gapA",
+        "label": "1000'",
+        "reference": null
+      },
+      {
+        "zone": "gapB",
+        "label": "1000'",
+        "reference": null
+      },
+      {
+        "zone": "rollAheadDistance",
+        "label": "ROLL AHEAD DISTANCE",
+        "reference": "(SEE TABLE 205-02)"
+      }
+    ],
+    "labels": [
+      {
+        "text": "SPOTTER RECOMMENDED",
+        "zone": "spotter"
+      }
+    ]
+  },
+  "details": {},
+  "notes": {
+    "confidence": "verbatim",
+    "printed": [
+      "1. THE EXPOSURE CONDITIONS ASSUMES THERE IS NO POSITIVE PROTECTION PRESENT.",
+      "1. SHORT DURATION IS WORK THAT OCCUPIES A LOCATION FOR UP TO 1 HOUR.",
+      "2. THE OPERATOR(S) SHALL REMAIN IN THE PROTECTIVE VEHICLE(S) WITH THE SAFETY BELT AND HEADREST PROPERLY ADJUSTED, MAINTAIN VEHICLE SPACING, AND KEEP THE WHEELS ALIGNED WITH THE LANE STRIPING. TWO-WAY RADIOS SHOULD BE USED TO COMMUNICATE BETWEEN THE OPERATOR AND THE WORK CREW.",
+      "3. THERE SHALL BE NO WORKERS, EQUIPMENT, OR OTHER VEHICLES IN THE ROLL AHEAD DISTANCE."
+    ],
+    "planCallouts": [],
+    "tableNotes": []
+  },
+  "rules": [
+    {
+      "id": "no-taper-table",
+      "severity": "error",
+      "source": "Sheet structure",
+      "assert": "No SHOULDER TAPER / BUFFER sequential rows from a taper table.",
+      "commonFailure": "Cloning 301's taper+buffer walk."
+    },
+    {
+      "id": "operator-in-vehicle",
+      "severity": "error",
+      "source": "Short duration",
+      "assert": "Protective/work vehicle remains occupied.",
+      "commonFailure": "Treating as unoccupied PVH like 301."
+    },
+    {
+      "id": "roll-ahead-by-speed",
+      "severity": "error",
+      "source": "Table 205-02",
+      "assert": "Roll ahead from speed bands, not GVW.",
+      "commonFailure": "Using 301 GVW lookup."
+    }
+  ],
+  "knownCodeDeviations": [
+    {
+      "id": "w21-5-generic",
+      "severity": "warning",
+      "assert": "Sheet uses W21-5; SignLibrary key W21-05 — confirm cell exists."
+    }
+  ],
+  "knownExcerpts": {
+    "differsFrom301": [
+      "No taper table",
+      "P+TMIA",
+      "speed roll-ahead",
+      "short duration occupied PV"
+    ]
+  }
+}
