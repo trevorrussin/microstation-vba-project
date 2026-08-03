@@ -35,6 +35,43 @@ _bridge = None
 # started using this tool for view/settings control (2026-08-02).
 MAX_LISTED_ROWS = 40
 
+# Spatial-query caps (2026-08-02): classify_site_features at radius=2000
+# returned 325 rows (~93K chars) in one live turn while hunting for a
+# single named sign the engineer had already offered to click. Same
+# footgun class as the unfiltered registry list -- hard-cap what the
+# model sees; ask for a click or a tighter radius instead of dumping
+# the neighborhood.
+MAX_SPATIAL_ROWS = 40
+MAX_JOURNAL_LINES = 40
+
+
+def _cap_spatial_rows(rows: list, tool_name: str, radius: float) -> list:
+    """Keep the nearest MAX_SPATIAL_ROWS (by distanceFt when present) and
+    append a truncation note so the model knows to narrow radius / ask
+    the engineer to click rather than re-querying bigger."""
+    total = len(rows)
+    if total <= MAX_SPATIAL_ROWS:
+        return rows
+
+    def _dist(row) -> float:
+        try:
+            return float(row.get("distanceFt", row.get("distance", 1e30)))
+        except (TypeError, ValueError):
+            return 1e30
+
+    kept = sorted(rows, key=_dist)[:MAX_SPATIAL_ROWS]
+    kept.append({
+        "note": (
+            f"{total} elements matched within {radius} ft -- showing nearest "
+            f"{MAX_SPATIAL_ROWS}. Narrow radius, add type_filter, or use "
+            f"ask_user_choice(allow_point_pick=True) if the engineer can "
+            f"click the target rather than paging through a dump."
+        ),
+        "tool": tool_name,
+        "matchedTotal": total,
+    })
+    return kept
+
 
 def set_bridge(bridge) -> None:
     """Must be called once before any function below — e.g.
@@ -55,14 +92,20 @@ def _ok_or_raise(resp: dict, context: str) -> dict:
 def find_elements_near(x: float, y: float, radius: float, type_filter: str = "") -> list[dict]:
     """Find drawn elements within radius (ft) of (x, y) in the active model.
     type_filter narrows by kind (e.g. 'CELL'); empty string matches all
-    types. Returns EVERY candidate with its distance and range, not just
-    the nearest — matching is by bounding-box center, so a point near the
+    types. Returns candidates with distance and range (nearest first when
+    truncated) — matching is by bounding-box center, so a point near the
     end of a long line matches its midpoint, and multiple close candidates
-    are a real ambiguity signal, not noise to collapse to one answer."""
+    are a real ambiguity signal, not noise to collapse to one answer.
+
+    Keep radius tight (tens of feet, not thousands). Results are hard-capped
+    at MAX_SPATIAL_ROWS nearest matches — a wide radius that would return
+    hundreds of elements will not give you a complete dump. If the engineer
+    can point at the target, prefer ask_user_choice(allow_point_pick=True)
+    over a fishing expedition."""
     resp = _ok_or_raise(
         _bridge.call("FIND_ELEMENTS_NEAR", x=x, y=y, radius=radius, typeFilter=type_filter),
         "find_elements_near")
-    return resp.get("rows", [])
+    return _cap_spatial_rows(resp.get("rows", []), "find_elements_near", radius)
 
 
 def station_to_point(align_idx: int, sta: float) -> dict:
@@ -88,10 +131,633 @@ def get_alignment_stationing(align_idx: int) -> list[dict]:
     return resp.get("rows", [])
 
 
-def list_levels() -> list[dict]:
-    """List every level defined in the active design file."""
+def list_levels(name_contains: str = "") -> list[dict]:
+    """List levels in the active design file matching name_contains
+    (case-insensitive substring, e.g. 'TWZ', 'Traffic', 'SF_P').
+    name_contains is REQUIRED — this file can have thousands of levels
+    (measured live at 3046); an unfiltered dump costs real tokens and
+    still won't surface the level you want if it isn't in the first page.
+    Results are hard-capped at MAX_LISTED_ROWS matches. Returns name,
+    number, isDisplayed."""
+    needle = (name_contains or "").strip()
+    if not needle:
+        return [{
+            "status": "ERROR",
+            "note": "list_levels requires name_contains (e.g. 'TWZ', 'SFB', "
+                    "'Traffic'). Refusing unfiltered listing — this DGN can "
+                    "have thousands of levels.",
+        }]
     resp = _ok_or_raise(_bridge.call("LIST_LEVELS"), "list_levels")
-    return resp.get("rows", [])
+    rows = resp.get("rows", [])
+    upper = needle.upper()
+    rows = [r for r in rows if upper in str(r.get("name", "")).upper()]
+    total = len(rows)
+    if total > MAX_LISTED_ROWS:
+        rows = rows[:MAX_LISTED_ROWS]
+        rows.append({
+            "note": (
+                f"{total} levels matched name_contains={name_contains!r} -- "
+                f"showing first {MAX_LISTED_ROWS}. Tighten the filter."
+            )
+        })
+    return rows
+
+
+# Common color-name → RGB for resolve_color. Tables don't store names —
+# only indices + RGB — so named requests go through FindClosestColor.
+_COLOR_NAME_RGB = {
+    "white": (255, 255, 255),
+    "black": (0, 0, 0),
+    "red": (255, 0, 0),
+    "green": (0, 255, 0),
+    "blue": (0, 0, 255),
+    "yellow": (255, 255, 0),
+    "cyan": (0, 255, 255),
+    "magenta": (255, 0, 255),
+    "orange": (255, 165, 0),
+    "purple": (128, 0, 128),
+    "violet": (238, 130, 238),
+    "brown": (139, 69, 19),
+    "gray": (128, 128, 128),
+    "grey": (128, 128, 128),
+    "pink": (255, 192, 203),
+    "lime": (0, 255, 0),
+    "navy": (0, 0, 128),
+    "teal": (0, 128, 128),
+    "maroon": (128, 0, 0),
+    "olive": (128, 128, 0),
+    "coral": (255, 127, 80),
+    "gold": (255, 215, 0),
+}
+
+
+def _pack_rgb(r: int, g: int, b: int) -> int:
+    """MicroStation color-table Long packing (KB0039791): R + G*256 + B*65536."""
+    return (int(r) & 255) + ((int(g) & 255) * 256) + ((int(b) & 255) * 65536)
+
+
+def _unpack_rgb(packed: int) -> tuple[int, int, int]:
+    packed = int(packed) & 0xFFFFFF
+    return packed & 255, (packed // 256) & 255, (packed // 65536) & 255
+
+
+def _active_color_table():
+    """Live ColorTable for the open DGN via COM — not WZTCBridge.
+    Confirmed ExtractColorTable / GetColors / FindClosestColor work from
+    Python against this install (2026-08-02). Kept off the VBA bridge after
+    a ColorTable-typed WZTCQuery hot-reload failed to compile and wedged
+    the whole bridge until reverted."""
+    import pythoncom
+    import ms_connect
+    pythoncom.CoInitialize()
+    return ms_connect.get_microstation_app().ActiveDesignFile.ExtractColorTable()
+
+
+def list_colors() -> list[dict]:
+    """Return every entry in the active DGN's color table (index + RGB).
+    ~255 rows — small enough to return in full. Color indices are
+    file-specific; never assume index 3 is orange. Prefer resolve_color
+    when the engineer names a color."""
+    tbl = _active_color_table()
+    cols = tbl.GetColors()
+    rows = []
+    for i, packed in enumerate(cols):
+        r, g, b = _unpack_rgb(packed)
+        rows.append({"index": str(i), "red": str(r), "green": str(g), "blue": str(b)})
+    return rows
+
+
+def resolve_color(name: str = "", red: int | None = None,
+                  green: int | None = None, blue: int | None = None) -> dict:
+    """Map a named color or RGB triple to the closest index in THIS DGN's
+    color table (ColorTable.FindClosestColor). Always call this before
+    change_element_symbology when the engineer asks for a color by name
+    (e.g. 'orange') — never guess an index. Pass name='orange' OR
+    red/green/blue. Returns index plus the table's actual RGB and the
+    RGB that was requested."""
+    r, g, b = red, green, blue
+    key = (name or "").strip().lower()
+    if key:
+        if key not in _COLOR_NAME_RGB:
+            known = ", ".join(sorted(_COLOR_NAME_RGB))
+            return {
+                "status": "ERROR",
+                "note": f"unknown color name {name!r}. Known names: {known}. "
+                        "Or pass red/green/blue directly.",
+            }
+        r, g, b = _COLOR_NAME_RGB[key]
+    if r is None or g is None or b is None:
+        return {
+            "status": "ERROR",
+            "note": "resolve_color needs name= (e.g. 'orange') or red/green/blue.",
+        }
+    tbl = _active_color_table()
+    idx = int(tbl.FindClosestColor(_pack_rgb(r, g, b)))
+    ar, ag, ab = _unpack_rgb(tbl.GetColorAtIndex(idx))
+    return {
+        "status": "OK",
+        "index": str(idx),
+        "red": str(ar),
+        "green": str(ag),
+        "blue": str(ab),
+        "requestedRed": str(int(r)),
+        "requestedGreen": str(int(g)),
+        "requestedBlue": str(int(b)),
+        "name": key or "",
+    }
+
+
+# Default WZTC symbol library — same path as WZTCBridge.ExecPlaceCell /
+# CellPlacer.bas. attach_cell_library() defaults here when lib_path is empty.
+DEFAULT_WZTC_CELL_LIB = r"c:\pwworking\usny\d0119091\ny_plan_wztc.cel"
+
+# Common engineer aliases → exact LineStyles Name keys in a typical NYSDOT
+# seed. resolve_line_style also does case-insensitive substring match.
+_LINE_STYLE_ALIASES = {
+    "solid": "0",
+    "continuous": "0",
+    "0": "0",
+    "bylevel": "STYLE_ByLevel",
+    "by level": "STYLE_ByLevel",
+    "dashed": "( Dashed )",
+    "dash": "( Dashed )",
+    "center": "( Center )",
+    "hidden": "( Hidden )",
+    "dot": "( Dot )",
+    "dashdot": "( Dashdot )",
+    "phantom": "( Phantom )",
+    "border": "( Border )",
+    "divide": "( Divide )",
+}
+
+
+def _ms_app():
+    """Live MicroStation Application via COM — same pattern as color-table
+    helpers. Kept off the VBA bridge so list/resolve tools don't need a
+    hot-reload when Discovery APIs change."""
+    import pythoncom
+    import ms_connect
+    pythoncom.CoInitialize()
+    return ms_connect.get_microstation_app()
+
+
+def _iter_line_styles(df):
+    """Yield (1-based collectionIndex, name, number) for each LineStyle.
+    Collection is 1-based; Name is the stable lookup key (Number is NOT —
+    LineStyles(-104) fails; LineStyles('( Dashed )') works)."""
+    styles = df.LineStyles
+    count = int(styles.Count)
+    for i in range(1, count + 1):
+        try:
+            sty = styles(i)
+        except Exception:
+            continue
+        yield i, str(getattr(sty, "Name", "") or ""), int(getattr(sty, "Number", 0))
+
+
+def _com_item_by_index(coll, i0: int):
+    """Return the item at Python 0-based index i0 from a COM collection.
+    Fonts/TextStyles are inconsistently 0- vs 1-based depending on DGN state
+    -- try i0 first, then the 1-based fallback; None if neither works."""
+    try:
+        return coll(i0)
+    except Exception:
+        pass
+    try:
+        return coll(i0 + 1)
+    except Exception:
+        return None
+
+
+def _resolve_name_hits(raw: str, hits: list, name_of, describe, kind: str) -> dict:
+    """Shared exact/unique/ambiguous decision for resolve_line_style,
+    resolve_font, and resolve_text_style once each has already gathered its
+    own list of substring-matched candidates (the exact-lookup fast path and
+    per-type field extraction differ, so only this part is common). `hits`
+    is a list of opaque per-type items; name_of(item) extracts the display
+    name; describe(item, matched_via) builds the result dict -- pass
+    matched_via=None to build the slimmer per-candidate entry used in the
+    ambiguous-match error."""
+    upper = raw.upper()
+    exact = [h for h in hits if name_of(h).upper() == upper]
+    if len(exact) == 1:
+        return describe(exact[0], "case-insensitive")
+    if len(hits) == 1:
+        return describe(hits[0], "substring")
+    if not hits:
+        return {"status": "ERROR", "note": f"no {kind} matched {raw!r}."}
+    sample = ", ".join(repr(name_of(h)) for h in hits[:8])
+    more = f" (+{len(hits) - 8} more)" if len(hits) > 8 else ""
+    return {
+        "status": "ERROR",
+        "note": f"{len(hits)} {kind}s matched {raw!r}: {sample}{more}. "
+                "Pass a more specific name.",
+        "candidates": [describe(h, None) for h in hits[:MAX_LISTED_ROWS]],
+    }
+
+
+def list_line_styles(name_contains: str = "") -> list[dict]:
+    """List line styles in the active DGN matching name_contains
+    (case-insensitive substring). name_contains is REQUIRED — this file
+    can have hundreds of styles (measured live at 471). Returns name,
+    number (MicroStation Number property), and collectionIndex (1-based).
+    Prefer resolve_line_style when you know the style name; pass the
+    returned name= to change_element_symbology(line_style_name=...)."""
+    needle = (name_contains or "").strip()
+    if not needle:
+        return [{
+            "status": "ERROR",
+            "note": "list_line_styles requires name_contains (e.g. 'Dash', "
+                    "'Center', 'TWZ', 'Pavt'). Refusing unfiltered listing.",
+        }]
+    upper = needle.upper()
+    rows = []
+    for idx, name, number in _iter_line_styles(_ms_app().ActiveDesignFile):
+        if upper in name.upper():
+            rows.append({
+                "name": name,
+                "number": str(number),
+                "collectionIndex": str(idx),
+            })
+    total = len(rows)
+    if total > MAX_LISTED_ROWS:
+        rows = rows[:MAX_LISTED_ROWS]
+        rows.append({
+            "note": (
+                f"{total} line styles matched name_contains={name_contains!r} "
+                f"-- showing first {MAX_LISTED_ROWS}. Tighten the filter."
+            )
+        })
+    return rows
+
+
+def resolve_line_style(name: str = "") -> dict:
+    """Map a line-style name (or common alias like 'dashed', 'bylevel') to
+    the exact LineStyles Name key for THIS DGN. Always call before
+    change_element_symbology when the engineer names a style — pass the
+    returned name via line_style_name= (not the Number property; negative
+    Numbers are not valid LineStyles() keys). Exact name wins; else unique
+    case-insensitive substring match; else ERROR with candidates."""
+    raw = (name or "").strip()
+    if not raw:
+        return {
+            "status": "ERROR",
+            "note": "resolve_line_style needs name= (e.g. 'dashed', "
+                    "'( Center )', 'TWZCD_P').",
+        }
+    key = raw.lower()
+    if key in _LINE_STYLE_ALIASES:
+        alias_target = _LINE_STYLE_ALIASES[key]
+        if alias_target == "STYLE_ByLevel":
+            return {
+                "status": "OK",
+                "name": "STYLE_ByLevel",
+                "number": "2147483647",
+                "collectionIndex": "",
+                "matchedVia": "alias",
+                "note": "ByLevel is not in LineStyles() — cannot pass it to "
+                        "change_element_symbology. Use run_registry_command "
+                        "ACTIVE_LINESTYLE / LC=ByLevel instead.",
+            }
+        raw = alias_target
+        key = raw.lower()
+
+    df = _ms_app().ActiveDesignFile
+    # Exact Name lookup first (fast path).
+    try:
+        sty = df.LineStyles(raw)
+        nm = str(sty.Name)
+        num = int(sty.Number)
+        coll = ""
+        for idx, n, _ in _iter_line_styles(df):
+            if n == nm:
+                coll = str(idx)
+                break
+        return {
+            "status": "OK",
+            "name": nm,
+            "number": str(num),
+            "collectionIndex": coll,
+            "matchedVia": "exact",
+        }
+    except Exception:
+        pass
+
+    upper = key.upper()
+    hits = [
+        (idx, nm, num)
+        for idx, nm, num in _iter_line_styles(df)
+        if upper == nm.upper() or upper in nm.upper()
+    ]
+
+    def _describe(h, matched_via):
+        idx, nm, num = h
+        d = {"name": nm, "number": str(num), "collectionIndex": str(idx)}
+        if matched_via is not None:
+            d["status"] = "OK"
+            d["matchedVia"] = matched_via
+        return d
+
+    result = _resolve_name_hits(raw, hits, lambda h: h[1], _describe, "line style")
+    if result.get("status") == "ERROR" and "candidates" not in result:
+        result["note"] = f"no line style matched {name!r}. Try list_line_styles(name_contains=...)."
+    return result
+
+
+def cell_library_status() -> dict:
+    """Report whether a cell library is currently attached and its path.
+    place_cell auto-attaches the WZTC library, but browse/search via
+    list_cells requires an attach first — call attach_cell_library() if
+    attached=False."""
+    app = _ms_app()
+    if not bool(app.IsCellLibraryAttached):
+        return {
+            "status": "OK",
+            "attached": "False",
+            "path": "",
+            "activeCell": "",
+            "note": "No cell library attached. Call attach_cell_library() "
+                    f"(defaults to {DEFAULT_WZTC_CELL_LIB}) before list_cells.",
+        }
+    path = ""
+    try:
+        path = str(app.AttachedCellLibrary.FullName)
+    except Exception:
+        path = "(attached, path unavailable)"
+    active = ""
+    try:
+        active = str(app.GetCExpressionValue("tcb->activeCellUtf16", "") or "")
+    except Exception:
+        pass
+    return {
+        "status": "OK",
+        "attached": "True",
+        "path": path,
+        "activeCell": active,
+    }
+
+
+def attach_cell_library(lib_path: str = "") -> dict:
+    """Attach a .cel cell library (Application.AttachCellLibrary). Empty
+    lib_path attaches the default WZTC library (ny_plan_wztc.cel). Idempotent
+    if that library is already attached. Call before list_cells when
+    cell_library_status shows attached=False."""
+    import os
+    path = (lib_path or "").strip() or DEFAULT_WZTC_CELL_LIB
+    if not os.path.isfile(path):
+        return {
+            "status": "ERROR",
+            "note": f"cell library not found: {path}",
+        }
+    app = _ms_app()
+    try:
+        if bool(app.IsCellLibraryAttached):
+            try:
+                cur = str(app.AttachedCellLibrary.FullName)
+                if os.path.normcase(os.path.abspath(cur)) == os.path.normcase(
+                        os.path.abspath(path)):
+                    return {
+                        "status": "OK",
+                        "attached": "True",
+                        "path": cur,
+                        "note": "already attached",
+                    }
+            except Exception:
+                pass
+        app.AttachCellLibrary(path)
+    except Exception as e:
+        return {"status": "ERROR", "note": f"AttachCellLibrary failed: {e}"}
+    if not bool(app.IsCellLibraryAttached):
+        return {"status": "ERROR", "note": "attach reported success but "
+                "IsCellLibraryAttached is still False"}
+    attached_path = path
+    try:
+        attached_path = str(app.AttachedCellLibrary.FullName)
+    except Exception:
+        pass
+    return {"status": "OK", "attached": "True", "path": attached_path}
+
+
+def list_cells(name_contains: str = "", include_shared: bool = False) -> list[dict]:
+    """List cells in the currently attached cell library. name_contains
+    filters name OR description (case-insensitive); optional when the
+    library is small (WZTC has ~16 cells) but REQUIRED if more than
+    MAX_LISTED_ROWS would be returned. Call attach_cell_library first if
+    cell_library_status shows nothing attached. Returns name, description,
+    isPoint, isGraphic."""
+    app = _ms_app()
+    if not bool(app.IsCellLibraryAttached):
+        return [{
+            "status": "ERROR",
+            "note": "No cell library attached. Call attach_cell_library() "
+                    "first (empty path = default WZTC .cel).",
+        }]
+    en = app.GetCellInformationEnumerator(bool(include_shared), False)
+    rows = []
+    needle = (name_contains or "").strip().upper()
+    while en.MoveNext():
+        ci = en.Current
+        nm = str(getattr(ci, "Name", "") or "")
+        if nm.upper() == "DEFAULT":
+            continue
+        desc = str(getattr(ci, "Description", "") or "")
+        if needle and needle not in nm.upper() and needle not in desc.upper():
+            continue
+        rows.append({
+            "name": nm,
+            "description": desc,
+            "isPoint": str(bool(getattr(ci, "IsPoint", False))),
+            "isGraphic": str(bool(getattr(ci, "IsGraphic", False))),
+        })
+    total = len(rows)
+    if not needle and total > MAX_LISTED_ROWS:
+        return [{
+            "status": "ERROR",
+            "note": (
+                f"{total} cells in attached library — pass name_contains "
+                f"(e.g. 'TWZ', 'FLAG', 'Arrow') rather than listing all."
+            ),
+        }]
+    if total > MAX_LISTED_ROWS:
+        rows = rows[:MAX_LISTED_ROWS]
+        rows.append({
+            "note": (
+                f"{total} cells matched name_contains={name_contains!r} -- "
+                f"showing first {MAX_LISTED_ROWS}. Tighten the filter."
+            )
+        })
+    return rows
+
+
+def list_fonts(name_contains: str = "") -> list[dict]:
+    """List fonts available in the active DGN. Optional name_contains
+    (case-insensitive substring). ~24 fonts on a typical seed — small
+    enough to return unfiltered. Prefer resolve_font when you know the
+    name before ACTIVE FONT / place_text_label."""
+    needle = (name_contains or "").strip().upper()
+    fonts = _ms_app().ActiveDesignFile.Fonts
+    rows = []
+    seen = set()
+    count = int(fonts.Count)
+    for i in range(count):
+        f = _com_item_by_index(fonts, i)
+        if f is None:
+            continue
+        nm = str(getattr(f, "Name", "") or "")
+        if not nm or nm in seen:
+            continue
+        seen.add(nm)
+        if needle and needle not in nm.upper():
+            continue
+        rows.append({"name": nm, "id": str(int(getattr(f, "ID", 0)))})
+    return rows
+
+
+def resolve_font(name: str = "") -> dict:
+    """Map a font name to the Fonts entry for THIS DGN (Name + ID). Exact
+    name wins; else unique case-insensitive / substring match."""
+    raw = (name or "").strip()
+    if not raw:
+        return {"status": "ERROR", "note": "resolve_font needs name= "
+                "(e.g. 'Arial', 'Engineering Regular')."}
+    df = _ms_app().ActiveDesignFile
+    try:
+        f = df.Fonts(raw)
+        return {
+            "status": "OK",
+            "name": str(f.Name),
+            "id": str(int(f.ID)),
+            "matchedVia": "exact",
+        }
+    except Exception:
+        pass
+    upper = raw.upper()
+    hits = []
+    seen = set()
+    fonts = df.Fonts
+    for i in range(int(fonts.Count)):
+        f = _com_item_by_index(fonts, i)
+        if f is None:
+            continue
+        nm = str(getattr(f, "Name", "") or "")
+        if not nm or nm in seen:
+            continue
+        seen.add(nm)
+        if upper == nm.upper() or upper in nm.upper():
+            hits.append((nm, int(getattr(f, "ID", 0))))
+
+    def _describe(h, matched_via):
+        d = {"name": h[0], "id": str(h[1])}
+        if matched_via is not None:
+            d["status"] = "OK"
+            d["matchedVia"] = matched_via
+        return d
+
+    result = _resolve_name_hits(raw, hits, lambda h: h[0], _describe, "font")
+    if result.get("status") == "ERROR" and "candidates" not in result:
+        result["note"] = f"no font matched {name!r}. Try list_fonts()."
+    return result
+
+
+def list_text_styles(name_contains: str = "") -> list[dict]:
+    """List text styles in the active DGN (Name, height, width, font).
+    Optional name_contains. Annotation scale still comes from
+    describe_drawing_state — text Height/Width here are style defaults,
+    multiplied by annotation scale when placed as annotation."""
+    needle = (name_contains or "").strip().upper()
+    styles = _ms_app().ActiveDesignFile.TextStyles
+    rows = []
+    seen = set()
+    for i in range(int(styles.Count)):
+        ts = _com_item_by_index(styles, i)
+        if ts is None:
+            continue
+        nm = str(getattr(ts, "Name", "") or "")
+        if not nm or nm in seen:
+            continue
+        seen.add(nm)
+        if needle and needle not in nm.upper():
+            continue
+        font_name = ""
+        try:
+            font_name = str(ts.Font.Name)
+        except Exception:
+            pass
+        rows.append({
+            "name": nm,
+            "height": str(getattr(ts, "Height", "")),
+            "width": str(getattr(ts, "Width", "")),
+            "font": font_name,
+            "id": str(int(getattr(ts, "ID", 0))),
+        })
+    return rows
+
+
+def resolve_text_style(name: str = "") -> dict:
+    """Map a text-style name to Name/height/width/font for THIS DGN.
+    Call before placing text when the engineer names a style (e.g.
+    'ny_Prop Normal'). Annotation scale is separate — see
+    describe_drawing_state."""
+    raw = (name or "").strip()
+    if not raw:
+        return {"status": "ERROR", "note": "resolve_text_style needs name= "
+                "(e.g. 'ny_Prop Normal', 'ny_Exist Title')."}
+    df = _ms_app().ActiveDesignFile
+    try:
+        ts = df.TextStyles(raw)
+        font_name = ""
+        try:
+            font_name = str(ts.Font.Name)
+        except Exception:
+            pass
+        return {
+            "status": "OK",
+            "name": str(ts.Name),
+            "height": str(ts.Height),
+            "width": str(ts.Width),
+            "font": font_name,
+            "id": str(int(ts.ID)),
+            "matchedVia": "exact",
+        }
+    except Exception:
+        pass
+    upper = raw.upper()
+    hits = []
+    seen = set()
+    styles = df.TextStyles
+    for i in range(int(styles.Count)):
+        ts = _com_item_by_index(styles, i)
+        if ts is None:
+            continue
+        nm = str(getattr(ts, "Name", "") or "")
+        if not nm or nm in seen:
+            continue
+        seen.add(nm)
+        if upper == nm.upper() or upper in nm.upper():
+            font_name = ""
+            try:
+                font_name = str(ts.Font.Name)
+            except Exception:
+                pass
+            hits.append({
+                "name": nm,
+                "height": str(ts.Height),
+                "width": str(ts.Width),
+                "font": font_name,
+                "id": str(int(getattr(ts, "ID", 0))),
+            })
+
+    def _describe(h, matched_via):
+        d = dict(h)
+        if matched_via is not None:
+            d["status"] = "OK"
+            d["matchedVia"] = matched_via
+        return d
+
+    result = _resolve_name_hits(raw, hits, lambda h: h["name"], _describe, "text style")
+    if result.get("status") == "ERROR" and "candidates" not in result:
+        result["note"] = f"no text style matched {name!r}. Try list_text_styles()."
+    return result
 
 
 def describe_drawing_state() -> dict:
@@ -113,9 +779,15 @@ def classify_site_features(x: float, y: float, radius: float) -> list[dict]:
     element that doesn't match a known name/level still comes back
     (kind='unclassified') with its raw geometry rather than being dropped,
     since an unnamed obstruction is still an obstruction the agent must
-    reason about."""
+    reason about.
+
+    Keep radius tight. Results are hard-capped at MAX_SPATIAL_ROWS nearest
+    matches (a 2000 ft call was measured live at 325 rows / ~$0.37 of
+    follow-on input once it hit history). Do not use this to "find a named
+    sign somewhere in the drawing" — if the engineer can click it, use
+    ask_user_choice(allow_point_pick=True) instead."""
     resp = _ok_or_raise(_bridge.call("CLASSIFY_SITE_FEATURES", x=x, y=y, radius=radius), "classify_site_features")
-    return resp.get("rows", [])
+    return _cap_spatial_rows(resp.get("rows", []), "classify_site_features", radius)
 
 
 # =========================================================== Observation
@@ -253,8 +925,14 @@ def resolve_sign_code(code: str) -> list[dict]:
 # later can see *why*, not just *what*.
 
 def place_perp_line(align_idx: int, sta: float, half_len: float = 40, reason: str = "") -> dict:
-    """Place a perpendicular reference tick line (2*half_len ft long,
-    default 80ft) at a station along a committed alignment."""
+    """Place a SINGLE perpendicular reference tick line (2*half_len ft
+    long, default 80ft) at a station along a committed alignment. For a
+    full-plan run, prefer place_order_table_stations instead — it places
+    every order-table item's tick line (and records sign geometry) in
+    ONE call rather than one call per item, which is the whole point of
+    the batched op. Use this one only for a genuinely one-off tick line
+    outside the order-table flow (e.g. an ad hoc reference the engineer
+    asks for directly)."""
     return _ok_or_raise(
         _bridge.call("PLACE_PERP_LINE", alignIdx=align_idx, sta=sta, halfLen=half_len, reason=reason),
         "place_perp_line")
@@ -296,6 +974,121 @@ def place_workspace(vertices: list[list[float]], reason: str = "") -> dict:
     (Element API), not CadInputQueue HATCH ICON."""
     verts_tsv = "|".join(f"{p[0]},{p[1]},{p[2] if len(p) > 2 else 0}" for p in vertices)
     return _ok_or_raise(_bridge.call("PLACE_WORKSPACE", verticesTSV=verts_tsv, reason=reason), "place_workspace")
+
+
+# ========================================================== Full-plan flow
+# Agent-driven-8-step-wizard plan (~/.claude/plans/polished-purring-reef.md).
+# These orchestrate what the manual WZTCDesigner->DrawWorkSpace->AlignDraw->
+# PlacePerp wizard steps do, without opening any form. The manual wizard
+# is untouched and remains the fallback.
+
+def build_wztc_order_table(speed: int, road_type: str, lane_width: int, shoulder_width: str,
+                            sign_rows: list[dict], category: str = "", sheet_num: str = "") -> dict:
+    """Headless equivalent of WZTCDesigner.frm's Submit & Draw — computes
+    spacing (WZTCRules.ComputeSpacing) and builds the full per-alignment
+    order table (Non-Sign default rows + your sign_rows), writing the same
+    SharedState the manual form writes. ALWAYS call compute_spacing's
+    underlying values only through this (never estimate spacing yourself).
+
+    sign_rows: list of dicts, each {"align_idx": 1 or 2, "sign_num": "...",
+    "side": "One Side"|"Both Sides", "spacing_ft": optional float override,
+    "size": optional str override}. sign_num must be a SignLibrary.bas key
+    (run resolve_sign_code first if it came from get_sheet_requirements).
+    At least one align_idx=1 (Upstream) row is required. Missing
+    spacing/size are auto-filled from SignLibrary for road_type — if a
+    sign isn't in SignLibrary, they come back as 0.0/"" (a real gap, not
+    silently invented).
+
+    Returns the full computed order table (rows: alignIdx, alignName,
+    rowNum, type, label, spacing, size, side) — show it to the engineer
+    before drawing anything."""
+    rows_tsv = "|".join(
+        f"{r['align_idx']}:{r['sign_num']}:{r.get('side', 'One Side')}:"
+        f"{r.get('spacing_ft', '')}:{r.get('size', '')}"
+        for r in sign_rows
+    )
+    return _ok_or_raise(
+        _bridge.call("BUILD_WZTC_ORDER_TABLE", category=category, sheetNum=sheet_num,
+                     speed=speed, roadType=road_type, laneWidth=lane_width,
+                     shoulderWidth=shoulder_width, signRowsTSV=rows_tsv),
+        "build_wztc_order_table")
+
+
+def find_reference_linework(level_name_contains: str, include_references: bool = False,
+                            ref_name_contains: str = "") -> list[dict]:
+    """Locate connected line/line-string chains on a level, for auto-
+    tracing an alignment or work-space boundary without clicks. Ask the
+    engineer which level holds the roadway centerline first — never guess
+    a level name. include_references=False (default) scans only the
+    active model; pass True to also scan attached reference files (their
+    own geometry can be genuinely unavailable session to session — treat
+    that as a normal, recoverable condition, not a bug, and fall back to
+    asking the engineer to click points if nothing plausible comes back).
+    Arc segments are not included (line-based geometry only) — a chain
+    with true arcs will come back broken into separate pieces.
+    Returns one row per disconnected candidate chain (chainIdx, source,
+    segmentCount, vertexCount, totalLengthFt, verticesTSV) — usually the
+    longest is the intended roadway, but don't assume; a short/odd result
+    should be confirmed with the engineer rather than used blindly.
+    verticesTSV feeds straight into define_alignment_segment/
+    place_workspace with no re-encoding."""
+    resp = _ok_or_raise(
+        _bridge.call("FIND_REFERENCE_LINEWORK", levelNameContains=level_name_contains,
+                     includeReferences="Y" if include_references else "N",
+                     refNameContains=ref_name_contains),
+        "find_reference_linework")
+    return resp.get("rows", [])
+
+
+def define_alignment_segment(align_idx: int, vertices: list[list[float]], reason: str = "") -> dict:
+    """Create straight alignment line segments from vertices (Default
+    level/color 0/weight 0) and record them as one drawing session for
+    align_idx — the same bookkeeping AlignDraw's interactive clicking
+    produces. vertices come from find_reference_linework's verticesTSV
+    (parsed back to [[x,y,z],...]) or from repeated ask_user_choice
+    point-picks when no usable reference geometry exists. Call this one
+    or more times per alignment, then commit_alignment once when done.
+    align_idx convention: 1=Upstream, 2=Downstream (matches
+    build_wztc_order_table)."""
+    verts_tsv = "|".join(f"{p[0]},{p[1]},{p[2] if len(p) > 2 else 0}" for p in vertices)
+    return _ok_or_raise(
+        _bridge.call("DEFINE_ALIGNMENT_SEGMENT", alignIdx=align_idx, verticesTSV=verts_tsv, reason=reason),
+        "define_alignment_segment")
+
+
+def commit_alignment(align_idx: int) -> dict:
+    """Group every segment recorded by define_alignment_segment for
+    align_idx into a graphic group, marking that alignment ready for
+    place_order_table_stations. Call once per alignment after all its
+    define_alignment_segment calls."""
+    return _ok_or_raise(_bridge.call("COMMIT_ALIGNMENT", alignIdx=align_idx), "commit_alignment")
+
+
+def place_order_table_stations(align_idx: int, reset_session: bool = False) -> dict:
+    """Batched replacement for PlacePerp.frm's interactive walk — places
+    an 80ft perpendicular tick line at EVERY row in align_idx's order
+    table in one call (instead of one place_perp_line-equivalent call per
+    item), using the same station math build_wztc_order_table's spacing
+    values drive. Requires build_wztc_order_table AND commit_alignment
+    for this align_idx first.
+    ALWAYS call this — not repeated place_perp_line calls — once an
+    alignment is committed as part of a full-plan run. Calling
+    place_perp_line once per order-table item defeats the entire purpose
+    of this tool (collapsing N tool-call round-trips into 1) and costs
+    real money for no benefit; only reach for place_perp_line directly
+    for a genuinely one-off tick line outside this flow.
+    reset_session=True clears prior placed-sign bookkeeping — pass True
+    for the FIRST alignment in a fresh plan run, False (default) for any
+    subsequent alignment in the same run so sign geometry accumulates
+    correctly across alignments rather than being wiped.
+    Returns one row per order-table item (itemNum, label, type,
+    cumulativeStationFt, ptX, ptY, ptZ, tanX, tanY, isSign) — for isSign=Y
+    rows, resolve_sign_code + place_sign at that point/tangent next."""
+    resp = _ok_or_raise(
+        _bridge.call("PLACE_ORDER_TABLE_STATIONS", alignIdx=align_idx,
+                     resetSession="Y" if reset_session else "N"),
+        "place_order_table_stations")
+    return resp
 
 
 def hatch_element(element_id: str, spacing: float = 10.0, angle_deg: float = 45.0,
@@ -357,14 +1150,26 @@ def place_polygon(cx: float, cy: float, radius: float, sides: int, z: float = 0.
 
 
 def change_element_symbology(element_id: str, color: int | None = None, weight: int | None = None,
-                             line_style_index: int | None = None, own_element_only: bool = True,
-                             reason: str = "") -> dict:
-    """Set element color and/or line weight (and optional linestyle index)."""
+                             line_style_index: int | None = None, line_style_name: str = "",
+                             own_element_only: bool = True, reason: str = "") -> dict:
+    """Set element color and/or line weight (and optional line style).
+    color is a MicroStation color-table INDEX for this DGN — not a universal
+    hue. When the engineer names a color ('orange', 'yellow'), call
+    resolve_color first and use the returned index; never guess (confirmed
+    live: guessing 3 for orange painted the element red).
+
+    For line style prefer line_style_name= from resolve_line_style (exact
+    Name key like '( Dashed )') — the Number property is NOT a valid
+    LineStyles() lookup key. line_style_index remains the 1-based
+    collectionIndex fallback. ByLevel cannot be assigned this way."""
     params = {"elementId": element_id, "ownElementOnly": ("Y" if own_element_only else "N"), "reason": reason}
     if color is not None:
         params["color"] = color
     if weight is not None:
         params["weight"] = weight
+    ls_name = (line_style_name or "").strip()
+    if ls_name:
+        params["lineStyleName"] = ls_name
     if line_style_index is not None:
         params["lineStyleIndex"] = line_style_index
     return _ok_or_raise(_bridge.call("CHANGE_ELEMENT_SYMBOLOGY", **params), "change_element_symbology")
@@ -488,7 +1293,10 @@ def place_element_run(element_idx: int, vertices: list[list[float]], reason: str
 
 def place_cell(cell_name: str, pt_x: float, pt_y: float, pt_z: float = 0, angle_deg: float = 0,
                reason: str = "") -> dict:
-    """Place a single cell from the WZTC symbol library at (pt_x, pt_y, pt_z)."""
+    """Place a single cell from the WZTC symbol library at (pt_x, pt_y, pt_z).
+    cell_name must be an exact library cell (e.g. 'TWZIA_P') — call
+    list_cells / attach_cell_library first if unsure. place_cell itself
+    re-attaches the default WZTC .cel before placing."""
     return _ok_or_raise(
         _bridge.call("PLACE_CELL", cellName=cell_name, ptX=pt_x, ptY=pt_y, ptZ=pt_z,
                      angleDeg=angle_deg, reason=reason),
@@ -542,13 +1350,26 @@ def undo_last_op() -> dict:
     return _ok_or_raise(_bridge.call("UNDO_LAST_OP"), "undo_last_op")
 
 
-def get_journal(limit: int = 50) -> list[str]:
+def get_journal(limit: int = 20) -> list[str]:
     """Return the last `limit` raw journal lines — every op run this
     session, its full parameters (including any reason= passed), and its
     result. This is the PE audit trail: use it to answer "why is that sign
-    there" or to review a whole session before handing off a sheet."""
-    resp = _ok_or_raise(_bridge.call("GET_JOURNAL", limit=limit), "get_journal")
-    return [row.get("line", "") for row in resp.get("rows", [])]
+    there" or to review recent ops before handing off a sheet.
+
+    `limit` is clamped to MAX_JOURNAL_LINES — journal lines are verbose and
+    a limit=150 call was measured stuffing ~20K chars into one tool result.
+    Do not use the journal to locate an element the engineer can click;
+    prefer ask_user_choice(allow_point_pick=True)."""
+    clamped = max(1, min(int(limit), MAX_JOURNAL_LINES))
+    resp = _ok_or_raise(_bridge.call("GET_JOURNAL", limit=clamped), "get_journal")
+    lines = [row.get("line", "") for row in resp.get("rows", [])]
+    if int(limit) > MAX_JOURNAL_LINES:
+        lines.append(
+            f"[truncated: requested limit={limit}, returned last {MAX_JOURNAL_LINES}. "
+            "Ask a narrower question or use ask_user_choice(allow_point_pick=True) "
+            "instead of paging the whole journal.]"
+        )
+    return lines
 
 
 def list_deferred_handoffs() -> list[dict]:

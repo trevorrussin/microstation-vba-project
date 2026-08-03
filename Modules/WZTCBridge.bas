@@ -169,6 +169,16 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = ExecClassifySiteFeatures(reqId, params)
         Case "COMPUTE_SPACING"
             ExecuteOpInner = ExecComputeSpacing(reqId, params)
+        Case "BUILD_WZTC_ORDER_TABLE"
+            ExecuteOpInner = ExecBuildOrderTable(reqId, params)
+        Case "FIND_REFERENCE_LINEWORK"
+            ExecuteOpInner = ExecFindReferenceLinework(reqId, params)
+        Case "DEFINE_ALIGNMENT_SEGMENT"
+            ExecuteOpInner = BridgeDefineAlignmentSegment(reqId, params)
+        Case "COMMIT_ALIGNMENT"
+            ExecuteOpInner = BridgeCommitAlignment(reqId, params)
+        Case "PLACE_ORDER_TABLE_STATIONS"
+            ExecuteOpInner = BridgePlaceOrderTableStations(reqId, params)
         Case "PLACE_PERP_LINE"
             ExecuteOpInner = BridgePlacePerpLine(reqId, params)
         Case "PLACE_SIGN"
@@ -356,6 +366,34 @@ Private Function ExecFindElementsNear(reqId As String, params As Object) As Stri
     Exit Function
 QErr:
     ExecFindElementsNear = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required params: levelNameContains. Optional: refNameContains,
+' includeReferences ("Y" to scan attachments too -- default is active
+' model only, see WZTCQuery.FindReferenceLinework's header comment).
+Private Function ExecFindReferenceLinework(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    If Not params.Exists("levelNameContains") Then
+        ExecFindReferenceLinework = reqId & vbTab & "ERROR" & vbTab & "note=missing levelNameContains"
+        Exit Function
+    End If
+    Dim refNameContains As String: refNameContains = ""
+    If params.Exists("refNameContains") Then refNameContains = CStr(params("refNameContains"))
+    Dim includeReferences As Boolean: includeReferences = False
+    If params.Exists("includeReferences") Then
+        includeReferences = (UCase(CStr(params("includeReferences"))) = "Y" Or CStr(params("includeReferences")) = "1")
+    End If
+
+    Dim rows() As String
+    rows = WZTCQuery.FindReferenceLinework(CStr(params("levelNameContains")), includeReferences, refNameContains)
+    If rows(0) = "error" Then
+        ExecFindReferenceLinework = reqId & vbTab & "ERROR" & vbTab & "note=" & rows(1)
+        Exit Function
+    End If
+    ExecFindReferenceLinework = WriteResultRows(reqId, rows)
+    Exit Function
+QErr:
+    ExecFindReferenceLinework = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 Private Function ExecStationToPoint(reqId As String, params As Object) As String
@@ -592,6 +630,84 @@ QErr:
     ExecComputeSpacing = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
+' Required params: speed, roadType, laneWidth, shoulderWidth.
+' Optional: category, sheetNum (informational only, matches the form's
+' decorative sheet dropdown), signRowsTSV -- pipe-separated rows, each
+' "alignIdx:signNum:side:spacingOverride:sizeOverride" (last two blank
+' = auto-fill from SignLibrary via WZTCRules.BuildOrderTable). At least
+' one signRowsTSV row must have alignIdx=1 (Upstream) -- same completeness
+' rule WZTCDesigner.frm's Submit button enforces.
+' Returns the full computed order table as rows (see WriteResultRows):
+' alignIdx, alignName, rowNum, type, label, spacing, size, side.
+Private Function ExecBuildOrderTable(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    If Not (params.Exists("speed") And params.Exists("roadType") And _
+            params.Exists("laneWidth") And params.Exists("shoulderWidth")) Then
+        ExecBuildOrderTable = reqId & vbTab & "ERROR" & vbTab & "note=missing speed/roadType/laneWidth/shoulderWidth"
+        Exit Function
+    End If
+
+    Dim category As String: category = ""
+    If params.Exists("category") Then category = CStr(params("category"))
+    Dim sheetNum As String: sheetNum = ""
+    If params.Exists("sheetNum") Then sheetNum = CStr(params("sheetNum"))
+
+    Dim signRows() As String
+    Dim signRowCount As Integer: signRowCount = 0
+    If params.Exists("signRowsTSV") Then
+        Dim rawRows() As String
+        rawRows = Split(CStr(params("signRowsTSV")), "|")
+        Dim i As Integer
+        For i = 0 To UBound(rawRows)
+            If Trim(rawRows(i)) <> "" Then signRowCount = signRowCount + 1
+        Next i
+        ReDim signRows(0 To signRowCount - 1)
+        Dim k As Integer: k = 0
+        For i = 0 To UBound(rawRows)
+            If Trim(rawRows(i)) <> "" Then
+                signRows(k) = Trim(rawRows(i))
+                k = k + 1
+            End If
+        Next i
+    Else
+        ReDim signRows(0 To -1)
+    End If
+
+    Dim errMsg As String
+    errMsg = WZTCRules.BuildOrderTable(category, sheetNum, CInt(params("speed")), CStr(params("roadType")), _
+                                       CInt(params("laneWidth")), CStr(params("shoulderWidth")), _
+                                       signRows, signRowCount)
+    If errMsg <> "" Then
+        ExecBuildOrderTable = reqId & vbTab & "ERROR" & vbTab & "note=" & errMsg
+        Exit Function
+    End If
+
+    Dim outRows() As String
+    Dim outCount As Long: outCount = 0
+    Dim a As Integer, r As Integer
+    For a = 1 To wztcAlignCount
+        outCount = outCount + wztcAlignRowCounts(a)
+    Next a
+    ReDim outRows(0 To outCount)
+    outRows(0) = "alignIdx" & vbTab & "alignName" & vbTab & "rowNum" & vbTab & "type" & vbTab & _
+                "label" & vbTab & "spacing" & vbTab & "size" & vbTab & "side"
+    Dim n As Long: n = 0
+    For a = 1 To wztcAlignCount
+        For r = 1 To wztcAlignRowCounts(a)
+            n = n + 1
+            outRows(n) = a & vbTab & wztcAlignNames(a) & vbTab & r & vbTab & _
+                        wztcAlignRowTypes(a, r) & vbTab & wztcAlignRowLabels(a, r) & vbTab & _
+                        wztcAlignRowSpacings(a, r) & vbTab & wztcAlignRowSizes(a, r) & vbTab & _
+                        wztcAlignRowSides(a, r)
+        Next r
+    Next a
+
+    ExecBuildOrderTable = WriteResultRows(reqId, outRows)
+    Exit Function
+QErr:
+    ExecBuildOrderTable = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
 ' Required params: sheetNum (e.g. "619-302")
 Private Function ExecGetSheetRequirements(reqId As String, params As Object) As String
     On Error GoTo QErr
@@ -729,6 +845,89 @@ Private Function BridgePlaceWorkspace(reqId As String, params As Object) As Stri
     Exit Function
 WErr:
     BridgePlaceWorkspace = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required params: alignIdx, verticesTSV (pipe-separated "x,y,z", >= 2
+' points). Creates straight line segments (WZTCExec.
+' ExecDefineAlignmentSegments) and records them as one drawing session
+' for that alignment (AlignmentTool.RecordAlignmentSession) -- the
+' same bookkeeping the interactive AlignDraw path already relies on to
+' know which elements belong to which alignment. Call this one or
+' more times per alignment (e.g. once per FindReferenceLinework chain,
+' or once per click-picked polyline), then COMMIT_ALIGNMENT once per
+' alignment when done.
+Private Function BridgeDefineAlignmentSegment(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("alignIdx") And params.Exists("verticesTSV")) Then
+        BridgeDefineAlignmentSegment = reqId & vbTab & "ERROR" & vbTab & "note=missing alignIdx/verticesTSV"
+        Exit Function
+    End If
+    Dim aIdx As Integer: aIdx = CInt(params("alignIdx"))
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecDefineAlignmentSegments(CStr(params("verticesTSV")))
+    If Left(result, 2) = "OK" Then
+        Dim afterMaxID As Double: afterMaxID = FindMaxElementID()
+        Call AlignmentTool.RecordAlignmentSession(aIdx, beforeMaxID, afterMaxID)
+        result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    End If
+    BridgeDefineAlignmentSegment = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeDefineAlignmentSegment = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required params: alignIdx. Commits every recorded segment session
+' for that alignment into a graphic group (AlignmentTool.
+' CommitCurrentAlignmentHeadless) -- call once per alignment after all
+' its DEFINE_ALIGNMENT_SEGMENT calls, before PLACE_ORDER_TABLE_STATIONS.
+Private Function BridgeCommitAlignment(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("alignIdx") Then
+        BridgeCommitAlignment = reqId & vbTab & "ERROR" & vbTab & "note=missing alignIdx"
+        Exit Function
+    End If
+    Dim result As String
+    result = AlignmentTool.CommitCurrentAlignmentHeadless(CInt(params("alignIdx")))
+    BridgeCommitAlignment = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeCommitAlignment = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required params: alignIdx. Optional: resetSession ("Y" to clear
+' wztcPerpLineIDCount/wztcPlacedSignCount before starting -- pass "Y"
+' for the first alignment in a fresh agent-driven session, omit/"N"
+' for subsequent alignments so placed-sign geometry accumulates
+' correctly across alignments). Walks every row in that alignment's
+' order table in one call (PerpPlacement.PlaceAllOrderTableStations),
+' placing all perp tick lines and recording sign geometry -- the
+' batched replacement for one place_perp_line-equivalent call per item.
+Private Function BridgePlaceOrderTableStations(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("alignIdx") Then
+        BridgePlaceOrderTableStations = reqId & vbTab & "ERROR" & vbTab & "note=missing alignIdx"
+        Exit Function
+    End If
+    Dim resetSession As Boolean: resetSession = False
+    If params.Exists("resetSession") Then
+        resetSession = (UCase(CStr(params("resetSession"))) = "Y" Or CStr(params("resetSession")) = "1")
+    End If
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim rows() As String
+    rows = PerpPlacement.PlaceAllOrderTableStations(CInt(params("alignIdx")), resetSession)
+    If rows(0) = "error" Then
+        BridgePlaceOrderTableStations = reqId & vbTab & "ERROR" & vbTab & "note=" & rows(1)
+        Exit Function
+    End If
+    Dim result As String
+    result = WriteResultRows(reqId, rows)
+    result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgePlaceOrderTableStations = result
+    Exit Function
+WErr:
+    BridgePlaceOrderTableStations = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 ' Required params: elementIds (comma-separated element IDs)
@@ -940,10 +1139,12 @@ Private Function BridgeGeomChangeSymbology(reqId As String, params As Object) As
     Dim color As Long: color = -1
     Dim weight As Long: weight = -1
     Dim ls As Long: ls = -999
+    Dim lsName As String: lsName = ""
     If params.Exists("color") Then color = CLng(params("color"))
     If params.Exists("weight") Then weight = CLng(params("weight"))
     If params.Exists("lineStyleIndex") Then ls = CLng(params("lineStyleIndex"))
-    BridgeGeomChangeSymbology = reqId & vbTab & WZTCExec.ExecChangeElementSymbology(CDbl(params("elementId")), color, weight, ls)
+    If params.Exists("lineStyleName") Then lsName = CStr(params("lineStyleName"))
+    BridgeGeomChangeSymbology = reqId & vbTab & WZTCExec.ExecChangeElementSymbology(CDbl(params("elementId")), color, weight, ls, lsName)
     Exit Function
 WErr: BridgeGeomChangeSymbology = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function

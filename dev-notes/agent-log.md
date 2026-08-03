@@ -205,3 +205,178 @@ Removed noisy PDF NOTES bodies from complete rows; `notes` are back to short
 table/page cites (e.g. `Tables 502-01..502-05; Book 3 p.138-139`). Full sign
 lists kept. Stub/catalog notes unchanged. Rationale: drawing-text NOTES were
 fragmented and inflated tool-result tokens for little agent benefit.
+
+## 2026-08-02 — Cursor — click-first + cost caps after arc session
+
+Live arc-placement turn burned money and UX on three things: (1) fishing
+with `get_journal(150)` + `classify_site_features` radius=2000 (325 rows)
+instead of a point-pick when the engineer offered to click the state-law
+sign; (2) `ask_user_choice` options labeled "I'll click the point" that
+dismissed `btnPickPoint` when clicked ("choice is gone"); (3) `view_drawing`
+base64 left in `chat-history.json` (~900KB / three images) so a cache-miss
+turn hit ~243k input tokens (~$0.73). Fixes: prompt click-first rules;
+`ask_user_choice` allows empty options with `allow_point_pick`, strips
+duplicate pick-option labels; `MAX_SPATIAL_ROWS`/`MAX_JOURNAL_LINES` caps in
+`wztc_ops.py`; `_strip_bulky_history` on load/save in `chat_driver.py`
+(existing history scrubbed 1.2MB→229KB). Re-import `WZTCChatPanel.frm` for
+the pick-button status caption; restart `chat_driver.py` for the Python
+changes.
+
+## 2026-08-02 — Cursor — chat-log false resync + list_levels cap
+
+Conversation pane "repeated history" + stale Reference pick prompt: 
+`WZTCChatTimer` treated any `ReadAllLines=0` (file locked mid-append) as
+rotation (`n < mLastLineCount` → reset to 0) and replayed the entire
+`chat-log.tsv` into an already-filled panel — including old
+`ASK_USER_CHOICE` lines that re-showed "Use coordinates I already gave."
+Fix: only resync when `n > 0 And n < mLastLineCount`; call new
+`ResetTranscriptPanes` on real rotation; `FINAL` always `HideChoiceButtons`.
+Also `list_levels(name_contains=...)` + hard cap — unfiltered returned 3046
+rows and ~$0.50 of follow-on input on the orange-color turn. Prompt: don't
+guess color indices. Re-import `WZTCChatTimer.bas` + update panel form code;
+restart chat_driver.
+
+## 2026-08-02 — Cursor — prefer hot_reload for VBA sync
+
+Engineer preference (standing): after editing existing `.bas`/`.frm`/`.cls`
+on disk, run `python mcp-server/hot_reload.py <files>` instead of asking for
+manual delete+re-import. Cursor rule: `.cursor/rules/hot-reload-sync.mdc`.
+Python (`chat_driver.py` / `wztc_ops.py`) still needs a process restart.
+New IDE components and UserForm Designer controls still need manual Import.
+
+## 2026-08-02 — Cursor — resolve_color / list_colors (COM) + level filter
+
+Color indices are per-DGN (DELETE.dgn: 3=red, 6≈orange). `list_colors` +
+`resolve_color(name|rgb)` live in `wztc_ops.py` via
+`ActiveDesignFile.ExtractColorTable` / `FindClosestColor` (not the VBA
+bridge) — confirmed orange→index 6. First attempt typed `ColorTable` in
+`WZTCQuery.bas` and hot-reload left the VBA project unable to Accept any
+further CodeModule writes (every hot_reload COM-exceptions); color ops
+moved to Python COM and Query/Bridge reverted to pre-color text. If bridge
+keyins still fail: VBA IDE Reset, then manual re-import WZTCQuery +
+WZTCBridge from disk. `list_levels` refuses empty `name_contains`. Prompt
+requires resolve_color before named-color symbology. Restart chat_driver.
+
+## 2026-08-02 — Cursor — resolve_color / list_colors + require level filter
+
+Color indices are per-DGN (DELETE.dgn: 3=red, 6≈orange via FindClosestColor).
+Added `LIST_COLORS` / `RESOLVE_CLOSEST_COLOR` in `WZTCQuery`/`WZTCBridge`
+(ExtractColorTable + GetColors / FindClosestColor, KB0039791), wrapped as
+`list_colors` + `resolve_color(name|rgb)` in `wztc_ops` / chat tools /
+`server.py`. `list_levels` now refuses empty `name_contains`. Prompt:
+resolve_color before change_element_symbology for named colors. Hot-reloaded
+Query+Bridge; restart chat_driver for Python.
+
+## 2026-08-02 — Cursor — cells / line styles / fonts + registry false-OK scrub
+
+Agent stumble items 1–3/7/8. New Python-COM tools in `wztc_ops.py` (same
+pattern as resolve_color — not VBA bridge): `list_line_styles` (requires
+filter; 471 styles live), `resolve_line_style` (aliases like dashed→
+`( Dashed )`; **Name** is the lookup key, Number is not — `LineStyles(-104)`
+fails), `cell_library_status` / `attach_cell_library` /
+`list_cells` via `AttachCellLibrary` + `GetCellInformationEnumerator(False,
+False)`, `list_fonts`/`resolve_font`, `list_text_styles`/`resolve_text_style`.
+`change_element_symbology` gained `line_style_name`; VBA
+`ExecChangeElementSymbology` prefers Name over collection index (hot-reloaded
+Exec+Bridge). Annotation scale still from `describe_drawing_state` only.
+Restart chat_driver for new tools.
+
+## 2026-08-02 — Cursor — false-OK CommandName audit (item #8)
+
+Replaced the precautionary family downgrade with a live audit:
+`scripts/keyin_false_ok_audit.py`. Probe does SendKeyin **without** the
+immediate SendReset that masked pending prompts in `keyin_batch._one_keyin`,
+then classifies by `CommandState.CommandName` (ARMED if non-empty and ≠
+baseline `Element Selection`). Ran `--scope all-gated` on DELETE.dgn:
+1733 rows → CLEAN 1661, ARMED 67, HANG 3, SKIP 2. Applied: 67 →
+`unsafe-blocked` (ZOOM_IN/OUT, WINDOW_CENTER/ORIGIN, many SET_* /
+UPDATE_VIEW / REFERENCE_* that prompt "Select view|reference|point"),
+11 CLEAN `needs-testing` restored to verified (incl. ZOOM_HALF/DOUBLE/
+PREVIOUS, FIT_ELEMENT/SELECTION/FENCE, ACCUDRAW_ROTATE_VIEW), 3 HANGs →
+`needs-testing`. Results: `Bridge/keyin-false-ok-audit.json`. Empty
+CommandName after NULL/NOCOMMAND is CLEAN, not ARMED.
+
+## 2026-08-02 — Cursor — ask_user_choice element pick + selection-tool reality
+
+Added `allow_element_pick` alongside `allow_point_pick` on
+`ask_user_choice` (`chat_driver.py` + `WZTCChatPanel.frm`). Element
+identify is injected as a normal choice-button caption ("Identify an
+element in the drawing") — no extra Designer control. Clicking that
+caption runs GetInput → `LocateElement` and replies `elementId=… type=…
+level=… [cell=…]` (does not merely echo the label). Point pick stays on
+dedicated `btnPickPoint`. Prefer element-pick for "which existing thing";
+point-pick for "put it here."
+
+Selection-tool audit vs color-quality resolve helpers: agent-direct
+`select_element(id)` / `clear_selection` are solid (need an ID first —
+element-pick now supplies that). Registry `POWERSELECTOR MODE
+NEW/ADD/SUBTRACT/INVERT`, `SINGLE`, `CHOOSE ALL`/`NONE`,
+`SELECTION SET INVERT` are settings-mode toggles (CLEAN in false-OK
+audit) — they change how the interactive tool behaves, they do **not**
+select anything headlessly. `POWERSELECTOR BLOCK/SHAPE/LINE/CIRCLE` stay
+on Element Selection CommandName but still expect engineer clicks for
+the fence — not color-class resolve tools. No working headless "select by
+level" op in the registry; use `list_levels` + find/classify, or
+element-pick. `CHOOSE_ELEMENT` remains unsafe-blocked.
+
+## 2026-08-02 — Claude Code — agent-driven 8-step wizard built + live-verified through a real chat conversation
+
+Built and live-verified all 4 components of the plan at
+`~/.claude/plans/polished-purring-reef.md` (full detail in Claude Code
+memory `project_agent_driven_8step_wizard_status.md`): `BUILD_WZTC_ORDER_TABLE`
+(`WZTCRules.bas`), `FIND_REFERENCE_LINEWORK` (`WZTCQuery.bas`, defaults to
+active-model-only per the engineer's direction — reference-attachment
+scanning is built and opt-in via `includeReferences=True` but not
+exercised by default), `DEFINE_ALIGNMENT_SEGMENT`/`COMMIT_ALIGNMENT`
+(`AlignmentTool.bas`/`WZTCExec.bas`), and `PLACE_ORDER_TABLE_STATIONS`
+(`PerpPlacement.bas`, batches what used to be one `place_perp_line` call
+per order-table item into one call per alignment). All 5 wired into
+`chat_driver.py`'s `_WZTC_OP_NAMES` and confirmed callable by the actual
+chat agent, not just direct bridge test scripts — full plan (work space →
+alignment → spacing → sign → tick line) drawn successfully end-to-end
+through the real `WZTCChatPanel.frm` conversation.
+
+**Real incident, same session**: an uncapped O(n³) chaining algorithm in
+`FindReferenceLinework` (rebuilding a connected path from scanned reference
+elements) hung MicroStation badly enough that Ctrl+Break didn't recover it
+— required a full restart. Root-caused to two things: unbounded chaining
+complexity (fixed with a hard 80-segment cap before the expensive pass
+runs) and reference-attachment COM calls (`.AsVertexList`, `att.Name`)
+throwing instead of returning `Nothing` the way `.AsLineElement` does
+elsewhere in this codebase (fixed with whole-block error guards, not
+line-by-line). Full writeup: Claude Code memory
+`feedback_reference_scan_hang_and_com_errors.md`.
+
+**Two real `chat_driver.py` bugs found via the live conversation, both
+fixed**: (1) `enter_mode`'s effect is deferred to the next turn by design,
+but nothing told the agent that, so it retried WZTC tools in the same turn
+repeatedly and concluded tooling was broken — fixed via explicit
+`GENERAL_MODE_HINT` guidance. (2) `_SESSION_MODE` didn't survive a
+`chat_driver.py` restart even though conversation history does, causing
+the same confusion a second way (agent's own history showed it "already"
+in wztc mode when the fresh process was actually back in general) — fixed
+by persisting the mode to `Bridge/chat-session-mode.txt`, loaded at
+startup with a safe fallback to `"general"` on anything unrecognized.
+
+**New tool**: `mcp-server/restart_chat_driver.py` — safe automated restart
+(mirrors `hot_reload.py`'s role for VBA). Refuses to restart if
+`chat-log.tsv`'s last entry isn't `FINAL`/`ERROR` (a turn or pending
+`ask_user_choice` looks in progress). Two bugs found building it, both
+fixed: a substring PID-match filter caught the restart script's own
+process (`restart_chat_driver.py` contains the literal substring
+`chat_driver.py`) producing repeated phantom-duplicate false alarms; and
+an initial `CREATE_NO_WINDOW` launch made a genuinely healthy process
+invisible to the engineer's normal terminal-based workflow. Full writeup:
+Claude Code memory `feedback_restart_script_self_match_and_hidden_window.md`.
+
+Also fixed 4 issues from a code review of the Cursor session's work
+earlier the same day (line-style error handling swallowing color/weight
+changes, a silent button-overwrite in `WZTCChatPanel.frm`, ~150 lines of
+duplicated lookup logic in `wztc_ops.py`, and `CLAUDE.md`'s File Sync
+Protocol being stale on the hot-reload-first convention).
+
+Still open: `place_order_table_stations` vs `place_perp_line` preference
+was reinforced in the system prompt + both tools' docstrings after the
+agent chose the less-efficient per-item path once live — not yet re-verified
+in a second live run. `find_reference_linework`'s `includeReferences=True`
+path is still unverified against real reference geometry.

@@ -1225,10 +1225,69 @@ E:
     ExecPlacePolygon = "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
+' Creates a chain of 2-point line elements from vertices, Default
+' level / color 0 / weight 0 (CLAUDE.md's alignment-line property row)
+' -- the same shape AlignmentTool.StartLineSegment's interactive
+' clicks already produce (one line element per consecutive vertex
+' pair), so the existing BuildAlignmentPath/CommitCurrentAlignment
+' machinery (PerpPlacement.bas, AlignmentTool.bas) consumes it
+' identically regardless of whether a human clicked or an agent
+' supplied vertices. Straight segments only -- no arc support; nothing
+' in this plan's vertex sources (FindReferenceLinework, click-picked
+' points) currently produces arc data, so that's deferred until an
+' actual caller needs it, not built speculatively.
+' verticesTSV is "x,y,z|x,y,z|..." (>= 2 points), the same convention
+' place_workspace/place_polyline already use.
+Public Function ExecDefineAlignmentSegments(verticesTSV As String) As String
+    On Error GoTo E
+    Dim parts() As String
+    parts = Split(verticesTSV, "|")
+    If UBound(parts) < 1 Then
+        ExecDefineAlignmentSegments = "ERROR" & vbTab & "note=need at least 2 vertices"
+        Exit Function
+    End If
+
+    Dim pts() As Point3d
+    ReDim pts(0 To UBound(parts))
+    Dim i As Integer
+    For i = 0 To UBound(parts)
+        Dim xyz() As String: xyz = Split(parts(i), ",")
+        If UBound(xyz) < 2 Then
+            ExecDefineAlignmentSegments = "ERROR" & vbTab & "note=malformed vertex: " & parts(i)
+            Exit Function
+        End If
+        pts(i).X = CDbl(xyz(0)): pts(i).Y = CDbl(xyz(1)): pts(i).Z = CDbl(xyz(2))
+    Next i
+
+    Dim defLvl As Level
+    On Error Resume Next
+    Set defLvl = ActiveDesignFile.Levels("Default")
+    On Error GoTo E
+
+    Dim createdCount As Integer: createdCount = 0
+    For i = 0 To UBound(pts) - 1
+        Dim le As LineElement
+        Set le = CreateLineElement2(Nothing, pts(i), pts(i + 1))
+        le.Color = 0
+        le.LineWeight = 0
+        If Not defLvl Is Nothing Then le.Level = defLvl
+        ActiveModelReference.AddElement le
+        le.Rewrite
+        createdCount = createdCount + 1
+    Next i
+
+    ExecDefineAlignmentSegments = "OK" & vbTab & "segmentCount=" & createdCount & vbTab & _
+                                  "note=created " & createdCount & " line element(s)"
+    Exit Function
+E:
+    ExecDefineAlignmentSegments = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
 Public Function ExecChangeElementSymbology(elementId As Double, _
                                            Optional color As Long = -1, _
                                            Optional weight As Long = -1, _
-                                           Optional lineStyleIndex As Long = -999) As String
+                                           Optional lineStyleIndex As Long = -999, _
+                                           Optional lineStyleName As String = "") As String
     On Error GoTo E
     Dim el As Element
     Set el = FindElementByID(elementId)
@@ -1240,15 +1299,33 @@ Public Function ExecChangeElementSymbology(elementId As Double, _
     Dim priorWeight As Long: priorWeight = el.LineWeight
     If color >= 0 Then el.Color = color
     If weight >= 0 Then el.LineWeight = weight
-    If lineStyleIndex <> -999 Then
+    ' Prefer exact Name key from resolve_line_style (e.g. "( Dashed )").
+    ' LineStyles(Number) fails for custom styles — Number is not a lookup key.
+    ' A bad line style must not abort the whole call: color/weight above are
+    ' only saved by Rewrite below, so an unguarded lookup failure here would
+    ' silently discard those too. Report the failure instead of hiding it.
+    Dim lineStyleNote As String: lineStyleNote = ""
+    If Len(Trim$(lineStyleName)) > 0 Then
+        On Error Resume Next
+        el.LineStyle = ActiveDesignFile.LineStyles(Trim$(lineStyleName))
+        If Err.Number <> 0 Then
+            lineStyleNote = vbTab & "lineStyleError=" & Err.Description
+            Err.Clear
+        End If
+        On Error GoTo E
+    ElseIf lineStyleIndex <> -999 Then
         On Error Resume Next
         el.LineStyle = ActiveDesignFile.LineStyles(lineStyleIndex)
+        If Err.Number <> 0 Then
+            lineStyleNote = vbTab & "lineStyleError=" & Err.Description
+            Err.Clear
+        End If
         On Error GoTo E
     End If
     el.Rewrite
     ExecChangeElementSymbology = "OK" & vbTab & "elementId=" & CStr(elementId) & vbTab & _
                                  "priorColor=" & priorColor & vbTab & "priorWeight=" & priorWeight & vbTab & _
-                                 "note=updated symbology"
+                                 "note=updated symbology" & lineStyleNote
     Exit Function
 E:
     ExecChangeElementSymbology = "ERROR" & vbTab & "note=" & Err.Description

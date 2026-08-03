@@ -51,6 +51,7 @@ BRIDGE_DIR = Path(r"c:\repos\microstation-vba-project\Bridge")
 CHAT_INPUT_FILE = BRIDGE_DIR / "chat-input.tsv"
 CHAT_LOG_FILE = BRIDGE_DIR / "chat-log.tsv"
 HISTORY_FILE = BRIDGE_DIR / "chat-history.json"
+SESSION_MODE_FILE = BRIDGE_DIR / "chat-session-mode.txt"
 USAGE_FILE = BRIDGE_DIR / "chat-usage.tsv"
 CHAT_LOG_ARCHIVE_DIR = BRIDGE_DIR / "archive"
 CHAT_LOG_MAX_BYTES = 2_000_000  # ~2MB; see ChatLog._rotate_if_oversized
@@ -225,6 +226,38 @@ from the default (an obstruction dodge, a non-standard station) — it lands
 in the project's audit journal (get_journal), which is what a PE reviews
 to answer "why is that element there."
 
+list_levels: always pass name_contains (e.g. 'TWZ', 'SFB', 'Traffic') —
+unfiltered listings are refused. When the engineer names a color
+('orange', 'yellow', …) call resolve_color(name=...) BEFORE
+change_element_symbology and use the returned index — color indices are
+file-specific (this DGN's color table), not universal; guessing that
+"3 = orange" painted an element red (confirmed live 2026-08-02). For an
+RGB you already know, resolve_color(red=, green=, blue=) works the same
+way. list_colors dumps the whole table if you need to browse.
+
+Same pattern for line styles: resolve_line_style(name=...) then
+change_element_symbology(line_style_name=<returned name>) — never pass
+the Number property as an index (LineStyles(-104) fails; Name
+'( Dashed )' works). list_line_styles requires name_contains. ByLevel is
+not assignable via symbology — use ACTIVE_LINESTYLE / LC=ByLevel.
+
+For non-sign cells: attach_cell_library() (empty path = default WZTC
+.cel) then list_cells(name_contains=...) before place_cell — do not
+guess cell names. cell_library_status reports whether a library is
+attached. Signs still use resolve_sign_code (WZTC mode).
+
+For text: resolve_font / resolve_text_style before ACTIVE FONT or
+place_text_label when the engineer names a font/style. Annotation scale
+is in describe_drawing_state (annotationScaleFactor) — style Height/Width
+are defaults, not the final plotted size when annotation scale ≠ 1.
+
+Registry view/zoom caveat: a live CommandName audit (scripts/
+keyin_false_ok_audit.py) found KEYINs that leave a tool armed
+("Select view" / "Select point…") despite the old probe marking them OK.
+Those are now unsafe-blocked. Prefer adjust_view for zoom/pan. Do not
+run UPDATE_VIEW / WINDOW_CENTER / ZOOM_IN|OUT / many SET_* display
+toggles via run_registry_command — they wait for a view or point pick.
+
 Dimensions and callouts have no safe headless path in this codebase — use
 handoff(kind="dimension"|"callout", ...) to queue them for the engineer to
 place manually through the existing forms, rather than skipping them or
@@ -235,15 +268,31 @@ choosing between several close-by candidates find_elements_near returns,
 or a site condition that needs the engineer's judgment call. Don't use it
 for routine decisions you're equipped to make on your own.
 
+When the engineer offers to point at something in the drawing ("I'll click
+it", "will point you to it", "the sign already there"), call
+ask_user_choice immediately — use allow_element_pick=True when they mean an
+existing element (reply is elementId=…), or allow_point_pick=True when they
+mean a location (reply is coordinates). Prefer element pick for "which
+sign/cell is that." Do NOT first fish with get_journal,
+classify_site_features, or find_elements_near at a huge radius. Those dumps
+are expensive and usually fail on unnamed cells; a click/identify is the
+reliable path. Never tell them to click in a FINAL message without also
+calling ask_user_choice with the matching allow_*_pick in the same turn —
+otherwise the panel has no pick button and their click does nothing.
+
 When that ambiguity has a small number of concrete, nameable options (2-4),
 prefer ask_user_choice over plain ask_user — it renders real clickable
 buttons in the panel instead of making the engineer type a match for one of
-your options exactly, and if a location is one of the things at stake, set
-allow_point_pick=True so they can click it in the drawing instead of typing
-coordinates. Use it the way you'd expect a structured choice UI to be used
-selectively, not for every question — a genuine "which of these" decision,
-not routine yes/no or open-ended questions, which stay plain ask_user or
-just asking in your final text.
+your options exactly. Combine options with allow_point_pick and/or
+allow_element_pick when useful. Empty options + one allow_* flag is fine
+when you only need a pick. Do NOT add a fake option labeled like "I'll
+click the point/element" / "Use the pick button": clicking that option
+dismisses the real pick button (confirmed live 2026-08-02).
+
+classify_site_features / find_elements_near: keep radius tight (tens of feet
+around a known point). Wide fishing queries are truncated server-side and
+still waste tokens — prefer element-pick or point-pick when the engineer
+can identify the target.
 
 view_drawing lets you take a screenshot of the current view and actually
 look at it — the same image the engineer sees in the panel. This costs
@@ -287,6 +336,21 @@ it, rather than estimating spacing/sign values yourself or telling the
 engineer you can't help. Don't switch modes for a passing mention or a
 general question that happens to be WZTC-adjacent — only when they're
 actually starting that kind of task.
+
+IMPORTANT: enter_mode's effect is deferred to the NEXT turn (the
+engineer's next message), never the current one — this is deliberate,
+not a bug. WZTC tools will still show as unavailable if you call
+enter_mode("wztc") and then try compute_spacing/place_sign/etc. in that
+SAME turn, even after an ask_user_choice point-pick reply, since that's
+still the same turn from the tool-calling loop's perspective, not a new
+one. Do not retry entering the mode again or keep re-attempting the
+WZTC tool call within that turn — that will never work and just burns
+cost. Instead: call enter_mode("wztc") once, tell the engineer plainly
+that you're switching into WZTC mode and to send their next message to
+continue, and stop there. If you ever see WZTC tools "not available"
+immediately after entering the mode, that's this expected boundary, not
+a real tooling failure — say so plainly rather than concluding
+something is broken.
 """
 
 WZTC_SYSTEM_PROMPT_ADDENDUM = """
@@ -331,6 +395,48 @@ SignLibrary.bas yet — say so; don't invent a substitute.
 For questions about MUTCD/NYSDOT requirements, use search_reference_manual
 and ground your answer in the returned excerpt and page citation rather
 than recollection — tell the engineer which manual and page it came from.
+
+Running a full plan end-to-end (agent-driven-8-step-wizard, added 2026-08-02):
+when the engineer wants a whole work-zone plan drawn from a description
+rather than one placement at a time, this is the call order — it mirrors
+the manual WZTCDesigner->DrawWorkSpace->AlignDraw->PlacePerp wizard, which
+still exists as the fallback and is never retired by any of this:
+  1. Gather category/sheet/speed/road_type/lane_width/shoulder_width and
+     the sign list conversationally (get_sheet_requirements +
+     resolve_sign_code if a 619 sheet drives it). Call
+     build_wztc_order_table, then show the engineer the returned order
+     table before drawing anything — it's their chance to catch a wrong
+     sign or missing item.
+  2. Work-space boundary: ask which level/reference has it, try
+     find_reference_linework, then place_workspace with the chosen
+     candidate's vertices. If nothing plausible comes back, fall back to
+     ask_user_choice(allow_point_pick=True) clicks — same physical action
+     as DrawWorkSpace.frm, just chat-mediated.
+  3. Per alignment (1=Upstream, 2=Downstream): same
+     find_reference_linework-or-click pattern, feeding
+     define_alignment_segment (call once per contiguous chain/click run),
+     then commit_alignment once per alignment when done.
+  4. place_order_table_stations per alignment (reset_session=True on the
+     first alignment only, False after) — this batches what would
+     otherwise be one call per order-table item into one call per
+     alignment. ALWAYS use this once an alignment is committed — do NOT
+     call place_perp_line item-by-item for the order table's tick lines;
+     that defeats the entire purpose of the batched op and burns real
+     cost for no benefit (confirmed live 2026-08-02: exactly this
+     happened once already). place_perp_line is only for a genuinely
+     one-off tick line outside this flow. Its isSign=Y rows give you the
+     point/tangent for each sign; resolve_sign_code + place_sign +
+     set_sign_attributes from there, same as any other sign placement.
+  5. place_element_run for channelizing devices/barriers/striping,
+     handoff for dimensions/callouts (never fake these — no headless path
+     exists), place_cell for symbols.
+
+Do not try to run this whole sequence in one turn. Even batched, a real
+plan across two alignments and a dozen-plus signs will exceed a single
+turn's tool-call budget — check in with the engineer at the natural
+boundaries above (order table reviewed, work space placed, alignment
+committed, stations placed) and continue on their next message, the same
+checkpoint rhythm the manual wizard's Next buttons already have.
 """
 
 _MODE_SYSTEM_PROMPT = {
@@ -397,8 +503,13 @@ class ChatLog:
     def reference_image(self, path: str, source_name: str, heading: str, page: int) -> None:
         self._write("REFERENCE_IMAGE", path=path, source=source_name, heading=heading, page=page)
 
-    def ask_user_choice(self, question: str, options: list[dict], allow_point_pick: bool) -> None:
-        fields = {"question": question, "allowPointPick": "Y" if allow_point_pick else "N"}
+    def ask_user_choice(self, question: str, options: list[dict],
+                        allow_point_pick: bool, allow_element_pick: bool = False) -> None:
+        fields = {
+            "question": question,
+            "allowPointPick": "Y" if allow_point_pick else "N",
+            "allowElementPick": "Y" if allow_element_pick else "N",
+        }
         for i, opt in enumerate(options[:4], start=1):
             fields[f"option{i}Label"] = opt.get("label", "")
             fields[f"option{i}Detail"] = opt.get("description", "")
@@ -601,7 +712,11 @@ def _wrap_op(tool_name: str, fn):
 # it'll never use).
 _BASE_OP_NAMES = [
     "find_elements_near", "station_to_point", "get_alignment_stationing",
-    "list_levels", "describe_drawing_state", "classify_site_features",
+    "list_levels", "list_colors", "resolve_color",
+    "list_line_styles", "resolve_line_style",
+    "cell_library_status", "attach_cell_library", "list_cells",
+    "list_fonts", "resolve_font", "list_text_styles", "resolve_text_style",
+    "describe_drawing_state", "classify_site_features",
     "handoff",
     "undo_last_op", "get_journal", "list_deferred_handoffs",
     "list_registry_commands", "describe_registry_command", "run_registry_command",
@@ -633,6 +748,12 @@ _WZTC_OP_NAMES = [
     "compute_spacing", "get_sheet_requirements", "resolve_sign_code",
     "place_perp_line", "place_sign", "place_workspace", "place_element_run",
     "place_cell", "set_sign_attributes",
+    # Added 2026-08-02 -- agent-driven-8-step-wizard plan (Components 1-3):
+    # orchestrate the full WZTCDesigner->DrawWorkSpace->AlignDraw->PlacePerp
+    # sequence without opening any form. See WZTC_SYSTEM_PROMPT_ADDENDUM's
+    # full-plan-flow section for call order.
+    "build_wztc_order_table", "find_reference_linework",
+    "define_alignment_segment", "commit_alignment", "place_order_table_stations",
 ]
 
 
@@ -650,7 +771,9 @@ def ask_user(question: str) -> str:
 
 
 @beta_tool
-def ask_user_choice(question: str, options: list[dict], allow_point_pick: bool = False) -> str:
+def ask_user_choice(question: str, options: list[dict] | None = None,
+                    allow_point_pick: bool = False,
+                    allow_element_pick: bool = False) -> str:
     """Ask the engineer to pick one of a small number of concrete options via
     clickable buttons in the chat panel, instead of a free-form question --
     use this the way you'd use a structured choice UI yourself: for a real
@@ -659,15 +782,52 @@ def ask_user_choice(question: str, options: list[dict], allow_point_pick: bool =
     in your final text is still right for anything else. Each option is
     {"label": short button text, "description": longer context shown in the
     transcript}. Up to 4 options (the panel has 4 button slots -- ask a
-    narrower follow-up if you have more). Set allow_point_pick=True to also
-    show a "Click a point in the drawing" button -- if the engineer uses it,
-    the reply is formatted coordinates "(x, y, z)" instead of an option
-    label. The engineer can ALWAYS ignore the buttons and type a free-form
-    reply instead (the input box never goes away) -- treat whatever comes
-    back as the answer, whatever form it takes: an option's exact label
-    text, picked coordinates, or free text. Blocks until they respond, same
-    as ask_user."""
-    LOG.ask_user_choice(question, options, allow_point_pick)
+    narrower follow-up if you have more).
+
+    Set allow_point_pick=True to show a "Click a point in the drawing"
+    button -- reply is coordinates "(x, y, z)". Set allow_element_pick=True
+    to add a choice-button option "Identify an element in the drawing"
+    (uses an empty btnChoice slot; leave at most 3 of your own options so
+    it fits) -- reply is "elementId=… type=… level=… [cell=…]". Prefer
+    element pick when the engineer is pointing at an existing sign/cell/
+    line. When you ONLY need a location or an identify, pass options=[]
+    with the matching allow_* flag. Do NOT invent a fake option like
+    "I'll click the point/element" — that only echoes text and dismisses
+    the real pick UI (live failure 2026-08-02).
+
+    The engineer can ALWAYS ignore the buttons and type a free-form reply
+    instead (the input box never goes away) -- treat whatever comes back as
+    the answer, whatever form it takes: an option's exact label text,
+    picked coordinates, elementId=… text, or free text. Blocks until they
+    respond, same as ask_user."""
+    opts = list(options or [])
+    if not allow_point_pick and not allow_element_pick and not opts:
+        return (
+            "ask_user_choice needs options and/or allow_point_pick=True "
+            "and/or allow_element_pick=True. For a free-form question use "
+            "ask_user instead."
+        )
+    # Drop option labels that just duplicate the pick buttons — those are
+    # what caused the "choice is gone" failure when the engineer clicked
+    # them and dismissed btnPickPoint / btnPickElement.
+    cleaned = []
+    for opt in opts[:4]:
+        label = str(opt.get("label", "")).strip()
+        low = label.lower()
+        if (allow_point_pick or allow_element_pick) and any(
+            phrase in low
+            for phrase in (
+                "i'll click", "i will click", "click the point",
+                "click a point", "use the pick", "point pick",
+                "point-pick", "click it in the drawing",
+                "identify the element", "identify an element",
+                "select the element", "pick the element",
+                "click the element", "i'll identify", "i will identify",
+            )
+        ):
+            continue
+        cleaned.append(opt)
+    LOG.ask_user_choice(question, cleaned, allow_point_pick, allow_element_pick)
     return INPUT.wait_for_next()
 
 
@@ -716,16 +876,42 @@ def view_drawing() -> list[dict] | str:
 
 # Session modes (2026-08-02): _SESSION_MODE is a module-level global, like
 # _TOUCHED_ELEMENT_IDS -- mutated by enter_mode/exit_mode below, read by
-# run_turn() when building EACH turn's tools/system. Not persisted across
-# a chat_driver.py restart; every fresh process starts in "general" mode,
-# the simplest default and consistent with "the agent boots as a general
-# MicroStation agent" (the actual design goal this session split from).
+# run_turn() when building EACH turn's tools/system.
+#
+# Persisted to SESSION_MODE_FILE (added after a real incident, same day):
+# conversation HISTORY already survives a chat_driver.py restart
+# (HISTORY_FILE), but _SESSION_MODE used not to -- every fresh process
+# silently reset to "general" while the reloaded history still showed
+# turns from when the agent was in "wztc" mode with working tools. The
+# model, going by its own (accurate) memory of those turns, had no reason
+# to think it needed to call enter_mode again, tried a WZTC tool directly,
+# got a real failure, and concluded tooling was broken -- confirmed live
+# 2026-08-02 (see Claude Code memory / dev-notes/agent-log.md for the full
+# incident). Loading the saved mode at startup keeps mode state consistent
+# with the history it's paired with, closing that whole mismatch class
+# rather than just prompting the model to guess better under it.
 _SESSION_MODE = "general"
 
 MODE_INFO = {
     "general": "General MicroStation drawing and query -- no domain-specific tools loaded.",
     "wztc": "Workzone traffic control design -- sign placement, spacing/taper calculations, MUTCD/NYSDOT lookups.",
 }
+
+
+def load_session_mode() -> str:
+    """Read the last-persisted mode (SESSION_MODE_FILE), defaulting to
+    'general' if absent, unreadable, or not a recognized mode -- a
+    corrupt/stale value here must never crash startup or silently pick
+    an unknown mode with no tools defined for it."""
+    try:
+        raw = SESSION_MODE_FILE.read_text(encoding="utf-8").strip()
+    except (OSError, FileNotFoundError):
+        return "general"
+    return raw if raw in MODE_INFO else "general"
+
+
+def save_session_mode(mode: str) -> None:
+    SESSION_MODE_FILE.write_text(mode, encoding="utf-8")
 
 
 @beta_tool
@@ -742,6 +928,7 @@ def enter_mode(mode: str) -> str:
     if mode not in MODE_INFO:
         return f"Unknown mode {mode!r}. Available: {', '.join(MODE_INFO)}."
     _SESSION_MODE = mode
+    save_session_mode(mode)
     LOG.mode_changed(mode, MODE_INFO[mode])
     return f"Switched to {mode} mode."
 
@@ -754,6 +941,7 @@ def exit_mode() -> str:
     move to something unrelated. Takes effect starting next turn."""
     global _SESSION_MODE
     _SESSION_MODE = "general"
+    save_session_mode("general")
     LOG.mode_changed("general", MODE_INFO["general"])
     return "Switched to general mode."
 
@@ -832,13 +1020,69 @@ def _to_jsonable(obj):
     return obj
 
 
+# After a turn finishes, image tool_results (view_drawing) stay in the
+# in-memory messages list and get re-sent on every later round-trip until
+# Anthropic's clear_tool_uses edit ages them out -- which, measured live
+# 2026-08-02, did NOT keep three ~300KB base64 screenshots out of
+# chat-history.json. A cache-miss turn then billed ~243k input tokens
+# (~$0.73) twice in a few seconds. Strip images (and truncate other giant
+# text tool_results) ourselves once the turn that needed them is over.
+_MAX_TOOL_RESULT_CHARS = 12_000
+_IMAGE_STUB = (
+    "[screenshot omitted from history to control cost — "
+    "call view_drawing again if you still need to see the view]"
+)
+
+
+def _strip_bulky_history(messages: list) -> None:
+    """Mutate messages in place: drop base64 image payloads from prior
+    tool_results and truncate oversized text tool_results. Safe on a mix
+    of plain dicts (loaded history / prior turns) and SDK objects (this
+    turn's freshly appended content) -- non-dict blocks are left alone."""
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for i, block in enumerate(content):
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") != "tool_result":
+                continue
+            inner = block.get("content")
+            content[i] = {**block, "content": _shrink_tool_result_content(inner)}
+
+
+def _shrink_tool_result_content(inner):
+    if isinstance(inner, list):
+        out = []
+        for part in inner:
+            if isinstance(part, dict) and part.get("type") == "image":
+                out.append({"type": "text", "text": _IMAGE_STUB})
+            elif isinstance(part, dict) and part.get("type") == "text":
+                text = part.get("text", "")
+                if len(text) > _MAX_TOOL_RESULT_CHARS:
+                    text = text[:_MAX_TOOL_RESULT_CHARS] + "\n[truncated — re-query with a tighter scope if needed]"
+                out.append({**part, "text": text})
+            else:
+                out.append(part)
+        return out
+    if isinstance(inner, str) and len(inner) > _MAX_TOOL_RESULT_CHARS:
+        return inner[:_MAX_TOOL_RESULT_CHARS] + "\n[truncated — re-query with a tighter scope if needed]"
+    return inner
+
+
 def load_history() -> list[dict]:
     if not HISTORY_FILE.exists():
         return []
-    return json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+    messages = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+    _strip_bulky_history(messages)
+    return messages
 
 
 def save_history(messages: list[dict]) -> None:
+    _strip_bulky_history(messages)
     serializable = [{"role": m["role"], "content": _to_jsonable(m["content"])} for m in messages]
     HISTORY_FILE.write_text(json.dumps(serializable, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -1043,8 +1287,10 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
 
 
 def main() -> None:
+    global _SESSION_MODE
     client = anthropic.Anthropic()
     messages = load_history()
+    _SESSION_MODE = load_session_mode()
     INPUT.skip_existing()
     print(f"chat_driver.py running -- model={MODEL}, effort={EFFORT}, mode={_SESSION_MODE}, "
           f"max_iterations={MAX_TOOL_ITERATIONS}, watching {CHAT_INPUT_FILE}, logging to {CHAT_LOG_FILE}")

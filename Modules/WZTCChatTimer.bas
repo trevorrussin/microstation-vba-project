@@ -127,7 +127,14 @@ Public Sub ChatTimerProc(ByVal hwnd As Long, ByVal uMsg As Long, _
     Dim n As Long
     n = ReadAllLines(mWatchFile, lines)
 
-    If n < mLastLineCount Then
+    ' Only treat a SHRINK as rotation when we still got a positive line
+    ' count. ReadAllLines returns 0 on any I/O error (file locked mid-
+    ' append by chat_driver.py is the common case) -- treating that as
+    ' "rotated" used to reset mLastLineCount to 0 and replay the entire
+    ' chat-log into the panel (confirmed live 2026-08-02: Conversation
+    ' filled with hours of old FINAL/ASK_USER_CHOICE lines after a recent
+    ' turn, including stale pick-point prompts over the Reference pane).
+    If n > 0 And n < mLastLineCount Then
         ' mWatchFile is smaller than what's already been delivered -- it was
         ' rotated/archived externally (chat_driver.py archives an oversized
         ' chat-log.tsv and starts a fresh one, see ChatLog._rotate_if_oversized).
@@ -136,6 +143,12 @@ Public Sub ChatTimerProc(ByVal hwnd As Long, ByVal uMsg As Long, _
         ' smaller file's line count and "n > mLastLineCount" would never be
         ' true again). Makes rotation safe regardless of timing -- no need to
         ' coordinate it with the panel being closed/reopened.
+        '
+        ' Also clear the conversation/activity panes so a real rotation
+        ' doesn't stack the new file under the previous session's text.
+        On Error Resume Next
+        mPanel.ResetTranscriptPanes
+        On Error GoTo ProcErr
         mLastLineCount = 0
     End If
 

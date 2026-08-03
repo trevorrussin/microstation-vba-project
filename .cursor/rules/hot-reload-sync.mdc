@@ -1,0 +1,35 @@
+---
+description: After editing VBA on disk, hot-reload into MicroStation; never while VBA is running
+alwaysApply: true
+---
+
+# File sync after edits
+
+## VBA (`.bas` / `.frm` / `.cls`)
+
+After editing any existing VBA module/form on disk, push it live with:
+
+```
+python mcp-server/hot_reload.py <path(s)>
+```
+
+Do **not** ask the engineer to delete+re-import for routine code updates. Hot-reload replaces `CodeModule` text in the open MicroStation VBA project in place.
+
+### NEVER hot-reload while VBA is busy
+
+Documented live (`dev-notes/agent-log.md`, 2026-08-02 Tier1-3): VBA IDE state `[running]` or `[break]` **blocks** hot-reload; forcing COM CodeModule edits while a bridge op / GetInput / hung procedure is executing can **wedge the project or crash MicroStation**.
+
+Before every `hot_reload.py` call:
+1. If a bridge/agent tool call, keyin batch, or VBA procedure may still be running — **stop**. Warn the engineer and ask them to **Reset** (or Ctrl+Break) in the VBA IDE first.
+2. Do **not** retry hot-reload in a loop against COM errors while MicroStation/VBA looks stuck — that makes crashes more likely.
+3. After a failed hot-reload that leaves every subsequent reload COM-failing: tell the engineer to Reset, then re-import the affected modules from disk (File Sync Protocol).
+
+Still needs a **manual Import** (not hot-reload) when:
+- the component does not exist in the IDE yet (brand-new file)
+- adding/changing **UserForm Designer controls** (layout is not CodeModule)
+
+If MicroStation is closed or hot-reload fails after a clean Reset, say so and fall back to the File Sync Protocol in `CLAUDE.md`.
+
+## Python (`mcp-server/chat_driver.py`, `wztc_ops.py`, etc.)
+
+Hot-reload does **not** apply. Tell the engineer to **restart** the `chat_driver.py` process (or whatever Python process holds the code). Do not claim a VBA hot-reload picked up Python changes.

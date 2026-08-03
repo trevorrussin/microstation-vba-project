@@ -59,6 +59,12 @@ SENDKEYIN_TIMEOUT_SEC = 3.0
 # regardless of probe verdict; promote them to verified-headless-safe only
 # after a human confirms in the IDE that the view actually changed with no
 # click required.
+#
+# Follow-up (2026-08-02): scripts/keyin_false_ok_audit.py re-probes without
+# the immediate SendReset and classifies by CommandState.CommandName /
+# MessageCenter.StatusPrompt. Apply that audit (not a blanket family
+# downgrade) before trusting any previously verified KEYIN that might
+# arm a view/point/reference pick.
 SAFE_KINDS = {"settings", "lock"}
 UNSAFE_KINDS = {"tool", "datapoint", "dialog", "file"}
 # Never SendKeyin these — UI / file / activate-and-wait-for-click.

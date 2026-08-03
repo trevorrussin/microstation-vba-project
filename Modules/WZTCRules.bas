@@ -379,3 +379,174 @@ Public Sub GetDefaultDownstreamItems(sp As WZTCSpacing, _
     rowSizes(1) = ""
     rowSides(1) = "One Side"
 End Sub
+
+' ============================================================
+' BUILD FULL ORDER TABLE — headless equivalent of WZTCDesigner.frm's
+' btnSubmit_Click (WZTCDesigner.frm:1516-1638). Computes spacing,
+' generates the default Non-Sign rows for alignments 1 (Upstream) and
+' 2 (Downstream), splices in caller-supplied Sign rows (auto-filling
+' spacing/size from SignLibrary.GetSignData when not given), and
+' writes the exact same SharedState arrays btnSubmit_Click writes —
+' so AlignDraw/PlacePerp/PlaceSign/etc. see identical state whether a
+' human filled the form or an agent called this directly.
+'
+' signRows: one entry per caller-specified sign, fields separated by
+' ":" — "alignIdx:signNum:side:spacingOverride:sizeOverride" (last
+' two optional/blank = use SignLibrary default for roadType).
+'
+' Returns "" on success, or an error message (caller checks this
+' instead of a MsgBox — matches WZTCRules' "no form references"
+' charter; the one true validation btnSubmit_Click enforces beyond
+' basic presence — at least one Sign row in alignment 1 — is kept
+' since it's a real engineering-completeness requirement, not UI
+' nagging).
+' ============================================================
+Public Function BuildOrderTable(category As String, sheetNum As String, _
+                                speedMph As Integer, roadType As String, _
+                                laneWidthFt As Integer, shoulderWidthKey As String, _
+                                signRows() As String, signRowCount As Integer) As String
+    Dim hasAlign1Sign As Boolean: hasAlign1Sign = False
+    Dim i As Integer
+    For i = 0 To signRowCount - 1
+        If CInt(Split(signRows(i), ":")(0)) = 1 Then hasAlign1Sign = True: Exit For
+    Next i
+    If Not hasAlign1Sign Then
+        BuildOrderTable = "no Sign rows given for alignment 1 (Upstream) — at least one is required"
+        Exit Function
+    End If
+
+    Dim sp As WZTCSpacing
+    sp = ComputeSpacing(speedMph, laneWidthFt, shoulderWidthKey, roadType)
+
+    wztcDownstreamTaper = Format(sp.DownstreamTaper, "0.0")
+    wztcRollAhead = Format(sp.RollAheadDistance, "0.0")
+    wztcVehicleSpace = Format(sp.VehicleSpace, "0.0")
+    wztcBufferSpace = Format(sp.BufferSpace, "0.0")
+    wztcMergingTaper = Format(sp.MergingTaper, "0.0")
+    wztcShoulderTapers = Format(sp.ShoulderTaper, "0.0")
+    wztcAdvancedWarningSpacing = Format(sp.AdvanceWarningSpacing, "0.0")
+    wztcSkipLines = sp.SkipTotal
+    wztcChannelizing = sp.ChanTotal
+    wztcFlareBarrier = sp.FlareBarrier
+    wztcFlareBeam = sp.FlareBeam
+    wztcUpTaperBarrier = Format(sp.UpTaperBarrier, "0.0")
+    wztcUpTaperBeam = Format(sp.UpTaperBeam, "0.0")
+
+    wztcCategory = category
+    wztcSheet = sheetNum
+    wztcSpeed = CStr(speedMph)
+    wztcRoadType = roadType
+    wztcLaneWidth = CStr(laneWidthFt)
+    wztcShoulderWidth = shoulderWidthKey
+
+    Dim defTypes1() As String, defLabels1() As String, defSpacings1() As String
+    Dim defSizes1() As String, defSides1() As String, defCount1 As Integer
+    GetDefaultUpstreamItems sp, defTypes1, defLabels1, defSpacings1, defSizes1, defSides1, defCount1
+
+    Dim defTypes2() As String, defLabels2() As String, defSpacings2() As String
+    Dim defSizes2() As String, defSides2() As String, defCount2 As Integer
+    GetDefaultDownstreamItems sp, defTypes2, defLabels2, defSpacings2, defSizes2, defSides2, defCount2
+
+    wztcAlignCount = 2
+    wztcAlignNames(1) = "Upstream"
+    wztcAlignNames(2) = "Downstream"
+
+    Call WriteAlignmentRows(1, defTypes1, defLabels1, defSpacings1, defSizes1, defSides1, defCount1, _
+                            signRows, signRowCount, roadType)
+    Call WriteAlignmentRows(2, defTypes2, defLabels2, defSpacings2, defSizes2, defSides2, defCount2, _
+                            signRows, signRowCount, roadType)
+
+    ' Legacy mirror from alignment 1, exactly as btnSubmit_Click does
+    ' (WZTCDesigner.frm:1590-1628) — AlignDraw/PlacePerp/PlaceSign read
+    ' these, not wztcAlignRow* directly.
+    Dim r As Integer
+    wztcOrderLabelCount = wztcAlignRowCounts(1)
+    If wztcAlignRowCounts(1) > 0 Then
+        ReDim wztcOrderLabels(0 To wztcAlignRowCounts(1) - 1)
+        For r = 1 To wztcAlignRowCounts(1)
+            wztcOrderLabels(r - 1) = wztcAlignRowLabels(1, r)
+        Next r
+    Else
+        ReDim wztcOrderLabels(0 To -1)
+    End If
+
+    Dim signIdx As Integer: signIdx = 0
+    For r = 1 To wztcAlignRowCounts(1)
+        If wztcAlignRowTypes(1, r) = "Sign" Then signIdx = signIdx + 1
+    Next r
+    wztcSignCount = signIdx
+    If signIdx > 0 Then
+        ReDim wztcSignNumbers(1 To signIdx)
+        ReDim wztcSignSpacings(1 To signIdx)
+        ReDim wztcSignSizes(1 To signIdx)
+        ReDim wztcSignSides(1 To signIdx)
+        signIdx = 0
+        For r = 1 To wztcAlignRowCounts(1)
+            If wztcAlignRowTypes(1, r) = "Sign" Then
+                signIdx = signIdx + 1
+                wztcSignNumbers(signIdx) = wztcAlignRowLabels(1, r)
+                wztcSignSpacings(signIdx) = wztcAlignRowSpacings(1, r)
+                wztcSignSizes(signIdx) = wztcAlignRowSizes(1, r)
+                wztcSignSides(signIdx) = wztcAlignRowSides(1, r)
+            End If
+        Next r
+    End If
+
+    BuildOrderTable = ""
+End Function
+
+' Appends default Non-Sign rows then caller Sign rows (filtered to this
+' alignIdx) into SharedState.wztcAlignRow* for one alignment. Sign rows
+' missing a spacing/size override are filled from SignLibrary.GetSignData
+' — the same auto-fill AlignRowBox.cls.ApplySignLibraryToAlignRow does
+' when an engineer types a sign number into the form (WZTCDesigner.frm:
+' 647-680).
+Private Sub WriteAlignmentRows(aIdx As Integer, _
+                               defTypes() As String, defLabels() As String, defSpacings() As String, _
+                               defSizes() As String, defSides() As String, defCount As Integer, _
+                               signRows() As String, signRowCount As Integer, roadType As String)
+    Dim i As Integer
+    Dim signCountForAlign As Integer: signCountForAlign = 0
+    For i = 0 To signRowCount - 1
+        If CInt(Split(signRows(i), ":")(0)) = aIdx Then signCountForAlign = signCountForAlign + 1
+    Next i
+    Dim total As Integer: total = defCount + signCountForAlign
+
+    wztcAlignRowCounts(aIdx) = total
+    Dim r As Integer
+    For r = 1 To defCount
+        wztcAlignRowTypes(aIdx, r) = defTypes(r)
+        wztcAlignRowLabels(aIdx, r) = defLabels(r)
+        wztcAlignRowSpacings(aIdx, r) = defSpacings(r)
+        wztcAlignRowSizes(aIdx, r) = defSizes(r)
+        wztcAlignRowSides(aIdx, r) = defSides(r)
+    Next r
+
+    r = defCount
+    For i = 0 To signRowCount - 1
+        Dim f() As String: f = Split(signRows(i), ":")
+        If CInt(f(0)) <> aIdx Then GoTo NextRow
+        r = r + 1
+        Dim signNum As String: signNum = f(1)
+        Dim side As String: side = f(2)
+        Dim spacingOverride As String: spacingOverride = ""
+        Dim sizeOverride As String: sizeOverride = ""
+        If UBound(f) >= 3 Then spacingOverride = f(3)
+        If UBound(f) >= 4 Then sizeOverride = f(4)
+
+        wztcAlignRowTypes(aIdx, r) = "Sign"
+        wztcAlignRowLabels(aIdx, r) = signNum
+        wztcAlignRowSides(aIdx, r) = side
+
+        If Trim(spacingOverride) <> "" And Trim(sizeOverride) <> "" Then
+            wztcAlignRowSpacings(aIdx, r) = spacingOverride
+            wztcAlignRowSizes(aIdx, r) = sizeOverride
+        Else
+            Dim sd As signData
+            sd = SignLibrary.GetSignData(signNum, roadType)
+            wztcAlignRowSpacings(aIdx, r) = IIf(Trim(spacingOverride) <> "", spacingOverride, Format(sd.DefaultSpacing, "0.0"))
+            wztcAlignRowSizes(aIdx, r) = IIf(Trim(sizeOverride) <> "", sizeOverride, sd.TextLine2)
+        End If
+NextRow:
+    Next i
+End Sub

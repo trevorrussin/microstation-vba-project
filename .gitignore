@@ -62,5 +62,15 @@ Bridge/recipe-probe-batch.json
 Bridge/eval-results*.json
 Bridge/eval-log.tsv
 
+# Regenerable key-in false-OK audit output (scripts/keyin_false_ok_audit.py)
+# -- same category as the probe outputs above; rerun with `run --scope
+# all-gated` to reproduce.
+Bridge/keyin-false-ok-audit.json
+
+# WZTC chat agent session-mode persistence (mcp-server/chat_driver.py) and
+# one-off debug script output -- runtime state, not source.
+Bridge/chat-session-mode.txt
+Bridge/debug-ref-scan*.txt
+
 # Python bytecode cache, any location
 __pycache__/

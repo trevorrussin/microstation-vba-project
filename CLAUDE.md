@@ -62,10 +62,20 @@ Do NOT change the level/color/weight of other element types.
 
 ## File Sync Protocol
 
-**After Claude edits a file on disk:**
-The MicroStation VBA IDE has the old version. User must:
-1. Delete the old module in the VBA IDE
-2. File → Import File (select the updated file)
+**After Claude edits an existing `.bas`/`.frm`/`.cls` module on disk (standard path):**
+Run `python mcp-server/hot_reload.py <path(s)>` to push the change into the open MicroStation VBA
+project in place — do not ask the user to manually delete+re-import for routine code updates.
+Never hot-reload while VBA is `[running]`/`[break]` (a bridge op, keyin batch, or GetInput loop
+still executing) — this can wedge the project or crash MicroStation. If a call may still be in
+flight, stop and ask the user to Reset (or Ctrl+Break) in the VBA IDE first.
+
+Manual delete+Import File is still required, not hot-reload, when:
+- the module/form does not exist in the IDE yet (brand-new file)
+- adding or changing **UserForm Designer controls** (layout is not part of the CodeModule)
+- hot-reload fails after a clean Reset (fall back to manual import for the affected files)
+
+`mcp-server/*.py` changes (chat_driver.py, wztc_ops.py, etc.) are not picked up by hot-reload —
+tell the user to restart the Python process instead.
 
 **After user edits in the MicroStation VBA IDE:**
 The disk file is out of date. User must:

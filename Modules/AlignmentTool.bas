@@ -357,6 +357,87 @@ CommitErr:
 End Sub
 
 ' ============================================================
+' COMMIT CURRENT ALIGNMENT — HEADLESS VARIANT
+' Same grouping logic as CommitCurrentAlignment above (used
+' interactively by AlignDraw.frm's "Commit All Alignments"), but
+' returns a status string instead of MsgBox on failure -- MsgBox
+' blocks headlessly, and the established WZTCBridge rule (see
+' WZTCBridge.bas header) is no MsgBox anywhere in a bridge-reachable
+' path. Kept as a separate function rather than changing
+' CommitCurrentAlignment itself so AlignDraw.frm's interactive
+' behavior is untouched.
+' Takes aIdx directly and calls SetCurrentAlignment itself, so a
+' bridge caller doesn't need a separate SetCurrentAlignment call --
+' but doing so still keeps AlignDraw's interactive state consistent
+' if the engineer opens that form later in the same session.
+' ============================================================
+Public Function CommitCurrentAlignmentHeadless(aIdx As Integer) As String
+    On Error GoTo CommitErr
+    If aIdx < 1 Or aIdx > 10 Then
+        CommitCurrentAlignmentHeadless = "ERROR" & vbTab & "note=alignIdx out of range: " & aIdx
+        Exit Function
+    End If
+    Call SetCurrentAlignment(aIdx)
+
+    If wztcAlignSessionCount(aIdx) = 0 Then
+        CommitCurrentAlignmentHeadless = "ERROR" & vbTab & "note=no segments recorded for alignment " & aIdx
+        Exit Function
+    End If
+
+    Dim maxGG As Long: maxGG = 0
+    Dim el As Element
+    Dim oEnum As ElementEnumerator
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        If el.GraphicGroup > maxGG Then maxGG = el.GraphicGroup
+    Loop
+
+    Dim newGG As Long: newGG = maxGG + 1
+
+    Dim groupedCount As Long: groupedCount = 0
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        If el.GraphicGroup = 0 Then
+            Dim elIDDbl As Double: elIDDbl = ElIDAsDouble(el.ID)
+            Dim s As Integer, inSession As Boolean: inSession = False
+            For s = 1 To wztcAlignSessionCount(aIdx)
+                If elIDDbl > wztcAlignSessionStartIDs(aIdx, s) And _
+                   elIDDbl <= wztcAlignSessionEndIDs(aIdx, s) Then
+                    inSession = True
+                    Exit For
+                End If
+            Next s
+            If inSession Then
+                el.GraphicGroup = newGG
+                el.Rewrite
+                groupedCount = groupedCount + 1
+            End If
+        End If
+    Loop
+
+    If groupedCount = 0 Then
+        CommitCurrentAlignmentHeadless = "ERROR" & vbTab & "note=no elements found for alignment " & aIdx & " sessions"
+        Exit Function
+    End If
+
+    wztcAlignGraphicGroup(aIdx) = CInt(newGG)
+    wztcAlignDrawn(aIdx) = True
+    wztcAlignMaxIDSnapshot(aIdx) = GetCurrentMaxID()
+    If aIdx = 1 Then wztcAlignmentStartMaxID = wztcAlignMaxIDSnapshot(aIdx)
+
+    CommitCurrentAlignmentHeadless = "OK" & vbTab & "alignIdx=" & aIdx & vbTab & _
+                                     "graphicGroup=" & newGG & vbTab & "elementCount=" & groupedCount
+    Exit Function
+CommitErr:
+    CommitCurrentAlignmentHeadless = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
 ' LEGACY ENTRY POINT (kept for back-compatibility references)
 ' Previously called from AlignDraw.cmdDone_Click.
 ' Now replaced by CommitCurrentAlignment + AlignDraw cmdNextStep.

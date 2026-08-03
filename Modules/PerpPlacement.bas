@@ -100,6 +100,110 @@ Public Sub StartAlignmentPlacement()
 End Sub
 
 ' ============================================================
+' HEADLESS ALIGNMENT-PLACEMENT INIT (agent-driven-8-step-wizard plan,
+' Component 3) -- same core logic as StartAlignmentPlacement above,
+' but takes an EXPLICIT alignIdx (rather than auto-finding "the first
+' committed alignment") and reports failure via errMsg instead of
+' MsgBox (blocks headlessly -- established WZTCBridge rule, see that
+' module's header). Deliberately does NOT reset wztcPerpLineIDCount/
+' wztcPlacedSignCount or show PlacePerp.frm -- PlaceAllOrderTableStations
+' below controls the reset explicitly so counts accumulate correctly
+' across multiple alignments in one agent-driven session.
+' ============================================================
+Public Function InitAlignmentPlacementHeadless(aIdx As Integer, ByRef errMsg As String) As Boolean
+    errMsg = ""
+    If aIdx < 1 Or aIdx > wztcAlignCount Then
+        errMsg = "alignIdx out of range: " & aIdx
+        InitAlignmentPlacementHeadless = False
+        Exit Function
+    End If
+    If Not wztcAlignDrawn(aIdx) Then
+        errMsg = "alignment " & aIdx & " is not committed yet -- call COMMIT_ALIGNMENT first"
+        InitAlignmentPlacementHeadless = False
+        Exit Function
+    End If
+
+    currentProcessingAlignIdx = aIdx
+
+    If Not BuildAlignmentPath(currentProcessingAlignIdx) Then
+        errMsg = "could not build alignment path for alignment " & aIdx
+        InitAlignmentPlacementHeadless = False
+        Exit Function
+    End If
+
+    If wztcAlignRowCounts(currentProcessingAlignIdx) <= 0 Then
+        errMsg = "no order-table rows for alignment " & aIdx & " -- call BUILD_WZTC_ORDER_TABLE first"
+        InitAlignmentPlacementHeadless = False
+        Exit Function
+    End If
+
+    currentItemIdx = 0
+    currentPathPos = 0
+    InitAlignmentPlacementHeadless = True
+End Function
+
+' ============================================================
+' BATCHED ORDER-TABLE STATION WALK (Component 3) -- walks EVERY row
+' in aIdx's order table in one call instead of one PlacePerp.frm
+' click per item, using the exact same math (PlaceLineForCurrentItem /
+' GetPointAndTangent, unchanged) so results are identical to what a
+' human clicking through PlacePerp would produce. This is the
+' highest-leverage change in the whole plan: replaces what would
+' otherwise be one place_perp_line-equivalent call per order item
+' (potentially dozens across two alignments) with one call per
+' alignment.
+' resetSession=True clears wztcPerpLineIDCount/wztcPlacedSignCount
+' before starting -- pass True for the first alignment in a fresh
+' agent-driven session, False for subsequent alignments so placed-sign
+' geometry accumulates correctly across alignments (mirrors
+' StartAlignmentPlacement's one-time reset / AdvanceToNextAlignment's
+' no-reset semantics in the interactive flow).
+' Returns rows: itemNum, label, type, cumulativeStationFt, ptX, ptY,
+' ptZ, tanX, tanY, isSign.
+' ============================================================
+Public Function PlaceAllOrderTableStations(aIdx As Integer, resetSession As Boolean) As String()
+    Dim rows() As String
+    Dim errMsg As String
+
+    If resetSession Then
+        wztcPerpLineIDCount = 0
+        wztcPlacedSignCount = 0
+    End If
+
+    If Not InitAlignmentPlacementHeadless(aIdx, errMsg) Then
+        ReDim rows(0 To 1)
+        rows(0) = "error"
+        rows(1) = errMsg
+        PlaceAllOrderTableStations = rows
+        Exit Function
+    End If
+
+    Dim rCount As Integer: rCount = wztcAlignRowCounts(aIdx)
+    ReDim rows(0 To rCount)
+    rows(0) = "itemNum" & vbTab & "label" & vbTab & "type" & vbTab & "cumulativeStationFt" & vbTab & _
+              "ptX" & vbTab & "ptY" & vbTab & "ptZ" & vbTab & "tanX" & vbTab & "tanY" & vbTab & "isSign"
+
+    Do While Not IsAllDone()
+        Dim itemNum As Integer: itemNum = GetCurrentItemNumber()
+        Dim itemLabel As String: itemLabel = GetCurrentItemLabel()
+        Dim rowType As String: rowType = wztcAlignRowTypes(aIdx, itemNum)
+        Dim spacing As Double: spacing = GetCurrentItemSuggestedSpacing()
+
+        Call PlaceLineForCurrentItem(spacing)
+
+        Dim ptX As Double, ptY As Double, ptZ As Double, tanX As Double, tanY As Double
+        Call GetPointAndTangent(currentPathPos, ptX, ptY, ptZ, tanX, tanY)
+
+        rows(itemNum) = itemNum & vbTab & itemLabel & vbTab & rowType & vbTab & Format(currentPathPos, "0.0") & vbTab & _
+                       Format(ptX, "0.0####") & vbTab & Format(ptY, "0.0####") & vbTab & Format(ptZ, "0.0####") & vbTab & _
+                       Format(tanX, "0.0####") & vbTab & Format(tanY, "0.0####") & vbTab & _
+                       IIf(rowType = "Sign", "Y", "N")
+    Loop
+
+    PlaceAllOrderTableStations = rows
+End Function
+
+' ============================================================
 ' BUILD ALIGNMENT PATH
 ' Collects line/arc elements newer than wztcAlignmentStartMaxID,
 ' sorts them into a connected chain starting at the first

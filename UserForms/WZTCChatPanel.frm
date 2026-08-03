@@ -76,17 +76,30 @@ Option Explicit
 '   btnPickPoint     CommandButton (added 2026-08-02): the "click a point
 '                    in the drawing" option for ask_user_choice. Same deal
 '                    -- add with this name, code sets everything else.
-'   lblConversationHeader, lblImageHeader, lblActivityHeader,
-'   lblInputHeader   Label controls (added 2026-08-02, feedback that the
-'                    four panes needed labels): small bold captions above
+'                    Element identify does NOT need its own Designer
+'                    button: when allowElementPick=Y, ShowChoiceButtons
+'                    injects "Identify an element in the drawing" into an
+'                    empty btnChoice slot; clicking that caption runs
+'                    LocateElement instead of sending the label as text.
+'   lblConversationHeader, lblImageHeader, lblImageStatus,
+'   lblActivityHeader, lblInputHeader
+'                    Label controls (headers added 2026-08-02; lblImageStatus
+'                    added same day for live "what is this image doing"
+'                    status under the Reference header). Small captions above
 '                    txtConversation / imgScreenshot / txtActivity /
 '                    txtInput respectively. Add with these exact names,
 '                    nothing else to configure -- Caption/Top/Left/Width/
 '                    Height/Font are all set in code (UserForm_Initialize).
+'                    lblImageStatus is the dynamic subtitle under "Reference"
+'                    (view capture / manual cite / requesting your action).
 ' ============================================================
 
 Private Const CHAT_LOG_FILE As String = "c:\repos\microstation-vba-project\Bridge\chat-log.tsv"
 Private Const CHAT_INPUT_FILE As String = "c:\repos\microstation-vba-project\Bridge\chat-input.tsv"
+' Caption injected into a btnChoice slot when allowElementPick=Y. Clicking
+' it must run LocateElement (HandleChoiceClick), not SendTextAsReply —
+' otherwise it would only echo the label (the 2026-08-02 fake-option bug).
+Private Const ELEMENT_PICK_LABEL As String = "Identify an element in the drawing"
 
 ' ============================================================
 ' DOCK TO RIGHT EDGE (2026-08-02 feedback) -- MSForms has no real docking
@@ -188,8 +201,22 @@ Private Sub UserForm_Initialize()
 
     Dim imgHeaderTop As Double
     imgHeaderTop = 10 + LABEL_HEIGHT + LABEL_GAP + 170 + GAP   ' below txtConversation's header+box
+
+    ' Reference header + optional status line under it. If lblImageStatus
+    ' exists, reserve a second LABEL_HEIGHT row; otherwise the image starts
+    ' right under the header and SetImageStatus falls back to putting the
+    ' status text on lblImageHeader itself ("Reference -- ...").
+    Dim hasImageStatus As Boolean
+    hasImageStatus = ControlExists("lblImageStatus")
+    Dim imgStatusTop As Double
     Dim imgTop As Double
-    imgTop = imgHeaderTop + LABEL_HEIGHT + LABEL_GAP
+    If hasImageStatus Then
+        imgStatusTop = imgHeaderTop + LABEL_HEIGHT + LABEL_GAP
+        imgTop = imgStatusTop + LABEL_HEIGHT + LABEL_GAP
+    Else
+        imgStatusTop = imgHeaderTop
+        imgTop = imgHeaderTop + LABEL_HEIGHT + LABEL_GAP
+    End If
 
     Dim imgHeight As Double
     imgHeight = bottomBlockTop - GAP - imgTop
@@ -222,10 +249,19 @@ Private Sub UserForm_Initialize()
 
     If ControlExists("lblImageHeader") Then
         With Me.Controls("lblImageHeader")
-            .Caption = "Screenshot / Reference -- what the agent just drew or looked up"
+            .Caption = "Reference"
             .Top = imgHeaderTop: .Left = 10: .Width = 590: .Height = LABEL_HEIGHT
             .Font.Name = "Segoe UI": .Font.Size = 8: .Font.Bold = True
             .ForeColor = RGB(110, 110, 115)
+        End With
+    End If
+
+    If hasImageStatus Then
+        With Me.Controls("lblImageStatus")
+            .Caption = "Idle -- waiting for a view capture or manual page"
+            .Top = imgStatusTop: .Left = 10: .Width = 590: .Height = LABEL_HEIGHT
+            .Font.Name = "Segoe UI": .Font.Size = 8: .Font.Bold = False
+            .ForeColor = RGB(90, 110, 140)
         End With
     End If
 
@@ -357,6 +393,22 @@ Private Sub UserForm_Initialize()
 End Sub
 
 ' ============================================================
+' CLEAR CONVERSATION/ACTIVITY PANES -- called by WZTCChatTimer
+' when chat-log.tsv is genuinely rotated (file shrinks to a
+' smaller non-empty file). Without this, a rotation would
+' AppendChatLine the new file under the previous session's
+' text and look like "repeated history."
+' ============================================================
+Public Sub ResetTranscriptPanes()
+    On Error Resume Next
+    If ControlExists("txtConversation") Then txtConversation.Text = ""
+    If ControlExists("txtActivity") Then txtActivity.Text = ""
+    Call HideChoiceButtons
+    Call SetImageStatus("Idle -- waiting for a view capture or manual page")
+    On Error GoTo 0
+End Sub
+
+' ============================================================
 ' APPEND A LINE -- called by WZTCChatTimer.ChatTimerProc for
 ' every new line it finds in CHAT_LOG_FILE. Public so the timer
 ' callback (in a standard module) can reach it. Parses the
@@ -375,8 +427,12 @@ Public Sub AppendChatLine(rawLine As String)
     Select Case lineType
         Case "THINKING", "TOOL_CALL", "TOOL_RESULT"
             If ControlExists("txtActivity") Then AppendTo txtActivity, display
+            If lineType = "TOOL_CALL" Then
+                Call SetImageStatusFromTool(FieldOrBlank(fields, "name"))
+            End If
         Case "SCREENSHOT"
             Call ShowScreenshot(display)   ' display holds the raw file path for this type
+            Call SetImageStatus("View capture -- what the agent just drew")
         Case "REFERENCE_IMAGE"
             ' Unlike SCREENSHOT, this one shows in BOTH panes: a citation
             ' line in the activity trace (so there's a readable record even
@@ -385,9 +441,26 @@ Public Sub AppendChatLine(rawLine As String)
             ' imgPath carries the raw file path separately.
             If ControlExists("txtActivity") Then AppendTo txtActivity, display
             Call ShowScreenshot(imgPath)
+            Call SetImageStatus(FormatReferenceStatus(fields))
         Case "ASK_USER_CHOICE"
             If ControlExists("txtConversation") Then AppendTo txtConversation, display
             Call ShowChoiceButtons(fields)
+            If FieldOrBlank(fields, "allowPointPick") = "Y" Then
+                Call SetImageStatus("Requesting your action -- click a point or choose an option")
+            Else
+                Call SetImageStatus("Requesting your action -- choose an option")
+            End If
+        Case "ASK_USER"
+            If ControlExists("txtConversation") Then AppendTo txtConversation, display
+            Call SetImageStatus("Requesting your action -- reply in Your Message")
+        Case "FINAL"
+            ' A completed answer always dismisses any leftover choice UI /
+            ' point-pick overlay -- otherwise a prior ASK_USER_CHOICE (or a
+            ' false history replay of one) can sit on the Reference pane
+            ' with a stale "click a point" prompt after the turn is done
+            ' (confirmed live 2026-08-02).
+            Call HideChoiceButtons
+            If ControlExists("txtConversation") Then AppendTo txtConversation, display
         Case Else
             If ControlExists("txtConversation") Then AppendTo txtConversation, display
     End Select
@@ -516,6 +589,62 @@ Private Function FormatLogLine(rawLine As String, ByRef outLineType As String, B
 End Function
 
 ' ============================================================
+' REFERENCE PANE STATUS -- lblImageStatus under the "Reference"
+' header (or folded into lblImageHeader if that control was never
+' added). Mirrors how "Your Message" is a static section title
+' while lblStatus / this line say what is happening right now.
+' ============================================================
+Private Sub SetImageStatus(msg As String)
+    If ControlExists("lblImageStatus") Then
+        Me.Controls("lblImageStatus").Caption = msg
+        If ControlExists("lblImageHeader") Then
+            Me.Controls("lblImageHeader").Caption = "Reference"
+        End If
+    ElseIf ControlExists("lblImageHeader") Then
+        ' No dedicated status label yet -- keep the short section title
+        ' and append status, same info without a Designer add.
+        Me.Controls("lblImageHeader").Caption = "Reference -- " & msg
+    End If
+End Sub
+
+Private Sub SetImageStatusFromTool(toolName As String)
+    Dim n As String: n = LCase(Trim(toolName))
+    If n = "" Then Exit Sub
+    If n = "view_drawing" Or n = "capture_view" Then
+        Call SetImageStatus("Checking view...")
+    ElseIf n = "search_reference_manual" Then
+        Call SetImageStatus("Looking up reference manual...")
+    ElseIf Left(n, 6) = "place_" Or n = "undo_last_op" Or n = "move_element" _
+        Or n = "delete_element" Or n = "copy_element" Or n = "rotate_element" _
+        Or n = "scale_element" Or n = "hatch_element" Then
+        Call SetImageStatus("Updating drawing...")
+    ElseIf n = "ask_user" Or n = "ask_user_choice" Then
+        Call SetImageStatus("Requesting your action...")
+    ElseIf n = "adjust_view" Then
+        Call SetImageStatus("Adjusting view...")
+    End If
+End Sub
+
+Private Function FormatReferenceStatus(fields As Object) As String
+    Dim src As String, heading As String, page As String
+    src = FieldOrBlank(fields, "source")
+    heading = FieldOrBlank(fields, "heading")
+    page = FieldOrBlank(fields, "page")
+    If src = "" And heading = "" Then
+        FormatReferenceStatus = "Reference manual page"
+        Exit Function
+    End If
+    Dim parts As String: parts = ""
+    If src <> "" Then parts = src
+    If heading <> "" Then
+        If parts <> "" Then parts = parts & " -- "
+        parts = parts & heading
+    End If
+    If page <> "" Then parts = parts & " (p." & page & ")"
+    FormatReferenceStatus = parts
+End Function
+
+' ============================================================
 ' DISPLAY A SCREENSHOT THE AGENT JUST TOOK (chat_driver.py's
 ' _auto_focus_and_capture, once per completed turn). LoadPicture
 ' reads the PNG from Bridge/captures/; wrapped in On Error Resume
@@ -557,6 +686,7 @@ Private Sub ShowChoiceButtons(fields As Object)
     If fields Is Nothing Then Exit Sub
     If ControlExists("imgScreenshot") Then Me.Controls("imgScreenshot").Visible = False
     Dim i As Integer
+    Dim filled As Integer: filled = 0
     For i = 1 To 4
         Dim ctrlName As String: ctrlName = "btnChoice" & i
         If ControlExists(ctrlName) Then
@@ -564,13 +694,44 @@ Private Sub ShowChoiceButtons(fields As Object)
             If lbl <> "" Then
                 Me.Controls(ctrlName).Caption = lbl
                 Me.Controls(ctrlName).Visible = True
+                filled = filled + 1
             Else
                 Me.Controls(ctrlName).Visible = False
             End If
         End If
     Next i
+    ' Inject element-identify into the first empty choice slot (no extra
+    ' Designer button). If all 4 agent options are filled, replace slot 4
+    ' so identify stays reachable — agent should leave room when using
+    ' allow_element_pick (prompt asks for <=3 options in that case).
+    If FieldOrBlank(fields, "allowElementPick") = "Y" Then
+        Dim slot As Integer: slot = 0
+        For i = 1 To 4
+            If ControlExists("btnChoice" & i) Then
+                If Not Me.Controls("btnChoice" & i).Visible Then
+                    slot = i
+                    Exit For
+                End If
+            End If
+        Next i
+        If slot = 0 And ControlExists("btnChoice4") Then
+            slot = 4
+            ' All 4 agent options were filled -- overwriting slot 4 drops
+            ' that option, so say so instead of doing it silently.
+            If ControlExists("lblStatus") Then
+                lblStatus.Caption = "Note: option 4 was replaced with element-pick (agent sent 4 options)."
+                lblStatus.ForeColor = RGB(180, 120, 0)
+            End If
+        End If
+        If slot > 0 Then
+            Me.Controls("btnChoice" & slot).Caption = ELEMENT_PICK_LABEL
+            Me.Controls("btnChoice" & slot).Visible = True
+        End If
+    End If
     If ControlExists("btnPickPoint") Then
         Me.Controls("btnPickPoint").Visible = (FieldOrBlank(fields, "allowPointPick") = "Y")
+        Me.Controls("btnPickPoint").Left = 10
+        Me.Controls("btnPickPoint").Width = 590
     End If
 End Sub
 
@@ -631,6 +792,7 @@ Private Sub SendTextAsReply(msg As String)
 
     AppendChatLine Now & vbTab & "USER_ECHO" & vbTab & "text=" & msg
     Call HideChoiceButtons
+    Call SetImageStatus("Waiting for the agent...")
 
     If ControlExists("lblStatus") Then
         lblStatus.Caption = "Waiting for the agent..."
@@ -644,25 +806,32 @@ SendErr:
 End Sub
 
 ' ============================================================
-' ASK_USER_CHOICE OPTION BUTTONS -- each just sends its own
-' caption (the option's label) as the reply, exactly like typing
-' that label and hitting Send. Late-bound Me.Controls(...), see
-' the ShowChoiceButtons header comment for why.
+' ASK_USER_CHOICE OPTION BUTTONS -- normally send caption as reply.
+' The injected ELEMENT_PICK_LABEL caption runs LocateElement instead
+' (HandleChoiceClick) so identify is a real action, not echoed text.
 ' ============================================================
 Private Sub btnChoice1_Click()
-    If ControlExists("btnChoice1") Then SendTextAsReply Me.Controls("btnChoice1").Caption
+    If ControlExists("btnChoice1") Then HandleChoiceClick Me.Controls("btnChoice1").Caption
 End Sub
 
 Private Sub btnChoice2_Click()
-    If ControlExists("btnChoice2") Then SendTextAsReply Me.Controls("btnChoice2").Caption
+    If ControlExists("btnChoice2") Then HandleChoiceClick Me.Controls("btnChoice2").Caption
 End Sub
 
 Private Sub btnChoice3_Click()
-    If ControlExists("btnChoice3") Then SendTextAsReply Me.Controls("btnChoice3").Caption
+    If ControlExists("btnChoice3") Then HandleChoiceClick Me.Controls("btnChoice3").Caption
 End Sub
 
 Private Sub btnChoice4_Click()
-    If ControlExists("btnChoice4") Then SendTextAsReply Me.Controls("btnChoice4").Caption
+    If ControlExists("btnChoice4") Then HandleChoiceClick Me.Controls("btnChoice4").Caption
+End Sub
+
+Private Sub HandleChoiceClick(caption As String)
+    If Trim(caption) = ELEMENT_PICK_LABEL Then
+        Call StartElementPick
+    Else
+        Call SendTextAsReply(caption)
+    End If
 End Sub
 
 ' ============================================================
@@ -683,6 +852,16 @@ End Sub
 ' ============================================================
 Private Sub btnPickPoint_Click()
     On Error GoTo PickErr
+    ' Keep choice buttons visible while GetInput waits -- HideChoiceButtons
+    ' only runs after a successful SendTextAsReply. Status tells the engineer
+    ' the form is waiting on a drawing click (2026-08-02: several engineers
+    ' clicked option labels like "I'll click the point" instead of this
+    ' button, which dismissed the pick UI before any click happened).
+    If ControlExists("lblStatus") Then
+        lblStatus.Caption = "Click a point in the MicroStation view (Reset cancels)..."
+        lblStatus.ForeColor = RGB(180, 120, 0)
+    End If
+    Call SetImageStatus("Requesting your action -- click a point in the view")
     Dim oMsg As CadInputMessage
     CadInputQueue.SendKeyin "ECHO Click a point in the drawing"
     CadInputQueue.SendCommand "NULL"
@@ -704,6 +883,87 @@ Private Sub btnPickPoint_Click()
 
 PickErr:
     If ControlExists("lblStatus") Then lblStatus.Caption = "Point pick failed: " & Err.Description
+End Sub
+
+' ============================================================
+' IDENTIFY AN ELEMENT IN THE DRAWING -- datapoint + LocateElement,
+' same GetInput safety rules as btnPickPoint_Click (form-thread only,
+' never via the bridge). Invoked from HandleChoiceClick when the
+' injected ELEMENT_PICK_LABEL choice is clicked. Reply is
+' elementId=… type=… level=… [cell=…].
+' ============================================================
+Private Sub StartElementPick()
+    On Error GoTo PickElErr
+    If ControlExists("lblStatus") Then
+        lblStatus.Caption = "Identify an element in the MicroStation view (Reset cancels)..."
+        lblStatus.ForeColor = RGB(180, 120, 0)
+    End If
+    Call SetImageStatus("Requesting your action -- identify an element in the view")
+
+    CadInputQueue.SendKeyin "ECHO Identify an element"
+    CadInputQueue.SendCommand "NULL"
+    On Error Resume Next
+    CommandState.StartDefaultCommand
+    CommandState.SetLocateCursor
+    On Error GoTo PickElErr
+
+    Dim oMsg As CadInputMessage
+    Dim el As Element
+    Set oMsg = CadInputQueue.GetInput
+    Do While True
+        If oMsg.InputType = msdCadInputTypeReset Then
+            If ControlExists("lblStatus") Then
+                lblStatus.Caption = "Element pick cancelled -- pick an option or type your reply."
+            End If
+            Exit Sub
+        End If
+        If oMsg.InputType = msdCadInputTypeDataPoint Then
+            Set el = Nothing
+            On Error Resume Next
+            Set el = CommandState.LocateElement(oMsg.Point, oMsg.View, True)
+            If el Is Nothing Then Set el = CommandState.GetLocatedElement(True)
+            On Error GoTo PickElErr
+            If Not el Is Nothing Then Exit Do
+            If ControlExists("lblStatus") Then
+                lblStatus.Caption = "No element there -- click closer, or Reset to cancel."
+            End If
+        End If
+        Set oMsg = CadInputQueue.GetInput
+    Loop
+
+    Dim eid As String, tName As String, lvl As String, cellNm As String
+    eid = CStr(ElIDAsDouble(el.ID))
+    tName = "OTHER"
+    lvl = ""
+    cellNm = ""
+    On Error Resume Next
+    Select Case el.Type
+        Case msdElementTypeCellHeader: tName = "CELL"
+        Case msdElementTypeLine:       tName = "LINE"
+        Case msdElementTypeArc:        tName = "ARC"
+        Case msdElementTypeShape:      tName = "SHAPE"
+        Case msdElementTypeText:       tName = "TEXT"
+        Case msdElementTypeTextNode:   tName = "TEXT_NODE"
+        Case Else:                     tName = "OTHER"
+    End Select
+    lvl = el.Level.Name
+    If el.IsCellElement Then cellNm = el.AsCellElement.Name
+    On Error GoTo PickElErr
+
+    On Error Resume Next
+    ActiveModelReference.UnselectAllElements
+    ActiveModelReference.SelectElement el, True
+    On Error GoTo PickElErr
+
+    Dim reply As String
+    reply = "elementId=" & eid & " type=" & tName
+    If lvl <> "" Then reply = reply & " level=" & lvl
+    If cellNm <> "" Then reply = reply & " cell=" & cellNm
+    SendTextAsReply reply
+    Exit Sub
+
+PickElErr:
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Element pick failed: " & Err.Description
 End Sub
 
 Private Sub txtInput_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)

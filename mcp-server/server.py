@@ -82,9 +82,81 @@ def get_alignment_stationing(align_idx: int) -> list[dict]:
 
 
 @mcp.tool()
-def list_levels() -> list[dict]:
-    """List every level defined in the active design file."""
-    return wztc_ops.list_levels()
+def list_levels(name_contains: str = "") -> list[dict]:
+    """List levels matching name_contains (required substring, e.g. 'TWZ').
+    Refuses unfiltered listings — DGNs can have thousands of levels."""
+    return wztc_ops.list_levels(name_contains)
+
+
+@mcp.tool()
+def list_colors() -> list[dict]:
+    """Return every color-table index + RGB for the active DGN."""
+    return wztc_ops.list_colors()
+
+
+@mcp.tool()
+def resolve_color(name: str = "", red: int | None = None,
+                  green: int | None = None, blue: int | None = None) -> dict:
+    """Map a named color or RGB triple to the closest index in this DGN's
+    color table. Call before change_element_symbology when the engineer
+    names a color — never guess an index."""
+    return wztc_ops.resolve_color(name, red, green, blue)
+
+
+@mcp.tool()
+def list_line_styles(name_contains: str = "") -> list[dict]:
+    """List line styles matching name_contains (required). Prefer
+    resolve_line_style when you know the name."""
+    return wztc_ops.list_line_styles(name_contains)
+
+
+@mcp.tool()
+def resolve_line_style(name: str = "") -> dict:
+    """Map a line-style name/alias to the exact Name key for this DGN.
+    Pass returned name to change_element_symbology(line_style_name=...)."""
+    return wztc_ops.resolve_line_style(name)
+
+
+@mcp.tool()
+def cell_library_status() -> dict:
+    """Whether a cell library is attached and its path."""
+    return wztc_ops.cell_library_status()
+
+
+@mcp.tool()
+def attach_cell_library(lib_path: str = "") -> dict:
+    """Attach a .cel library (empty path = default WZTC ny_plan_wztc.cel)."""
+    return wztc_ops.attach_cell_library(lib_path)
+
+
+@mcp.tool()
+def list_cells(name_contains: str = "", include_shared: bool = False) -> list[dict]:
+    """List cells in the attached library (filter by name/description)."""
+    return wztc_ops.list_cells(name_contains, include_shared)
+
+
+@mcp.tool()
+def list_fonts(name_contains: str = "") -> list[dict]:
+    """List fonts in the active DGN. Optional name_contains filter."""
+    return wztc_ops.list_fonts(name_contains)
+
+
+@mcp.tool()
+def resolve_font(name: str = "") -> dict:
+    """Map a font name to Name + ID for this DGN."""
+    return wztc_ops.resolve_font(name)
+
+
+@mcp.tool()
+def list_text_styles(name_contains: str = "") -> list[dict]:
+    """List text styles (name, height, width, font). Optional filter."""
+    return wztc_ops.list_text_styles(name_contains)
+
+
+@mcp.tool()
+def resolve_text_style(name: str = "") -> dict:
+    """Map a text-style name to height/width/font for this DGN."""
+    return wztc_ops.resolve_text_style(name)
 
 
 @mcp.tool()
@@ -203,8 +275,11 @@ def resolve_sign_code(code: str) -> list[dict]:
 
 @mcp.tool()
 def place_perp_line(align_idx: int, sta: float, half_len: float = 40, reason: str = "") -> dict:
-    """Place a perpendicular reference tick line (2*half_len ft long,
-    default 80ft) at a station along a committed alignment."""
+    """Place a SINGLE perpendicular reference tick line (2*half_len ft
+    long, default 80ft) at a station along a committed alignment. For a
+    full-plan run, prefer place_order_table_stations instead — it places
+    every order-table item's tick line in ONE call. Use this one only
+    for a genuinely one-off tick line outside the order-table flow."""
     return wztc_ops.place_perp_line(align_idx, sta, half_len, reason)
 
 
@@ -235,6 +310,61 @@ def place_workspace(vertices: list[list[float]], reason: str = "") -> dict:
     vertices is an ordered list of [x, y, z] points — do not repeat the
     first point to close it. Hatch uses Element API SetPattern."""
     return wztc_ops.place_workspace(vertices, reason)
+
+
+@mcp.tool()
+def build_wztc_order_table(speed: int, road_type: str, lane_width: int, shoulder_width: str,
+                            sign_rows: list[dict], category: str = "", sheet_num: str = "") -> dict:
+    """Headless equivalent of WZTCDesigner.frm's Submit & Draw — computes
+    spacing and builds the full per-alignment order table. sign_rows: list
+    of {"align_idx": 1|2, "sign_num": str, "side": "One Side"|"Both Sides",
+    "spacing_ft": optional, "size": optional}. At least one align_idx=1
+    row is required. Returns the full order table to show the engineer
+    before drawing."""
+    return wztc_ops.build_wztc_order_table(speed, road_type, lane_width, shoulder_width,
+                                            sign_rows, category, sheet_num)
+
+
+@mcp.tool()
+def find_reference_linework(level_name_contains: str, include_references: bool = False,
+                            ref_name_contains: str = "") -> list[dict]:
+    """Locate connected line/line-string chains on a level, for auto-
+    tracing an alignment or work-space boundary without clicks. Ask the
+    engineer which level holds the roadway centerline first. Scans the
+    active model only by default; include_references=True also scans
+    attached reference files. Returns candidate chains, longest is usually
+    the roadway but confirm with the engineer rather than assuming."""
+    return wztc_ops.find_reference_linework(level_name_contains, include_references, ref_name_contains)
+
+
+@mcp.tool()
+def define_alignment_segment(align_idx: int, vertices: list[list[float]], reason: str = "") -> dict:
+    """Create straight alignment line segments from vertices and record
+    them as a drawing session for align_idx (1=Upstream, 2=Downstream).
+    Call one or more times per alignment, then commit_alignment once."""
+    return wztc_ops.define_alignment_segment(align_idx, vertices, reason)
+
+
+@mcp.tool()
+def commit_alignment(align_idx: int) -> dict:
+    """Group every segment recorded by define_alignment_segment for
+    align_idx into a graphic group, ready for place_order_table_stations."""
+    return wztc_ops.commit_alignment(align_idx)
+
+
+@mcp.tool()
+def place_order_table_stations(align_idx: int, reset_session: bool = False) -> dict:
+    """Batched replacement for PlacePerp.frm's interactive walk — places
+    perp tick lines at EVERY row in align_idx's order table in one call.
+    ALWAYS call this, not repeated place_perp_line calls, once an
+    alignment is committed as part of a full-plan run — calling
+    place_perp_line once per item defeats the whole point of batching
+    and costs real money for no benefit.
+    Requires build_wztc_order_table and commit_alignment for this
+    align_idx first. reset_session=True for the first alignment in a
+    fresh plan run, False for subsequent alignments. Returns one row per
+    item; for isSign=Y rows, resolve_sign_code + place_sign next."""
+    return wztc_ops.place_order_table_stations(align_idx, reset_session)
 
 
 @mcp.tool()
@@ -291,10 +421,13 @@ def place_polygon(cx: float, cy: float, radius: float, sides: int, z: float = 0.
 
 @mcp.tool()
 def change_element_symbology(element_id: str, color: int | None = None, weight: int | None = None,
-                             line_style_index: int | None = None, own_element_only: bool = True,
-                             reason: str = "") -> dict:
-    """Change element color/weight/(optional linestyle)."""
-    return wztc_ops.change_element_symbology(element_id, color, weight, line_style_index, own_element_only, reason)
+                             line_style_index: int | None = None, line_style_name: str = "",
+                             own_element_only: bool = True, reason: str = "") -> dict:
+    """Change element color/weight/line style. Prefer line_style_name from
+    resolve_line_style over line_style_index."""
+    return wztc_ops.change_element_symbology(
+        element_id, color, weight, line_style_index, line_style_name,
+        own_element_only, reason)
 
 
 @mcp.tool()
