@@ -74,8 +74,11 @@ Manual delete+Import File is still required, not hot-reload, when:
 - adding or changing **UserForm Designer controls** (layout is not part of the CodeModule)
 - hot-reload fails after a clean Reset (fall back to manual import for the affected files)
 
-`mcp-server/*.py` changes (chat_driver.py, wztc_ops.py, etc.) are not picked up by hot-reload —
-tell the user to restart the Python process instead.
+`mcp-server/*.py` changes (chat_driver.py, wztc_ops.py, etc.) are not picked up by hot-reload.
+Restart it yourself — run `python mcp-server/restart_chat_driver.py` (it checks the process is
+idle before stopping it, then relaunches in a new visible console window). Do not just tell the
+user to restart it manually; this is the same "agent restarts, doesn't ask" rule as VBA hot-reload
+above.
 
 **After user edits in the MicroStation VBA IDE:**
 The disk file is out of date. User must:

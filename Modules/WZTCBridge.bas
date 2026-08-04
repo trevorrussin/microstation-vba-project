@@ -159,6 +159,8 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = ExecStationToPoint(reqId, params)
         Case "GET_ALIGNMENT_STATIONING"
             ExecuteOpInner = ExecGetAlignmentStationing(reqId, params)
+        Case "GET_ALIGNMENT_VERTICES"
+            ExecuteOpInner = ExecGetAlignmentVertices(reqId, params)
         Case "LIST_LEVELS"
             ExecuteOpInner = ExecListLevels(reqId, params)
         Case "DESCRIBE_DRAWING_STATE"
@@ -459,6 +461,25 @@ QErr:
     ExecGetAlignmentStationing = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
+Private Function ExecGetAlignmentVertices(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    If Not params.Exists("alignIdx") Then
+        ExecGetAlignmentVertices = reqId & vbTab & "ERROR" & vbTab & "note=missing alignIdx"
+        Exit Function
+    End If
+
+    Dim rows() As String
+    rows = PerpPlacement.GetAlignmentVertices(CInt(params("alignIdx")))
+    If rows(0) = "error" Then
+        ExecGetAlignmentVertices = reqId & vbTab & "ERROR" & vbTab & "note=" & rows(1)
+        Exit Function
+    End If
+    ExecGetAlignmentVertices = WriteResultRows(reqId, rows)
+    Exit Function
+QErr:
+    ExecGetAlignmentVertices = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
 Private Function ExecListLevels(reqId As String, params As Object) As String
     On Error GoTo QErr
     Dim rows() As String
@@ -656,7 +677,13 @@ End Function
 ' Returns the full computed order table as rows (see WriteResultRows):
 ' alignIdx, alignName, rowNum, type, label, spacing, size, side.
 Private Function ExecBuildOrderTable(reqId As String, params As Object) As String
+    ' cp is a checkpoint marker surfaced in the error response (same pattern
+    ' as PerpPlacement.FindInteriorPoint) -- bare Err.Description on its own
+    ' doesn't say which section failed, and that ambiguity is exactly what
+    ' made the 619-321/322/519 "Subscript out of range" crash slow to
+    ' root-cause (turned out to be ReDim x(0 To -1), see the notes below).
     On Error GoTo QErr
+    Dim cp As String: cp = "start"
     If Not (params.Exists("speed") And params.Exists("roadType") And _
             params.Exists("laneWidth") And params.Exists("shoulderWidth")) Then
         ExecBuildOrderTable = reqId & vbTab & "ERROR" & vbTab & "note=missing speed/roadType/laneWidth/shoulderWidth"
@@ -668,30 +695,47 @@ Private Function ExecBuildOrderTable(reqId As String, params As Object) As Strin
     Dim sheetNum As String: sheetNum = ""
     If params.Exists("sheetNum") Then sheetNum = CStr(params("sheetNum"))
 
+    ' Built via a Collection, not an incrementally-indexed ReDim'd array --
+    ' Collection.Add has no subscript-range bookkeeping to get wrong, and
+    ' the row count is never pre-computed separately from the fill pass
+    ' (a two-pass count-then-fill over the same split is exactly the kind
+    ' of thing worth not hand-rolling twice).
+    cp = "parse signRowsTSV"
     Dim signRows() As String
     Dim signRowCount As Integer: signRowCount = 0
+    Dim signRowsColl As New Collection
     If params.Exists("signRowsTSV") Then
         Dim rawRows() As String
         rawRows = Split(CStr(params("signRowsTSV")), "|")
         Dim i As Integer
         For i = 0 To UBound(rawRows)
-            If Trim(rawRows(i)) <> "" Then signRowCount = signRowCount + 1
+            Dim trimmed As String
+            trimmed = Trim(rawRows(i))
+            If trimmed <> "" Then signRowsColl.Add trimmed
         Next i
+    End If
+    signRowCount = signRowsColl.Count
+    If signRowCount > 0 Then
         ReDim signRows(0 To signRowCount - 1)
-        Dim k As Integer: k = 0
-        For i = 0 To UBound(rawRows)
-            If Trim(rawRows(i)) <> "" Then
-                signRows(k) = Trim(rawRows(i))
-                k = k + 1
-            End If
-        Next i
+        Dim ci As Integer
+        For ci = 1 To signRowCount
+            signRows(ci - 1) = signRowsColl(ci)
+        Next ci
     Else
-        ReDim signRows(0 To -1)
+        ' ReDim x(0 To -1) -- the usual VBA idiom for a zero-length dynamic
+        ' array -- throws "Subscript out of range" in this MicroStation VBA
+        ' host (confirmed live via checkpoint bisection during the 619-321/
+        ' 322/519 crash investigation). A size-1 dummy array is what
+        ' WZTCRules.GetSpecItemsForAlignment already uses for the same
+        ' zero-count case; every consumer here already gates on the tracked
+        ' Count, not the array's own bounds, so the extra slot is never read.
+        ReDim signRows(0 To 0)
     End If
 
     ' Non-Sign rows resolved from Data/sheet-specs/<sheet>.json by
     ' mcp-server/sheet_spec.py. Absent = no spec for this sheet, so
     ' BuildOrderTable falls back to the generic WZTCRules defaults.
+    cp = "parse nonSignRowsTSV, signRowCount=" & signRowCount
     Dim specRows() As String
     Dim specRowCount As Integer: specRowCount = 0
     If params.Exists("nonSignRowsTSV") Then
@@ -702,6 +746,7 @@ Private Function ExecBuildOrderTable(reqId As String, params As Object) As Strin
             If Trim(rawSpec(j)) <> "" Then specRowCount = specRowCount + 1
         Next j
     End If
+    cp = "parse specRows"
     If specRowCount > 0 Then
         ReDim specRows(0 To specRowCount - 1)
         Dim m As Integer: m = 0
@@ -712,12 +757,19 @@ Private Function ExecBuildOrderTable(reqId As String, params As Object) As Strin
             End If
         Next j
     Else
-        ReDim specRows(0 To -1)
+        ' See the matching note on the signRows(0 To -1) fix above --
+        ' ReDim x(0 To -1) throws "Subscript out of range" in this VBA
+        ' host. This exact line was the confirmed root cause of the
+        ' 619-321/322/519 crash: those sheets legitimately send no
+        ' nonSignRowsTSV at all (sign-only/pedestrian, zero non-sign rows),
+        ' which lands here.
+        ReDim specRows(0 To 0)
     End If
 
     Dim overridesTSV As String: overridesTSV = ""
     If params.Exists("spacingOverridesTSV") Then overridesTSV = CStr(params("spacingOverridesTSV"))
 
+    cp = "WZTCRules.BuildOrderTable"
     Dim errMsg As String
     errMsg = WZTCRules.BuildOrderTable(category, sheetNum, CInt(params("speed")), CStr(params("roadType")), _
                                        CInt(params("laneWidth")), CStr(params("shoulderWidth")), _
@@ -727,6 +779,7 @@ Private Function ExecBuildOrderTable(reqId As String, params As Object) As Strin
         Exit Function
     End If
 
+    cp = "build outRows"
     Dim outRows() As String
     Dim outCount As Long: outCount = 0
     Dim a As Integer, r As Integer
@@ -740,6 +793,7 @@ Private Function ExecBuildOrderTable(reqId As String, params As Object) As Strin
     For a = 1 To wztcAlignCount
         For r = 1 To wztcAlignRowCounts(a)
             n = n + 1
+            cp = "outRows a=" & a & " r=" & r
             outRows(n) = a & vbTab & wztcAlignNames(a) & vbTab & r & vbTab & _
                         wztcAlignRowTypes(a, r) & vbTab & wztcAlignRowLabels(a, r) & vbTab & _
                         wztcAlignRowSpacings(a, r) & vbTab & wztcAlignRowSizes(a, r) & vbTab & _
@@ -747,10 +801,11 @@ Private Function ExecBuildOrderTable(reqId As String, params As Object) As Strin
         Next r
     Next a
 
+    cp = "WriteResultRows"
     ExecBuildOrderTable = WriteResultRows(reqId, outRows)
     Exit Function
 QErr:
-    ExecBuildOrderTable = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+    ExecBuildOrderTable = reqId & vbTab & "ERROR" & vbTab & "note=[at " & cp & "] " & Err.Description
 End Function
 
 ' Required params: sheetNum (e.g. "619-302")
@@ -1744,6 +1799,12 @@ End Function
 ' difference between "rebuild the plan on the same corridor" and
 ' "wipe the corridor too".
 '
+' Optional alignIdx: when set (>0), ONLY delete create-ops whose REQ
+' carried that alignIdx= (PLACE_ORDER_TABLE_*, PLACE_SIGN with alignIdx,
+' etc.). Ops without alignIdx are left alone under a scoped clear — so
+' place_order_table_stations(align_idx=2, clear_prior=True) no longer
+' wipes Upstream. Pass no alignIdx (or 0) for a full plan wipe.
+'
 ' Why not fence-delete: a corridor wipe can catch engineer-drawn
 ' elements the agent never owned. Journal IDs are exactly what the
 ' agent created (ownElementOnly convention).
@@ -1761,14 +1822,34 @@ Private Function ExecClearPlanElements(reqId As String, params As Object) As Str
         If kv = "N" Or kv = "0" Or kv = "FALSE" Then keepAlign = False
     End If
 
+    Dim filterAlign As Integer: filterAlign = 0
+    If params.Exists("alignIdx") Then
+        If IsNumeric(params("alignIdx")) Then filterAlign = CInt(params("alignIdx"))
+    End If
+
     Dim allLines() As String
     Dim n As Integer
     n = ReadAllLines(JOURNAL_FILE, allLines)
 
-    Dim undone As Object
-    Set undone = CreateObject("Scripting.Dictionary")
-    Dim opByReq As Object
-    Set opByReq = CreateObject("Scripting.Dictionary")
+    ' reqId (e.g. "P63") is NOT globally unique -- bridge_client.py's counter
+    ' restarts at P1 every chat_driver.py/server.py process restart, so the
+    ' same reqId string gets reused by unrelated ops across this append-only
+    ' journal's whole history (confirmed live: "P63" was an old PLACE_SIGN,
+    ' then a HANDOFF, then an unrelated later PLACE_SIGN, all in one file).
+    ' A two-pass scan that builds one global reqId->alignIdx/op dictionary
+    ' before matching RESP lines picks up whichever occurrence is LAST in
+    ' the file, not the one that actually produced a given RESP -- this was
+    ' silently leaving align-scoped signs uncleared (or clearing the wrong
+    ' ones). Fixed by a single forward pass: each REQ resets that reqId's
+    ' tracked op/align/undone state, so a RESP always matches the REQ that
+    ' most recently preceded it in file order (true request/response
+    ' adjacency), never a stale reuse from an earlier session.
+    Dim curOpByReq As Object
+    Set curOpByReq = CreateObject("Scripting.Dictionary")
+    Dim curAlignByReq As Object
+    Set curAlignByReq = CreateObject("Scripting.Dictionary")
+    Dim curUndoneByReq As Object
+    Set curUndoneByReq = CreateObject("Scripting.Dictionary")
     Dim ids As Object
     Set ids = CreateObject("Scripting.Dictionary")
     Dim clearedReqs As Object
@@ -1780,27 +1861,45 @@ Private Function ExecClearPlanElements(reqId As String, params As Object) As Str
     Dim j As Integer, k As Integer
     For i = 1 To n
         ln = allLines(i)
-        If InStr(ln, vbTab & "UNDONE" & vbTab) > 0 Then
-            parts = Split(ln, vbTab)
-            If UBound(parts) >= 2 Then undone(parts(2)) = True
-        ElseIf InStr(ln, vbTab & "REQ" & vbTab) > 0 Then
+        If InStr(ln, vbTab & "REQ" & vbTab) > 0 Then
             parts = Split(ln, vbTab)
             ' timestamp REQ reqId OP ...
-            If UBound(parts) >= 3 Then opByReq(parts(2)) = UCase(Trim(parts(3)))
+            If UBound(parts) >= 3 Then
+                Dim thisReq As String: thisReq = parts(2)
+                curOpByReq(thisReq) = UCase(Trim(parts(3)))
+                curUndoneByReq(thisReq) = False
+                If curAlignByReq.Exists(thisReq) Then curAlignByReq.Remove thisReq
+                Dim aParsed As Integer: aParsed = 0
+                For j = 4 To UBound(parts)
+                    If Left(parts(j), Len("alignIdx=")) = "alignIdx=" Then
+                        If IsNumeric(Mid(parts(j), Len("alignIdx=") + 1)) Then
+                            aParsed = CInt(Mid(parts(j), Len("alignIdx=") + 1))
+                        End If
+                        Exit For
+                    End If
+                Next j
+                If aParsed > 0 Then curAlignByReq(thisReq) = aParsed
+            End If
+            GoTo ClearNextLine
         End If
-    Next i
 
-    For i = 1 To n
-        ln = allLines(i)
+        If InStr(ln, vbTab & "UNDONE" & vbTab) > 0 Then
+            parts = Split(ln, vbTab)
+            If UBound(parts) >= 2 Then curUndoneByReq(parts(2)) = True
+            GoTo ClearNextLine
+        End If
+
         If InStr(ln, vbTab & "RESP" & vbTab) = 0 Then GoTo ClearNextLine
         parts = Split(ln, vbTab)
         If UBound(parts) < 3 Then GoTo ClearNextLine
         origReq = parts(2)
-        If undone.Exists(origReq) Then GoTo ClearNextLine
+        If curUndoneByReq.Exists(origReq) Then
+            If curUndoneByReq(origReq) Then GoTo ClearNextLine
+        End If
         If UCase(Trim(parts(3))) <> "OK" Then GoTo ClearNextLine
 
         opName = ""
-        If opByReq.Exists(origReq) Then opName = CStr(opByReq(origReq))
+        If curOpByReq.Exists(origReq) Then opName = CStr(curOpByReq(origReq))
         If keepAlign Then
             If opName = "DEFINE_ALIGNMENT_SEGMENT" Or opName = "COMMIT_ALIGNMENT" Or _
                opName = "ADOPT_ALIGNMENT_ELEMENT" Then GoTo ClearNextLine
@@ -1810,6 +1909,14 @@ Private Function ExecClearPlanElements(reqId As String, params As Object) As Str
            opName = "UNDO_LAST_OP" Or opName = "BUILD_WZTC_ORDER_TABLE" Or _
            opName = "COMPUTE_SPACING" Or opName = "GET_JOURNAL" Or _
            opName = "HANDOFF" Then GoTo ClearNextLine
+
+        ' Scoped clear: only ops tagged with this alignIdx. Untagged
+        ' create-ops (legacy PLACE_SIGN without alignIdx) are left alone
+        ' so Upstream is not wiped when rebuilding Downstream.
+        If filterAlign > 0 Then
+            If Not curAlignByReq.Exists(origReq) Then GoTo ClearNextLine
+            If CInt(curAlignByReq(origReq)) <> filterAlign Then GoTo ClearNextLine
+        End If
 
         For j = 0 To UBound(parts)
             If Left(parts(j), Len("createdElementIds=")) = "createdElementIds=" Then
@@ -1856,12 +1963,15 @@ ClearNextLine:
         keepFlag = "Y"
         keepNote = " (alignments kept)"
     End If
+    Dim scopeNote As String: scopeNote = ""
+    If filterAlign > 0 Then scopeNote = " alignIdx=" & filterAlign & " only"
 
     ExecClearPlanElements = reqId & vbTab & delResult & vbTab & _
         "clearedReqCount=" & clearedReqs.Count & vbTab & _
         "keepAlignments=" & keepFlag & vbTab & _
+        "alignIdx=" & filterAlign & vbTab & _
         "notUndoable=Y" & vbTab & _
-        "note=idempotent rebuild: deleted journal-owned plan elements" & keepNote
+        "note=idempotent rebuild: deleted journal-owned plan elements" & keepNote & scopeNote
     Exit Function
 CErr:
     ExecClearPlanElements = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description

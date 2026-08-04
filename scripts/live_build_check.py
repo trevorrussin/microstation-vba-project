@@ -42,7 +42,13 @@ def expected_labels(spec: dict, resolved: dict) -> dict:
             if r["type"] == "Sign":
                 present.append(sheet_spec.sign_library_key(signs[r["signCode"]], resolved))
             else:
-                present.append(r.get("label"))
+                # sheet_spec.order_table_rows() runs every Non-Sign label
+                # through canonical_order_label() before it reaches VBA
+                # (e.g. spec's 'LANE TAPER' -> legacy 'Merging/Shifting
+                # Taper', so PerpPlacement's case-sensitive-ish matching
+                # finds it) -- check against the same normalized string the
+                # bridge actually receives, not the spec's raw wording.
+                present.append(sheet_spec.canonical_order_label(r.get("label")))
         forbidden = [x["label"] for x in al.get("excludedRows", [])]
         # Overlay zones are drawn but must NOT show up as a sequential station row.
         overlay_forbidden = []

@@ -15,6 +15,79 @@ and `README.md` for the schema.
 A sheet is **done** only when all four are checked. `drafted` means the JSON
 exists but hasn't cleared every gate yet.
 
+## Placement-plan compiler (separate track, not per-sheet)
+
+The four gates above prove a sheet's **spec** is correct. They don't prove the
+**placement code** draws it correctly — that layer (`Modules/PerpPlacement.bas`'s
+`PlaceOrderTable*` functions) still re-derives geometry from a flattened
+label:spacing order table via string-matching heuristics, which is the root
+cause documented in `dev-notes/agent-log.md`'s 2026-08-03 "placement-plan
+compiler" entries. A staged rewrite is underway, tracked in
+`~/.claude/plans/snuggly-snacking-sifakis.md`:
+
+- **Stage 0 (done)**: no-spec sheets refuse instead of drawing a generic
+  guessed plan; fixed the real "Subscript out of range" crash on sign-only
+  sheets (619-321/322/519) — root cause was `ReDim arr(0 To -1)` throwing in
+  this MicroStation VBA host, not the empty-spec-data logic itself.
+- **Stage 1 (done)**: new `GET_ALIGNMENT_VERTICES` bridge op exports a
+  committed alignment's raw path segments (straight or arc) in one call;
+  `mcp-server/alignment_geometry.py` replicates `PerpPlacement.GetPointAndTangent`'s
+  station->XY walk in pure Python (live-verified bit-for-bit against
+  `STATION_TO_POINT` — 0 mismatches across segment boundaries and clamped
+  out-of-range stations); `sheet_spec.compile_plan()` compiles
+  stations/dimensions/labels into explicit primitives, replicating
+  `PlaceOrderTableDimensions`/`PlaceOrderTableLabels`'s exact tick-tip/offset
+  geometry.
+- **Stage 2 (done)**: `sheet_spec.compile_channelizing()` compiles real
+  counted cone positions (device count from the spec's `deviceCountSource`,
+  not a bare 2-point line) for every `channelizingDevices` run, and connects
+  the shoulder taper to the lane taper's tip at the exact shared point —
+  fixing both documented bugs in `PerpPlacement.PlaceOrderTableChannelizing`
+  (no device count at all; a `laneWidthFt*0.35` fudge factor that left a
+  lateral jog). `check_taper_continuity()` is a standalone, reusable check
+  proving the fix, live-verified: shared-station coordinates match to
+  0.000 ft at every taper/taper and taper/longitudinal-run junction.
+- **Stage 3 (done)**: `sheet_spec.compile_symbols()` compiles every
+  protective-vehicle/arrow-panel item the spec's own `symbols.items` lists
+  (however many that is — one on 619-311, three on 619-302 — this does NOT
+  re-derive a count from a table legend, that derivation already happened
+  once correctly during spec authoring), replacing
+  `PerpPlacement.PlaceSheetSymbolCells`'s single-PV-only logic. The arrow
+  panel/VEH "OR" alternative is cross-linked between two already-compiled
+  primitives (`altGroup`) rather than auto-picked or duplicated; vehicle-
+  mounted signs (e.g. NYW8-33) attach to their host vehicle's own computed
+  position. Verified live against both 619-311 (2 PVs, 1 conditional) and
+  619-302 (3 PVs) to confirm it isn't 619-311-specific.
+- **Stage 4 (done)**: `sheet_spec.compile_hatch()` compiles the work-area
+  boundary as an explicit polygon, replacing
+  `PerpPlacement.PlaceOrderTableWorkspace`'s wrong bounds (path start
+  through Vehicle Space, which wrongly includes the roll ahead distance).
+  Design correction made while building this: the work area's length is
+  **not** an external parameter to supply — `orderTable.alignments[0/1]
+  .station0` are literally defined as the work area's upstream/downstream
+  edges, so the length is already implicit in how the engineer/agent
+  committed the two alignments (the real-world distance between their own
+  station-0 points). Also compiles the conditional Detail-A transverse
+  device rows (only when work-area length exceeds the sheet's own
+  `maxSpacingFt`, both numbers from the spec).
+- **Stage 5 (done, scoped)**: `sheet_spec.run_rules_gate()` is a hard
+  pre-draw check over compiled primitives, covering the subset of a sheet's
+  own `rules[]` that's mechanically checkable from geometry alone
+  (taper-continuity, cone-spacing, sign-order, arrow-panel-anchor,
+  no-occupancy-buffer-rollahead). Verified in both directions: passes a
+  correctly-compiled plan with 0 false positives, and catches a
+  deliberately-broken one (reintroduced taper jog) with 0 false negatives.
+  **Not done**: retiring `PlaceOrderTable*` and calling this "done" for the
+  whole catalog — the original plan's own bar for that ("golden test passes
+  for at least one reference sheet per family, 9 families") is real,
+  substantial follow-up work, not something this pass claims. What's
+  delivered is the gate mechanism itself, proven on two families.
+
+Verify all of Stages 1-5 together: `python scripts/test_compile_plan_parity.py
+--align-idx <committed alignment>`. The compiler is additive, not a
+replacement, at every stage — `PerpPlacement.PlaceOrderTable*` functions are
+untouched and still what the chat agent's default flow calls.
+
 ## Legend
 
 | Status | Meaning |
@@ -163,6 +236,7 @@ exists but hasn't cleared every gate yet.
 - **314**: no AW table — fixed 500′ plan gaps; roll is 2-band (≥55, 45–50) only.
 - **Pedestrian (321/322/519)**: live-build n/a — `BUILD_WZTC_ORDER_TABLE` rejects sign-only payloads; no vehicle corridor to check.
 - **419/420/520 blocked** on PDF availability (missing / image-only).
+- **Notes backfill (2026-08-03 follow-up):** all 15 available F6 specs now have `notes.printed` (was empty `items[]`). Upright sheets (307/308/309/323/407/421/422/519/524 + 322) are `confidence: verbatim`. Rotated-page sheets (090/091/314/321/324) are `confidence: drawing` — text layer is column-interleaved; confirm edge-case wording against the PDF. Placement `rules[]` were already populated; this restores engineer-readable prose only. Helper: `Bridge/_backfill_family6_notes.py`.
 
 ## Family 7 — Mobile operations (reference: 619-111)
 

@@ -544,13 +544,22 @@ Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
     ' do not OverrideTextHeight here (annotation scale would explode it).
     On Error Resume Next
     Dim oStyle As DimensionStyle
+    Dim styleErrNum As Long: styleErrNum = 0
+    Dim styleErrDesc As String: styleErrDesc = ""
     Set oStyle = ActiveDesignFile.DimensionStyles(styleName)
+    If Err.Number <> 0 Then
+        styleErrNum = Err.Number
+        styleErrDesc = Err.Description
+        Err.Clear
+    End If
     Dim savedSec As Boolean
+    Dim styleApplied As Boolean: styleApplied = False
     If Not oStyle Is Nothing Then
         savedSec = oStyle.ShowSecondaryText
         oStyle.ShowSecondaryText = False
         Set oDim.DimensionStyle = oStyle
         oStyle.ShowSecondaryText = savedSec
+        If Err.Number = 0 Then styleApplied = True Else styleErrNum = Err.Number: styleErrDesc = Err.Description
     End If
     On Error GoTo DimErr
 
@@ -564,10 +573,18 @@ Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
         Exit Function
     End If
 
+    ' DIAGNOSTIC (temporary): styleApplied/styleErr* reveal whether the
+    ' named DimensionStyle actually resolved -- the On Error Resume Next
+    ' above previously swallowed a failed lookup silently, so a dimension
+    ' could render with no style (no arrow terminators/text) with no error
+    ' ever surfacing. Remove once root-caused.
     ExecPlaceDimension = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(oDim.ID)) & vbTab & _
                          "lengthFt=" & Format(L, "0.0") & vbTab & _
                          "style=" & styleName & vbTab & _
                          "dimType=SizeArrow" & vbTab & _
+                         "styleApplied=" & IIf(styleApplied, "Y", "N") & vbTab & _
+                         "styleErrNum=" & styleErrNum & vbTab & _
+                         "styleErrDesc=" & styleErrDesc & vbTab & _
                          "note=real DimensionElement (ny_Plan Linear Size)"
     Exit Function
 

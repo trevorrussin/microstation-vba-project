@@ -514,6 +514,16 @@ Public Function BuildOrderTable(category As String, sheetNum As String, _
                                 signRows() As String, signRowCount As Integer, _
                                 specRows() As String, specRowCount As Integer, _
                                 overridesTSV As String) As String
+    ' checkpoint marks which section is executing, surfaced in the error
+    ' response on failure (same pattern as PerpPlacement.FindInteriorPoint).
+    ' BuildOrderTable previously had no error handler of its own, so a crash
+    ' only ever surfaced the caller's generic Err.Description with no
+    ' indication which section threw -- that ambiguity is what made the
+    ' 619-321/322/519 "Subscript out of range" crash slow to root-cause
+    ' (the actual bug was ReDim x(0 To -1) in WZTCBridge.ExecBuildOrderTable).
+    On Error GoTo BOTErr
+    Dim checkpoint As String: checkpoint = "start"
+
     Dim hasAlign1Sign As Boolean: hasAlign1Sign = False
     Dim i As Integer
     For i = 0 To signRowCount - 1
@@ -524,6 +534,7 @@ Public Function BuildOrderTable(category As String, sheetNum As String, _
         Exit Function
     End If
 
+    checkpoint = "ComputeSpacing"
     Dim sp As WZTCSpacing
     sp = ComputeSpacing(speedMph, laneWidthFt, shoulderWidthKey, roadType)
 
@@ -541,6 +552,7 @@ Public Function BuildOrderTable(category As String, sheetNum As String, _
     wztcUpTaperBarrier = Format(sp.UpTaperBarrier, "0.0")
     wztcUpTaperBeam = Format(sp.UpTaperBeam, "0.0")
 
+    checkpoint = "overrides"
     If Trim(overridesTSV) <> "" Then
         Dim ovParts() As String
         ovParts = Split(overridesTSV, "|")
@@ -580,6 +592,7 @@ Public Function BuildOrderTable(category As String, sheetNum As String, _
     Dim defTypes2() As String, defLabels2() As String, defSpacings2() As String
     Dim defSizes2() As String, defSides2() As String, defCount2 As Integer
 
+    checkpoint = "GetSpecItemsForAlignment"
     If specRowCount > 0 Then
         GetSpecItemsForAlignment 1, specRows, specRowCount, _
                                  defTypes1, defLabels1, defSpacings1, defSizes1, defSides1, defCount1
@@ -590,22 +603,39 @@ Public Function BuildOrderTable(category As String, sheetNum As String, _
             Exit Function
         End If
     Else
-        GetDefaultUpstreamItems sp, defTypes1, defLabels1, defSpacings1, defSizes1, defSides1, defCount1
-        GetDefaultDownstreamItems sp, defTypes2, defLabels2, defSpacings2, defSizes2, defSides2, defCount2
+        ' BuildOrderTable is only ever reached via a spec-driven request now
+        ' -- wztc_ops.build_wztc_order_table (Python) refuses before the
+        ' bridge call fires when a sheet has no spec at all. So specRowCount=0
+        ' here means a real spec legitimately produced zero non-sign rows on
+        ' BOTH alignments (sign-only / pedestrian sheets, e.g. 619-321/322/519
+        ' -- see Data/sheet-specs/STATUS.md), not "no spec exists". The old
+        ' GetDefaultUpstreamItems/GetDefaultDownstreamItems fallback emitted a
+        ' sheet-agnostic 7-row default here and crashed with "Subscript out of
+        ' range" for these sheets. There is no longer a legitimate "no spec,
+        ' use generic defaults" case to support, so proceed with zero non-sign
+        ' rows on both alignments -- WriteAlignmentRows still adds sign rows.
+        defCount1 = 0: defCount2 = 0
+        ReDim defTypes1(1 To 1): ReDim defLabels1(1 To 1): ReDim defSpacings1(1 To 1)
+        ReDim defSizes1(1 To 1): ReDim defSides1(1 To 1)
+        ReDim defTypes2(1 To 1): ReDim defLabels2(1 To 1): ReDim defSpacings2(1 To 1)
+        ReDim defSizes2(1 To 1): ReDim defSides2(1 To 1)
     End If
 
     wztcAlignCount = 2
     wztcAlignNames(1) = "Upstream"
     wztcAlignNames(2) = "Downstream"
 
+    checkpoint = "WriteAlignmentRows align1"
     Call WriteAlignmentRows(1, defTypes1, defLabels1, defSpacings1, defSizes1, defSides1, defCount1, _
                             signRows, signRowCount, roadType)
+    checkpoint = "WriteAlignmentRows align2"
     Call WriteAlignmentRows(2, defTypes2, defLabels2, defSpacings2, defSizes2, defSides2, defCount2, _
                             signRows, signRowCount, roadType)
 
     ' Legacy mirror from alignment 1, exactly as btnSubmit_Click does
     ' (WZTCDesigner.frm:1590-1628) — AlignDraw/PlacePerp/PlaceSign read
     ' these, not wztcAlignRow* directly.
+    checkpoint = "legacy mirror"
     Dim r As Integer
     wztcOrderLabelCount = wztcAlignRowCounts(1)
     If wztcAlignRowCounts(1) > 0 Then
@@ -614,7 +644,11 @@ Public Function BuildOrderTable(category As String, sheetNum As String, _
             wztcOrderLabels(r - 1) = wztcAlignRowLabels(1, r)
         Next r
     Else
-        ReDim wztcOrderLabels(0 To -1)
+        ' ReDim x(0 To -1) throws "Subscript out of range" in this VBA host
+        ' -- see the matching notes in WZTCBridge.ExecBuildOrderTable, where
+        ' this was root-caused. wztcOrderLabelCount=0 is the tracked count
+        ' every consumer already gates on.
+        ReDim wztcOrderLabels(0 To 0)
     End If
 
     Dim signIdx As Integer: signIdx = 0
@@ -640,6 +674,9 @@ Public Function BuildOrderTable(category As String, sheetNum As String, _
     End If
 
     BuildOrderTable = ""
+    Exit Function
+BOTErr:
+    BuildOrderTable = "ERROR at checkpoint [" & checkpoint & "]: " & Err.Description
 End Function
 
 ' Appends default Non-Sign rows then caller Sign rows (filtered to this

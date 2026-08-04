@@ -30,6 +30,12 @@ Still needs a **manual Import** (not hot-reload) when:
 
 If MicroStation is closed or hot-reload fails after a clean Reset, say so and fall back to the File Sync Protocol in `CLAUDE.md`.
 
-## Python (`mcp-server/chat_driver.py`, `wztc_ops.py`, etc.)
+## Python (`mcp-server/chat_driver.py`, `wztc_ops.py`, `view_capture.py`, etc.)
 
-Hot-reload does **not** apply. Tell the engineer to **restart** the `chat_driver.py` process (or whatever Python process holds the code). Do not claim a VBA hot-reload picked up Python changes.
+Hot-reload does **not** apply. After editing any `mcp-server/*.py` (or other Python the live agent imports), **you** restart the driver — do **not** ask the engineer to do it:
+
+```
+python mcp-server/restart_chat_driver.py
+```
+
+That script refuses if a turn looks in-flight (last `chat-log.tsv` line not FINAL/ERROR); use `--force` only when you've confirmed it's safe. Do not claim a VBA hot-reload picked up Python changes.

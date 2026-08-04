@@ -1212,11 +1212,11 @@ Authored `Bridge/_extract_619315_tables.py` and `_extract_619415_tables.py` ? `_
 
 Authored `Bridge/_extract_619205_tables.py`, `_extract_619401_tables.py`, `_extract_619501_tables.py` ? `_draft_619205/401/501_tables.json`. **205** (short duration, 1p rot=0): 3 tables only ? P+TMIA (not 301 PVH), speed-keyed roll-ahead, generic W21-5, **no taper/buffer table**. **401** (intermediate, 2p): 5 tables like 402 shoulder variant ? 401-03 shoulder+buffer **matches 301-03** on 45?65 with extra laneTaper 10/11/12 cols; 20' channelizing (Note 5); W21-5bU/W21-5c signs; 10+N notes. **501** (long-term E3): 4 tables ? **no PV/roll-ahead**; 501-01 identical to 401-03; 501-03 barrier flare 50/55/65 only; positive barrier on plan (Note 5); OM3-L/R object markers.
 
-## 2026-08-03 — Cursor — Family 3 siblings 205/315/401/415/501 all four gates
+## 2026-08-03 ï¿½ Cursor ï¿½ Family 3 siblings 205/315/401/415/501 all four gates
 
 Authored and cleared gates for all five Family 3 siblings vs reference 619-301 via `Bridge/_build_family3_siblings.py` + sign/size sync. Round-trips: `Bridge/roundtrip/619-{205,315,401,415,501}.py`. Live BUILD_WZTC_ORDER_TABLE all PASS.
 
-Surprises worth keeping: **401 size table uses W20-5aR** (not W21-5aR) — PDF confirms; library key `W20-05aRM`. **315 gapC = 2640'** (freeway mile) vs 301's 1320'; shoulderWidthBands must be in **physical ascending order** (not alpha-sorted) or validator false-fails monotonicity — 315 has 7 bands including 9–12 ft. **315/415** carry `lateralShiftTaper` (lane 10/11/12) separate from shoulderTaper; need `laneWidthFt` input even though corridor still walks SHOULDER TAPER. **501** like 504: no PV/roll roles; drop `bufferSpace` from corridor but do not leave `channelizingDevices` runs pointing at it (use `positiveBarrier..workArea`). **205** has no taperAndBuffer role — order is roll + W21-5 + W20-1 only.
+Surprises worth keeping: **401 size table uses W20-5aR** (not W21-5aR) ï¿½ PDF confirms; library key `W20-05aRM`. **315 gapC = 2640'** (freeway mile) vs 301's 1320'; shoulderWidthBands must be in **physical ascending order** (not alpha-sorted) or validator false-fails monotonicity ï¿½ 315 has 7 bands including 9ï¿½12 ft. **315/415** carry `lateralShiftTaper` (lane 10/11/12) separate from shoulderTaper; need `laneWidthFt` input even though corridor still walks SHOULDER TAPER. **501** like 504: no PV/roll roles; drop `bufferSpace` from corridor but do not leave `channelizingDevices` runs pointing at it (use `positiveBarrier..workArea`). **205** has no taperAndBuffer role ï¿½ order is roll + W21-5 + W20-1 only.
 
 ## 2026-08-03 â€” Cursor â€” Family 4 Parkway sheets 306/212/114/041 all four gates
 
@@ -1244,11 +1244,11 @@ Authored complete specs for Family 7 from Bridge/captures/619-{111,110,112}.pdf 
 
 **Family 8 blocked:** 619-101..104 have no real PDFs â€” every candidate URL on standard-sheets-us-repository, transportation-systems/repository, and metric repo returns ~10 KB HTML error pages (HEAD 200). DesignerRef-only; registry already warned not in 2026 Book 3. Historical master list numbered stop-and-go as 101-104; current NYSDOT special-ops index shows 045/046 instead (also undownloadable from the same public repos). Cannot clear gates without a vector PDF.
 
-## 2026-08-03 — Cursor — Family 6 two-lane/flagger sheets (15/18) gates cleared
+## 2026-08-03 ï¿½ Cursor ï¿½ Family 6 two-lane/flagger sheets (15/18) gates cleared
 
-Authored complete specs for Family 6 (ref 619-307): 307, 308, 309, 314, 321, 322, 323, 324, 407, 421, 422, 519, 524, 090, 091. Extract `Bridge/_extract_family6_tables.py` ? drafts; build `Bridge/_build_family6_specs.py`; round-trip `Bridge/roundtrip/619-family6.py` (+ per-sheet wrappers). No sheet_spec/validate tooling changes needed — buffer-only `taperAndBuffer` (optional laneTaper/shoulderTaper) already worked from 205/114 patterns.
+Authored complete specs for Family 6 (ref 619-307): 307, 308, 309, 314, 321, 322, 323, 324, 407, 421, 422, 519, 524, 090, 091. Extract `Bridge/_extract_family6_tables.py` ? drafts; build `Bridge/_build_family6_specs.py`; round-trip `Bridge/roundtrip/619-family6.py` (+ per-sheet wrappers). No sheet_spec/validate tooling changes needed ï¿½ buffer-only `taperAndBuffer` (optional laneTaper/shoulderTaper) already worked from 205/114 patterns.
 
-**Surprises:** (1) **307 has no merging taper** — `taperAndBuffer` is buffer-only; AW/buffer/PV/roll cells == 311 on 25–55. Signs are W20-7/W20-4 (+ conditional W3-4) not W4-2R/W20-5R. (2) **407 buffer trap**: intermediate drops 25–40; only 45/50/55/65 (incl. 645/16) — do not clone 307's 7-row buffer. (3) **314**: no AW table, fixed 500' gaps; roll is 2-band only (no =40). (4) **Pedestrian 321/322/519**: live-build n/a — `BUILD_WZTC_ORDER_TABLE` errors on sign-only payloads (same class as 011). (5) **419/420 blocked** (NYSDOT returns HTML); **520 blocked** (image-only, no text layer).
+**Surprises:** (1) **307 has no merging taper** ï¿½ `taperAndBuffer` is buffer-only; AW/buffer/PV/roll cells == 311 on 25ï¿½55. Signs are W20-7/W20-4 (+ conditional W3-4) not W4-2R/W20-5R. (2) **407 buffer trap**: intermediate drops 25ï¿½40; only 45/50/55/65 (incl. 645/16) ï¿½ do not clone 307's 7-row buffer. (3) **314**: no AW table, fixed 500' gaps; roll is 2-band only (no =40). (4) **Pedestrian 321/322/519**: live-build n/a ï¿½ `BUILD_WZTC_ORDER_TABLE` errors on sign-only payloads (same class as 011). (5) **419/420 blocked** (NYSDOT returns HTML); **520 blocked** (image-only, no text layer).
 
 ## 2026-08-03 â€” Cursor â€” Family 9 + Misc sheet specs (gates cleared / blocked)
 
@@ -1256,10 +1256,214 @@ Authored Family 9 (ref 619-023: 023/021/022/031/032/033/060) and Misc (001/004/0
 
 **Surprises:** (1) **GVWÃ—speed roll matrix** on 022/023/032/060/033 (not pure GVW like 110, not pure speed like 041) â€” encoded speed-keyed with min=heavy/max=light plus verbatim lightGvw/heavyGvw; â‰¤40 band has min==max=120 so `validate_sheet_spec` now allows minâ‰¤max. (2) **031 registry title wrong** ("Freeway Mowing") â€” PDF is two-lane mulching/herbicide with P,TMIA like 041. (3) **033 plan typo** SEE TABLE 034-02 â†’ 033-02. (4) **012 size cells** largely path-only; catalog harvests sign-code tokens + color legend from text.
 
-## 2026-08-03 — Cursor — Sheet-spec batch complete (68 done / 10 blocked)
+## 2026-08-03 ï¿½ Cursor ï¿½ Sheet-spec batch complete (68 done / 10 blocked)
 
-Finished continuous pass through remaining STATUS queue after Family 3. Final inventory: **68 specs done**, **10 blocked** (all PDF availability — no not-started left).
+Finished continuous pass through remaining STATUS queue after Family 3. Final inventory: **68 specs done**, **10 blocked** (all PDF availability ï¿½ no not-started left).
 
-**Blocked (need real vector PDFs):** Family 8 stop-and-go **101–104**; F6 sidewalk/crosswalk intermediates **419/420**; F6 **520** (image-only, OCR); F9 **050/051**; Misc **002**. Public NYSDOT repos return HTML stubs for these.
+**Blocked (need real vector PDFs):** Family 8 stop-and-go **101ï¿½104**; F6 sidewalk/crosswalk intermediates **419/420**; F6 **520** (image-only, OCR); F9 **050/051**; Misc **002**. Public NYSDOT repos return HTML stubs for these.
 
 **Families cleared this session:** F1 leftovers (9), F4 Parkway (4), F5 ramp (10), F6 flagger/ped/closures (15/18), F7 mobile (3), F9 mowing (7/9), Misc ref-libs (7/8). Prior session already had F2+F3+011+311.
+
+## 2026-08-03 ï¿½ Cursor ï¿½ Family 6 verbatim notes backfill (Claude follow-up)
+
+Implemented Claude's bounded follow-up: restore `notes.printed` on all 15 available Family 6 specs (were empty `items[]`). Placement `rules[]` were already populated ï¿½ this is engineer-facing prose, not a CAD correctness gap. Helper `Bridge/_backfill_family6_notes.py`.
+
+**Result:** upright sheets (307/308/309/323/407/421/422/519/524, plus 322) ? `confidence: verbatim`. Rotated-page sheets (090/091/314/321/324) ? `confidence: drawing` with disclaimer ï¿½ PDF text layer stores note columns side-by-side so linearization interleaves words; still better than empty, but edge-case wording should be confirmed against the PDF. Skipped D-tier PDF chase and 311-level cell round-trips on siblings per Claude's scope.
+
+
+## 2026-08-03 â€” Cursor â€” Live agent WZTC QA: 619-311 + 619-301
+
+Drove full agent WZTC mode builds after the sheet-spec catalog. **619-311** completed earlier in-session (specDriven URBAN path; QA on disk as Bridge/captures/qa_agent_311_*.png). **619-301** initially blocked because wztc_ops.build_wztc_order_table required area_type whenever any sheet spec existed â€” wrong for sheets with no advanceWarningSpacing role. Fixed gate to require area_type only when that role is present; null-safe overrides when laneTaper is absent. Restarted chat_driver and cleared poisoned Bridge/chat-history.json (agent refused retries based on prior errors). Fresh 301 run: order table without area_type (SHOULDER TAPER 160 / buffer 495 / roll 120, signs W21-05aR / W21-05bRM / W20-01RM / G20-02), 6000 ft corridor at Y=216840, stations + 4 place_sign + dims. Labels/workspace/channelizing tools returned empty or agent handed off (shoulder sheets lack Vehicle Space bay the batch tools assume). Gotcha: test-driver auto-replies invented 311 blurbs / Y=217040 â€” patched scripts/agent_test_drive.py with --align-y and area_type-aware ASK replies.
+
+
+## 2026-08-03 â€” Cursor â€” Fix live-test bugs (labels / shoulder tools / area_type / registry)
+
+Root causes from the 311/301 agent QA: (1) sheet-spec Non-Sign labels were ALL CAPS while PerpPlacement Select Case was case-sensitive â†’ place_order_table_labels returned 0 rows; LANE TAPER also did not match Merging/Shifting Taper for channelizing. Fixed by sheet_spec.canonical_order_label at emit time + OrderLabelKind() in PerpPlacement.bas. (2) Workspace/PV required Vehicle Space; channelizing required Merging â€” shoulder sheets like 619-301 have neither. Fallbacks: Buffer Space bay for WS/PV; Shoulder Taper as primary channelizing diagonal. (3) build_wztc_order_table now only requires area_type when advanceWarningSpacing exists, accepts protective_vehicle_gvw, null-safe taper overrides. (4) sheet-registry 619-301 was missing ShoulderTaper (same class of bug as 311 earlier). chat_driver prompt updated. Hot-reload of PerpPlacement.bas needs MicroStation with the Test VBA project loaded.
+
+
+## 2026-08-03 â€” Cursor â€” Cost controls for chat_driver / agent_test_drive
+
+Did not ship with the CAD bugfix earlier â€” added now after engineer call-out. chat_driver: MAX_TOOL_ITERATIONS 30â†’18 (env WZTC_MAX_TOOL_ITERATIONS); persist history capped to 40 msgs / ~350k chars (WZTC_MAX_HISTORY_MESSAGES / WZTC_MAX_HISTORY_CHARS); strip prior-turn thinking blocks on save/load; load_history rewrites trimmed file so a fat 600+ msg history cannot silently return. agent_test_drive: default --max-continues 16â†’8; new --fresh-history clears Bridge/chat-history.json before a live drive. view_drawing docstring: prefer â‰¤1â€“2 captures/turn. Restart chat_driver to pick up.
+
+
+## 2026-08-03 â€” Cursor â€” Scoped clear_prior + live reload
+
+Hot-reloaded PerpPlacement.bas + WZTCBridge.bas with Test project loaded; restarted chat_driver (wztc, empty history, cost caps active).
+
+**clear_prior wipe bug:** place_order_table_stations(align_idx=2, clear_prior=True) used to call clear_plan_elements() with no scope and deleted Upstream too. CLEAR_PLAN_ELEMENTS now accepts optional alignIdx; scoped clear only deletes journal create-ops tagged with that alignIdx=. place_order_table_stations(clear_prior=True) passes its align_idx. place_sign gains optional align_idx (journaled) so future scoped clears include signs. Untagged legacy PLACE_SIGN rows are left alone under scoped clear (full clear_plan_elements() still wipes everything). Held off on work-area lengthSource=null (#3).
+
+## 2026-08-03 ï¿½ Cursor ï¿½ View-capture flakiness (blank QA frames)
+
+Root cause of many 'blank' QA screenshots was not Extents.Z (~0.02 after write is fine). Two real issues: (1) **over-wide framing** ï¿½ a 2000-ft overview makes each sign a few pixels so vision models read 'empty'; use ~150ï¿½400 ft width for sign closeups. (2) **async repaint** ï¿½ capture too soon after Center/Extents write yields uniform dark grey. Fixed in `mcp-server/view_capture.py`: settle default 2.5s; expand requested extents to the View child window's pixel aspect (`_fit_extents_to_aspect`); Center-then-Extents + redraw helpers; empty-frame detect (`_drawing_looks_empty`) with one retry; `navigate_and_capture` helper. `adjust_view` returns applied width/height after aspect-fit. Smoke: Bridge/captures/qa_capture_fix_{close,overview}.png on 619-301 corridor Yï¿½216840 ï¿½ non-empty. Restart chat_driver to pick up (imports view_capture at load).
+
+## 2026-08-03 ï¿½ Cursor ï¿½ Agent must restart chat_driver (not ask engineer)
+
+Engineer call-out: agents kept saying 'restart chat_driver' instead of doing it. Updated `.cursor/rules/hot-reload-sync.mdc` so Python edits require running `python mcp-server/restart_chat_driver.py` (same alwaysApply rule that already covers VBA hot-reload). Prior wording told the agent to ask the engineer -- that was the bug.
+
+## 2026-08-03 - Claude Code - Placement-plan compiler Stage 0 + Stage 1, planned and shipped
+
+Full plan at `~/.claude/plans/snuggly-snacking-sifakis.md` (Claude-Code-local,
+not repo-portable -- the stages are described in full below and in
+`Data/sheet-specs/STATUS.md`'s new "Placement-plan compiler" section, so
+Cursor/other tools have the substance even without that file). This is the
+first work on the bigger redesign discussed with the user: move sheet
+geometry semantics out of `PerpPlacement.bas`'s label-string-matching
+heuristics and into Python, which already holds the full spec (zones,
+overlays, device counts, anchors, rules) that dies at the bridge boundary
+today.
+
+**Stage 0 -- safety nets, both fixes live-verified:**
+
+1. `mcp-server/wztc_ops.py`'s `build_wztc_order_table` now raises `ValueError`
+   immediately when `sheet_spec.load()` returns `None`, before any bridge call
+   -- no sheet should ever again silently get the generic 7-row
+   `GetDefaultUpstreamItems` fallback. Confirmed: `619-502` now refuses
+   cleanly.
+2. **Root-caused the real "Subscript out of range" crash** on
+   `619-321`/`619-322`/`619-519` (sign-only/pedestrian sheets, zero non-sign
+   rows) -- this took a long live checkpoint-bisection session (added a
+   `cp`/`checkpoint` marker pattern, same spirit as `PerpPlacement.
+   FindInteriorPoint`, to `WZTCRules.BuildOrderTable` and `WZTCBridge.
+   ExecBuildOrderTable`, hot-reloading and re-testing at progressively finer
+   granularity) because static reading never turned up anything wrong. The
+   actual bug: **`ReDim arr(0 To -1)` -- the standard VBA idiom for a
+   zero-length dynamic array -- throws "Subscript out of range" in this
+   specific MicroStation VBA host.** Not standard VBA behavior; an
+   environment-specific landmine that had simply never been exercised before
+   (every sheet ever tested had at least one row on both alignments). Found
+   4 occurrences (`WZTCBridge.bas` x2, `WZTCRules.bas`, `DesignerRef.bas`) and
+   fixed all of them the same way: a size-1 dummy array with the real count
+   tracked separately (the pattern `WZTCRules.GetSpecItemsForAlignment`
+   already used safely). `WZTCBridge.ExecBuildOrderTable`'s `signRowsTSV`
+   parsing was also rewritten to build off a `Collection` instead of an
+   incrementally-`ReDim`'d array while chasing this, which is unrelated to the
+   actual bug but is more robust regardless (no subscript bookkeeping to get
+   wrong). Confirmed live: 619-321/322/519 now return `OK` with correct sign
+   rows; 619-311/619-302 live-build still pass (after fixing a stale
+   assertion in `scripts/live_build_check.py` that didn't know about Cursor's
+   `canonical_order_label()` normalization -- unrelated pre-existing gap, not
+   a regression from this work).
+3. Left the checkpoint-based error reporting in place (not stripped as
+   scaffolding) since it's what actually made the bug findable and matches
+   this codebase's own established pattern.
+
+**Stage 1 -- compiler skeleton + parity proof, done:**
+
+New `GET_ALIGNMENT_VERTICES` bridge op (`PerpPlacement.GetAlignmentVertices`,
+dispatch wired in `WZTCBridge.bas`, Python registration through
+`wztc_ops.py`/`server.py`/`chat_driver.py`'s `_BASE_OP_NAMES` -- the exact
+registration gap that silently broke 28 tools before, per
+`feedback_chat_agent_tool_registration_gap`) exports a committed alignment's
+raw path segments (straight or arc, with center/radius/start/sweep for arcs)
+in one call. `mcp-server/alignment_geometry.py` replicates
+`PerpPlacement.GetPointAndTangent`'s exact station->XY arc-length walk in
+pure Python -- **live-verified bit-for-bit identical** against the real
+`STATION_TO_POINT` bridge op across 7 stations including both segment
+boundaries and clamped out-of-range cases (0 mismatches), plus a synthetic
+self-test covering straight, arc, and mixed-segment paths
+(`python mcp-server/alignment_geometry.py`). `sheet_spec.compile_plan()`
+compiles one alignment's stations/dimensions/labels into explicit primitives
+in absolute coordinates, replicating `PlaceOrderTableDimensions`/
+`PlaceOrderTableLabels`'s tick-tip/offset geometry line-for-line (same
+`PERP_HALF_LEN`=40, `offsetDist`=15, `textExtraAlong`=20, `outwardSign`=-1.0
+defaults). `scripts/test_compile_plan_parity.py` is the reusable two-layer
+check (geometry-engine live parity + compile_plan smoke test against the real
+619-311 spec) -- `python scripts/test_compile_plan_parity.py --align-idx 9`,
+0 failures.
+
+Used a small throwaway straight test alignment (`align_idx=9`, define via
+`define_alignment_segment`/`commit_alignment`, 2 segments/250ft, at an
+out-of-the-way location x~900000/y~100000) for all live verification rather
+than touching the real corridor content in the currently-open "left lane
+closure" model. **Not fully cleaned up** -- `clear_plan_elements(align_idx=9,
+keep_alignments=False)` returned `deleted=0` (its journal-scoping filter
+apparently doesn't match how `DEFINE_ALIGNMENT_SEGMENT` tags its align index;
+not chased further). Two small harmless line elements are left in that model
+at the out-of-the-way location above -- low priority to clean up manually,
+noted here so it isn't mysterious later.
+
+**Not started**: Stage 2 (channelizing as real counted cones -- the biggest
+visual gap), Stage 3 (symbols/PV-count-from-legend), Stage 4 (hatch/Detail-A/
+min-open-lane), Stage 5 (rules engine as a hard pre-draw gate + retiring
+`PlaceOrderTable*`). See STATUS.md's new "Placement-plan compiler" section.
+
+## 2026-08-03 - Claude Code - Placement-plan compiler Stages 2-5, planned as Stage 0/1 follow-up, shipped same session
+
+Continuation of the compiler work above, all in `mcp-server/sheet_spec.py`
+(`compile_channelizing`/`compile_symbols`/`compile_hatch`/`run_rules_gate`),
+verified via `scripts/test_compile_plan_parity.py`'s now 6-layer suite. Used
+two throwaway test alignments this session (align_idx 9 and 10, both at
+out-of-the-way locations, same ones flagged for manual cleanup in the Stage
+0/1 entry above -- align 10 was redefined twice for different distance
+tests, final state has it ~1900 ft from align 9's origin).
+
+**Stage 2 -- channelizing devices.** `PlaceOrderTableChannelizing` draws only
+THREE bare 2-point polylines total, no device count, and a
+`laneWidthFt*0.35` fudge factor for the shoulder-taper lateral offset that
+leaves a real lateral jog where it meets the lane taper (documented in
+619-311.json's `knownCodeDeviations`). `compile_channelizing()` places real
+counted cones (count from the spec's `deviceCountSource`, e.g.
+`resolved['laneTaper']['devices']`) and connects shoulder-taper to
+lane-taper at the exact shared point instead of the fudge. Live-verified:
+shoulderTaperRun and laneTaperRun's shared station both land at
+(900000.0, 101000.0) -- exact match, not "close enough". Added
+`check_taper_continuity()` as a standalone, reusable rule check (shipped
+with this stage per the plan's own "validate per-stage" principle, not
+deferred to Stage 5).
+
+**Stage 3 -- symbols.** `PlaceSheetSymbolCells` only ever places ONE
+protective vehicle and one arrow panel, no matter what the sheet needs.
+`compile_symbols()` compiles every `symbols.items` entry with a
+`stationAnchor` and a `cellHint` (vehicles) or `id=='arrowPanel'` --
+deliberately does NOT re-derive a PV count from a table legend + closed-lane
+count (that derivation already happened once, correctly, during spec
+authoring; re-deriving it from scratch here would be exactly the kind of
+guessing `sheet_spec.py`'s own module docstring says not to do). Verified
+against both 619-311 (arrowPanel/protectiveVehicle2 correctly cross-linked
+as alternatives, both landing at the identical station) and 619-302
+(protectiveVehicle1 -- not 2 or 3 -- correctly identified as the arrow
+panel's "VEH #1" partner, purely from `sheetLabel` matching, no
+sheet-specific code).
+
+**Stage 4 -- work-area hatch. Real design correction made mid-build**: the
+original plan assumed `work_area_length_ft` would be an external parameter
+the caller supplies. It's wrong -- `orderTable.alignments[0].station0` /
+`[1].station0` are literally defined as "Upstream edge of the WORK AREA" /
+"Downstream edge of the WORK AREA", so the work area's length is already
+implicit in how the engineer/agent committed the two alignments (the
+real-world distance between their own station-0 points), not a number to
+invent or ask for separately. Rewrote `compile_hatch()` to take both
+alignments' segments and use their own station-0 points directly.
+Live-verified: two test alignments 300 ft apart (by construction) round-trip
+back through `compile_hatch()` as `workAreaLengthFt: 300.0` exactly. Also
+compiles the conditional Detail-A transverse device rows (only past the
+sheet's own `maxSpacingFt`, both numbers from the spec, not invented) --
+verified a 1900 ft work area produces exactly 2 transverse rows (800/1600),
+a 200 ft one produces 0.
+
+**Stage 5 -- rules gate, scoped honestly.** `run_rules_gate()` checks the
+subset of a sheet's `rules[]` that's mechanically checkable from compiled
+geometry (taper-continuity via Stage 2's check, cone-spacing, sign-order,
+arrow-panel-anchor, no-occupancy-buffer-rollahead -- simplified to a
+degenerate-length guard once Stage 4's redesign made the old overlap
+impossible by construction rather than just checked-for). Verified in BOTH
+directions, which matters more than it sounds: 0 failures on a correctly-
+compiled 619-311 plan, and correctly catches a deliberately-reintroduced
+taper jog (moved one cone 5 ft off) with a real failure message. **Did not**
+retire `PlaceOrderTable*` or claim the original plan's Stage 5 bar met (a
+golden test per family, 9 families) -- that's real follow-up work, not done
+here. What shipped is the gate mechanism, proven on two families
+(619-311/619-302), not a claim the whole catalog has been re-verified
+through it.
+
+All of Stages 1-5 verified together in one run:
+`python scripts/test_compile_plan_parity.py --align-idx 9` -- 6 layers,
+0 failures. Full regression re-run at the end: all 68 sheet specs (67
+pass + 619-011's one documented anomaly), 619-311/619-302 live-build still
+pass, `alignment_geometry.py`'s synthetic self-test still passes.
+
+Next: either genuinely start retiring `PlaceOrderTable*` (would need the
+per-family golden testing this session didn't do), or extend the compiler
+to more sheet families to prove `compile_channelizing`/`compile_symbols`/
+`compile_hatch` generalize as well as `compile_plan` already has been shown
+to (only checked against 619-311 and 619-302 so far).

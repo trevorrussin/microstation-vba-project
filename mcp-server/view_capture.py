@@ -46,6 +46,11 @@ PW_RENDERFULLCONTENT = 2
 # free: same effective resolution Claude would see either way, smaller file.
 MAX_LONG_EDGE = 1568
 
+# Default settle after View.Center/Extents write. Live 2026-08-03: captures
+# taken too soon after navigate looked blank (repaint not finished); 2.0s
+# was the prior floor, 2.5s is safer under load.
+DEFAULT_SETTLE_SECONDS = 2.5
+
 
 def _find_window(title_predicate) -> int:
     """Returns the hwnd of the visible window whose title satisfies
@@ -155,7 +160,12 @@ def get_view_state(view_num: int = 1) -> dict:
     View.Center.X/Y/Z is the current center point -- exactly the shape
     navigate_view() already writes, just read instead of written."""
     import ms_connect
+    import pythoncom
 
+    # MCP dispatches each tool call on a possibly-different worker thread
+    # (see bridge_client.py's call() for the full explanation) -- COM must
+    # be initialized on whichever thread is actually running this.
+    pythoncom.CoInitialize()
     app = ms_connect.get_microstation_app()
     v = app.ActiveDesignFile.Views(view_num)
     ext = v.Extents
@@ -166,51 +176,134 @@ def get_view_state(view_num: int = 1) -> dict:
     }
 
 
+def _view_window_aspect(view_num: int = 1) -> float:
+    """Pixel aspect (width/height) of the View N child window. MicroStation
+    forces View.Extents to this aspect — a mismatched 200x160 request
+    became ~417x160 (live 2026-08-03)."""
+    try:
+        main = _find_window(lambda t: t.endswith("- MicroStation"))
+        child = _find_view_child(main, view_num)
+        if child is None:
+            return 2.4
+        left, top, right, bottom = win32gui.GetWindowRect(child)
+        pw, ph = max(right - left, 1), max(bottom - top, 1)
+        return pw / ph
+    except Exception:
+        return 2.4
+
+
+def _fit_extents_to_aspect(width: float, height: float, aspect: float) -> tuple[float, float]:
+    """Expand width or height so the requested model rectangle stays fully
+    visible under the view's pixel aspect."""
+    width = max(float(width), 1.0)
+    height = max(float(height), 1.0)
+    aspect = max(float(aspect), 0.05)
+    if (width / height) > aspect:
+        height = width / aspect
+    else:
+        width = height * aspect
+    return width, height
+
+
+def _drawing_looks_empty(img: Image.Image) -> bool:
+    """True when the drawing band is nearly uniform dark-grey (repaint race
+    or nothing visible). Ignores chrome via a central crop. Over-zoomed
+    overviews with tiny signs can also trip this — frame tighter (~150–400
+    ft for a sign closeup)."""
+    w, h = img.size
+    if w < 20 or h < 20:
+        return True
+    region = img.crop((w // 20, h // 10, w - w // 20, max(h // 10 + 1, h - h // 6)))
+    small = region.resize((64, 48), Image.BILINEAR)
+    pixels = list(small.getdata())
+    n = len(pixels)
+    if n == 0:
+        return True
+    bg = 0
+    signal = 0
+    for pix in pixels:
+        r, g, b = pix[0], pix[1], pix[2]
+        if abs(r - g) < 14 and abs(g - b) < 14 and 35 <= r <= 120:
+            bg += 1
+        if r > 170 or g > 170 or abs(r - g) > 30 or abs(g - b) > 30:
+            signal += 1
+    return signal < 10 and bg >= int(0.80 * n)
+
+
+def _force_view_redraw(app, view_num: int = 1) -> None:
+    """Best-effort repaint after Center/Extents write."""
+    v = app.ActiveDesignFile.Views(view_num)
+    try:
+        v.Redraw()
+    except Exception:
+        pass
+    try:
+        app.RedrawAllViews()
+    except Exception:
+        pass
+    try:
+        v.Update()
+    except Exception:
+        pass
+
+
 def navigate_view(x: float, y: float, width: float, height: float,
                    z: float = 0.0, view_num: int = 1,
-                   settle_seconds: float = 2.0) -> None:
-    """Point a MicroStation view at a specific model-space location before
-    calling capture_microstation() -- MicroStation's own interactive
-    fit/zoom keyins (VIEW_FIT, ZOOM_OUT, etc., via run_registry_command)
-    can't complete headlessly, they end by prompting for a datapoint click
-    that never arrives. Setting View.Center/Extents directly via COM works
-    instead, confirmed live 2026-08-02 (see the "sign face cell oversized
-    bbox" investigation), but two things matter:
-      1. Extents.Z must be 0 for a 2D model -- a nonzero Z produced a
-         completely blank render on this install's 2D DGN. This checks
-         ActiveModelReference.Is3D and branches automatically.
-      2. The repaint is NOT synchronous with the property write -- a
-         screenshot taken immediately after setting Center/Extents came
-         back blank in testing. settle_seconds (default 2.0) sleeps before
-         returning so a capture_microstation() call right after this one
-         shows the real content; the minimum safe delay wasn't narrowed
-         down further, 2.0s just confirmed to work.
-    3D branch is UNTESTED -- no 3D model exists in this project yet. For
-    3D, Extents.Z is set to max(width, height) as a reasonable depth guess
-    and camera/perspective settings are left untouched; verify this works
-    before relying on it once a 3D file is available.
+                   settle_seconds: float | None = None) -> dict:
+    """Point a MicroStation view at a model-space location before capture.
+
+    MicroStation fit/zoom keyins can't complete headlessly (datapoint wait).
+    COM Center/Extents works (live 2026-08-02), with these rules:
+      1. Write Extents.Z=0 for 2D (install may round to ~0.02 — OK).
+      2. Repaint is async — sleep settle_seconds (default 2.5) before capture.
+      3. Extents are expanded to the view window's pixel aspect so the
+         requested rectangle stays fully visible; return value reports what
+         was applied.
+      4. Framing: a sign face is ~4–50 ft. A 2000-ft overview makes each
+         sign a few pixels — captures look 'blank' to vision models even
+         when geometry exists. Use ~150–400 ft width for sign closeups.
+
+    Returns the applied view state dict (center/width/height).
     """
     import time
 
     import ms_connect
+    import pythoncom
 
-    # Deterministic attach (2026-08-02, see ms_connect.py) -- finds the one
-    # running instance with the Test VBA project loaded rather than
-    # attaching to whichever the ROT hands back first; still returns an
-    # EnsureDispatch-wrapped object so Point3dFromXYZ below keeps working.
+    if settle_seconds is None:
+        settle_seconds = DEFAULT_SETTLE_SECONDS
+
+    # MCP dispatches each tool call on a possibly-different worker thread --
+    # see bridge_client.py's call() for the full explanation.
+    pythoncom.CoInitialize()
     app = ms_connect.get_microstation_app()
     is_3d = app.ActiveModelReference.Is3D
     v = app.ActiveDesignFile.Views(view_num)
 
+    aspect = _view_window_aspect(view_num)
+    width, height = _fit_extents_to_aspect(width, height, aspect)
+
     z_extent = 0.0 if not is_3d else max(width, height, 1.0)
-    v.Extents = app.Point3dFromXYZ(width, height, z_extent)
+    # Center first, then Extents — more reliable when jumping a long way
+    # (live 2026-08-03 blank-capture chase).
     v.Center = app.Point3dFromXYZ(x, y, z)
-    v.Redraw()
+    v.Extents = app.Point3dFromXYZ(width, height, z_extent)
+    _force_view_redraw(app, view_num)
     time.sleep(settle_seconds)
+
+    state = get_view_state(view_num=view_num)
+    if abs(state["centerX"] - x) > 1.0 or abs(state["centerY"] - y) > 1.0:
+        v.Center = app.Point3dFromXYZ(x, y, z)
+        v.Extents = app.Point3dFromXYZ(width, height, z_extent)
+        _force_view_redraw(app, view_num)
+        time.sleep(settle_seconds)
+        state = get_view_state(view_num=view_num)
+    return state
 
 
 def capture_microstation(out_path: str | Path | None = None, view_num: int = 1,
-                          crop_toolbar: bool = True) -> Path:
+                          crop_toolbar: bool = True,
+                          retry_if_empty: bool = True) -> Path:
     """Screenshots MicroStation's main frame window -- the one whose title
     ends in "- MicroStation" (confirmed live: the design file path/name is
     the rest of the title, e.g. "...DELETE.dgn [2D - V8 DGN] -
@@ -222,10 +315,17 @@ def capture_microstation(out_path: str | Path | None = None, view_num: int = 1,
     crop_toolbar (default True, per 2026-08-02 feedback) crops off the
     app-level title bar/ribbon/toolbar rows above view_num's view, keeping
     everything from that view's own mini-toolbar down through the bottom
-    toolbar/status area -- what's actually useful to see (the drawing +
-    what tool/settings are active), not chrome that never changes. Falls
-    back to an uncropped capture if that view's child window can't be
-    found (e.g. it isn't open) rather than erroring."""
+    toolbar/status area. Falls back to uncropped if that view isn't open.
+
+    retry_if_empty (default True): if the drawing band looks like uniform
+    dark grey (repaint race), force a redraw, wait briefly, and capture
+    once more. Does not fix over-zoomed framing — see navigate_view.
+    """
+    import time
+
+    import ms_connect
+    import pythoncom
+
     hwnd = _find_window(lambda t: t.endswith("- MicroStation"))
     crop_top_px = 0
     if crop_toolbar:
@@ -233,7 +333,44 @@ def capture_microstation(out_path: str | Path | None = None, view_num: int = 1,
         view_hwnd = _find_view_child(hwnd, view_num)
         if view_hwnd is not None:
             crop_top_px = max(0, win32gui.GetWindowRect(view_hwnd)[1] - main_top)
-    return _capture_hwnd(hwnd, out_path, "capture_live.png", crop_top_px=crop_top_px)
+    dest = _capture_hwnd(hwnd, out_path, "capture_live.png", crop_top_px=crop_top_px)
+
+    if retry_if_empty:
+        try:
+            if _drawing_looks_empty(Image.open(dest)):
+                pythoncom.CoInitialize()
+                app = ms_connect.get_microstation_app()
+                _force_view_redraw(app, view_num)
+                time.sleep(1.5)
+                dest = _capture_hwnd(hwnd, out_path, "capture_live.png",
+                                     crop_top_px=crop_top_px)
+        except Exception:
+            pass
+    return dest
+
+
+def navigate_and_capture(x: float, y: float, width: float, height: float,
+                          out_path: str | Path | None = None,
+                          view_num: int = 1,
+                          settle_seconds: float | None = None) -> dict:
+    """navigate_view + capture_microstation. Returns
+    {"path", "view", "retriedEmpty"} for QA scripts.
+    """
+    state = navigate_view(x, y, width, height, view_num=view_num,
+                          settle_seconds=settle_seconds)
+    path = capture_microstation(out_path=out_path, view_num=view_num,
+                                retry_if_empty=False)
+    retried = False
+    try:
+        if _drawing_looks_empty(Image.open(path)):
+            retried = True
+            path = capture_microstation(out_path=out_path, view_num=view_num,
+                                        retry_if_empty=True)
+    except Exception:
+        path = capture_microstation(out_path=out_path, view_num=view_num,
+                                    retry_if_empty=True)
+        retried = True
+    return {"path": str(path), "view": state, "retriedEmpty": retried}
 
 
 def capture_window(title_substring: str, out_path: str | Path | None = None) -> Path:

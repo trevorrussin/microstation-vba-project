@@ -33,6 +33,7 @@ DEFAULT_ROAD_TYPE = "Non-Freeway"
 DEFAULT_LANE = "12 ft"
 DEFAULT_SHOULDER = "8 ft"
 DEFAULT_SHEET = "619-311"
+DEFAULT_ALIGN_Y = "217040"
 
 
 def append_input(message: str) -> None:
@@ -69,11 +70,33 @@ def ask_blob(line: str) -> str:
 def reply_for_ask(line: str, args: argparse.Namespace) -> str:
     """Map Designer-style questions to concrete answers."""
     blob = ask_blob(line)
+    y = getattr(args, "align_y", DEFAULT_ALIGN_Y)
+
+    # Sheets without advanceWarningSpacing must not invent URBAN/RURAL.
+    if re.search(r"area[_\s-]*type|urban|rural", blob) and not re.search(
+        r"\b(speed|lane\s*width|shoulder)\b", blob
+    ):
+        return (
+            f"Do NOT invent URBAN/RURAL. Sheet {args.sheet} may have no "
+            f"advanceWarningSpacing role — call build_wztc_order_table WITHOUT "
+            f"area_type (leave it empty). Road type = {args.road_type}; "
+            f"speed = {args.speed}; lane = {args.lane}; shoulder = {args.shoulder}. "
+            f"Build on Y={y} only. Proceed."
+        )
+
+    if re.search(r"too short|4595|extend|corridor.*(length|ft)|how should i resolve", blob):
+        y = getattr(args, "align_y", DEFAULT_ALIGN_Y)
+        return (
+            f"EXTEND the corridor. Define Upstream at Y={y} from X=1018000 to "
+            f"X=1024000 (6000 ft). Downstream as needed. Approved — proceed "
+            "stations, every isSign, dims/labels/WS/chan/PV/AP, capture_view."
+        )
+
     # Multi-field asks: answer everything at once
     wants_speed = bool(re.search(r"speed|mph|posted", blob))
     wants_road = bool(re.search(r"road\s*type|freeway|non-freeway", blob))
     wants_lane = bool(re.search(r"lane\s*width", blob))
-    wants_shoulder = bool(re.search(r"shoulder", blob))
+    wants_shoulder = bool(re.search(r"shoulder\s*width|shoulder\s*band", blob))
     wants_sheet = bool(re.search(r"619-|sheet|short\s*term|short\s*duration|duration", blob))
 
     parts: list[str] = []
@@ -86,26 +109,31 @@ def reply_for_ask(line: str, args: argparse.Namespace) -> str:
     if wants_shoulder:
         parts.append(f"shoulder width = {args.shoulder}")
     if wants_sheet:
-        parts.append(
-            f"use sheet {args.sheet} (Short Term Non-Freeway multilane undivided "
-            f"right lane closure). Not short-duration 619-203."
-        )
+        parts.append(f"use sheet {args.sheet} (Short Term). Keep this sheet number.")
 
     if parts:
         return (
             "; ".join(parts)
-            + ". Proceed with get_sheet_requirements + build_wztc_order_table "
-            "using the FULL sheet sign list."
+            + f". Corridor Y={y} (X~1019735 to 1022735). If the tool rejects "
+            "missing area_type only when that sheet has advanceWarningSpacing; "
+            "otherwise omit area_type. Proceed with get_sheet_requirements + "
+            "build_wztc_order_table using the FULL sheet sign list."
         )
 
     # Alignment / workspace / proceed
+    if re.search(r"work\s*area|how long|length should|work span", blob):
+        return (
+            f"Use a default work-area length of 200 ft downstream of path "
+            f"start (station 0) at Y={y} unless the sheet prints a fixed "
+            f"length. Call place_order_table_workspace / channelizing / "
+            f"PV with Buffer Space fallback — do not block on this. Proceed."
+        )
+
     if re.search(r"align|which line|click|point|workspace|boundary|reference", blob):
         return (
-            "Use the new straight ~3000 ft east-west alignment south of the old "
-            "work, around Y=217040 (element roughly from X=1019735 to X=1022735 "
-            "at Y=217040.6). Upstream = that line west→east. For workspace, a "
-            "simple rectangle hugging that corridor is fine if no reference "
-            "boundary exists — ask if you need clicks. Proceed."
+            f"Use the ~3000 ft E-W alignment at Y={y} "
+            f"(X=1019735 to X=1022735). Upstream = that line west→east. "
+            "For workspace, a simple rectangle hugging that corridor is fine. Proceed."
         )
 
     if re.search(r"order table|looks good|confirm|ok to|proceed|approve", blob):
@@ -174,11 +202,13 @@ def drive(message: str, args: argparse.Namespace) -> int:
                     if continues < args.max_continues:
                         continues += 1
                         pending_ask_line = None
+                        y = getattr(args, "align_y", DEFAULT_ALIGN_Y)
                         reply = (
                             f"posted speed = {args.speed}; road type = {args.road_type}; "
                             f"lane width = {args.lane}; shoulder width = {args.shoulder}; "
                             f"use sheet {args.sheet} (Short Term). Alignment = the new "
-                            f"~3000 ft E-W line around Y=217040 (X~1019735 to 1022735). "
+                            f"~3000 ft E-W line around Y={y} (X~1019735 to 1022735). "
+                            f"Omit area_type unless the sheet has advanceWarningSpacing. "
                             f"Proceed with get_sheet_requirements + full order-table plan."
                         )
                         print(
@@ -251,13 +281,28 @@ def main() -> int:
     ap.add_argument("--message", required=True)
     ap.add_argument("--continue-msg", default=DEFAULT_CONTINUE)
     ap.add_argument("--timeout", type=float, default=900)
-    ap.add_argument("--max-continues", type=int, default=16)
+    ap.add_argument("--max-continues", type=int, default=8,
+                    help="Auto-continue/ASK reply budget (default 8; was 16 — "
+                         "lower to control live-agent API cost)")
+    ap.add_argument("--fresh-history", action="store_true",
+                    help="Clear Bridge/chat-history.json before posting "
+                         "(avoids re-billing a huge poisoned history)")
     ap.add_argument("--speed", default=DEFAULT_SPEED)
     ap.add_argument("--road-type", default=DEFAULT_ROAD_TYPE)
     ap.add_argument("--lane", default=DEFAULT_LANE)
     ap.add_argument("--shoulder", default=DEFAULT_SHOULDER)
     ap.add_argument("--sheet", default=DEFAULT_SHEET)
+    ap.add_argument("--align-y", default=DEFAULT_ALIGN_Y,
+                    help="Corridor Y for auto-replies (311≈217040, 301 test≈216840)")
     args = ap.parse_args()
+    if args.fresh_history:
+        hist = BRIDGE / "chat-history.json"
+        backup = BRIDGE / "chat-history.prev.json"
+        if hist.exists():
+            hist.replace(backup)
+            print(f"[fresh-history] moved prior history to {backup.name}", flush=True)
+        hist.write_text("[]", encoding="utf-8")
+        print("[fresh-history] chat-history.json reset to []", flush=True)
     return drive(args.message, args)
 
 

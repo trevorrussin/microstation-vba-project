@@ -1572,7 +1572,11 @@ Private Sub btnSubmit_Click()
             wztcOrderLabels(i) = wztcOrderTexts(i)
         Next i
     Else
-        ReDim wztcOrderLabels(0 To -1)
+        ' ReDim x(0 To -1) throws "Subscript out of range" in this VBA host
+        ' -- see the notes in WZTCBridge.ExecBuildOrderTable, where this was
+        ' root-caused. wztcOrderLabelCount=0 is the tracked count every
+        ' consumer already gates on.
+        ReDim wztcOrderLabels(0 To 0)
     End If
 
     ' Close form and launch alignment drawing tool

@@ -73,7 +73,29 @@ MAX_TOKENS = 16000
 # stops yielding), not a crash -- run_turn below detects the resulting
 # empty final_text and substitutes a message that says so explicitly,
 # since silently returning nothing would show a blank response in the panel.
-MAX_TOOL_ITERATIONS = 30
+#
+# 2026-08-03: lowered from 30 after a ~$12 live sheet-build session where
+# long tool loops + a 600-message history dominated cost. Override with
+# WZTC_MAX_TOOL_ITERATIONS if a rare deep investigation needs more.
+MAX_TOOL_ITERATIONS = int(os.environ.get("WZTC_MAX_TOOL_ITERATIONS", "18"))
+
+# Hard cap on persisted conversation length. Live 2026-08-03: chat-history
+# hit ~616 messages / 1.1MB; every new turn re-sent that context and the
+# agent also refused to retry a fixed tool based on stale errors in that
+# history. Keep a bounded recent window. Override with WZTC_MAX_HISTORY_MESSAGES.
+MAX_HISTORY_MESSAGES = int(os.environ.get("WZTC_MAX_HISTORY_MESSAGES", "40"))
+# Secondary char budget on serialized content (rough); trim oldest until under.
+MAX_HISTORY_CHARS = int(os.environ.get("WZTC_MAX_HISTORY_CHARS", "350000"))
+# Trimming from the FRONT of `messages` changes the prompt-cache prefix for
+# every later request (the API caches an exact byte-prefix match), forcing a
+# full-price cache rewrite the next turn -- confirmed live 2026-08-03:
+# cacheWrite jumped to 238,912 tokens ($1.44) immediately after a trim.
+# Trimming down to the cap on every turn that exceeds it means that rewrite
+# happens on almost every turn once history fills up. Trimming further below
+# the cap (hysteresis) leaves headroom so the rewrite is rare instead of
+# continuous, at the cost of carrying a somewhat shorter live window.
+HISTORY_TRIM_TARGET_MESSAGES = int(os.environ.get("WZTC_HISTORY_TRIM_TARGET_MESSAGES", "24"))
+HISTORY_TRIM_TARGET_CHARS = int(os.environ.get("WZTC_HISTORY_TRIM_TARGET_CHARS", "220000"))
 
 # $ per million tokens (Anthropic pricing, confirmed current). Cache write is
 # priced off the base input rate at a TTL-dependent multiplier (1.25x for a
@@ -479,10 +501,13 @@ Call order:
      Call build_wztc_order_table with the FULL sign_rows list, then show
      the engineer the returned order table before drawing anything — it's
      their chance to catch a wrong sign or missing item. When a
-     Data/sheet-specs/<sheet>.json exists, pass sheet_num + area_type
-     (URBAN|RURAL); the sheet drives stations and SignLibrary keys
-     (sign_rows optional) and the response includes specDriven /
-     stationWalk — show that walk.
+     Data/sheet-specs/<sheet>.json exists, pass sheet_num. Pass
+     area_type (URBAN|RURAL|FREEWAY) ONLY when get_sheet_requirements /
+     the spec has an advance-warning spacing table — omit area_type for
+     sheets like 619-301 that have no such role. Pass
+     protective_vehicle_gvw when the sheet's roll-ahead is GVW-keyed.
+     The sheet drives stations and SignLibrary keys (sign_rows optional);
+     response includes specDriven / stationWalk — show that walk.
   2. Work-space boundary: ask which level/reference has it, try
      find_reference_linework, then place_workspace with the chosen
      candidate's vertices. If nothing plausible comes back, fall back to
@@ -492,9 +517,13 @@ Call order:
      find_reference_linework-or-click pattern, feeding
      define_alignment_segment (call once per contiguous chain/click run),
      then commit_alignment once per alignment when done.
-  3b. REBUILD / second pass: call clear_plan_elements() BEFORE re-placing
-     (or place_order_table_stations(..., clear_prior=True)). Without that
-     wipe, ticks/cells/channelizing STACK on the previous run — duplicate
+  3b. REBUILD / second pass: call clear_plan_elements(align_idx=N) BEFORE
+     re-placing that alignment (or place_order_table_stations(...,
+     clear_prior=True) which scopes the wipe to that align_idx). Do NOT
+     call clear_plan_elements() with no align_idx unless you intend to
+     wipe BOTH Upstream and Downstream. Always pass align_idx on
+     place_sign so signs are included in scoped clears. Without a wipe,
+     ticks/cells/channelizing STACK on the previous run — duplicate
      TWZWVA_P, stale stubs, missing dims (confirmed root cause 2026-08-03).
      The stations tool refuses a re-place for an align already placed this
      session unless clear_prior or force is set.
@@ -509,7 +538,8 @@ Call order:
      one-off tick outside this flow, and requires one_off=True — the
      tool will refuse plan-context calls without that flag. Its isSign=Y
      rows give you the point/tangent for each sign; resolve_sign_code +
-     place_sign from there. For place_sign: pt1 is the OUTWARD TIP of that
+     place_sign from there. For place_sign: pass align_idx matching the
+     order-table row; pt1 is the OUTWARD TIP of that
      item's perp tick (station point + outward_perp * half_len), and dir1
      is that same outward unit perp — never the alignment tangent, and
      never the alignment station itself as pt1 (confirmed live miss:
@@ -861,6 +891,7 @@ def _wrap_op(tool_name: str, fn):
 # it'll never use).
 _BASE_OP_NAMES = [
     "find_elements_near", "station_to_point", "get_alignment_stationing",
+    "get_alignment_vertices",
     "list_levels", "list_colors", "resolve_color",
     "list_line_styles", "resolve_line_style",
     "cell_library_status", "attach_cell_library", "list_cells",
@@ -992,7 +1023,9 @@ def view_drawing() -> list[dict] | str:
     real image tokens (roughly 1500-2000 per call), so use it selectively:
     after a substantial design change (several elements placed or moved
     this turn) or when you suspect something might be off, not after every
-    small edit and not as a routine end-of-turn habit. If this turn
+    small edit and not as a routine end-of-turn habit. Prefer at most ONE
+    or TWO view_drawing calls per turn — each costs ~1500-2000 image tokens
+    and prior screenshots are stripped from history anyway. If this turn
     touched any elements, the view is first panned/zoomed to show them
     (same framing the engineer sees in the panel); otherwise it captures
     whatever is currently on screen."""
@@ -1188,11 +1221,88 @@ _IMAGE_STUB = (
 )
 
 
+def _content_char_len(content) -> int:
+    if isinstance(content, str):
+        return len(content)
+    if not isinstance(content, list):
+        return 0
+    n = 0
+    for block in content:
+        if isinstance(block, dict):
+            n += len(str(block.get("text", "") or ""))
+            n += len(str(block.get("thinking", "") or ""))
+            inner = block.get("content")
+            if inner is not None:
+                n += _content_char_len(inner)
+        else:
+            n += 64
+    return n
+
+
+def _strip_old_thinking(messages: list) -> None:
+    """Remove thinking blocks from all but the newest assistant message.
+    Prior-turn thinking is not required for correctness (Anthropic allows
+    removing it) and was a quiet cost driver on long sessions. Drop the
+    blocks entirely rather than stubbing — stubbed thinking without a
+    signature can confuse the API."""
+    last_asst = -1
+    for i, msg in enumerate(messages):
+        if isinstance(msg, dict) and msg.get("role") == "assistant":
+            last_asst = i
+    for i, msg in enumerate(messages):
+        if i == last_asst:
+            continue
+        if not isinstance(msg, dict) or msg.get("role") != "assistant":
+            continue
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        msg["content"] = [
+            block for block in content
+            if not (isinstance(block, dict) and block.get("type") == "thinking")
+        ]
+
+
+def _trim_history_window(messages: list) -> list:
+    """Keep only the newest MAX_HISTORY_MESSAGES, then trim oldest further
+    if the remaining text still exceeds MAX_HISTORY_CHARS. Always leaves at
+    least 2 messages when possible (last user+assistant exchange).
+
+    Trims down to HISTORY_TRIM_TARGET_MESSAGES/_CHARS -- below the cap --
+    rather than to the cap itself. See the cache-prefix comment on those
+    constants: trimming to the exact cap busts the prompt cache on nearly
+    every turn once history fills up; trimming further below leaves several
+    turns of headroom before the next (expensive) rewrite is needed."""
+    if not messages:
+        return messages
+    if len(messages) > MAX_HISTORY_MESSAGES:
+        target = min(HISTORY_TRIM_TARGET_MESSAGES, MAX_HISTORY_MESSAGES)
+        dropped = len(messages) - target
+        messages[:] = messages[-target:]
+        print(f"[history] trimmed {dropped} older messages "
+              f"(cap={MAX_HISTORY_MESSAGES}, target={target})", flush=True)
+    total = sum(_content_char_len(m.get("content")) for m in messages
+                if isinstance(m, dict))
+    if total > MAX_HISTORY_CHARS:
+        target_chars = min(HISTORY_TRIM_TARGET_CHARS, MAX_HISTORY_CHARS)
+        while len(messages) > 2:
+            total = sum(_content_char_len(m.get("content")) for m in messages
+                        if isinstance(m, dict))
+            if total <= target_chars:
+                break
+            messages.pop(0)
+            print(f"[history] trimmed oldest message (chars target={target_chars})",
+                  flush=True)
+    return messages
+
+
 def _strip_bulky_history(messages: list) -> None:
     """Mutate messages in place: drop base64 image payloads from prior
-    tool_results and truncate oversized text tool_results. Safe on a mix
-    of plain dicts (loaded history / prior turns) and SDK objects (this
-    turn's freshly appended content) -- non-dict blocks are left alone."""
+    tool_results, truncate oversized text tool_results, stub old thinking,
+    and enforce the message/char window. Safe on a mix of plain dicts
+    (loaded history / prior turns) and SDK objects (this turn's freshly
+    appended content) -- non-dict blocks are left alone for image/text
+    shrink; thinking/window trim only touches dict messages."""
     for msg in messages:
         if not isinstance(msg, dict):
             continue
@@ -1206,7 +1316,8 @@ def _strip_bulky_history(messages: list) -> None:
                 continue
             inner = block.get("content")
             content[i] = {**block, "content": _shrink_tool_result_content(inner)}
-
+    _strip_old_thinking(messages)
+    _trim_history_window(messages)
 
 def _shrink_tool_result_content(inner):
     if isinstance(inner, list):
@@ -1230,8 +1341,13 @@ def _shrink_tool_result_content(inner):
 def load_history() -> list[dict]:
     if not HISTORY_FILE.exists():
         return []
-    messages = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+    raw = HISTORY_FILE.read_text(encoding="utf-8-sig")
+    messages = json.loads(raw)
+    before = len(messages)
     _strip_bulky_history(messages)
+    if len(messages) < before:
+        # Persist the trim so the next restart doesn't re-load the fat file.
+        save_history(messages)
     return messages
 
 
@@ -1446,8 +1562,12 @@ def main() -> None:
     messages = load_history()
     _SESSION_MODE = load_session_mode()
     INPUT.skip_existing()
+    hist_chars = sum(_content_char_len(m.get("content")) for m in messages
+                     if isinstance(m, dict))
     print(f"chat_driver.py running -- model={MODEL}, effort={EFFORT}, mode={_SESSION_MODE}, "
-          f"max_iterations={MAX_TOOL_ITERATIONS}, watching {CHAT_INPUT_FILE}, logging to {CHAT_LOG_FILE}")
+          f"max_iterations={MAX_TOOL_ITERATIONS}, history={len(messages)} msgs/~{hist_chars} chars "
+          f"(caps {MAX_HISTORY_MESSAGES}/{MAX_HISTORY_CHARS}), "
+          f"watching {CHAT_INPUT_FILE}, logging to {CHAT_LOG_FILE}", flush=True)
 
     while True:
         user_text = INPUT.wait_for_next()

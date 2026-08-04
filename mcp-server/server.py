@@ -82,6 +82,14 @@ def get_alignment_stationing(align_idx: int) -> list[dict]:
 
 
 @mcp.tool()
+def get_alignment_vertices(align_idx: int) -> list[dict]:
+    """Return a committed alignment's raw path segments (straight or arc)
+    in master units — fetch once, then interpolate station->XY locally
+    instead of one bridge round trip per point."""
+    return wztc_ops.get_alignment_vertices(align_idx)
+
+
+@mcp.tool()
 def list_levels(name_contains: str = "") -> list[dict]:
     """List levels matching name_contains (required substring, e.g. 'TWZ').
     Refuses unfiltered listings — DGNs can have thousands of levels."""
@@ -291,7 +299,7 @@ def place_sign(sign_num: str, road_type: str, side: str,
                pt1x: float, pt1y: float, pt1z: float, dir1x: float, dir1y: float,
                pt2x: Optional[float] = None, pt2y: Optional[float] = None, pt2z: Optional[float] = None,
                dir2x: Optional[float] = None, dir2y: Optional[float] = None,
-               reason: str = "") -> dict:
+               reason: str = "", align_idx: int = 0) -> dict:
     """Place a sign assembly (post + edge-connected stem + face + label).
 
     pt1 is the ATTACHMENT on the perp tick — typically the OUTWARD TIP of
@@ -304,9 +312,10 @@ def place_sign(sign_num: str, road_type: str, side: str,
     sign_num MUST be a SignLibrary.bas key — resolve_sign_code first if it
     came from get_sheet_requirements. side is 'One Side' or 'Both Sides';
     pt2/dir2 required only for Both Sides. Pass reason when the tip was
-    adjusted from the default (e.g. obstruction dodge)."""
+    adjusted from the default (e.g. obstruction dodge). Pass align_idx
+    (1=Upstream, 2=Downstream) so scoped clear_prior can wipe that sign."""
     return wztc_ops.place_sign(sign_num, road_type, side, pt1x, pt1y, pt1z, dir1x, dir1y,
-                                pt2x, pt2y, pt2z, dir2x, dir2y, reason)
+                                pt2x, pt2y, pt2z, dir2x, dir2y, reason, align_idx)
 
 
 @mcp.tool()
@@ -321,24 +330,25 @@ def build_wztc_order_table(speed: int, road_type: str, lane_width: int, shoulder
                             sign_rows: list[dict] | None = None,
                             category: str = "", sheet_num: str = "",
                             area_type: str = "", closure_type: str = "",
-                            exposure_condition: str = "") -> dict:
+                            exposure_condition: str = "",
+                            protective_vehicle_gvw: int = 0) -> dict:
     """Build the full per-alignment order table (headless Submit & Draw).
 
-    Pass sheet_num AND area_type ("URBAN"/"RURAL"). If a spec exists for that
-    sheet, the sheet drives the station sequence, every spacing, and the sign
-    order and keys — sign_rows can be omitted entirely. The response includes
-    specDriven, stationWalk and signLegends; show the walk to the engineer
-    before drawing.
+    Pass sheet_num when a Data/sheet-specs/<sheet>.json exists — the sheet
+    drives stations, spacings, and SignLibrary keys (sign_rows optional).
+    Pass area_type ("URBAN"/"RURAL"/"FREEWAY") only when that sheet's
+    tableRoles include advanceWarningSpacing; omit it for sheets like
+    619-301. Pass protective_vehicle_gvw (lbs) when roll-ahead is GVW-keyed
+    (e.g. 619-301); default 22000 is used if omitted.
 
-    Without a spec it falls back to generic defaults (specDriven=False), which
-    emit the same 7 upstream rows for every sheet — say so rather than
-    presenting that table as sheet-faithful.
+    Without a spec it falls back to generic defaults (specDriven=False).
 
     sign_rows: [{"align_idx": 1|2, "sign_num": SignLibrary key, "side":
     "One Side"|"Both Sides", "spacing_ft": optional, "size": optional}]."""
     return wztc_ops.build_wztc_order_table(speed, road_type, lane_width, shoulder_width,
                                             sign_rows, category, sheet_num,
-                                            area_type, closure_type, exposure_condition)
+                                            area_type, closure_type, exposure_condition,
+                                            protective_vehicle_gvw)
 
 
 @mcp.tool()
@@ -645,16 +655,14 @@ def undo_last_op() -> dict:
 
 
 @mcp.tool()
-def clear_plan_elements(keep_alignments: bool = True) -> dict:
-    """Idempotent-rebuild wipe: delete every element this session's journal
-    recorded under createdElementIds= that still exists. Default
-    keep_alignments=True leaves the corridor alone so a rebuild reuses it.
-    Call BEFORE re-placing stations/labels/dims/symbols/workspace/
-    channelizing when iterating — otherwise geometry stacks (duplicate
-    cells, stale channelizing, missing dims). Safe when nothing placed
-    yet (deleted=0). place_order_table_stations(clear_prior=True) does
-    the same in one step."""
-    return wztc_ops.clear_plan_elements(keep_alignments)
+def clear_plan_elements(keep_alignments: bool = True, align_idx: int = 0) -> dict:
+    """Idempotent-rebuild wipe: delete journal-owned create-ops. Default
+    keep_alignments=True leaves the corridor alone. Pass align_idx=1|2 to
+    clear only that alignment (so Downstream rebuild does not wipe
+    Upstream). align_idx=0 clears the whole plan. Call BEFORE re-placing
+    when iterating — otherwise geometry stacks. place_order_table_stations(
+    clear_prior=True) scopes automatically to its align_idx."""
+    return wztc_ops.clear_plan_elements(keep_alignments, align_idx)
 
 @mcp.tool()
 def get_journal(limit: int = 50) -> list[str]:
