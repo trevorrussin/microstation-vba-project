@@ -1085,7 +1085,8 @@
         "stationAnchor": {
           "zone": "laneTaper",
           "end": "upstream"
-        }
+        },
+        "lateralAnchor": "On the paved shoulder, outboard of the closed travel lane."
       },
       {
         "id": "protectiveVehicle1",

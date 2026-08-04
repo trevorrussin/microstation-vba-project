@@ -478,6 +478,7 @@ Call AddSign("W08-23",   "Shoulders (No)",                                "W08-2
 Call AddSign("W08-24",   "Pavement (Steel Plate on)",                     "W08-24",   celPath, "W08-24",   "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)      '342
 Call AddSign("W08-25",   "Shoulder (Ends)",                               "W08-25",   celPath, "W08-25",   "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)      '343
 Call AddSign("NYW8-4",   "Bridge Closed 500 Ft",                          "NYW8-4",   celPath, "NYW8-4",   "36"" x 36""", "48"" x 48""", 36, 36, postType, postPath, defSpacing)
+Call AddSign("NYW8-33",  "Lane Closed (Vehicle-Mounted Plaque)",          "NYW8-33",  celPath, "NYW8-33",  "48"" x 24""", "48"" x 24""", 48, 24, postType, postPath, defSpacing)
 End Sub
 
 Private Sub LoadSigns_Part4()
@@ -1063,6 +1064,14 @@ End Function
 ' (e.g. "W20-1" -> "W20-01", "R10-6L" -> "R10-06L"); leaves any
 ' trailing letters (message/side suffix) untouched. A code with no
 ' "-", or no digits right after it, is returned unchanged.
+'
+' Also zero-pads the route-family number BEFORE the dash (e.g.
+' "W4-2R" -> "W04-02R", matching SignLibrary key "W04-02R") -- confirmed
+' live 2026-08-04 that this was missing, forcing the agent to guess
+' between "W4-2R" and "W04-02R" before finding the real key. Skipped for
+' "NY"-prefixed custom variants, which are NOT zero-padded on the family
+' number by established file convention (precedent: "NYW8-4", not
+' "NYW08-4" -- confirmed present in this file as-is).
 ' ============================================================
 Private Function PadNumericStem(raw As String) As String
     Dim dashPos As Long
@@ -1073,14 +1082,43 @@ Private Function PadNumericStem(raw As String) As String
     End If
 
     Dim prefix As String, rest As String
-    prefix = Left(raw, dashPos)   ' includes the "-"
+    prefix = Left(raw, dashPos - 1)   ' letters + family digits, no "-"
     rest = Mid(raw, dashPos + 1)
+
+    Dim isNY As Boolean
+    isNY = (UCase(Left(prefix, 2)) = "NY")
+
+    Dim i As Long
+    Dim ch As String
+
+    If Not isNY Then
+        Dim letterPart As String, famDigits As String
+        letterPart = ""
+        famDigits = ""
+        For i = 1 To Len(prefix)
+            ch = Mid(prefix, i, 1)
+            If ch >= "0" And ch <= "9" Then
+                famDigits = famDigits & ch
+            ElseIf famDigits = "" Then
+                letterPart = letterPart & ch
+            Else
+                ' letters after digits (unexpected shape) -- leave prefix untouched
+                letterPart = prefix
+                famDigits = ""
+                Exit For
+            End If
+        Next i
+        If Len(famDigits) > 0 And Len(famDigits) < 2 Then
+            famDigits = String(2 - Len(famDigits), "0") & famDigits
+        End If
+        If Len(famDigits) > 0 Then
+            prefix = letterPart & famDigits
+        End If
+    End If
 
     Dim digits As String
     digits = ""
-    Dim i As Long
     For i = 1 To Len(rest)
-        Dim ch As String
         ch = Mid(rest, i, 1)
         If ch >= "0" And ch <= "9" Then
             digits = digits & ch
@@ -1090,7 +1128,7 @@ Private Function PadNumericStem(raw As String) As String
     Next i
 
     If Len(digits) = 0 Then
-        PadNumericStem = raw
+        PadNumericStem = prefix & "-" & rest
         Exit Function
     End If
 
@@ -1100,6 +1138,6 @@ Private Function PadNumericStem(raw As String) As String
         digits = String(2 - Len(digits), "0") & digits
     End If
 
-    PadNumericStem = prefix & digits & suffix
+    PadNumericStem = prefix & "-" & digits & suffix
 End Function
 

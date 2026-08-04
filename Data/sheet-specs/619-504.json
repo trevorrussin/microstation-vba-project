@@ -1153,6 +1153,7 @@
           "zone": "laneTaper",
           "end": "upstream"
         },
+        "lateralAnchor": "On the shoulder, outboard of the closed travel lane, at the upstream end of the merging taper",
         "note": "Note 5: when movable barrier reopens the lane, arrow panel at shoulder taper end in CAUTION mode."
       },
       {

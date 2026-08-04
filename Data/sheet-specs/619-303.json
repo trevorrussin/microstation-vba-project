@@ -1285,6 +1285,7 @@
           "zone": "mergingTaperUpstream",
           "end": "upstream"
         },
+        "lateralAnchor": "Shoulder / outer edge at head of first merging taper",
         "cellHint": "TWZWVA_P"
       },
       {

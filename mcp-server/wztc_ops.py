@@ -22,6 +22,7 @@ that belongs in one of those two tools.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass, field, asdict
 from typing import Optional
 
 import sheet_spec
@@ -102,11 +103,44 @@ def find_elements_near(x: float, y: float, radius: float, type_filter: str = "")
     at MAX_SPATIAL_ROWS nearest matches — a wide radius that would return
     hundreds of elements will not give you a complete dump. If the engineer
     can point at the target, prefer ask_user_choice(allow_point_pick=True)
-    over a fishing expedition."""
+    over a fishing expedition.
+
+    If you ALREADY have an elementId (from an element pick or a prior
+    result), do NOT search for it with this tool — call
+    get_elements_range([id]) instead. Long lines/arcs often sit far from
+    where you are looking, and a wide search will miss them under the cap."""
     resp = _ok_or_raise(
         _bridge.call("FIND_ELEMENTS_NEAR", x=x, y=y, radius=radius, typeFilter=type_filter),
         "find_elements_near")
     return _cap_spatial_rows(resp.get("rows", []), "find_elements_near", radius)
+
+
+def get_elements_range(element_ids) -> dict:
+    """Return the combined axis-aligned bbox of one or more element IDs.
+
+    Prefer this whenever you already have elementId(s) — e.g. from
+    ask_user_choice(allow_element_pick=True) — instead of find_elements_near
+    fishing. Returns lowX/lowY/highX/highY (and centerX/centerY/width/
+    height for convenience). Pass a list of ids or a comma-separated
+    string. Errors if none of the ids are found in the active model."""
+    if isinstance(element_ids, (list, tuple)):
+        ids_csv = ",".join(str(i).strip() for i in element_ids if str(i).strip())
+    else:
+        ids_csv = str(element_ids or "").strip()
+    if not ids_csv:
+        return {"status": "ERROR", "note": "get_elements_range needs at least one elementId"}
+    resp = _ok_or_raise(
+        _bridge.call("GET_ELEMENTS_RANGE", elementIds=ids_csv),
+        "get_elements_range")
+    low_x, low_y = float(resp["lowX"]), float(resp["lowY"])
+    high_x, high_y = float(resp["highX"]), float(resp["highY"])
+    return {
+        "status": "OK",
+        "lowX": low_x, "lowY": low_y, "highX": high_x, "highY": high_y,
+        "centerX": (low_x + high_x) / 2.0, "centerY": (low_y + high_y) / 2.0,
+        "width": max(high_x - low_x, 0.0), "height": max(high_y - low_y, 0.0),
+        "elementIds": ids_csv,
+    }
 
 
 def station_to_point(align_idx: int, sta: float) -> dict:
@@ -833,7 +867,9 @@ def capture_window(title_substring: str) -> dict:
 
 
 def adjust_view(zoom_out_percent: float = 0, pan_x: float = 0, pan_y: float = 0,
-                 view_num: int = 1) -> dict:
+                 view_num: int = 1,
+                 center_x: float | None = None, center_y: float | None = None,
+                 width: float | None = None, height: float | None = None) -> dict:
     """Zoom and/or pan the current MicroStation view by an EXACT amount.
     This is the reliable replacement for the ZOOM_*/PAN_VIEW_* command-
     registry key-ins -- ALL of those are now needs-testing (disabled)
@@ -847,30 +883,43 @@ def adjust_view(zoom_out_percent: float = 0, pan_x: float = 0, pan_y: float = 0,
     needed, and unlike any registry zoom key-in it supports an exact
     percentage.
 
-    zoom_out_percent: e.g. 40 zooms OUT so ~40% more area becomes visible
-    (new width/height = current * 1.40). Negative zooms IN (e.g. -40 =
-    40% less area, current * 0.60). Must be > -100. 0 = no zoom change.
-    pan_x / pan_y: shift the view center by this many design units (the
-    file's working units, typically feet) in the model's X/Y direction.
-    0 = no pan. Positive pan_x moves the visible center east/right,
-    positive pan_y moves it north/up (standard model-space convention).
+    Absolute framing (PREFERRED when you know model coords):
+      center_x / center_y — absolute model-space view center. Do NOT pass
+      absolute coordinates as pan_x/pan_y — those are RELATIVE deltas and
+      will fling the view millions of feet away (live miss 2026-08-04).
+      width / height — absolute extents in design units (ft). When set,
+      zoom_out_percent is ignored.
 
-    Takes ~2.5 seconds to settle before returning (MicroStation's repaint
-    isn't synchronous with the property write) -- call capture_view or
-    the chat agent's view_drawing afterward to see the result. Returned
-    width/height are what MicroStation actually applied after aspect-fit."""
+    Relative framing (from the current view):
+      zoom_out_percent: e.g. 40 zooms OUT so ~40% more area becomes visible
+      (new width/height = current * 1.40). Negative zooms IN. Must be > -100.
+      pan_x / pan_y: shift the CURRENT view center by this many design units.
+      Positive pan_x = east/right, positive pan_y = north/up.
+
+    Prefer focus_view_on_elements when you have elementIds. Takes ~2.5s to
+    settle — call capture_view / view_drawing afterward to see the result.
+    Returned width/height are what MicroStation actually applied after
+    aspect-fit."""
     state = view_capture.get_view_state(view_num=view_num)
 
-    scale = 1.0 + (zoom_out_percent / 100.0)
-    if scale <= 0:
-        return {"status": "ERROR",
-                "note": f"zoom_out_percent={zoom_out_percent} would produce a non-positive "
-                        "scale factor -- must be greater than -100."}
+    if center_x is not None and center_y is not None:
+        new_center_x = float(center_x) + pan_x
+        new_center_y = float(center_y) + pan_y
+    else:
+        new_center_x = state["centerX"] + pan_x
+        new_center_y = state["centerY"] + pan_y
 
-    new_width = state["width"] * scale
-    new_height = state["height"] * scale
-    new_center_x = state["centerX"] + pan_x
-    new_center_y = state["centerY"] + pan_y
+    if width is not None and height is not None:
+        new_width = max(float(width), 1.0)
+        new_height = max(float(height), 1.0)
+    else:
+        scale = 1.0 + (zoom_out_percent / 100.0)
+        if scale <= 0:
+            return {"status": "ERROR",
+                    "note": f"zoom_out_percent={zoom_out_percent} would produce a non-positive "
+                            "scale factor -- must be greater than -100."}
+        new_width = state["width"] * scale
+        new_height = state["height"] * scale
 
     applied = view_capture.navigate_view(
         new_center_x, new_center_y, new_width, new_height,
@@ -881,6 +930,36 @@ def adjust_view(zoom_out_percent: float = 0, pan_x: float = 0, pan_y: float = 0,
         "newWidth": applied["width"], "newHeight": applied["height"],
         "centerX": applied["centerX"], "centerY": applied["centerY"],
     }
+
+
+def focus_view_on_elements(element_ids, margin: float = 1.3, view_num: int = 1,
+                            min_width: float = 50.0, min_height: float = 50.0) -> dict:
+    """Frame the view on the bbox of the given element ID(s).
+
+    One-shot replacement for the find_elements_near + guess-pan dance.
+    Calls get_elements_range, then adjust_view with absolute center_x/
+    center_y/width/height. margin multiplies the bbox (1.3 = 30% padding).
+    Degenerate (zero-area) ranges — e.g. a horizontal line — get at least
+    min_width x min_height so the view is still usable."""
+    rng = get_elements_range(element_ids)
+    if rng.get("status") != "OK":
+        return rng
+    w = max(rng["width"] * margin, min_width)
+    h = max(rng["height"] * margin, min_height)
+    # Zero-thickness bbox (pure horizontal/vertical line): give square-ish
+    # padding so the line isn't an invisible hairline fill of the view.
+    if rng["width"] < 1.0:
+        w = max(w, min_width)
+    if rng["height"] < 1.0:
+        h = max(h, min_height)
+    applied = adjust_view(center_x=rng["centerX"], center_y=rng["centerY"],
+                          width=w, height=h, view_num=view_num)
+    applied["focusedRange"] = {
+        "lowX": rng["lowX"], "lowY": rng["lowY"],
+        "highX": rng["highX"], "highY": rng["highY"],
+        "elementIds": rng["elementIds"],
+    }
+    return applied
 
 
 # ============================================================== Compute
@@ -943,24 +1022,164 @@ def resolve_sign_code(code: str) -> list[dict]:
 # obstruction dodge, a non-standard station) so a PE reviewing the journal
 # later can see *why*, not just *what*.
 
-# In-process plan-session flags (chat_driver process lifetime). Soft
-# memory so place_perp_line can refuse the incomplete sketch pattern that
-# shipped live 2026-08-02 (workspace + alignment + one sign + one tick,
-# declared "done" with no order table). Cleared by reset_plan_session_flags
-# (exit_mode) or rebuilt when build_wztc_order_table runs.
-_PLAN_SESSION: dict = {
-    "placed_workspace": False,
-    "order_table_built": False,
-    "stations_placed_aligns": set(),
-}
+@dataclass
+class DesignerInputs:
+    """Snapshot of the designer inputs (WZTCDesigner.frm equivalent) locked
+    in by the most recent successful build_wztc_order_table call. Real
+    persisted state — not something later code has to re-derive by
+    rereading chat history (that's what silently regressed live
+    2026-08-04 into a re-asked area_type)."""
+    sheet_num: str
+    speed: int
+    road_type: str
+    lane_width: int
+    shoulder_width: str
+    area_type: str = ""
+    closure_type: str = ""
+    exposure_condition: str = ""
+    protective_vehicle_gvw: int = 0
+
+
+@dataclass
+class PlanSession:
+    """In-process plan-session state (chat_driver process lifetime). Soft
+    memory so place_perp_line/place_sign/the heuristic PlaceOrderTable*
+    tools can refuse incomplete or bypassed-path patterns instead of
+    silently drawing them — e.g. the incomplete-sketch pattern that shipped
+    live 2026-08-02 (workspace + alignment + one sign + one tick, declared
+    "done" with no order table). Cleared by reset() (exit_mode) or rebuilt
+    when build_wztc_order_table runs.
+
+    A single instance lives at module scope as _PLAN_SESSION below — this
+    class exists so each field has a name, a type, and (where the logic is
+    more than a single assignment) a method, instead of every caller
+    reaching into an untyped dict by string key."""
+    placed_workspace: bool = False
+    order_table_built: bool = False
+    stations_placed_aligns: set[int] = field(default_factory=set)
+    designer_inputs: Optional[DesignerInputs] = None
+    locked_sign_rows: set[tuple[int, str]] = field(default_factory=set)
+    aligns_ready: set[int] = field(default_factory=set)
+
+    def reset(self) -> None:
+        """Drop plan-flow memory (call from exit_mode so a later general/
+        wztc task doesn't inherit a prior plan's gate state)."""
+        self.placed_workspace = False
+        self.order_table_built = False
+        self.stations_placed_aligns = set()
+        self.designer_inputs = None
+        self.locked_sign_rows = set()
+        self.aligns_ready = set()
+
+    def lock_designer_inputs(self, **kwargs) -> None:
+        self.designer_inputs = DesignerInputs(**kwargs)
+
+    def get_locked_inputs_dict(self) -> dict:
+        if self.designer_inputs is None:
+            return {"locked": False}
+        return {"locked": True, **asdict(self.designer_inputs)}
+
+    def lock_sign_rows(self, sign_rows: list[dict]) -> None:
+        self.locked_sign_rows = {
+            (int(r["align_idx"]), str(r["sign_num"]).strip().upper()) for r in sign_rows
+        }
+
+    def mark_align_ready(self, align_idx: int) -> bool:
+        """Returns True once BOTH align 1 and align 2 are ready."""
+        self.aligns_ready.add(align_idx)
+        return not ({1, 2} - self.aligns_ready)
+
+
+_PLAN_SESSION = PlanSession()
 
 
 def reset_plan_session_flags() -> None:
     """Drop plan-flow memory (call from exit_mode so a later general/wztc
     task doesn't inherit a prior plan's gate state)."""
-    _PLAN_SESSION["placed_workspace"] = False
-    _PLAN_SESSION["order_table_built"] = False
-    _PLAN_SESSION["stations_placed_aligns"] = set()
+    _PLAN_SESSION.reset()
+
+
+def _check_corridor_topology_if_ready(align_idx: int, force: bool) -> Optional[str]:
+    """Called after commit_alignment/adopt_alignment succeeds. Once BOTH
+    align 1 and align 2 are ready (and this build has a real sheet spec),
+    runs check_corridor_topology immediately — not only later at
+    compile_hatch/run_rules_gate time, by which point a bad corridor could
+    already have a full plan computed against it. Returns a warning string
+    (force=True) or raises ValueError (force=False) when the check fails;
+    returns None when not yet applicable (only one alignment ready, or no
+    spec locked for this build)."""
+    if not _PLAN_SESSION.mark_align_ready(align_idx):
+        return None
+    inputs = _PLAN_SESSION.designer_inputs
+    if inputs is None:
+        return None
+    spec = sheet_spec.load(inputs.sheet_num)
+    if spec is None:
+        return None
+    resolved = sheet_spec.resolve(
+        spec, inputs.speed, inputs.lane_width, inputs.shoulder_width,
+        inputs.area_type or None, inputs.closure_type or None,
+        inputs.exposure_condition or None,
+        protective_vehicle_gvw=inputs.protective_vehicle_gvw or None)
+    import alignment_geometry as ag
+    segs1 = ag.parse_vertices(get_alignment_vertices(1))
+    segs2 = ag.parse_vertices(get_alignment_vertices(2))
+    width_ft = float(inputs.lane_width or 0.0)
+    fails = sheet_spec.check_corridor_topology(spec, resolved, segs1, segs2, width_ft=width_ft)
+    if not fails:
+        return None
+    msg = "; ".join(fails)
+    if force:
+        return f"corridorTopologyWarning (force=True, proceeding anyway): {msg}"
+    raise ValueError(
+        f"corridor-topology check failed after both alignments became ready: {msg} "
+        f"The alignment commit/adopt itself already succeeded (nothing to undo) — "
+        f"fix align2's geometry and recommit/re-adopt it, or pass force=True if this "
+        f"corridor is intentional."
+    )
+
+
+def get_locked_designer_inputs() -> dict:
+    """Returns the designer inputs (speed/road_type/lane_width/
+    shoulder_width/area_type/sheet_num/...) locked in by the most recent
+    successful build_wztc_order_table call this session, or
+    {"locked": False} if none yet. Real persisted state, not "reread it
+    from chat history" -- call this instead of re-deriving/re-asking the
+    engineer for values already established earlier in the same build,
+    including after a turn that hit MAX_TOOL_ITERATIONS and had to
+    continue in a fresh turn (history re-reading is what silently regressed
+    live 2026-08-04 into a re-asked area_type)."""
+    return _PLAN_SESSION.get_locked_inputs_dict()
+
+
+def _refuse_if_spec_path_available(tool_name: str, force: bool) -> None:
+    """Refuses a legacy heuristic PlaceOrderTable*/place_sheet_symbol_cells
+    call when the current build has a real Data/sheet-specs/<sheet>.json —
+    that spec-driven geometry should go through place_sheet_geometry (the
+    placement-plan compiler + run_rules_gate), not this generic heuristic
+    path, which has no rules-gate validation at all (confirmed live
+    2026-08-04: this path is how a bad corridor could still get fully
+    drawn even after run_rules_gate's corridor-topology check existed,
+    simply by never calling compile_sheet_plan in the first place). Only
+    checked when build_wztc_order_table already locked a sheet_num this
+    session — an unrelated one-off drawing op outside a sheet build is
+    unaffected. Pass force=True to use the heuristic path anyway (e.g. the
+    compiler doesn't cover this layer yet for this sheet family)."""
+    if force:
+        return
+    inputs = _PLAN_SESSION.designer_inputs
+    if inputs is None:
+        return
+    sheet_num = inputs.sheet_num
+    if not sheet_num or sheet_spec.load(sheet_num) is None:
+        return
+    raise ValueError(
+        f"{tool_name} is the generic heuristic path with no rules-gate validation. "
+        f"Data/sheet-specs/{sheet_num}.json exists for this build — use "
+        f"place_sheet_geometry instead, which compiles from that spec and runs "
+        f"run_rules_gate (corridor-topology, taper-continuity, cone-spacing, etc.) "
+        f"before placing anything. Pass force=True only if the compiler genuinely "
+        f"doesn't cover what you need here.")
 
 
 def place_perp_line(align_idx: int, sta: float, half_len: float = 40,
@@ -976,14 +1195,14 @@ def place_perp_line(align_idx: int, sta: float, half_len: float = 40,
     tool refuses when the session already looks like a plan (workspace
     placed and/or order table built but stations not yet batched)."""
     if not one_off:
-        if _PLAN_SESSION["order_table_built"] and align_idx not in _PLAN_SESSION["stations_placed_aligns"]:
+        if _PLAN_SESSION.order_table_built and align_idx not in _PLAN_SESSION.stations_placed_aligns:
             raise ValueError(
                 f"Order table exists but place_order_table_stations has not been called "
                 f"for align_idx={align_idx} yet. Call place_order_table_stations instead "
                 f"(not place_perp_line item-by-item). Pass one_off=True only if the "
                 f"engineer explicitly asked for a single ad-hoc tick outside the order table."
             )
-        if _PLAN_SESSION["placed_workspace"] and not _PLAN_SESSION["order_table_built"]:
+        if _PLAN_SESSION.placed_workspace and not _PLAN_SESSION.order_table_built:
             raise ValueError(
                 "place_workspace already ran this session — treat this as a work-zone plan. "
                 "Call build_wztc_order_table (show the engineer the table), commit_alignment "
@@ -1000,8 +1219,19 @@ def place_sign(sign_num: str, road_type: str, side: str,
                pt1x: float, pt1y: float, pt1z: float, dir1x: float, dir1y: float,
                pt2x: Optional[float] = None, pt2y: Optional[float] = None, pt2z: Optional[float] = None,
                dir2x: Optional[float] = None, dir2y: Optional[float] = None,
-               reason: str = "", align_idx: int = 0) -> dict:
+               reason: str = "", align_idx: int = 0, one_off: bool = False) -> dict:
     """Place a sign assembly (post + edge-connected stem + face + label).
+
+    If build_wztc_order_table already ran this session, sign_num MUST match
+    one of its resolved sign_rows (the deterministic Table-driven legend/
+    side pick) — this refuses an ad-hoc sign_num that wasn't in that list,
+    the same guard shape place_perp_line already uses for stations. This
+    exists because a live miss picked a manually-guessed legend variant
+    (W20-01RA) instead of the order table's own resolved one (W20-01RF) by
+    calling resolve_sign_code + place_sign directly rather than trusting
+    build_wztc_order_table's Table 311-03-driven pick. Pass one_off=True
+    only for a genuine ad-hoc sign the engineer explicitly asked for
+    outside the order table.
 
     pt1 is the ATTACHMENT POINT ON THE PERPENDICULAR TICK — typically the
     outward tip of the 80ft perp line from place_order_table_stations /
@@ -1030,6 +1260,25 @@ def place_sign(sign_num: str, road_type: str, side: str,
                    [("pt2x", pt2x), ("pt2y", pt2y), ("dir2x", dir2x), ("dir2y", dir2y)] if v is None]
         if missing:
             raise ValueError(f"side='Both Sides' requires {missing}")
+    if not one_off and _PLAN_SESSION.order_table_built and _PLAN_SESSION.locked_sign_rows:
+        key = str(sign_num).strip().upper()
+        locked = _PLAN_SESSION.locked_sign_rows
+        locked_codes = {c for _, c in locked}
+        if align_idx and align_idx > 0:
+            ok = (align_idx, key) in locked
+        else:
+            ok = key in locked_codes
+        if not ok:
+            raise ValueError(
+                f"sign_num={sign_num!r} is not in build_wztc_order_table's resolved "
+                f"sign_rows for this build ({sorted(locked_codes)}). Do not hand-pick a "
+                f"resolve_sign_code candidate or a manually-guessed legend variant — the "
+                f"order table already resolved the correct one from the sheet's own "
+                f"legend table. If build_wztc_order_table's inputs were wrong, fix and "
+                f"re-call it rather than overriding here. Pass one_off=True only for a "
+                f"genuine ad-hoc sign the engineer explicitly asked for outside the order "
+                f"table."
+            )
     kwargs = dict(signNum=sign_num, roadType=road_type, side=side,
                   pt1X=pt1x, pt1Y=pt1y, pt1Z=pt1z, dir1X=dir1x, dir1Y=dir1y,
                   pt2X=pt2x, pt2Y=pt2y, pt2Z=pt2z, dir2X=dir2x, dir2Y=dir2y,
@@ -1048,7 +1297,7 @@ def place_workspace(vertices: list[list[float]], reason: str = "") -> dict:
     continuing the plan. Do not substitute place_block for this."""
     verts_tsv = "|".join(f"{p[0]},{p[1]},{p[2] if len(p) > 2 else 0}" for p in vertices)
     resp = _ok_or_raise(_bridge.call("PLACE_WORKSPACE", verticesTSV=verts_tsv, reason=reason), "place_workspace")
-    _PLAN_SESSION["placed_workspace"] = True
+    _PLAN_SESSION.placed_workspace = True
     return resp
 
 
@@ -1168,8 +1417,16 @@ def build_wztc_order_table(speed: int, road_type: str, lane_width: int, shoulder
                      nonSignRowsTSV=spec_rows_tsv, spacingOverridesTSV=overrides_tsv),
         "build_wztc_order_table")
     resp.update(spec_info)
-    _PLAN_SESSION["order_table_built"] = True
-    _PLAN_SESSION["stations_placed_aligns"] = set()
+    _PLAN_SESSION.order_table_built = True
+    _PLAN_SESSION.stations_placed_aligns = set()
+    _PLAN_SESSION.lock_designer_inputs(
+        sheet_num=sheet_num, speed=speed, road_type=road_type,
+        lane_width=lane_width, shoulder_width=shoulder_width,
+        area_type=area_type, closure_type=closure_type,
+        exposure_condition=exposure_condition,
+        protective_vehicle_gvw=protective_vehicle_gvw,
+    )
+    _PLAN_SESSION.lock_sign_rows(sign_rows)
     return resp
 
 
@@ -1215,19 +1472,55 @@ def define_alignment_segment(align_idx: int, vertices: list[list[float]], reason
         "define_alignment_segment")
 
 
-def commit_alignment(align_idx: int) -> dict:
+def commit_alignment(align_idx: int, force: bool = False) -> dict:
     """Group every segment recorded by define_alignment_segment for
     align_idx into a graphic group, marking that alignment ready for
     place_order_table_stations. Call once per alignment after all its
-    define_alignment_segment calls."""
+    define_alignment_segment calls.
+
+    Once BOTH align 1 and align 2 are committed/adopted (and this build has
+    a locked sheet spec), this runs the corridor-topology check immediately
+    — catching a bad corridor (e.g. Downstream committed further along
+    Upstream's own line instead of at a distinct work-area edge) right when
+    it's created, not only later when place_sheet_geometry compiles a full
+    plan against it. Raises if the check fails; pass force=True to proceed
+    anyway (the commit itself already succeeded either way — nothing to
+    undo)."""
     resp = _ok_or_raise(_bridge.call("COMMIT_ALIGNMENT", alignIdx=align_idx), "commit_alignment")
-    if not _PLAN_SESSION["order_table_built"]:
+    warning = _check_corridor_topology_if_ready(align_idx, force)
+    if warning:
+        resp["corridorTopologyWarning"] = warning
+    if not _PLAN_SESSION.order_table_built:
         resp["nextStep"] = (
             "build_wztc_order_table (show engineer), then place_order_table_stations — "
             "do not place_perp_line/place_sign by hand for plan stations"
         )
-    elif align_idx not in _PLAN_SESSION["stations_placed_aligns"]:
+    elif align_idx not in _PLAN_SESSION.stations_placed_aligns:
         resp["nextStep"] = f"place_order_table_stations(align_idx={align_idx}, reset_session=...)"
+    return resp
+
+
+def adopt_alignment(align_idx: int, element_id: str, force: bool = False) -> dict:
+    """Re-bind SharedState for align_idx to an EXISTING LINE element in the
+    model — without redrawing it. Use after a VBA hot-reload / IDE Reset
+    wiped in-memory alignment session state while the corridor geometry
+    is still on screen (live miss 2026-08-04). Also use when the engineer
+    element-picks an existing centerline to adopt as Upstream/Downstream.
+
+    element_id must be a LINE (not a complex chain). align_idx: 1=Upstream,
+    2=Downstream. After adopt, place_order_table_stations / station_to_point
+    / get_alignment_vertices work again for that align_idx.
+
+    Once BOTH align 1 and align 2 are committed/adopted (and this build has
+    a locked sheet spec), this runs the corridor-topology check immediately
+    — same as commit_alignment. Raises if it fails; force=True to proceed
+    anyway (the adopt itself already succeeded either way)."""
+    resp = _ok_or_raise(
+        _bridge.call("ADOPT_ALIGNMENT_ELEMENT", alignIdx=align_idx, elementId=element_id),
+        "adopt_alignment")
+    warning = _check_corridor_topology_if_ready(align_idx, force)
+    if warning:
+        resp["corridorTopologyWarning"] = warning
     return resp
 
 
@@ -1269,7 +1562,7 @@ def place_order_table_stations(align_idx: int, reset_session: bool = False,
       place_sign(..., pt1=tip, dir1=outward)
     VBA builds the edge-connected stem/post/face from that tip; wrong pt1/dir
     is what produced assemblies along the road or floating off the tick."""
-    already = align_idx in _PLAN_SESSION["stations_placed_aligns"]
+    already = align_idx in _PLAN_SESSION.stations_placed_aligns
     if already and not clear_prior and not force:
         raise ValueError(
             f"stations already placed for align_idx={align_idx} this session. "
@@ -1284,7 +1577,7 @@ def place_order_table_stations(align_idx: int, reset_session: bool = False,
         _bridge.call("PLACE_ORDER_TABLE_STATIONS", alignIdx=align_idx,
                      resetSession="Y" if reset_session else "N"),
         "place_order_table_stations")
-    _PLAN_SESSION["stations_placed_aligns"].add(align_idx)
+    _PLAN_SESSION.stations_placed_aligns.add(align_idx)
     if cleared is not None:
         resp["clearedPrior"] = cleared
     return resp
@@ -1292,12 +1585,17 @@ def place_order_table_stations(align_idx: int, reset_session: bool = False,
 
 def place_order_table_labels(align_idx: int, outward_sign: float = -1.0,
                              text_extra_along: float = 20.0,
-                             sheet_elements: str = "") -> dict:
+                             sheet_elements: str = "", force: bool = False) -> dict:
     """Name labels BELOW tip-to-tip dims (X-centered). sheet_elements from
     get_sheet_requirements gates optional tapers (Must include ShoulderTaper
     when the official sheet shows it). Core Roll Ahead / Vehicle Space /
     Buffer always. Dims are separate — place_order_table_dimensions does
-    every tick and is not sheet-gated."""
+    every tick and is not sheet-gated.
+
+    Generic heuristic, no rules-gate validation — refuses when a sheet spec
+    exists for this build (prefer place_sheet_geometry then). force=True
+    to override."""
+    _refuse_if_spec_path_available("place_order_table_labels", force)
     return _ok_or_raise(
         _bridge.call("PLACE_ORDER_TABLE_LABELS", alignIdx=align_idx,
                      outwardSign=outward_sign, textExtraAlong=text_extra_along,
@@ -1307,10 +1605,15 @@ def place_order_table_labels(align_idx: int, outward_sign: float = -1.0,
 
 def place_order_table_dimensions(align_idx: int, outward_sign: float = -1.0,
                                  offset_dist: float = 15.0,
-                                 sheet_elements: str = "") -> dict:
+                                 sheet_elements: str = "", force: bool = False) -> dict:
     """Real ny_Plan Linear Size dims tip-to-tip between EVERY consecutive
     tick (including Sign spacings). Length above the dim line.
-    sheet_elements is not used for gating (API compat only)."""
+    sheet_elements is not used for gating (API compat only).
+
+    Generic heuristic, no rules-gate validation — refuses when a sheet spec
+    exists for this build (prefer place_sheet_geometry then). force=True
+    to override."""
+    _refuse_if_spec_path_available("place_order_table_dimensions", force)
     return _ok_or_raise(
         _bridge.call("PLACE_ORDER_TABLE_DIMENSIONS", alignIdx=align_idx,
                      outwardSign=outward_sign, offsetDist=offset_dist,
@@ -1319,10 +1622,16 @@ def place_order_table_dimensions(align_idx: int, outward_sign: float = -1.0,
 
 
 def place_sheet_symbol_cells(align_idx: int, sheet_elements: str,
-                             outward_sign: float = -1.0) -> dict:
+                             outward_sign: float = -1.0, force: bool = False) -> dict:
     """ProtectiveVehicle→TWZWVA_P in Vehicle Space bay (Buffer Space fallback
     when the sheet has no VS — e.g. 619-301); ArrowPanel→TWZAP_P at
-    Shoulder Taper tip (fallback Merging/Lane taper)."""
+    Shoulder Taper tip (fallback Merging/Lane taper).
+
+    Generic heuristic (fixed offset, not lane/shoulder-width-derived), no
+    rules-gate validation — refuses when a sheet spec exists for this build
+    (prefer place_sheet_geometry, whose compile_symbols derives a real
+    lateral position from lane/shoulder width). force=True to override."""
+    _refuse_if_spec_path_available("place_sheet_symbol_cells", force)
     return _ok_or_raise(
         _bridge.call("PLACE_SHEET_SYMBOL_CELLS", alignIdx=align_idx,
                      sheetElements=sheet_elements, outwardSign=outward_sign),
@@ -1330,10 +1639,17 @@ def place_sheet_symbol_cells(align_idx: int, sheet_elements: str,
 
 
 def place_order_table_workspace(align_idx: int, outward_sign: float = -1.0,
-                                lane_width: float = 12.0) -> dict:
+                                lane_width: float = 12.0, force: bool = False) -> dict:
     """Hatched work-space box in the closed lane from path start through
     Vehicle Space end (Buffer Space end when the sheet has no VS). Not
-    freeform vertices."""
+    freeform vertices.
+
+    Generic heuristic, no rules-gate validation — refuses when a sheet spec
+    exists for this build (prefer place_sheet_geometry, whose compile_hatch
+    derives the work-area bounds from both alignments' own station-0 points
+    and is checked by run_rules_gate's corridor-topology gate). force=True
+    to override."""
+    _refuse_if_spec_path_available("place_order_table_workspace", force)
     return _ok_or_raise(
         _bridge.call("PLACE_ORDER_TABLE_WORKSPACE", alignIdx=align_idx,
                      outwardSign=outward_sign, laneWidth=lane_width),
@@ -1341,10 +1657,16 @@ def place_order_table_workspace(align_idx: int, outward_sign: float = -1.0,
 
 
 def place_order_table_channelizing(align_idx: int, outward_sign: float = -1.0,
-                                   lane_width: float = 12.0) -> dict:
+                                   lane_width: float = 12.0, force: bool = False) -> dict:
     """Sheet-bounded channelizing: merging/lane taper diagonal (or shoulder
     taper alone on shoulder-only sheets) + longitudinal closed-lane run
-    from taper toe to path start. Does not use freeform AccuDraw vertices."""
+    from taper toe to path start. Does not use freeform AccuDraw vertices.
+
+    Generic heuristic, no rules-gate validation (taper-continuity/
+    cone-spacing checks live in run_rules_gate, only reachable via
+    compile_sheet_plan) — refuses when a sheet spec exists for this build
+    (prefer place_sheet_geometry). force=True to override."""
+    _refuse_if_spec_path_available("place_order_table_channelizing", force)
     return _ok_or_raise(
         _bridge.call("PLACE_ORDER_TABLE_CHANNELIZING", alignIdx=align_idx,
                      outwardSign=outward_sign, laneWidth=lane_width),
@@ -1611,6 +1933,363 @@ def handoff(kind: str, from_sta: Optional[float] = None, to_sta: Optional[float]
     return _ok_or_raise(_bridge.call("HANDOFF", **params), "handoff")
 
 
+# ======================================== Spec placement-plan compiler
+# sheet_spec.compile_* produces absolute-coordinate primitives; these
+# tools fetch alignment vertices, compile, gate, and optionally place.
+# Prefer place_sheet_geometry over place_order_table_labels/dimensions/
+# channelizing/workspace/symbol_cells for sheets that have a JSON spec.
+
+def _shoulder_width_ft(shoulder_width: str) -> float:
+    """Collapse a display band / dropdown value to a numeric ft for geometry.
+    Prefer an explicit '12 ft' / '8 ft' number; band labels map to a
+    representative width (same bands sheet_spec.shoulder_band uses)."""
+    import re
+    s = (shoulder_width or "").strip().lower().replace("–", "-").replace("≥", ">=")
+    m = re.search(r"(\d+(?:\.\d+)?)\s*ft", s)
+    if m:
+        return float(m.group(1))
+    if ">= 8" in s or ">=8" in s:
+        return 8.0
+    if "5" in s and "7" in s:
+        return 6.0
+    if "< 5" in s or "4 ft" in s or s.startswith("4"):
+        return 4.0
+    return 8.0
+
+
+def _segments_for_align(align_idx: int):
+    import alignment_geometry as ag
+    rows = get_alignment_vertices(align_idx)
+    if not rows:
+        raise ValueError(
+            f"no vertices for align_idx={align_idx} — commit_alignment or "
+            f"adopt_alignment first")
+    return ag.parse_vertices(rows)
+
+
+def _filter_symbol_alts(symbol_prims: list[dict], arrow_panel_choice: str) -> list[dict]:
+    """arrow_panel_choice: 'trailer' keeps arrowPanel, drops alt-group PVs;
+    'vehicle' keeps the PV partner, drops arrowPanel."""
+    choice = (arrow_panel_choice or "trailer").strip().lower()
+    by_group: dict[str, list[dict]] = {}
+    for p in symbol_prims:
+        g = p.get("altGroup")
+        if g:
+            by_group.setdefault(g, []).append(p)
+    drop_ids = set()
+    for g, members in by_group.items():
+        ap = [m for m in members if m.get("kind") == "arrowPanel"]
+        pvs = [m for m in members if m.get("kind") == "protectiveVehicle"]
+        if choice in ("trailer", "arrow", "arrowpanel", "ap"):
+            for m in pvs:
+                drop_ids.add(m["id"])
+        else:
+            for m in ap:
+                drop_ids.add(m["id"])
+    out = []
+    for p in symbol_prims:
+        if p.get("kind") in ("protectiveVehicle", "arrowPanel") and p.get("id") in drop_ids:
+            continue
+        if p.get("kind") == "vehicleMountedSign" and p.get("mountedOn") in drop_ids:
+            continue
+        out.append(p)
+    return out
+
+
+def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_width: str,
+                        area_type: str = "", closure_type: str = "",
+                        exposure_condition: str = "",
+                        protective_vehicle_gvw: int = 0,
+                        align_idxs: Optional[list[int]] = None,
+                        outward_sign: float = -1.0,
+                        sheet_elements: str = "",
+                        arrow_panel_choice: str = "trailer",
+                        include_primitives: bool = False) -> dict:
+    """Compile a sheet-faithful placement plan in absolute model coords
+    (no drawing). Requires Data/sheet-specs/<sheet>.json and committed/
+    adopted alignments for each align_idxs entry.
+
+    Returns gateFailures (empty = pass), primitive counts, and (when
+    include_primitives=True) the plan dict that place_sheet_geometry
+    executes. Prefer place_sheet_geometry(dry_run=True) for a one-shot
+    preview — leave include_primitives=False for agent calls (coords are
+    huge); place_sheet_geometry keeps the full plan in-process."""
+    import sheet_spec
+
+    spec = sheet_spec.load(sheet_num)
+    if spec is None:
+        raise ValueError(
+            f"no sheet spec for {sheet_num!r} — cannot compile. "
+            f"Use place_order_table_* heuristics only as a last resort, or "
+            f"author Data/sheet-specs/{sheet_num}.json first.")
+
+    roles = spec.get("tableRoles") or {}
+    if roles.get("advanceWarningSpacing") and not area_type:
+        raise ValueError(
+            f"sheet {sheet_num} needs area_type='URBAN'/'RURAL'/'FREEWAY'")
+
+    gvw = protective_vehicle_gvw if protective_vehicle_gvw and protective_vehicle_gvw > 0 else None
+    try:
+        resolved = sheet_spec.resolve(
+            spec, speed, lane_width, shoulder_width,
+            area_type or None, closure_type or None, exposure_condition or None,
+            protective_vehicle_gvw=gvw)
+    except sheet_spec.SpecError as e:
+        raise ValueError(str(e)) from e
+
+    if not sheet_elements:
+        req = get_sheet_requirements(sheet_num)
+        sheet_elements = req.get("elements") or ""
+
+    idxs = list(align_idxs) if align_idxs else [1]
+    sh_ft = _shoulder_width_ft(shoulder_width)
+    segs_by_align = {i: _segments_for_align(i) for i in idxs}
+
+    plan_by_align: dict[str, list] = {}
+    chan_by_align: dict[str, list] = {}
+    sym_by_align: dict[str, list] = {}
+    all_plan, all_chan, all_sym = [], [], []
+
+    for a in idxs:
+        segs = segs_by_align[a]
+        plan = sheet_spec.compile_plan(
+            spec, resolved, a, segs, outward_sign=outward_sign,
+            sheet_elements=sheet_elements)
+        chan = sheet_spec.compile_channelizing(
+            spec, resolved, a, segs, lane_width_ft=float(lane_width),
+            shoulder_width_ft=sh_ft, outward_sign=outward_sign)
+        sym = _filter_symbol_alts(
+            sheet_spec.compile_symbols(
+                spec, resolved, a, segs, outward_sign=outward_sign,
+                lane_width_ft=float(lane_width), shoulder_width_ft=sh_ft),
+            arrow_panel_choice)
+        plan_by_align[str(a)] = plan
+        chan_by_align[str(a)] = chan
+        sym_by_align[str(a)] = sym
+        all_plan.extend(plan)
+        all_chan.extend(chan)
+        all_sym.extend(sym)
+
+    hatch: list = []
+    if 1 in segs_by_align and 2 in segs_by_align:
+        hatch = sheet_spec.compile_hatch(
+            spec, resolved, segs_by_align[1], segs_by_align[2],
+            lane_width_ft=float(lane_width), shoulder_width_ft=sh_ft,
+            outward_sign=outward_sign)
+    elif 1 in idxs and 2 not in idxs:
+        hatch = [{"kind": "note",
+                  "text": "hatch skipped — need both align 1 and 2 committed/adopted"}]
+
+    gate_align = idxs[0]
+    gate = sheet_spec.run_rules_gate(
+        spec, resolved, gate_align,
+        plan_by_align.get(str(gate_align), []),
+        chan_by_align.get(str(gate_align), []),
+        sym_by_align.get(str(gate_align), []),
+        hatch if isinstance(hatch, list) else None)
+
+    def _count(prims):
+        from collections import Counter
+        return dict(Counter(p.get("kind", "?") for p in prims))
+
+    out = {
+        "status": "OK" if not gate else "GATE_FAILED",
+        "sheet": sheet_num,
+        "specDriven": True,
+        "gateFailures": gate,
+        "counts": {
+            "plan": _count(all_plan),
+            "channelizing": _count(all_chan),
+            "symbols": _count(all_sym),
+            "hatch": _count([h for h in hatch if isinstance(h, dict)]) if hatch else {},
+        },
+        "arrowPanelChoice": arrow_panel_choice,
+        "planAlignIdxs": idxs,
+    }
+    if include_primitives:
+        out["plan"] = {
+            "alignIdxs": idxs,
+            "planByAlign": plan_by_align,
+            "channelizingByAlign": chan_by_align,
+            "symbolsByAlign": sym_by_align,
+            "hatch": hatch,
+            "sheetElements": sheet_elements,
+        }
+    return out
+
+
+def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
+                           force: bool = False) -> dict:
+    """Place primitives from compile_sheet_plan / place_sheet_geometry.
+    Internal helper — agent should call place_sheet_geometry, not this.
+    layers defaults to dimensions,labels,channelizing,symbols,hatch
+    (stations/signs stay on place_order_table_stations + place_sign).
+    Refuses if plan['gateFailures'] is non-empty unless force=True."""
+    if not plan or "plan" not in plan:
+        raise ValueError("execute_compiled_plan needs the dict returned by compile_sheet_plan")
+
+    inner = plan["plan"]
+    if "planByAlign" not in inner:
+        raise ValueError("compiled plan missing planByAlign — re-run compile_sheet_plan")
+
+    gate = plan.get("gateFailures") or []
+    if gate and not force:
+        raise ValueError(
+            f"rules gate failed ({len(gate)}): {gate[:3]}… Pass force=True to place anyway, "
+            f"or fix inputs / alignments and recompile.")
+
+    want = set(layers or ["dimensions", "labels", "channelizing", "symbols", "hatch"])
+    placed: list[dict] = []
+    errors: list[str] = []
+
+    def _ok(layer, detail):
+        placed.append({"layer": layer, **detail})
+
+    # --- dimensions + labels (per align); skip station primitives (ticks
+    # come from place_order_table_stations)
+    if "dimensions" in want or "labels" in want:
+        for _a_str, prims in inner["planByAlign"].items():
+            for p in prims:
+                try:
+                    if p["kind"] == "dimension" and "dimensions" in want:
+                        t1, t2, off = p["tip1"], p["tip2"], p["offset"]
+                        r = place_dimension(t1[0], t1[1], t2[0], t2[1], off[0], off[1],
+                                            reason=f"compiled dim {p.get('text','')}")
+                        _ok("dimension", {"status": r.get("status"), "text": p.get("text")})
+                    elif p["kind"] == "label" and "labels" in want:
+                        r = place_text_label(p["text"], p["x"], p["y"],
+                                             reason="compiled Non-Sign label")
+                        _ok("label", {"status": r.get("status"), "text": p.get("text")})
+                except Exception as e:
+                    errors.append(f"{p.get('kind')}: {e}")
+
+    # --- channelizing: one Channelizing Devices polyline per cone run
+    # (correct tip-to-toe geometry from the compiler; not individual circles)
+    if "channelizing" in want:
+        for _a_str, prims in inner.get("channelizingByAlign", {}).items():
+            by_run: dict[str, list] = {}
+            for p in prims:
+                if p.get("kind") == "cone":
+                    by_run.setdefault(p.get("run", "run"), []).append(p)
+            for run_id, cones in by_run.items():
+                cones_sorted = sorted(cones, key=lambda c: float(c.get("stationFt", 0)))
+                if len(cones_sorted) < 2:
+                    continue
+                verts = [[c["x"], c["y"], 0.0] for c in cones_sorted]
+                try:
+                    r = place_element_run(2, verts,
+                                          reason=f"compiled channelizing {run_id}")
+                    _ok("channelizing_run", {"run": run_id, "cones": len(cones_sorted),
+                                             "status": r.get("status")})
+                except Exception as e:
+                    errors.append(f"channelizing {run_id}: {e}")
+
+    # --- symbols
+    if "symbols" in want:
+        for _a_str, prims in inner.get("symbolsByAlign", {}).items():
+            for p in prims:
+                try:
+                    if p["kind"] in ("protectiveVehicle", "arrowPanel"):
+                        r = place_cell(p["cellName"], p["x"], p["y"], 0.0,
+                                       p.get("angleDeg", 0.0),
+                                       reason=f"compiled {p['kind']} {p.get('id','')}")
+                        _ok(p["kind"], {"id": p.get("id"), "status": r.get("status"),
+                                        "requiredNote": p.get("requiredNote")})
+                    elif p["kind"] == "vehicleMountedSign":
+                        r = handoff(
+                            kind="callout",
+                            notes=(f"{p.get('signCode')} vehicle-mounted on "
+                                   f"{p.get('mountedOn')} at ({p['x']:.1f},{p['y']:.1f})"),
+                            reason="compiled vehicle-mounted sign (not a roadside post)")
+                        _ok("vehicleMountedSign", {"signCode": p.get("signCode"),
+                                                   "status": r.get("status")})
+                except Exception as e:
+                    errors.append(f"symbol {p.get('kind')}: {e}")
+
+    # --- hatch + transverse (place_workspace must NOT repeat first vertex)
+    if "hatch" in want:
+        for p in inner.get("hatch") or []:
+            try:
+                if p.get("kind") == "hatch":
+                    verts = [[x, y, 0.0] for x, y in p["boundary"]]
+                    r = place_workspace(verts, reason="compiled work-area hatch")
+                    _ok("hatch", {"status": r.get("status"),
+                                  "workAreaLengthFt": p.get("workAreaLengthFt")})
+                elif p.get("kind") == "transverseRun":
+                    t1, t2 = p["tip1"], p["tip2"]
+                    r = place_element_run(2, [[t1[0], t1[1], 0], [t2[0], t2[1], 0]],
+                                          reason="compiled transverse channelizing")
+                    _ok("transverseRun", {"status": r.get("status")})
+            except Exception as e:
+                errors.append(f"hatch: {e}")
+
+    return {
+        "status": "OK" if not errors else "PARTIAL",
+        "placedCount": len(placed),
+        "placed": placed[:40],
+        "placedTruncated": max(0, len(placed) - 40),
+        "errors": errors,
+    }
+
+
+def place_sheet_geometry(sheet_num: str, speed: int, lane_width: int, shoulder_width: str,
+                          area_type: str = "", closure_type: str = "",
+                          exposure_condition: str = "",
+                          protective_vehicle_gvw: int = 0,
+                          align_idxs: Optional[list[int]] = None,
+                          outward_sign: float = -1.0,
+                          sheet_elements: str = "",
+                          arrow_panel_choice: str = "trailer",
+                          dry_run: bool = False,
+                          force: bool = False,
+                          layers: Optional[list[str]] = None) -> dict:
+    """Compile + (unless dry_run) place sheet-faithful dims/labels/
+    channelizing/symbols/hatch from Data/sheet-specs/<sheet>.json.
+
+    Prefer this over place_order_table_labels / place_order_table_dimensions /
+    place_order_table_channelizing / place_order_table_workspace /
+    place_sheet_symbol_cells when a sheet spec exists — those batch tools
+    use generic heuristics; this path uses the placement-plan compiler.
+
+    Still call separately: build_wztc_order_table, place_order_table_stations,
+    place_sign for every isSign row. Alignments must already be
+    committed or adopted.
+
+    Pass the SAME designer inputs already used for build_wztc_order_table —
+    especially area_type ('URBAN'/'RURAL'/'FREEWAY') when the sheet has an
+    advance-warning spacing table. Do NOT pass area_type='' and re-ask if
+    the engineer already answered it earlier in this build.
+
+    dry_run=True: compile + rules gate only (no drawing).
+    force=True: place even if the rules gate reports failures.
+    arrow_panel_choice: 'trailer' (default TWZAP_P) or 'vehicle' (OR PV)."""
+    compiled = compile_sheet_plan(
+        sheet_num, speed, lane_width, shoulder_width,
+        area_type=area_type, closure_type=closure_type,
+        exposure_condition=exposure_condition,
+        protective_vehicle_gvw=protective_vehicle_gvw,
+        align_idxs=align_idxs, outward_sign=outward_sign,
+        sheet_elements=sheet_elements,
+        arrow_panel_choice=arrow_panel_choice,
+        include_primitives=True)
+    if dry_run:
+        slim = {k: v for k, v in compiled.items() if k != "plan"}
+        slim["note"] = "dry_run — nothing drawn; pass dry_run=False to place"
+        return slim
+    executed = execute_compiled_plan(compiled, layers=layers, force=force)
+    return {
+        "status": executed["status"],
+        "sheet": sheet_num,
+        "gateFailures": compiled.get("gateFailures") or [],
+        "counts": compiled.get("counts"),
+        "placedCount": executed.get("placedCount"),
+        "placed": executed.get("placed"),
+        "placedTruncated": executed.get("placedTruncated"),
+        "errors": executed.get("errors"),
+        "arrowPanelChoice": arrow_panel_choice,
+    }
+
+
 # ================================================================ Session
 
 def undo_last_op() -> dict:
@@ -1650,10 +2329,10 @@ def clear_plan_elements(keep_alignments: bool = True, align_idx: int = 0) -> dic
         _bridge.call("CLEAR_PLAN_ELEMENTS", **kwargs),
         "clear_plan_elements")
     if align_idx and align_idx > 0:
-        _PLAN_SESSION["stations_placed_aligns"].discard(align_idx)
+        _PLAN_SESSION.stations_placed_aligns.discard(align_idx)
     else:
-        _PLAN_SESSION["placed_workspace"] = False
-        _PLAN_SESSION["stations_placed_aligns"] = set()
+        _PLAN_SESSION.placed_workspace = False
+        _PLAN_SESSION.stations_placed_aligns = set()
     # order_table_built stays True — SharedState still holds the table;
     # rebuild does not need to rebuild the table unless inputs change.
     return resp
@@ -1764,7 +2443,12 @@ def move_element(element_id: str, delta_x: float, delta_y: float, delta_z: float
 def copy_element(element_id: str, delta_x: float, delta_y: float, delta_z: float = 0,
                   own_element_only: bool = True, reason: str = "") -> dict:
     """Copy an element by ID (Clone + Move). Returns newElementId /
-    createdElementIds. own_element_only defaults True."""
+    createdElementIds. own_element_only defaults True (journal gate).
+
+    When the engineer picked a pre-existing site/base element (not one you
+    created this session), you MUST pass own_element_only=False or the
+    copy is refused. Resolve geometry first with get_elements_range([id])
+    so deltas are computed from real bbox coords, not guessed."""
     return _ok_or_raise(
         _bridge.call("COPY_ELEMENT", elementId=element_id, deltaX=delta_x, deltaY=delta_y,
                      deltaZ=delta_z, ownElementOnly=("Y" if own_element_only else "N"),

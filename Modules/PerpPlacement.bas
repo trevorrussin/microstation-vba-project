@@ -118,7 +118,13 @@ Public Function InitAlignmentPlacementHeadless(aIdx As Integer, ByRef errMsg As 
         Exit Function
     End If
     If Not wztcAlignDrawn(aIdx) Then
-        errMsg = "alignment " & aIdx & " is not committed yet -- call COMMIT_ALIGNMENT first"
+        errMsg = "ALIGNMENT_NOT_READY: alignment " & aIdx & " is not committed in the " & _
+            "CURRENT session. If this alignment was already drawn earlier (visible on " & _
+            "screen, e.g. from before a VBA hot-reload/IDE Reset wiped in-memory session " & _
+            "state), do NOT redraw or recommit it -- call adopt_alignment(align_idx=" & _
+            aIdx & ", element_id=<its LINE element id>) to re-bind it without redrawing. " & _
+            "Only define_alignment_segment + commit_alignment if it genuinely does not " & _
+            "exist yet."
         InitAlignmentPlacementHeadless = False
         Exit Function
     End If

@@ -90,6 +90,18 @@ def get_alignment_vertices(align_idx: int) -> list[dict]:
 
 
 @mcp.tool()
+def get_locked_designer_inputs() -> dict:
+    """Return the designer inputs (speed/road_type/lane_width/
+    shoulder_width/area_type/sheet_num/...) locked in by the most recent
+    successful build_wztc_order_table call this session, or
+    {"locked": False} if none yet. Call this instead of re-deriving or
+    re-asking the engineer for values already established earlier in the
+    same build — including after a turn that hit MAX_TOOL_ITERATIONS and
+    had to continue in a fresh turn."""
+    return wztc_ops.get_locked_designer_inputs()
+
+
+@mcp.tool()
 def list_levels(name_contains: str = "") -> list[dict]:
     """List levels matching name_contains (required substring, e.g. 'TWZ').
     Refuses unfiltered listings — DGNs can have thousands of levels."""
@@ -213,15 +225,35 @@ def capture_window(title_substring: str) -> Image:
 
 @mcp.tool()
 def adjust_view(zoom_out_percent: float = 0, pan_x: float = 0, pan_y: float = 0,
-                 view_num: int = 1) -> dict:
-    """Zoom and/or pan the current MicroStation view by an EXACT amount,
-    via COM (View.Center/Extents), not a key-in -- completes headlessly
-    with no manual click, unlike the ZOOM_*/PAN_VIEW_* command-registry
-    key-ins (all disabled 2026-08-02: confirmed to silently wait on a
-    datapoint click that never arrives when driven headlessly). See
-    wztc_ops.adjust_view for the full parameter semantics."""
+                 view_num: int = 1,
+                 center_x: float | None = None, center_y: float | None = None,
+                 width: float | None = None, height: float | None = None) -> dict:
+    """Zoom/pan the MicroStation view via COM. pan_x/pan_y are RELATIVE
+    deltas — never pass absolute model coords there. For absolute framing
+    pass center_x/center_y (and optional width/height). Prefer
+    focus_view_on_elements when you have elementIds. See
+    wztc_ops.adjust_view for full semantics."""
     return wztc_ops.adjust_view(zoom_out_percent=zoom_out_percent, pan_x=pan_x, pan_y=pan_y,
-                                 view_num=view_num)
+                                 view_num=view_num, center_x=center_x, center_y=center_y,
+                                 width=width, height=height)
+
+
+@mcp.tool()
+def get_elements_range(element_ids: list[str] | str) -> dict:
+    """Return the combined bbox of one or more element IDs. Use this
+    whenever you already have elementId(s) instead of find_elements_near."""
+    return wztc_ops.get_elements_range(element_ids)
+
+
+@mcp.tool()
+def focus_view_on_elements(element_ids: list[str] | str, margin: float = 1.3,
+                            view_num: int = 1, min_width: float = 50.0,
+                            min_height: float = 50.0) -> dict:
+    """Frame the view on the bbox of the given element ID(s). Degenerate
+    (zero-area) ranges -- e.g. a horizontal line -- get at least
+    min_width x min_height so the view is still usable."""
+    return wztc_ops.focus_view_on_elements(element_ids, margin=margin, view_num=view_num,
+                                            min_width=min_width, min_height=min_height)
 
 
 # ============================================================== Compute
@@ -299,7 +331,7 @@ def place_sign(sign_num: str, road_type: str, side: str,
                pt1x: float, pt1y: float, pt1z: float, dir1x: float, dir1y: float,
                pt2x: Optional[float] = None, pt2y: Optional[float] = None, pt2z: Optional[float] = None,
                dir2x: Optional[float] = None, dir2y: Optional[float] = None,
-               reason: str = "", align_idx: int = 0) -> dict:
+               reason: str = "", align_idx: int = 0, one_off: bool = False) -> dict:
     """Place a sign assembly (post + edge-connected stem + face + label).
 
     pt1 is the ATTACHMENT on the perp tick — typically the OUTWARD TIP of
@@ -313,9 +345,13 @@ def place_sign(sign_num: str, road_type: str, side: str,
     came from get_sheet_requirements. side is 'One Side' or 'Both Sides';
     pt2/dir2 required only for Both Sides. Pass reason when the tip was
     adjusted from the default (e.g. obstruction dodge). Pass align_idx
-    (1=Upstream, 2=Downstream) so scoped clear_prior can wipe that sign."""
+    (1=Upstream, 2=Downstream) so scoped clear_prior can wipe that sign.
+    If build_wztc_order_table already ran, sign_num must match one of its
+    resolved sign_rows — this refuses a hand-picked/guessed legend variant
+    that bypasses the order table's own Table-driven resolution. Pass
+    one_off=True only for a genuine ad-hoc sign outside the order table."""
     return wztc_ops.place_sign(sign_num, road_type, side, pt1x, pt1y, pt1z, dir1x, dir1y,
-                                pt2x, pt2y, pt2z, dir2x, dir2y, reason, align_idx)
+                                pt2x, pt2y, pt2z, dir2x, dir2y, reason, align_idx, one_off)
 
 
 @mcp.tool()
@@ -372,10 +408,25 @@ def define_alignment_segment(align_idx: int, vertices: list[list[float]], reason
 
 
 @mcp.tool()
-def commit_alignment(align_idx: int) -> dict:
+def commit_alignment(align_idx: int, force: bool = False) -> dict:
     """Group every segment recorded by define_alignment_segment for
-    align_idx into a graphic group, ready for place_order_table_stations."""
-    return wztc_ops.commit_alignment(align_idx)
+    align_idx into a graphic group, ready for place_order_table_stations.
+    Once both align 1 and align 2 are ready (and a sheet spec is locked
+    for this build), runs the corridor-topology check immediately and
+    raises if it fails. force=True to proceed anyway."""
+    return wztc_ops.commit_alignment(align_idx, force)
+
+
+@mcp.tool()
+def adopt_alignment(align_idx: int, element_id: str, force: bool = False) -> dict:
+    """Re-bind SharedState for align_idx to an EXISTING LINE element —
+    no redraw. Use after VBA hot-reload / IDE Reset wiped session state,
+    or when the engineer picks an existing centerline. align_idx:
+    1=Upstream, 2=Downstream. element_id must be a LINE. Once both
+    alignments are ready (and a sheet spec is locked), runs the
+    corridor-topology check immediately and raises if it fails. force=True
+    to proceed anyway."""
+    return wztc_ops.adopt_alignment(align_idx, element_id, force)
 
 
 @mcp.tool()
@@ -407,40 +458,105 @@ def place_order_table_stations(align_idx: int, reset_session: bool = False,
 @mcp.tool()
 def place_order_table_labels(align_idx: int, outward_sign: float = -1.0,
                              text_extra_along: float = 20.0,
-                             sheet_elements: str = "") -> dict:
-    """Sheet-gated Non-Sign labels, X-centered on matching dim midpoints."""
+                             sheet_elements: str = "", force: bool = False) -> dict:
+    """Sheet-gated Non-Sign labels, X-centered on matching dim midpoints.
+    Generic heuristic, no rules-gate validation — refuses when a sheet spec
+    exists for this build (prefer place_sheet_geometry). force=True to override."""
     return wztc_ops.place_order_table_labels(align_idx, outward_sign,
-                                             text_extra_along, sheet_elements)
+                                             text_extra_along, sheet_elements, force)
 
 
 @mcp.tool()
 def place_order_table_dimensions(align_idx: int, outward_sign: float = -1.0,
                                  offset_dist: float = 15.0,
-                                 sheet_elements: str = "") -> dict:
-    """Tip-to-tick ny_Plan Linear Size dims (sheet-gated; single text)."""
+                                 sheet_elements: str = "", force: bool = False) -> dict:
+    """Tip-to-tick ny_Plan Linear Size dims (sheet-gated; single text).
+    Generic heuristic, no rules-gate validation — refuses when a sheet spec
+    exists for this build (prefer place_sheet_geometry). force=True to override."""
     return wztc_ops.place_order_table_dimensions(align_idx, outward_sign,
-                                                 offset_dist, sheet_elements)
+                                                 offset_dist, sheet_elements, force)
 
 
 @mcp.tool()
 def place_sheet_symbol_cells(align_idx: int, sheet_elements: str,
-                             outward_sign: float = -1.0) -> dict:
-    """TWZWVA_P in Vehicle Space bay; TWZAP_P at Shoulder Taper tip."""
-    return wztc_ops.place_sheet_symbol_cells(align_idx, sheet_elements, outward_sign)
+                             outward_sign: float = -1.0, force: bool = False) -> dict:
+    """TWZWVA_P in Vehicle Space bay; TWZAP_P at Shoulder Taper tip.
+    Generic heuristic (fixed offset, not lane/shoulder-width-derived), no
+    rules-gate validation — refuses when a sheet spec exists for this build
+    (prefer place_sheet_geometry). force=True to override."""
+    return wztc_ops.place_sheet_symbol_cells(align_idx, sheet_elements, outward_sign, force)
 
 
 @mcp.tool()
 def place_order_table_workspace(align_idx: int, outward_sign: float = -1.0,
-                                lane_width: float = 12.0) -> dict:
-    """Hatched work-space box: path start through Vehicle Space, closed lane."""
-    return wztc_ops.place_order_table_workspace(align_idx, outward_sign, lane_width)
+                                lane_width: float = 12.0, force: bool = False) -> dict:
+    """Hatched work-space box: path start through Vehicle Space, closed lane.
+    Generic heuristic, no rules-gate validation — refuses when a sheet spec
+    exists for this build (prefer place_sheet_geometry). force=True to override."""
+    return wztc_ops.place_order_table_workspace(align_idx, outward_sign, lane_width, force)
 
 
 @mcp.tool()
 def place_order_table_channelizing(align_idx: int, outward_sign: float = -1.0,
-                                   lane_width: float = 12.0) -> dict:
-    """Sheet-bounded taper + closed-lane channelizing (not freeform length)."""
-    return wztc_ops.place_order_table_channelizing(align_idx, outward_sign, lane_width)
+                                   lane_width: float = 12.0, force: bool = False) -> dict:
+    """Sheet-bounded taper + closed-lane channelizing (not freeform length).
+    Prefer place_sheet_geometry when a sheet JSON exists — this generic
+    heuristic has no rules-gate validation and refuses when a spec exists
+    for this build. force=True to override."""
+    return wztc_ops.place_order_table_channelizing(align_idx, outward_sign, lane_width, force)
+
+
+@mcp.tool()
+def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_width: str,
+                        area_type: str = "", closure_type: str = "",
+                        exposure_condition: str = "",
+                        protective_vehicle_gvw: int = 0,
+                        align_idxs: Optional[list[int]] = None,
+                        outward_sign: float = -1.0,
+                        sheet_elements: str = "",
+                        arrow_panel_choice: str = "trailer",
+                        include_primitives: bool = False) -> dict:
+    """Compile sheet-faithful dims/labels/channelizing/symbols/hatch
+    (no drawing). Requires Data/sheet-specs/<sheet>.json and committed
+    or adopted alignments. Prefer place_sheet_geometry(dry_run=True)."""
+    return wztc_ops.compile_sheet_plan(
+        sheet_num, speed, lane_width, shoulder_width,
+        area_type=area_type, closure_type=closure_type,
+        exposure_condition=exposure_condition,
+        protective_vehicle_gvw=protective_vehicle_gvw,
+        align_idxs=align_idxs, outward_sign=outward_sign,
+        sheet_elements=sheet_elements,
+        arrow_panel_choice=arrow_panel_choice,
+        include_primitives=include_primitives)
+
+
+@mcp.tool()
+def place_sheet_geometry(sheet_num: str, speed: int, lane_width: int, shoulder_width: str,
+                          area_type: str = "", closure_type: str = "",
+                          exposure_condition: str = "",
+                          protective_vehicle_gvw: int = 0,
+                          align_idxs: Optional[list[int]] = None,
+                          outward_sign: float = -1.0,
+                          sheet_elements: str = "",
+                          arrow_panel_choice: str = "trailer",
+                          dry_run: bool = False,
+                          force: bool = False,
+                          layers: Optional[list[str]] = None) -> dict:
+    """Compile + place sheet-faithful dims/labels/channelizing/symbols/
+    hatch from Data/sheet-specs/<sheet>.json. Prefer over
+    place_order_table_labels/dimensions/channelizing/workspace/
+    place_sheet_symbol_cells when a sheet JSON exists. Still call
+    build_wztc_order_table, place_order_table_stations, and place_sign
+    separately. dry_run=True = compile + rules gate only."""
+    return wztc_ops.place_sheet_geometry(
+        sheet_num, speed, lane_width, shoulder_width,
+        area_type=area_type, closure_type=closure_type,
+        exposure_condition=exposure_condition,
+        protective_vehicle_gvw=protective_vehicle_gvw,
+        align_idxs=align_idxs, outward_sign=outward_sign,
+        sheet_elements=sheet_elements,
+        arrow_panel_choice=arrow_panel_choice,
+        dry_run=dry_run, force=force, layers=layers)
 
 
 @mcp.tool()
@@ -669,7 +785,11 @@ def get_journal(limit: int = 50) -> list[str]:
     """Return the last `limit` raw journal lines — every op run this
     session, its full parameters (including any reason= passed), and its
     result. This is the PE audit trail: use it to answer "why is that sign
-    there" or to review a whole session before handing off a sheet."""
+    there" or to review a whole session before handing off a sheet.
+
+    Default is intentionally wider than wztc_ops.get_journal's own default
+    (20) -- MCP clients reviewing a session tend to want more context per
+    call than the chat agent's own internal uses of this function do."""
     return wztc_ops.get_journal(limit)
 
 
@@ -683,13 +803,21 @@ def list_deferred_handoffs() -> list[dict]:
 # ============================================================ Registry / Edit (M6)
 
 @mcp.tool()
-def list_registry_commands(safety_status: str = "") -> list[dict]:
+def list_registry_commands(safety_status: str = "", opname_contains: str = "") -> list[dict]:
     """List MicroStation command recipes in Data/command-registry.tsv.
     Optional safety_status filter (e.g. 'verified-headless-safe',
     'needs-testing', 'interactive-only-use-handoff'). Only
     verified-headless-safe rows can be executed via run_registry_command;
-    interactive-only rows point at handoff() instead."""
-    return wztc_ops.list_registry_commands(safety_status)
+    interactive-only rows point at handoff() instead.
+
+    opname_contains narrows to opNames containing this substring
+    (case-insensitive) -- e.g. 'ZOOM', 'PAN', 'LEVEL'. Strongly
+    recommended: this registry has ~1800 rows, and returning them all
+    costs real tokens -- an unfiltered call was measured live at ~240K
+    input tokens (~$0.75) for a single turn. If you have any idea what
+    the command name might contain, pass it here rather than listing
+    everything."""
+    return wztc_ops.list_registry_commands(safety_status, opname_contains)
 
 
 @mcp.tool()
@@ -724,7 +852,9 @@ def move_element(element_id: str, delta_x: float, delta_y: float, delta_z: float
 @mcp.tool()
 def copy_element(element_id: str, delta_x: float, delta_y: float, delta_z: float = 0,
                  own_element_only: bool = True, reason: str = "") -> dict:
-    """Copy an element by ID (Clone + Move). Returns newElementId."""
+    """Copy an element by ID (Clone + Move). Returns newElementId.
+    For engineer-picked pre-existing elements pass own_element_only=False.
+    Resolve geometry with get_elements_range first."""
     return wztc_ops.copy_element(element_id, delta_x, delta_y, delta_z, own_element_only, reason)
 
 

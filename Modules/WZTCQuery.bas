@@ -337,7 +337,13 @@ Public Function AlignmentIsReady(alignIdx As Integer, ByRef errMsg As String) As
         Exit Function
     End If
     If Not wztcAlignDrawn(alignIdx) Then
-        errMsg = "alignment " & alignIdx & " has not been committed (AlignDraw step)"
+        errMsg = "ALIGNMENT_NOT_READY: alignment " & alignIdx & " is not committed in the " & _
+            "CURRENT session. If this alignment was already drawn earlier (visible on " & _
+            "screen, e.g. from before a VBA hot-reload/IDE Reset wiped in-memory session " & _
+            "state), do NOT redraw or recommit it -- call adopt_alignment(align_idx=" & _
+            alignIdx & ", element_id=<its LINE element id>) to re-bind it without " & _
+            "redrawing. Only define_alignment_segment + commit_alignment if it genuinely " & _
+            "does not exist yet."
         AlignmentIsReady = False
         Exit Function
     End If

@@ -861,7 +861,9 @@
         "stationAnchor": {
           "zone": "laneTaper",
           "end": "upstream"
-        }
+        },
+        "lateralAnchor": "On the paved shoulder, outboard of the closed travel lane.",
+        "confidenceNote": "lateralAnchor not independently confirmed against this sheet's own PDF plan view -- generalized from the identical verbatim placement text confirmed on 619-311/303/403/504/312/412's own plan views (6 sibling sheets, consistent). Verify visually before relying on it for a live build."
       },
       {
         "id": "protectiveVehicle",

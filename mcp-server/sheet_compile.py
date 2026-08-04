@@ -1,0 +1,604 @@
+"""Placement-plan compiler: turns a sheet_resolve.resolve() result into
+explicit drawing primitives in absolute model coordinates (Stages 1-4 of
+the compiler, see Data/sheet-specs/STATUS.md).
+
+Part of the sheet_spec split (2026-08-04): sheet_resolve.py owns "what does
+this sheet need" (table lookups); this module owns "turn that into
+coordinates"; sheet_rules.py validates the primitives this module produces
+before they reach the bridge. sheet_spec.py re-exports all three so every
+existing `sheet_spec.X` call site keeps working unchanged.
+"""
+from __future__ import annotations
+
+import math
+
+from sheet_resolve import station_walk
+
+# ============================================================
+# PLACEMENT-PLAN COMPILER, STAGE 1 (Data/sheet-specs/STATUS.md)
+# ============================================================
+# Scoped to stations/dimensions/labels only -- channelizing/symbols/hatch
+# are later stages. Replicates Modules/PerpPlacement.bas's
+# PlaceOrderTableDimensions / PlaceOrderTableLabels geometry exactly (same
+# PERP_HALF_LEN=40 tick-tip measurement, same outward-unit/offset math) so
+# a golden-file test can diff this against 619-311's already-live-drawn
+# output. The difference: this computes every point in pure Python via
+# alignment_geometry.station_to_xy() from one GET_ALIGNMENT_VERTICES fetch,
+# instead of VBA's GetPointAndTangent being called once per point across
+# the bridge.
+
+PERP_HALF_LEN_FT = 40.0  # Modules/PerpPlacement.bas:47 -- keep in sync
+
+_ORDER_LABEL_KINDS = {
+    "ROLL AHEAD": "RollAhead",
+    "VEHICLE SPACE": "VehicleSpace",
+    "BUFFER": "Buffer",
+    "SHOULDER TAPER": "ShoulderTaper",
+    "DOWNSTREAM TAPER": "DownstreamTaper",
+    "MERGING": "MergingTaper",
+    "SHIFTING TAPER": "MergingTaper",
+    "LANE TAPER": "MergingTaper",
+    "WORK AREA": "WorkArea",
+}
+
+
+def _order_label_kind(label: str) -> str:
+    """Mirrors Modules/PerpPlacement.bas's OrderLabelKind() exactly --
+    case-insensitive substring match, first hit wins in the same order."""
+    u = " ".join((label or "").strip().upper().split())
+    for needle, kind in _ORDER_LABEL_KINDS.items():
+        if needle in u:
+            return kind
+    return ""
+
+
+def _should_annotate_non_sign_label(label: str, sheet_elements: str) -> bool:
+    """Mirrors Modules/PerpPlacement.bas's ShouldAnnotateNonSignLabel()
+    exactly. sheet_elements is the pipe-list from get_sheet_requirements'
+    'elements' field (e.g. 'MergingTaper|ShoulderTaper|...')."""
+    kind = _order_label_kind(label)
+    elems = sheet_elements or ""
+    if kind in ("RollAhead", "VehicleSpace", "Buffer"):
+        return True
+    if kind == "MergingTaper":
+        return "MergingTaper" in elems
+    if kind == "ShoulderTaper":
+        return "ShoulderTaper" in elems
+    if kind == "DownstreamTaper":
+        return "DownstreamTaper" in elems
+    return False
+
+
+def _outward_unit(tan_x: float, tan_y: float, outward_sign: float) -> tuple[float, float]:
+    """Mirrors Modules/PerpPlacement.bas's OutwardUnit() exactly."""
+    if outward_sign >= 0:
+        return (-tan_y, tan_x)
+    return (tan_y, -tan_x)
+
+
+def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
+                  outward_sign: float = -1.0, offset_dist: float = 15.0,
+                  text_extra_along: float = 20.0, sheet_elements: str = "",
+                  range_pick: str = "min") -> list[dict]:
+    """Compile one alignment's stations/dimensions/labels into an explicit
+    list of placement primitives in absolute model coordinates.
+
+    segments: alignment_geometry.PathSegment list for this align_idx, from
+    alignment_geometry.parse_vertices(wztc_ops.get_alignment_vertices(align_idx)).
+
+    Each primitive is one of:
+      {"kind": "station", "rowNum", "item", "stationFt", "x", "y", "tanX", "tanY"}
+      {"kind": "dimension", "tip1": (x,y), "tip2": (x,y), "offset": (x,y), "text"}
+      {"kind": "label", "x", "y", "text"}
+    "dimension"/"label" primitive shapes are chosen to map directly onto
+    PLACE_DIMENSION (x1,y1,x2,y2,ox,oy) and PLACE_TEXT_LABEL (text,x,y) --
+    execution is a thin loop over these, not a translation layer.
+
+    Does not call the bridge and does not require MicroStation to be open
+    once `segments` has been fetched -- pure Python from there.
+    """
+    import alignment_geometry as ag  # local import: mcp-server-only dependency
+
+    walk = [w for w in station_walk(spec, resolved, range_pick) if w["alignIdx"] == align_idx]
+    primitives: list[dict] = []
+
+    prev_x, prev_y, _, _ = ag.station_to_xy(segments, 0.0)
+    for row in walk:
+        if row["rowNum"] is None:
+            continue  # overlay zones don't consume a station in this walk
+        x, y, tan_x, tan_y = ag.station_to_xy(segments, row["stationFt"])
+        primitives.append({
+            "kind": "station", "rowNum": row["rowNum"], "item": row["item"],
+            "stationFt": row["stationFt"], "x": x, "y": y, "tanX": tan_x, "tanY": tan_y,
+        })
+
+        out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
+
+        # Dimension every consecutive tick pair (tip-to-tip), Sign and
+        # Non-Sign rows alike, same gate as PlaceOrderTableDimensions
+        # ("spacing > 0" -- skip zero-length overlay-adjacent artifacts).
+        if row["lengthFt"] > 0:
+            t1x = prev_x + out_x * PERP_HALF_LEN_FT
+            t1y = prev_y + out_y * PERP_HALF_LEN_FT
+            t2x = x + out_x * PERP_HALF_LEN_FT
+            t2y = y + out_y * PERP_HALF_LEN_FT
+            ox = 0.5 * (t1x + t2x) + out_x * offset_dist
+            oy = 0.5 * (t1y + t2y) + out_y * offset_dist
+            primitives.append({
+                "kind": "dimension", "tip1": (t1x, t1y), "tip2": (t2x, t2y),
+                "offset": (ox, oy), "text": f"{row['lengthFt']:g}",
+            })
+
+        # Name labels below the dim line: Non-Sign rows only, gated on
+        # whether this sheet's elements list actually has this feature
+        # (same as ShouldAnnotateNonSignLabel).
+        if (row["type"] == "Non-Sign" and row["lengthFt"] > 0
+                and _should_annotate_non_sign_label(row["item"], sheet_elements)):
+            mid_x = 0.5 * (prev_x + x) + out_x * PERP_HALF_LEN_FT
+            mid_y = 0.5 * (prev_y + y) + out_y * PERP_HALF_LEN_FT
+            label_out = offset_dist + text_extra_along
+            tx = mid_x + out_x * label_out
+            ty = mid_y + out_y * label_out
+            txt = f"{row['item']} {row['lengthFt']:g}'"
+            primitives.append({"kind": "label", "x": tx, "y": ty, "text": txt})
+
+        prev_x, prev_y = x, y
+
+    return primitives
+
+
+# ============================================================
+# PLACEMENT-PLAN COMPILER, STAGE 2 (Data/sheet-specs/STATUS.md)
+# ============================================================
+# Real counted channelizing devices, replacing
+# Modules/PerpPlacement.bas's PlaceOrderTableChannelizing, which draws only
+# THREE bare 2-point polylines total (no device count, no spacing) and uses
+# a laneWidthFt*0.35 fudge factor for the shoulder-taper lateral offset --
+# both the missing device count and the fudge factor are exactly the
+# defects 619-311.json's knownCodeDeviations already documents (see
+# `PerpPlacement.PlaceOrderTableChannelizing` and `rules.taper-continuity`
+# there). This compiles real cone positions from the spec's own
+# deviceCountSource, and connects the shoulder taper to the lane taper's
+# tip at the exact shared point (zero lateral offset, no jog) instead of
+# the fudge factor -- taper-continuity by construction, not by luck.
+
+def _overlay_span(w: dict) -> tuple[float, float]:
+    anchor = w["stationFt"]
+    far = anchor + w["lengthFt"] if w["direction"] == "upstream" else anchor - w["lengthFt"]
+    return (anchor, far)  # order preserved: [0]=anchor(offset 0), [1]=far end(full offset)
+
+
+def _zone_station_ranges(spec: dict, resolved: dict, align_idx: int,
+                          range_pick: str = "min") -> dict[str, tuple[float, float]]:
+    """zone id -> (lo, hi) station range within one alignment's own walk,
+    including overlay zones. Shared by compile_channelizing and
+    compile_symbols so both stages agree on where a zone actually is."""
+    walk = [w for w in station_walk(spec, resolved, range_pick) if w["alignIdx"] == align_idx]
+    zone_range: dict[str, tuple[float, float]] = {}
+    prev_sta = 0.0
+    for w in walk:
+        if w["type"] == "Overlay":
+            continue
+        lo, hi = sorted((prev_sta, w["stationFt"]))
+        zone_range[w["zone"]] = (lo, hi)
+        prev_sta = w["stationFt"]
+    for w in walk:
+        if w["type"] != "Overlay":
+            continue
+        anchor, far = _overlay_span(w)
+        zone_range[w["zone"]] = (min(anchor, far), max(anchor, far))
+    return zone_range
+
+
+def _anchor_station(zone_range: dict[str, tuple[float, float]], zone_id: str, end: str) -> float | None:
+    """Resolve a stationAnchor {zone, end} to a station. 'upstream' end =
+    the higher station (station increases moving away from the work area,
+    per this corridor model's convention throughout); 'downstream' = lower.
+    'both' (e.g. workAreaHatch) has no single station -- returns None,
+    caller decides (Stage 4 territory)."""
+    rng = zone_range.get(zone_id)
+    if rng is None or end not in ("upstream", "downstream"):
+        return None
+    lo, hi = rng
+    return hi if end == "upstream" else lo
+
+
+def compile_channelizing(spec: dict, resolved: dict, align_idx: int, segments,
+                          lane_width_ft: float, shoulder_width_ft: float | None = None,
+                          outward_sign: float = -1.0, range_pick: str = "min") -> list[dict]:
+    """Cone primitives for one alignment's channelizingDevices symbol, in
+    station-and-offset order along each run (endpoints included). Each
+    primitive: {"kind": "cone", "run": run_id, "x", "y"} -- maps directly
+    onto PLACE_CELL (or a future PLACE_ELEMENT_RUN-of-cones op); this stage
+    does not decide which.
+
+    shoulder_width_ft: the actual numeric shoulder width already supplied
+    by the caller (e.g. build_wztc_order_table's shoulder_width param,
+    before it's collapsed to a band for the table lookup) -- NOT invented
+    here. Required only if the sheet has a shoulderTaperRun; other sheets
+    ignore it. Falls back to lane_width_ft only when the sheet needs a
+    shoulder run but the caller didn't pass one, with a note on the
+    returned primitive marking the substitution (never silent)."""
+    import alignment_geometry as ag
+
+    sym = next((s for s in spec["symbols"]["items"] if s["id"] == "channelizingDevices"), None)
+    if not sym:
+        return []
+    long_spacing = float((sym.get("longitudinalSpacing") or {}).get("maxFt", 40.0))
+
+    walk = [w for w in station_walk(spec, resolved, range_pick) if w["alignIdx"] == align_idx]
+    zone_range = _zone_station_ranges(spec, resolved, align_idx, range_pick)
+
+    zone_offset_ends: dict[str, str] = {}  # zone id -> "anchor_is_lo"/"anchor_is_hi"
+    for w in walk:
+        if w["type"] != "Overlay":
+            continue
+        anchor, far = _overlay_span(w)
+        # anchor end is always the shared connection point (offset 0);
+        # record which physical end (lo/hi) that corresponds to.
+        zone_offset_ends[w["zone"]] = "anchor_is_lo" if anchor <= far else "anchor_is_hi"
+
+    def span_station_range(span: str):
+        stas = []
+        for p in span.split(".."):
+            if p in zone_range:
+                stas.extend(zone_range[p])
+            elif p == "workArea":
+                stas.append(0.0)
+            else:
+                return None
+        return (min(stas), max(stas)) if stas else None
+
+    primitives: list[dict] = []
+    for run in sym.get("runs", []):
+        zone_id = run["zone"]
+        rng = span_station_range(zone_id) if ".." in zone_id else zone_range.get(zone_id)
+        if rng is None:
+            continue
+        lo, hi = rng
+        is_taper_run = run["id"] in ("laneTaperRun", "shoulderTaperRun")
+
+        count_source = run.get("deviceCountSource")
+        if count_source:
+            col_key, col_field = count_source["column"].split(".")
+            count = int(resolved[col_key][col_field])
+            n_steps = max(count - 1, 1)
+            stations = [lo + (hi - lo) * i / n_steps for i in range(count)]
+        else:
+            length = hi - lo
+            n_steps = max(int(round(length / long_spacing)), 1) if length > 0 else 0
+            stations = [lo + (hi - lo) * i / n_steps for i in range(n_steps + 1)] if length > 0 else [lo]
+
+        # Lateral offset per station. Taper runs interpolate from 0 (at the
+        # shared/tip end) to the full width (at the toe/far end); the
+        # non-taper runs (longitudinal, downstream) hold a constant offset
+        # equal to the closed-lane width -- they don't taper, the cone line
+        # just runs straight down the closed lane.
+        note = None
+        if run["id"] == "laneTaperRun":
+            # Convention matching every 619 sheet's own taper drawing (and
+            # PerpPlacement's original "align at upstream tip" comment): the
+            # HIGHER station (upstream, away from the work area) is the tip
+            # (offset 0); the LOWER station (toward the work area) is the
+            # toe (full lane width).
+            off_lo, off_hi = lane_width_ft, 0.0
+        elif run["id"] == "shoulderTaperRun":
+            width = shoulder_width_ft
+            if width is None:
+                width = lane_width_ft
+                note = "shoulder_width_ft not supplied -- substituted lane_width_ft, not a real shoulder measurement"
+            anchor_is_lo = zone_offset_ends.get(zone_id) == "anchor_is_lo"
+            off_lo, off_hi = (0.0, width) if anchor_is_lo else (width, 0.0)
+        else:
+            off_lo = off_hi = lane_width_ft
+
+        for sta in stations:
+            t = 0.0 if hi == lo else (sta - lo) / (hi - lo)
+            offset = off_lo + t * (off_hi - off_lo)
+            x, y, tan_x, tan_y = ag.station_to_xy(segments, sta)
+            out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
+            prim = {"kind": "cone", "run": run["id"], "stationFt": sta,
+                    "x": x + out_x * offset, "y": y + out_y * offset}
+            if note:
+                prim["note"] = note
+            primitives.append(prim)
+
+    return primitives
+
+
+def check_taper_continuity(primitives: list[dict], tol_ft: float = 0.01) -> list[str]:
+    """rules.taper-continuity as an executable check on compiled cone
+    primitives, shipped with the stage that produces them rather than
+    deferred to a later rules-engine pass (Stage 5 hardens this into a
+    pre-draw gate; this is the check itself, usable standalone now).
+
+    Finds cone runs that share a station (the shoulderTaper/laneTaper
+    junction, or a taper toe meeting a longitudinal run) and asserts they
+    land at the same XY within tol_ft. Returns failure strings, empty if
+    every shared station is continuous."""
+    by_run: dict[str, dict[float, tuple[float, float]]] = {}
+    for p in primitives:
+        if p["kind"] != "cone":
+            continue
+        by_run.setdefault(p["run"], {})[p["stationFt"]] = (p["x"], p["y"])
+
+    fails = []
+    run_ids = list(by_run.keys())
+    for i, run_a in enumerate(run_ids):
+        for run_b in run_ids[i + 1:]:
+            shared = set(by_run[run_a]) & set(by_run[run_b])
+            for sta in shared:
+                xa, ya = by_run[run_a][sta]
+                xb, yb = by_run[run_b][sta]
+                dist = ((xa - xb) ** 2 + (ya - yb) ** 2) ** 0.5
+                if dist > tol_ft:
+                    fails.append(
+                        f"{run_a} and {run_b} share station {sta:g} but land "
+                        f"{dist:.3f} ft apart: ({xa:.3f},{ya:.3f}) vs ({xb:.3f},{yb:.3f})")
+    return fails
+
+
+# ============================================================
+# PLACEMENT-PLAN COMPILER, STAGE 3 (Data/sheet-specs/STATUS.md)
+# ============================================================
+# Symbols (protective vehicles, arrow panel, vehicle-mounted signs),
+# replacing Modules/PerpPlacement.bas's PlaceSheetSymbolCells, which only
+# ever places ONE protective vehicle (Vehicle Space bay, Buffer Space
+# fallback) and one arrow panel, with no concept of a sheet needing more
+# than one PV (619-302 needs three) or of the arrow-panel/VEH#1 "OR" choice
+# being an actual choice rather than always drawing the panel.
+#
+# This does NOT re-derive PV count from a table legend + closed-lane count
+# -- that derivation already happened once, correctly, by a human/agent
+# during spec authoring (see AUTHORING.md), and re-deriving it again here
+# from scratch would be the exact kind of guessing sheet_spec.py's own
+# module docstring says not to do. Instead: compile exactly the protective
+# vehicles the spec's own symbols.items already lists (however many that
+# is per sheet -- one on 619-311, three on 619-302), each from its own
+# stationAnchor. That's what "PV count from the spec" means in practice.
+
+def _lateral_offset_ft(lateral_anchor: str | None, lane_width_ft: float | None,
+                        shoulder_width_ft: float | None) -> tuple[float, str | None]:
+    """Interprets a symbol's spec-authored `lateralAnchor` prose (e.g. "On
+    the paved shoulder, outboard of the closed travel lane" / "In the
+    closed travel lane, parallel to traffic") into a lateral offset from
+    the alignment line, using the sheet's own lane/shoulder widths.
+
+    Previously compile_symbols placed every vehicle/arrow-panel primitive
+    at the fixed PERP_HALF_LEN_FT=40ft reference-tick offset regardless of
+    lateralAnchor -- that constant sizes the unrelated perpendicular
+    reference tick lines, not a real lane/shoulder position. Confirmed
+    live 2026-08-04 as the root cause of QA findings "PV in wrong bay" /
+    "mispositioned arrow panel". Returns (offsetFt, warningNote);
+    warningNote is set whenever the text doesn't match a recognized
+    lane/shoulder pattern (or the needed width wasn't supplied), so the
+    caller surfaces the fallback rather than silently trusting a guess."""
+    text = (lateral_anchor or "").lower()
+    lw = lane_width_ft or 0.0
+    if "shoulder" in text:
+        if shoulder_width_ft is None:
+            return PERP_HALF_LEN_FT, (
+                f"lateralAnchor={lateral_anchor!r} references the shoulder but no "
+                f"shoulder_width_ft was supplied -- fell back to the {PERP_HALF_LEN_FT}ft "
+                f"reference-tick offset instead of a real shoulder-centered position")
+        return lw + shoulder_width_ft / 2.0, None
+    if "lane" in text:
+        return lw / 2.0, None
+    return PERP_HALF_LEN_FT, (
+        f"lateralAnchor={lateral_anchor!r} did not match a recognized lane/shoulder "
+        f"pattern -- fell back to the {PERP_HALF_LEN_FT}ft reference-tick offset")
+
+
+def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
+                     outward_sign: float = -1.0, range_pick: str = "min",
+                     lane_width_ft: float | None = None,
+                     shoulder_width_ft: float | None = None) -> list[dict]:
+    """Protective-vehicle / arrow-panel primitives for one alignment.
+
+    Each primitive: {"kind": "protectiveVehicle"|"arrowPanel", "id",
+    "cellName", "x", "y", "angleDeg", "stationFt", "requiredNote"}.
+    requiredNote carries the spec's own conditional-requirement text
+    verbatim (e.g. "only when the shoulder width is >= 8 ft") -- this
+    compiler does not evaluate that condition, it surfaces it so the
+    caller/engineer decides, the same "explicit choice, not auto-decided"
+    principle as the arrow-panel/VEH#1 alternative below.
+
+    An item with an "alternative" (e.g. arrowPanel's 'OR VEH #1') gets an
+    altGroup tag cross-referencing its partner item (matched by the
+    alternative's option text against another symbol's sheetLabel) --
+    both primitives are compiled and returned; picking one is left to the
+    caller. Vehicle-mounted signs (signs.items with postMounted:false and
+    mountedOn:<symbol id>) become a 'vehicleMountedSign' primitive at that
+    vehicle's own computed position, not an independent post."""
+    import alignment_geometry as ag
+
+    zone_range = _zone_station_ranges(spec, resolved, align_idx, range_pick)
+    signs_mounted_on: dict[str, dict] = {
+        s["mountedOn"]: s for s in spec["signs"]["items"]
+        if s.get("postMounted") is False and s.get("mountedOn")
+    }
+
+    primitives: list[dict] = []
+    prim_by_id: dict[str, dict] = {}
+
+    for item in spec["symbols"]["items"]:
+        anchor = item.get("stationAnchor")
+        if not anchor:
+            continue
+        is_vehicle = bool(item.get("cellHint"))
+        is_arrow_panel = (item["id"] == "arrowPanel")
+        if not (is_vehicle or is_arrow_panel):
+            continue  # spotter / workAreaHatch / etc. -- Stage 4 territory
+
+        sta = _anchor_station(zone_range, anchor["zone"], anchor["end"])
+        if sta is None:
+            continue
+        x, y, tan_x, tan_y = ag.station_to_xy(segments, sta)
+        out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
+        offset_ft, offset_warning = _lateral_offset_ft(
+            item.get("lateralAnchor"), lane_width_ft, shoulder_width_ft)
+        px = x + out_x * offset_ft
+        py = y + out_y * offset_ft
+        angle_deg = math.degrees(math.atan2(tan_y, tan_x))
+
+        prim = {
+            "kind": "protectiveVehicle" if is_vehicle else "arrowPanel",
+            "id": item["id"], "cellName": item.get("cellHint") or "TWZAP_P",
+            "x": px, "y": py, "angleDeg": angle_deg, "stationFt": sta,
+            "requiredNote": item.get("required"),
+            "lateralOffsetFt": offset_ft,
+        }
+        if offset_warning:
+            prim["lateralOffsetWarning"] = offset_warning
+        primitives.append(prim)
+        prim_by_id[item["id"]] = prim
+
+        if item["id"] in signs_mounted_on:
+            sign = signs_mounted_on[item["id"]]
+            primitives.append({
+                "kind": "vehicleMountedSign", "signCode": sign["signCode"],
+                "mountedOn": item["id"], "x": px, "y": py, "angleDeg": angle_deg,
+            })
+
+    # Second pass: link "OR" alternatives between already-compiled
+    # primitives instead of synthesizing a duplicate entry.
+    alt_counter = 0
+    for item in spec["symbols"]["items"]:
+        alt = item.get("alternative")
+        if not alt or item["id"] not in prim_by_id:
+            continue
+        option_text = (alt.get("option") or "").strip().upper()
+        partner_id = None
+        for other in spec["symbols"]["items"]:
+            label = (other.get("sheetLabel") or "").strip().upper()
+            if other["id"] != item["id"] and label and label == option_text and other["id"] in prim_by_id:
+                partner_id = other["id"]
+                break
+        alt_counter += 1
+        group = f"alt{alt_counter}"
+        prim_by_id[item["id"]]["altGroup"] = group
+        prim_by_id[item["id"]]["altDescription"] = alt.get("description")
+        if partner_id:
+            prim_by_id[partner_id]["altGroup"] = group
+        else:
+            prim_by_id[item["id"]]["altPartnerNote"] = (
+                f"alternative option {alt.get('option')!r} did not match any other "
+                f"symbol's sheetLabel -- alternative described but not cross-linked")
+
+    return primitives
+
+
+# ============================================================
+# PLACEMENT-PLAN COMPILER, STAGE 4 (Data/sheet-specs/STATUS.md)
+# ============================================================
+# Work-area hatch boundary as an explicit polygon, plus the conditional
+# Detail-A/Note-N transverse device rows. Replaces
+# Modules/PerpPlacement.bas's PlaceOrderTableWorkspace, whose current
+# bounds run from path start through the Vehicle Space station -- which
+# wrongly includes the roll ahead distance inside the hatch (exactly what
+# rules.no-occupancy-buffer-rollahead exists to catch).
+#
+# Design correction made while writing this: the work area is NOT reachable
+# by walking either alignment's own positive-station direction at all.
+# orderTable.alignments[0].station0 ("Upstream" align) is literally defined
+# as "Upstream edge of the WORK AREA", and alignments[1].station0
+# ("Downstream" align) as "Downstream edge of the WORK AREA" -- each
+# alignment starts AT its own edge of the work area and walks AWAY from it
+# (upstream/downstream respectively). So the work area's length is not a
+# number to invent OR accept as a bare external parameter: it is already
+# implicit in how the engineer/agent committed the two alignments -- it is
+# literally the real-world distance between align1's station-0 point and
+# align2's station-0 point. Using a single alignment's frame with a
+# "work_area_length_ft" the caller supplies (an earlier version of this
+# function did that) would have needed the caller to already know a number
+# that duplicates information the two committed alignments already encode,
+# with no way to keep the two in sync.
+
+def compile_hatch(spec: dict, resolved: dict, align1_segments, align2_segments,
+                   lane_width_ft: float, shoulder_width_ft: float | None = None,
+                   outward_sign: float = -1.0) -> list[dict]:
+    """Work-area hatch boundary (kind='hatch') plus conditional transverse
+    device rows (kind='transverseRun') when the sheet's
+    channelizingDevices.transverse condition is met.
+
+    align1_segments/align2_segments: alignment_geometry.PathSegment lists
+    for the Upstream and Downstream alignments respectively (from
+    GET_ALIGNMENT_VERTICES on each). Their own station-0 points ARE the
+    work area's two edges -- see the module note above for why this isn't
+    a separate numeric input. If the two alignments were committed with
+    materially different tangents at station 0, that's a real drawing
+    problem this function surfaces (workAreaLengthFt would reflect the
+    straight-line distance between two points that should coincide with
+    the roadway edge, not something this function silently papers over)."""
+    import alignment_geometry as ag
+
+    zones = {z["id"]: z for z in spec["corridor"]["zones"]}
+    wa = zones.get("workArea")
+    if not wa or not wa.get("hatched"):
+        return []
+
+    p1x, p1y, tan1x, tan1y = ag.station_to_xy(align1_segments, 0.0)
+    p2x, p2y, _, _ = ag.station_to_xy(align2_segments, 0.0)
+    length = math.hypot(p2x - p1x, p2y - p1y)
+
+    spans_shoulder = "shoulder" in (wa.get("note") or "").lower()
+    width = lane_width_ft + (shoulder_width_ft or 0.0) if spans_shoulder else lane_width_ft
+    out_x, out_y = _outward_unit(tan1x, tan1y, outward_sign)
+
+    def offset_pt(x: float, y: float, off: float) -> tuple[float, float]:
+        return (x + out_x * off, y + out_y * off)
+
+    boundary = [offset_pt(p1x, p1y, 0.0), offset_pt(p2x, p2y, 0.0),
+                offset_pt(p2x, p2y, width), offset_pt(p1x, p1y, width)]
+
+    # Diagnostic for sheet_rules.run_rules_gate's corridor-topology check
+    # (see its own comment): where does align2's station-0 point (p2)
+    # actually sit relative to align1's own line through p1? A correctly-
+    # committed corridor has align2's edge off to the side somewhere, not
+    # sitting on align1's own path -- if p2 projects onto align1's line at
+    # a POSITIVE station (same direction align1's own stations increase)
+    # and is close to that line (small perpendicular offset), align2 was
+    # placed by walking further along align1's own corridor rather than at
+    # a geometrically distinct work-area edge (confirmed live 2026-08-04:
+    # this is exactly what an inverted-topology 619-311 build looked like --
+    # Downstream offset +1000ft along the same blank line as Upstream).
+    dx, dy = p2x - p1x, p2y - p1y
+    p2_projected_station = dx * tan1x + dy * tan1y
+    p2_perp_dist_ft = abs(dx * (-tan1y) + dy * tan1x)
+
+    primitives: list[dict] = [{
+        "kind": "hatch", "id": "workAreaHatch", "boundary": boundary,
+        "workAreaLengthFt": length, "widthFt": width,
+        "align2ProjectedStationOnAlign1Ft": p2_projected_station,
+        "align2PerpDistFromAlign1Ft": p2_perp_dist_ft,
+    }]
+
+    sym = next((s for s in spec["symbols"]["items"] if s["id"] == "channelizingDevices"), None)
+    transverse = (sym or {}).get("transverse")
+    if transverse and str(transverse.get("required")).lower() == "conditional":
+        max_spacing = float(transverse.get("maxSpacingFt", 800))
+        # Condition text is sheet-specific prose (e.g. "a paved shoulder >= 8'
+        # closed for a distance greater than 800'"). All 15 sheet specs that
+        # carry this clause phrase it as "8' or wider/greater" (confirmed via
+        # grep across Data/sheet-specs), so minShoulderWidthFt defaults to 8.0
+        # rather than parsing the prose; a spec can still override it
+        # explicitly via a numeric "minShoulderWidthFt" key on the transverse
+        # block. Both the length AND shoulder-width clauses must hold --
+        # previously only length was checked, which fired transverse runs on
+        # narrow-shoulder closures the sheet note doesn't actually cover.
+        min_shoulder_ft = float(transverse.get("minShoulderWidthFt", 8.0))
+        shoulder_wide_enough = (shoulder_width_ft or 0.0) >= min_shoulder_ft
+        if length > max_spacing and shoulder_wide_enough:
+            n_rows = int(length // max_spacing)
+            for k in range(1, n_rows + 1):
+                t = (k * max_spacing) / length
+                if t >= 1.0:
+                    break
+                sx, sy = p1x + (p2x - p1x) * t, p1y + (p2y - p1y) * t
+                primitives.append({
+                    "kind": "transverseRun", "run": "transverse", "stationFromP1Ft": k * max_spacing,
+                    "tip1": offset_pt(sx, sy, 0.0), "tip2": offset_pt(sx, sy, width),
+                    "note": transverse.get("sheetText"),
+                })
+
+    return primitives
