@@ -1,0 +1,64 @@
+---
+description: Drive and monitor the WZTC chat agent (chat_driver.py) programmatically instead of only through the in-MicroStation panel
+alwaysApply: true
+---
+
+# Driving/monitoring the WZTC chat agent from outside the panel
+
+`chat_driver.py` normally takes input from `WZTCChatPanel.frm` inside
+MicroStation, but it is watching a plain file — you can drive and observe a
+full turn without touching the panel at all. Useful for testing a fix,
+running a sheet build unattended, or verifying a change actually stuck.
+
+## Sending a message (same as clicking Send in the panel)
+
+Append one line to `Bridge/chat-input.tsv`, format `<timestamp>\t<message>`
+(matches `WZTCChatPanel.btnSend_Click`; see `chat_driver.py`'s `InputWatcher`
+class). `chat_driver.py` polls this file every ~0.5s, so no restart needed:
+
+```
+2026-08-04 12:00:00.000000	Build sheet 619-311 using the standard wztc flow.
+```
+
+This is also how you answer an `ASK_USER`/`ASK_USER_CHOICE` prompt
+mid-turn — append the reply the same way; the same `InputWatcher` cursor
+serves both the top-level loop and any nested `ask_user` wait.
+
+**Before sending:** confirm the agent is actually idle — tail
+`Bridge/chat-log.tsv` and check the last line is `FINAL` (or the session
+just started). Sending into a live turn queues behind it rather than
+interrupting, so it's not unsafe, but you won't get a response to *that*
+message until whatever's running finishes.
+
+## Watching progress
+
+`Bridge/chat-log.tsv` is the full transcript: `TOOL_CALL`, `TOOL_RESULT`,
+`THINKING`, `ASK_USER`, `ASK_USER_CHOICE`, `SCREENSHOT`, and `FINAL` lines,
+each timestamped. The three lines that mean "the turn stopped and needs
+you" are:
+
+- `FINAL` — turn complete (or hit `MAX_TOOL_ITERATIONS` without finishing —
+  check the text, it says so explicitly rather than returning blank)
+- `ASK_USER` / `ASK_USER_CHOICE` — blocked on a reply
+- a `TOOL_RESULT` with `status=ERROR` worth reacting to (the agent will
+  usually self-correct on its own within the same turn; only intervene if
+  it asks or clearly can't proceed)
+
+Poll/tail that file (`tail -f` or equivalent) rather than guessing how long
+a turn will take — turns vary from seconds to several minutes depending on
+tool-call count.
+
+## Cost visibility
+
+`Bridge/chat-usage.tsv` logs one line per API call: `model, input, output,
+cacheWrite, cacheRead, costUsd, runningTotalUsd`. Useful for confirming a
+caching fix actually holds (`cacheRead` should stay roughly stable across a
+turn, not repeatedly reset to a fresh full-price `cacheWrite`) or for a
+before/after cost comparison on a change.
+
+## After editing `chat_driver.py`/`wztc_ops.py`/etc.
+
+Restart it yourself per the File Sync Protocol rule
+(`hot-reload-sync.mdc`) — `python mcp-server/restart_chat_driver.py` — then
+re-send via `chat-input.tsv` as above to verify the fix live rather than
+just reading the diff.
