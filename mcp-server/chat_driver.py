@@ -432,6 +432,7 @@ _WZTC_OP_NAMES = [
     "build_wztc_order_table", "find_reference_linework",
     "define_alignment_segment", "commit_alignment", "adopt_alignment",
     "assemble_corridor", "cross_validate_stations",
+    "resolve_sheet_lateral",
     "place_order_table_stations",
     "place_order_table_labels", "place_order_table_dimensions",
     "place_sheet_symbol_cells", "place_order_table_workspace",
@@ -444,6 +445,7 @@ _WZTC_OP_NAMES = [
     "begin_sheet_sandbox", "get_sheet_sandbox", "run_sheet_build_sandbox",
     "keep_sheet_sandbox", "revert_sheet_sandbox",
     "clear_plan_elements",
+    "delete_construction_guides",
 ]
 
 _validate_op_names(_BASE_OP_NAMES, wztc_ops, "_BASE_OP_NAMES")

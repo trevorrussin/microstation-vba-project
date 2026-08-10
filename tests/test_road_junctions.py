@@ -123,16 +123,22 @@ def test_turn_arrow_metas_continuous_shared_options():
     names = {s["cellName"] for s in arrows}
     assert "SLONLY" not in names
     assert "SALS" in names and "SARS" in names
-    # Primary 2 through: SALS + SARS; secondary 1 lane: SALS+SARS pair
     primary = [
         s["cellName"] for s in arrows
         if s["arm"] == "primary_neg" and s["cellName"] != "SLONLY"
     ]
     assert primary == ["SALS", "SARS"]
-    # West approach travel +X → angle -90; arrow on south (approach) half y<0
+    # West approach travel +X → angle -90; south travel +Y → angle 0
     west = [s for s in arrows if s["arm"] == "primary_neg"]
     assert west and abs(west[0]["angleDeg"] + 90.0) < 1e-6
     assert all(s["y"] < 0 for s in west)
+    south = [
+        s for s in arrows
+        if s["arm"] == "secondary_right" and s["cellName"] in ("SALS", "SARS")
+    ]
+    assert len(south) == 2
+    assert south[0]["x"] == south[1]["x"] and south[0]["y"] == south[1]["y"]
+    assert abs(south[0]["angleDeg"]) < 1e-6
 
 
 def test_turn_arrow_metas_six_lane_shared():
@@ -160,13 +166,13 @@ def test_turn_arrow_metas_six_lane_shared():
 
 
 def test_turn_arrow_metas_dedicated_when_lane_drops():
-    """3 toward, 2 through → one dedicated left + SLONLY; through lose left."""
+    """3 toward, 2 through → SAL+SLONLY aligned with through; median on away."""
     segs = orthogonal_intersection_lines(
         0.0, 0.0,
         primary_road_type="two_way",
         secondary_road_type="two_way",
-        primary_length_ft=260.0,
-        secondary_stub_ft=100.0,
+        primary_length_ft=280.0,
+        secondary_stub_ft=110.0,
         primary_lanes=6,
         secondary_lanes=2,
         primary_lanes_out=2,
@@ -179,10 +185,50 @@ def test_turn_arrow_metas_dedicated_when_lane_drops():
     names = [s["cellName"] for s in primary]
     assert names[0] == "SAL"
     assert "SLONLY" in names
-    # Remaining two through: no left (pocket took it) → SAS + SARS
     non_only = [c for c in names if c != "SLONLY"]
     assert non_only == ["SAL", "SAS", "SARS"]
-    assert all(s.get("dedicated") == 1 for s in primary if s["cellName"] != "SLONLY")
+    # SAL / SAS / SARS share the same station (x for E-W)
+    arrows_no_only = [s for s in primary if s["cellName"] != "SLONLY"]
+    xs = {round(s["x"], 3) for s in arrows_no_only}
+    assert len(xs) == 1
+    only = next(s for s in primary if s["cellName"] == "SLONLY")
+    sal = next(s for s in primary if s["cellName"] == "SAL")
+    # ONLY further upstream (smaller x on west approach), same lane y
+    assert only["x"] < sal["x"] - 30.0
+    assert abs(only["y"] - sal["y"]) < 1e-6
+
+
+def test_lane_drop_three_into_two_after():
+    """3 into the box / 2 after: approach (south on west arm) has 2 dash rows."""
+    segs = orthogonal_intersection_lines(
+        0.0, 0.0,
+        primary_road_type="two_way",
+        secondary_road_type="two_way",
+        primary_length_ft=300.0,
+        secondary_stub_ft=120.0,
+        primary_lanes=6,
+        secondary_lanes=2,
+        primary_lanes_out=2,
+        turn_arrows=False,
+    )
+    dashes = [
+        s for s in segs
+        if s.get("arm") == "primary_neg" and s.get("kind") == "lane"
+        and s.get("style") == "dashed"
+    ]
+    south_rows = {
+        round(0.5 * (s["y1"] + s["y2"]), 1)
+        for s in dashes
+        if 0.5 * (s["y1"] + s["y2"]) < 0
+    }
+    north_rows = {
+        round(0.5 * (s["y1"] + s["y2"]), 1)
+        for s in dashes
+        if 0.5 * (s["y1"] + s["y2"]) > 0
+    }
+    # South = EB into box = 3 lanes → 2 dashed separators; north away = 2 → 1
+    assert len(south_rows) == 2
+    assert len(north_rows) == 1
 
 def test_primary_does_not_cross_box():
     segs = orthogonal_intersection_lines(

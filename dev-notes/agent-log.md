@@ -1744,3 +1744,59 @@ Live smoke @ (27000,291200) 2+2 shared; (27500,291200) 3+3; (28000,291200) 3?2 d
 ## 2026-08-10 -- Cursor -- arrow facing confirmed via bbox (not vision)
 
 Capture-vision repeatedly claimed tips faced away; element bbox vs cell origin proves SAS tip follows ACTIVE ANGLE with **0 = +Y**, **-90/+270 = +X**. Formula stays `atan2(-travel_x, travel_y)` (no +180 — that made west tips face away). Real facing bug was RH-lane placement (arrows sat in opposing two-way half). Shared SALS/SAS/SARS math + dedicated ONLY kept. Engineer should QA fresh smokes at (30000 / 30450 / 30900, 291200), not older junctions.
+
+## 2026-08-10 -- Cursor -- LSR overlap, tip-at-origin angle, ONLY spacing, 3?2 asymmetric strip
+
+Engineer QA on shared/dedicated arrow junctions:
+1. Overlap SALS+SARS on the same xy for single-lane L/S/R (no triple-head cell).
+2. Striping cell origin is at the tip (stem opposite); ACTIVE ANGLE = `atan2(travel_x, -travel_y)` so south travel tips toward the box (180).
+3. SLONLY setback 28 ft upstream; SAL shares station with SAS/SARS (same x on E-W).
+4. When `primary_lanes_out` < toward on two_way: `asymmetric_two_way_highway_lines(toward, out, median_second=dedicated*lane_w)` so each arm is 3 toward + median + 2 away (reads 3+2 / 2+3 across the box).
+
+Live smoke @ (32000,291200) shared; (32500,291200) 3?2. Tests 33 pass. Driver restarted.
+
+## 2026-08-10 -- Cursor -- restore tip angles; fix 3-into/2-after strip orientation
+
+Engineer: global 180 flip inverted every arrow (tips away from stop bar). Restored `atan2(-tx, ty)` on **all** arms (west -90 / east 90 / south 0 / north 180). South-only +180 also pointed tips away — removed.
+
+3?2 strip: `_first_edge_from_centerline` paints the left-of-corridor pack first (= away). Build `lanes_first=out + median_first`, `lanes_second=toward` so EB on west is 3 into the box and 2 after on the east (verified: south dash rows=2, north=1 on primary_neg).
+
+Live smoke @ (35000 / 35500, 291200). Tests 16 pass.
+
+## 2026-08-10 -- Cursor -- 619-311 real-road demo (EB Urban 55)
+
+Demo only (not wired into permanent compile/agent path): full 619-311 on a striped 4-lane + 8 ft shoulder corridor at Yc=290200, X=32000..36000. Designer locks: eastbound right (south of yellow), Urban, 55 mph, WA 100 ft at X 34500?34600 on lane line Y=290187. `half_len=20` (12+8) so posts tip at outer EOP.
+
+Gotchas: Align1 stations increase upstream (west); `outward_sign=-1` hatches **north**/left lane; EB right needs `outward_sign=+1`. `clear_plan_elements` / `assemble_corridor(force=True)` deletes journal-owned `place_polyline` striping — place corridor **after** the sheet build. Scorecard passed; NYW8-33 still DEFERRED (vehicle-mounted). Helper: `scripts/build_619311_on_real_road.py`. Tips in `619-311.json` / `619-311.build.md`.
+
+## 2026-08-10 -- Cursor -- wire Cursor build-verify-fix into WZTC agent
+
+Sheet-first + scorecard + visual QA were already in `prompts.py`. Missing was the real-road lateral method from the live Cursor 619-311 session.
+
+Shipped `resolve_sheet_lateral` (locks `outward_sign` / `half_len` from travel up?dn + closed_side; real_road_edge ? lane+shoulder tip-at-EOP). `run_sheet_build` / `compile_sheet_plan` honor locked lateral by default. Checklist `nextTool` after order table is `resolve_sheet_lateral`. Prompt CONTROL-LOOP now: ask closed_side ? resolve ? run_sheet_build ? build-verify-fix (IDs/ranges, no stacked duplicates, don't thrice-assert capture vs engineer, re-place journal striping after force wipe). Wired in chat_driver + MCP `server.py`. Tests `test_resolve_sheet_lateral` + plan_workflow. Driver PID 31676. `619-311.build.md` preferred path updated.
+
+## 2026-08-10 -- Cursor -- fix 619-311 channelizing lateral (real-road Y)
+
+Engineer QA: cones through middle of road, signs/PV/WA wrong in Y; X OK. Root cause: `assemble_corridor`/hatch put Align1 on the **left edge of the closed lane** (channelizing line), but `compile_channelizing` still used longitudinal offset=+lane_width (fog-line) and lane-taper tip at offset 0 — backwards for that align contract.
+
+Fix in `sheet_compile.compile_channelizing`: longitudinal offset 0; lane taper tip=+lane (outer travel) toe=0; shoulder +lane ? +lane+shoulder (EOP); Align2 downstream 0 ? -lane. AP `tip_half_len_ft` from locked lateral. Rebuild script lane line Y=290188. Tests `test_channelizing_lateral`. Sheet JSON/playbook Do-not updated.
+
+## 2026-08-10 -- Cursor -- real-road 619-311 wrong half (two_way first edge)
+
+Engineer: rebuild still looked like cones through the middle. Root cause: `place_two_way_highway(x1,y1,…)` is the **north travel outer**, not yellow center. Script used `Yc-12` as align ? north (WB) dash. EB right dash is `Y_north_outer - (2*lane + yellow_gap + lane)` (= -38). Clean rebuild at north-outer 289200 / lane line 289162 / hatch 289142–289162; posts ~289138. Captures `qa_311_v2_*.png`. Look at Y~289175, not old 290200 band.
+
+## 2026-08-10 -- Cursor -- 619-311 polish: one AP, G20 opposite, drop guides
+
+Engineer QA on real-road band: duplicate TWZAP_P, G20-2 on closed roadside, white align+ticks cluttering striped plan.
+
+Fixes in `wztc_ops`: `place_sheet_geometry` places arrowPanel once; G20 tip uses flipped world-locked `closed_outward` + `opposite_half_len` (open lane + yellow + opposing pack + shoulder, e.g. 46 ft); new `delete_construction_guides` deletes only journal `PLACE_ORDER_TABLE_STATIONS` / `PLACE_PERP_LINE` / `DEFINE_ALIGNMENT_SEGMENT` IDs. `resolve_sheet_lateral` locks opposite fields. Rebuild script at north-outer **288200** (1000 ft south of 289200). Sheet JSON/playbook + prompt CONTROL-LOOP updated.
+
+## 2026-08-10 -- Cursor -- G20 closed shoulder + wire full real-road 619-311 path
+
+Engineer correction: G20-2 stays on the **same** closed-shoulder roadside as W20s (south EOP for EB right) — not opposite. Root cause of wrong tip was Align2 tan flipping `_outward_unit`; fix locks `closed_outward` from `resolve_sheet_lateral` and applies it to all one-side signs in `_place_locked_signs_from_stations`.
+
+Agent wiring: playbook Preferred path has real-road combo steps 10-12 (re-place striping, `delete_construction_guides`); `run_sheet_build` auto-runs guide cleanup when `real_road_edge`; plan complete `nextTool` = `delete_construction_guides`; prompts CONTROL-LOOP + sheet JSON `roadside: closed`. Tests resolve/plan_workflow updated.
+
+## 2026-08-10 -- Cursor -- live WZTC agent full 619-311 run + lockedSignRows skip fix
+
+Ran real chat agent on full real-road 619-311 (Y north-outer 287200). Turn 1 followed playbook (resolve ? run_sheet_build ? striping) but `phases.signs skipped=True` because stale `sheet-plan.json` had `order_table_built` with empty `lockedSignRows` — vacuous checklist treated signs as done. Fixed: `stage_done` requires roadside signs for sheets with `signs.items`; `run_sheet_build` auto-rebuilds order table when lock empty; load clears bogus order_table_built; prompt warns against post-scorecard `find_elements_near` fishing. Continue turn placed all 4 signs (G20 tip Y=287142 south). Driver `--force` mid-`run_sheet_build` orphaned TOOL_RESULT — finished guides/corridor outside panel. Agent API cost ~$2.93 for the monitored turns.

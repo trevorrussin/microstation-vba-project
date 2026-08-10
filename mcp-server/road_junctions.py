@@ -25,6 +25,8 @@ from typing import Literal
 
 from lane_highway import (
     _corridor_frame,
+    asymmetric_two_way_highway_lines,
+    asymmetric_two_way_width_ft,
     build_strip_lines,
     lane_highway_lines,
     travel_width_ft,
@@ -36,6 +38,7 @@ _STOP_BAR_AFTER_CROSSWALK_FT = 4.0  # stop line in advance of nearest crosswalk
 _DOTTED_EXT_DASH_FT = 2.0          # MUTCD dotted extension ~2 ft segments
 _DOTTED_EXT_GAP_FT = 4.0           # common 2–6 ft gap; use 4
 _ARROW_SETBACK_FT = 20.0           # arrow center outbound of stop bar
+_ONLY_SETBACK_FT = 40.0            # SLONLY upstream of SAL (avoid glyph overlap)
 DEFAULT_STRIPING_CELL_LIB = r"c:\pwworking\usny\d0119091\ny_plan_striping.cel"
 # ny_plan_striping.cel lane-use arrows (descriptions confirmed live).
 _CELL_ARROW_LEFT = "SAL"
@@ -222,9 +225,10 @@ def _lanes_toward(
 def _ms_striping_arrow_angle_deg(travel_x: float, travel_y: float) -> float:
     """ACTIVE ANGLE for ny_plan_striping SAS/SAL/… cells.
 
-    Live probe: angle 0 aligns cell +Y. Tip of SAS matches that axis.
-    Convert travel (unit vector) with atan2(-tx, ty). Intersection QA with
-    +180 left tips facing away — do not add 180.
+    Engineer-confirmed mapping: tips toward the stop bar with
+    ``atan2(-travel_x, travel_y)`` on all approaches (west -90, east 90,
+    south 0, north 180). Do not apply a global or south-only 180 flip —
+    that pointed tips away from the bar.
     """
     return math.degrees(math.atan2(-travel_x, travel_y))
 
@@ -443,8 +447,11 @@ def _append_turn_arrow_metas(
             "dedicated": dedicated,
         })
         if place_only:
-            ox = ax + travel_x * (-8.0)
-            oy = ay + travel_y * (-8.0)
+            # Upstream of the turn arrow (same lane), far enough to avoid
+            # overlapping the ~10 ft SAL glyph — keep SAL on the arrow station
+            # line with SAS/SARS.
+            ox = ax + travel_x * (-_ONLY_SETBACK_FT)
+            oy = ay + travel_y * (-_ONLY_SETBACK_FT)
             out.append({
                 "style": "meta", "kind": "turn_arrow", "arm": arm, "row": 860 + i,
                 "cellName": _CELL_ONLY,
@@ -458,15 +465,9 @@ def _append_turn_arrow_metas(
     ):
         ax, ay = _lane_center(i)
         if cell == _CELL_LSR_PAIR:
-            # No triple-head cell in the NY striping lib — stack L+S and R+S.
-            _emit(
-                _CELL_ARROW_LEFT_STRAIGHT, i, False,
-                ax + travel_x * (-4.0), ay + travel_y * (-4.0),
-            )
-            _emit(
-                _CELL_ARROW_RIGHT_STRAIGHT, i, False,
-                ax + travel_x * (4.0), ay + travel_y * (4.0),
-            )
+            # No triple-head cell — overlap SALS + SARS on the same point.
+            _emit(_CELL_ARROW_LEFT_STRAIGHT, i, False, ax, ay)
+            _emit(_CELL_ARROW_RIGHT_STRAIGHT, i, False, ax, ay)
         else:
             _emit(cell, i, place_only, ax, ay)
 
@@ -591,6 +592,61 @@ def orthogonal_intersection_lines(
         median_width_ft=secondary_median_width_ft,
         twlt_width_ft=secondary_twlt_width_ft,
     )
+
+    out: list[dict] = []
+    p_lanes_toward = _lanes_toward(
+        primary_road_type, lanes=primary_lanes,
+        lanes_per_direction=primary_lanes_per_direction,
+    )
+    s_lanes_toward = _lanes_toward(
+        secondary_road_type, lanes=secondary_lanes,
+        lanes_per_direction=secondary_lanes_per_direction,
+    )
+    p_lanes_out = (
+        p_lanes_toward if primary_lanes_out is None else int(primary_lanes_out)
+    )
+    s_lanes_out = (
+        s_lanes_toward if secondary_lanes_out is None else int(secondary_lanes_out)
+    )
+    p_dedicated = _dedicated_turn_count(p_lanes_toward, p_lanes_out)
+    s_dedicated = _dedicated_turn_count(s_lanes_toward, s_lanes_out)
+
+    # Lane-drop sketch: ``_first_edge_from_centerline`` puts the first edge on
+    # the LEFT of corridor (= away/opposing pack). Put away+median there and
+    # toward/approach on the second pack so each direction is 3 INTO the box
+    # and 2 AFTER (not the reverse).
+    p_rt = (primary_road_type or "").strip().lower()
+    p_drop_strip = (
+        p_dedicated > 0
+        and p_rt in ("two_way", "two-way", "undivided")
+    )
+    if p_drop_strip:
+        p_median_away = float(p_dedicated) * float(lane_width_ft)
+        pw = asymmetric_two_way_width_ft(
+            p_lanes_out, p_lanes_toward,
+            lane_width_ft=lane_width_ft,
+            yellow_gap_ft=yellow_gap_ft,
+            median_first_ft=p_median_away,
+        )
+    else:
+        p_median_away = 0.0
+
+    s_rt = (secondary_road_type or "").strip().lower()
+    s_drop_strip = (
+        s_dedicated > 0
+        and s_rt in ("two_way", "two-way", "undivided")
+    )
+    if s_drop_strip:
+        s_median_away = float(s_dedicated) * float(lane_width_ft)
+        sw = asymmetric_two_way_width_ft(
+            s_lanes_out, s_lanes_toward,
+            lane_width_ft=lane_width_ft,
+            yellow_gap_ft=yellow_gap_ft,
+            median_first_ft=s_median_away,
+        )
+    else:
+        s_median_away = 0.0
+
     primary_half = pw / 2.0 + float(primary_shoulder_width_ft)
     secondary_half = sw / 2.0 + float(secondary_shoulder_width_ft)
     half_p = primary_length_ft / 2.0
@@ -608,24 +664,6 @@ def orthogonal_intersection_lines(
             f"crosswalk/stop/arrows (need >= {need:.1f})"
         )
 
-    out: list[dict] = []
-    p_lanes_toward = _lanes_toward(
-        primary_road_type, lanes=primary_lanes,
-        lanes_per_direction=primary_lanes_per_direction,
-    )
-    s_lanes_toward = _lanes_toward(
-        secondary_road_type, lanes=secondary_lanes,
-        lanes_per_direction=secondary_lanes_per_direction,
-    )
-    # Default lanes_out = lanes_in (continuous through) → no dedicated turns.
-    p_lanes_out = (
-        p_lanes_toward if primary_lanes_out is None else int(primary_lanes_out)
-    )
-    s_lanes_out = (
-        s_lanes_toward if secondary_lanes_out is None else int(secondary_lanes_out)
-    )
-    p_dedicated = _dedicated_turn_count(p_lanes_toward, p_lanes_out)
-    s_dedicated = _dedicated_turn_count(s_lanes_toward, s_lanes_out)
     turning = _resolve_dotted_center(
         has_turning_lanes, primary_road_type, secondary_road_type,
         primary_dedicated=p_dedicated, secondary_dedicated=s_dedicated,
@@ -639,10 +677,24 @@ def orthogonal_intersection_lines(
         c1x = junction_x + ptx * inner_s
         c1y = junction_y + pty * inner_s
         x1, y1, x2, y2 = _first_edge_from_centerline(c0x, c0y, c1x, c1y, pw, side)
-        raw = _tag(
-            build_strip_lines(primary_road_type, x1, y1, x2, y2, **strip_kw_p),
-            arm,
-        )
+        if p_drop_strip:
+            raw = _tag(
+                asymmetric_two_way_highway_lines(
+                    p_lanes_out, p_lanes_toward,
+                    x1, y1, x2, y2,
+                    lane_width_ft=lane_width_ft,
+                    yellow_gap_ft=yellow_gap_ft,
+                    median_first_ft=p_median_away,
+                    shoulder_width_ft=primary_shoulder_width_ft,
+                    dash_ft=dash_ft, gap_ft=gap_ft, side=side,
+                ),
+                arm,
+            )
+        else:
+            raw = _tag(
+                build_strip_lines(primary_road_type, x1, y1, x2, y2, **strip_kw_p),
+                arm,
+            )
         out_dx, out_dy = sign * ptx, sign * pty
         stop_s = _approach_stop_and_crosswalk(
             out, jx=junction_x, jy=junction_y,
@@ -683,10 +735,26 @@ def orthogonal_intersection_lines(
         sx1, sy1, sx2, sy2 = _first_edge_from_centerline(
             s0x, s0y, s1x, s1y, sw, side,
         )
-        raw = _tag(
-            build_strip_lines(secondary_road_type, sx1, sy1, sx2, sy2, **strip_kw_s),
-            arm,
-        )
+        if s_drop_strip:
+            raw = _tag(
+                asymmetric_two_way_highway_lines(
+                    s_lanes_out, s_lanes_toward,
+                    sx1, sy1, sx2, sy2,
+                    lane_width_ft=lane_width_ft,
+                    yellow_gap_ft=yellow_gap_ft,
+                    median_first_ft=s_median_away,
+                    shoulder_width_ft=secondary_shoulder_width_ft,
+                    dash_ft=dash_ft, gap_ft=gap_ft, side=side,
+                ),
+                arm,
+            )
+        else:
+            raw = _tag(
+                build_strip_lines(
+                    secondary_road_type, sx1, sy1, sx2, sy2, **strip_kw_s,
+                ),
+                arm,
+            )
         stop_s = _approach_stop_and_crosswalk(
             out, jx=junction_x, jy=junction_y,
             out_dx=dir_x, out_dy=dir_y,

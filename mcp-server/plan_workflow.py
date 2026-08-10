@@ -91,8 +91,22 @@ def stage_done(session: Any) -> dict[str, bool]:
     locked_signs = set(session.locked_sign_rows)
     signs = bool(locked_signs) and locked_signs <= set(session.signs_placed_rows)
     if order and not locked_signs:
-        # Sheet with no roadside signs (rare) — treat as done once stations exist.
-        signs = stations
+        # Stale Bridge/sheet-plan.json can keep order_table_built=True with
+        # empty lockedSignRows (live 2026-08-10 agent turn skipped PLACE_SIGN).
+        # Only treat as "no roadside signs" when the sheet JSON has none.
+        sheet_num = ""
+        if session.designer_inputs is not None:
+            sheet_num = str(session.designer_inputs.sheet_num or "")
+        has_roadside = True
+        if sheet_num:
+            try:
+                import sheet_resolve
+                spec = sheet_resolve.load(sheet_num) or {}
+                items = (spec.get("signs") or {}).get("items") or []
+                has_roadside = bool(items)
+            except Exception:
+                has_roadside = True
+        signs = stations if not has_roadside else False
     return {
         "inputs_locked": inputs_locked,
         "order_table_built": order,
@@ -118,10 +132,24 @@ def next_action(session: Any, done: dict[str, bool]) -> dict[str, Any]:
     """Concrete nextTool / nextStep for the agent (no LLM inference)."""
     step = first_incomplete(done)
     if step is None:
+        post = (
+            "FINAL — summarize plan; list any deferred handoffs"
+        )
+        if bool(getattr(session, "real_road_edge", False)):
+            post = (
+                "Real-road finish: (1) place_two_way_highway (or existing "
+                "striping) AFTER the sheet if force wipe removed the road; "
+                "(2) delete_construction_guides() — white align + perp ticks "
+                "only; (3) FINAL — summarize; list deferred handoffs"
+            )
         return {
             "currentStep": "complete",
-            "nextTool": None,
-            "nextStep": "FINAL — summarize plan; list any deferred handoffs",
+            "nextTool": (
+                "delete_construction_guides"
+                if bool(getattr(session, "real_road_edge", False))
+                else None
+            ),
+            "nextStep": post,
             "remainingSigns": [],
             "stationsNeeded": [],
         }
@@ -143,10 +171,11 @@ def next_action(session: Any, done: dict[str, bool]) -> dict[str, Any]:
             "build_wztc_order_table",
         ),
         "corridor_ready": (
-            "ask_user_choice(allow_point_pick=True) for upstream + downstream "
-            "WORK AREA edges, then run_sheet_build(upstream_edge, downstream_edge) "
-            "(preferred executor) OR assemble_corridor alone",
-            "run_sheet_build",
+            "ask_user_choice for closed_side (right|left of travel) + point-pick "
+            "upstream/downstream WORK AREA edges; resolve_sheet_lateral(...); "
+            "then run_sheet_build(upstream_edge, downstream_edge) "
+            "(uses locked outward_sign/half_len)",
+            "resolve_sheet_lateral",
         ),
         "stations_placed": (
             f"run_sheet_build() to finish stations/signs/compiler, or "
@@ -154,9 +183,20 @@ def next_action(session: Any, done: dict[str, bool]) -> dict[str, Any]:
             "run_sheet_build",
         ),
         "signs_placed": (
-            f"run_sheet_build() or place_sign + set_sign_attributes for: "
-            f"{remaining_signs or '(none)'}",
-            "run_sheet_build",
+            (
+                "lockedSignRows empty — call build_wztc_order_table again to "
+                "re-lock roadside signs, then run_sheet_build"
+                if not set(session.locked_sign_rows)
+                else (
+                    f"run_sheet_build() or place_sign + set_sign_attributes for: "
+                    f"{remaining_signs or '(none)'}"
+                )
+            ),
+            (
+                "build_wztc_order_table"
+                if not set(session.locked_sign_rows)
+                else "run_sheet_build"
+            ),
         ),
         "sign_attrs_applied": (
             "run_sheet_build() or set_sign_attributes on place_sign IDs",

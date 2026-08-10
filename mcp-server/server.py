@@ -651,6 +651,34 @@ def place_sheet_geometry(sheet_num: str, speed: int, lane_width: int, shoulder_w
 
 
 @mcp.tool()
+def delete_construction_guides() -> dict:
+    """After a real-road sheet build: delete alignment centerlines and
+    perp tick lines only. Leaves signs/cones/hatch/dims/AP/PV/striping."""
+    return wztc_ops.delete_construction_guides()
+
+
+@mcp.tool()
+def resolve_sheet_lateral(upstream_edge: list[float],
+                          downstream_edge: list[float],
+                          closed_side: str,
+                          lane_width_ft: float = 0.0,
+                          shoulder_width_ft: float = 0.0,
+                          real_road_edge: bool = True,
+                          yellow_gap_ft: float = 2.0,
+                          opposing_lanes: int = 2) -> dict:
+    """Lock outward_sign + half_len from travel (up→dn) and closed_side
+    (right|left). Call before run_sheet_build on real-road / right-lane
+    sheets. real_road_edge uses lane+shoulder for tip-at-EOP half_len.
+    Also locks closed_outward so Align2 G20-2 tips on the same closed
+    shoulder as Align1 advance signs."""
+    return wztc_ops.resolve_sheet_lateral(
+        upstream_edge, downstream_edge, closed_side,
+        lane_width_ft=lane_width_ft, shoulder_width_ft=shoulder_width_ft,
+        real_road_edge=real_road_edge, yellow_gap_ft=yellow_gap_ft,
+        opposing_lanes=opposing_lanes)
+
+
+@mcp.tool()
 def run_sheet_build(upstream_edge: list[float] | None = None,
                     downstream_edge: list[float] | None = None,
                     outward_sign: float = -1.0,
@@ -659,16 +687,20 @@ def run_sheet_build(upstream_edge: list[float] | None = None,
                     include_visual_qa: bool = True,
                     clear_prior_stations: bool = False,
                     force: bool = False,
-                    approach_length_ft: float = 0.0) -> dict:
+                    approach_length_ft: float = 0.0,
+                    use_locked_lateral: bool = True) -> dict:
     """Sheet-build only executor: assemble→stations→signs→compiler→QA.
-    Outside a sheet plan returns sheetPlanActive=False."""
+    Outside a sheet plan returns sheetPlanActive=False.
+    Prefer resolve_sheet_lateral first; locked outward_sign/half_len apply
+    when use_locked_lateral=True."""
     return wztc_ops.run_sheet_build(
         upstream_edge=upstream_edge, downstream_edge=downstream_edge,
         outward_sign=outward_sign, half_len=half_len,
         arrow_panel_choice=arrow_panel_choice,
         include_visual_qa=include_visual_qa,
         clear_prior_stations=clear_prior_stations, force=force,
-        approach_length_ft=approach_length_ft)
+        approach_length_ft=approach_length_ft,
+        use_locked_lateral=use_locked_lateral)
 
 
 @mcp.tool()

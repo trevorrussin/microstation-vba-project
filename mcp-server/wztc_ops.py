@@ -1619,6 +1619,15 @@ class PlanSession:
     visual_qa_failures: list[str] = field(default_factory=list)
     reflection_log: list[dict] = field(default_factory=list)
     sandbox: Optional[dict] = None
+    # Closed-lane lateral (resolve_sheet_lateral). Used by run_sheet_build /
+    # place_sheet_geometry when set — real-road half_len + outward_sign.
+    lateral_outward_sign: Optional[float] = None
+    lateral_half_len: Optional[float] = None
+    closed_side: str = ""
+    real_road_edge: bool = False
+    closed_outward_x: float = 0.0
+    closed_outward_y: float = 0.0
+    opposite_half_len: Optional[float] = None
 
     def reset(self) -> None:
         """Drop plan-flow memory (call from exit_mode so a later general/
@@ -1648,6 +1657,13 @@ class PlanSession:
         self.visual_qa_failures = []
         self.reflection_log = []
         self.sandbox = None
+        self.lateral_outward_sign = None
+        self.lateral_half_len = None
+        self.closed_side = ""
+        self.real_road_edge = False
+        self.closed_outward_x = 0.0
+        self.closed_outward_y = 0.0
+        self.opposite_half_len = None
 
     def lock_designer_inputs(self, **kwargs) -> None:
         self.designer_inputs = DesignerInputs(**kwargs)
@@ -1655,7 +1671,17 @@ class PlanSession:
     def get_locked_inputs_dict(self) -> dict:
         if self.designer_inputs is None:
             return {"locked": False}
-        return {"locked": True, **asdict(self.designer_inputs)}
+        out = {"locked": True, **asdict(self.designer_inputs)}
+        if self.lateral_outward_sign is not None or self.lateral_half_len is not None:
+            out["lateral"] = {
+                "outward_sign": self.lateral_outward_sign,
+                "half_len": self.lateral_half_len,
+                "opposite_half_len": self.opposite_half_len,
+                "closed_side": self.closed_side or None,
+                "real_road_edge": self.real_road_edge,
+                "closed_outward": [self.closed_outward_x, self.closed_outward_y],
+            }
+        return out
 
     def lock_sign_rows(self, sign_rows: list[dict]) -> None:
         self.locked_sign_details = [dict(r) for r in (sign_rows or [])]
@@ -1716,6 +1742,14 @@ def _save_sheet_plan() -> Optional[Path]:
             "visual_qa_passed": s.visual_qa_passed,
         },
         "workAreaEdges": s.work_area_edges,
+        "lateral": {
+            "outward_sign": s.lateral_outward_sign,
+            "half_len": s.lateral_half_len,
+            "opposite_half_len": s.opposite_half_len,
+            "closed_side": s.closed_side or None,
+            "real_road_edge": s.real_road_edge,
+            "closed_outward": [s.closed_outward_x, s.closed_outward_y],
+        },
         "lastStationRowsByAlign": {
             str(k): v for k, v in s.last_station_rows.items()
         },
@@ -1797,6 +1831,19 @@ def _load_sheet_plan(path: Optional[Path] = None) -> dict:
         data.get("visual_qa_passed", cl.get("visual_qa_passed", False)))
     s.placed_workspace = bool(data.get("placedWorkspace", False))
     s.work_area_edges = data.get("workAreaEdges")
+    lat = data.get("lateral") or {}
+    if lat.get("outward_sign") is not None:
+        s.lateral_outward_sign = float(lat["outward_sign"])
+    if lat.get("half_len") is not None:
+        s.lateral_half_len = float(lat["half_len"])
+    if lat.get("opposite_half_len") is not None:
+        s.opposite_half_len = float(lat["opposite_half_len"])
+    s.closed_side = str(lat.get("closed_side") or "")
+    s.real_road_edge = bool(lat.get("real_road_edge"))
+    co = lat.get("closed_outward") or [0.0, 0.0]
+    if isinstance(co, (list, tuple)) and len(co) >= 2:
+        s.closed_outward_x = float(co[0])
+        s.closed_outward_y = float(co[1])
     s.plan_updated_at = str(data.get("updatedAt") or "")
     s.last_failed_phase = str(data.get("lastFailedPhase") or "")
     s.last_replan = data.get("lastReplan")
@@ -2510,6 +2557,150 @@ def _pt3(p) -> list[float]:
     if not isinstance(p, (list, tuple)) or len(p) < 2:
         raise ValueError(f"point must be [x,y] or [x,y,z], got {p!r}")
     return [float(p[0]), float(p[1]), float(p[2]) if len(p) > 2 else 0.0]
+
+
+def resolve_sheet_lateral(
+        upstream_edge: list[float],
+        downstream_edge: list[float],
+        closed_side: str,
+        lane_width_ft: float = 0.0,
+        shoulder_width_ft: float = 0.0,
+        real_road_edge: bool = True,
+        yellow_gap_ft: float = 2.0,
+        opposing_lanes: int = 2) -> dict:
+    """Lock outward_sign + half_len for a named-sheet build from travel
+    and closed-lane side (Cursor real-road method, 2026-08-10).
+
+    Contract matches assemble_corridor: travel = unit(up→dn). Align1
+    stations increase UPSTREAM (−travel). closed_side is relative to
+    travel ('right' | 'left'). Right-lane sheets (619-311) use 'right'.
+
+    outward_sign: +1 for closed right of travel, −1 for closed left —
+    so Align1's OutwardUnit points into the closed lane / toward the
+    shoulder (verified: EB +X travel, Align1 tan west, right → +1 → −Y).
+
+    half_len: when real_road_edge, lane_width_ft + shoulder_width_ft so
+    sign/AP tips land on outer EOP (12+8→20). When false or widths
+    missing, half_len=40 (abstract ticks).
+
+    Also locks closed_outward (world XY) so Align2 one-side signs
+    (including G20-2) tip on the SAME closed shoulder as Align1 advance
+    signs — Align2 tan alone flips _outward_unit across the road.
+
+    Locks PlanSession lateral_* used by run_sheet_build /
+    place_sheet_geometry. Call after work-area edges are known and
+    BEFORE run_sheet_build. Ask the engineer for closed_side / travel
+    if unknown — do not invent.
+    """
+    import math
+
+    side = (closed_side or "").strip().lower()
+    if side in ("r", "right-lane", "right_lane", "outer-right"):
+        side = "right"
+    if side in ("l", "left-lane", "left_lane", "outer-left"):
+        side = "left"
+    if side not in ("right", "left"):
+        raise ValueError(
+            "resolve_sheet_lateral: closed_side must be 'right' or 'left' "
+            f"(relative to travel through the work bay); got {closed_side!r}")
+
+    up = _pt3(upstream_edge)
+    dn = _pt3(downstream_edge)
+    dx, dy = dn[0] - up[0], dn[1] - up[1]
+    work_len = math.hypot(dx, dy)
+    if work_len < 1.0:
+        raise ValueError(
+            f"resolve_sheet_lateral: edges only {work_len:.3f} ft apart")
+    tx, ty = dx / work_len, dy / work_len
+    # Align1 tan at sta0 points upstream (opposite travel).
+    a1_tx, a1_ty = -tx, -ty
+    outward_sign = 1.0 if side == "right" else -1.0
+    from sheet_compile import _outward_unit
+    out_x, out_y = _outward_unit(a1_tx, a1_ty, outward_sign)
+
+    lw = float(lane_width_ft or 0.0)
+    sh = float(shoulder_width_ft or 0.0)
+    if _PLAN_SESSION.designer_inputs is not None:
+        if lw <= 0:
+            lw = float(_PLAN_SESSION.designer_inputs.lane_width or 0)
+        if sh <= 0:
+            sh = _shoulder_ft_from_band(
+                _PLAN_SESSION.designer_inputs.shoulder_width)
+
+    use_real = bool(real_road_edge) and lw > 0
+    half_len = (lw + max(sh, 0.0)) if use_real else 40.0
+
+    _PLAN_SESSION.lateral_outward_sign = outward_sign
+    _PLAN_SESSION.lateral_half_len = half_len
+    _PLAN_SESSION.closed_side = side
+    _PLAN_SESSION.real_road_edge = use_real
+    _PLAN_SESSION.closed_outward_x = float(out_x)
+    _PLAN_SESSION.closed_outward_y = float(out_y)
+    _PLAN_SESSION.opposite_half_len = None
+    if _PLAN_SESSION.work_area_edges is None:
+        _PLAN_SESSION.work_area_edges = {
+            "upstream": list(up),
+            "downstream": list(dn),
+        }
+    _save_sheet_plan()
+
+    return _attach_plan_next({
+        "status": "OK",
+        "closed_side": side,
+        "outward_sign": outward_sign,
+        "half_len": half_len,
+        "real_road_edge": use_real,
+        "travelUnit": [round(tx, 6), round(ty, 6)],
+        "align1TanUpstream": [round(a1_tx, 6), round(a1_ty, 6)],
+        "outwardUnit": [round(out_x, 6), round(out_y, 6)],
+        "closed_outward": [round(out_x, 6), round(out_y, 6)],
+        "lane_width_ft": lw,
+        "shoulder_width_ft": sh,
+        "note": (
+            f"Locked lateral for run_sheet_build: outward_sign={outward_sign:g}, "
+            f"half_len={half_len:g} "
+            f"({('real EOP' if use_real else 'abstract 40')}). "
+            "closed_outward keeps Align1+Align2 one-side signs (incl. G20-2) "
+            "on the closed shoulder. Pass the same edges to run_sheet_build; "
+            "locked values apply unless use_locked_lateral=False."
+        ),
+    })
+
+
+def _shoulder_ft_from_band(band: str) -> float:
+    """Best-effort feet from a sheet shoulder band or '8 ft' label."""
+    import re
+    s = (band or "").strip().lower()
+    if not s:
+        return 0.0
+    nums = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", s)]
+    if not nums:
+        return 0.0
+    if ">=" in s or "≥" in s:
+        return nums[0]
+    if "<=" in s or "≤" in s:
+        return nums[0]
+    if "-" in s or " to " in s:
+        return nums[-1]
+    return nums[0]
+
+
+def _apply_locked_lateral(outward_sign: float, half_len: float,
+                          use_locked_lateral: bool) -> tuple[float, float, dict]:
+    """Prefer PlanSession lateral_* when resolve_sheet_lateral ran."""
+    meta = {"usedLockedLateral": False}
+    if not use_locked_lateral:
+        return outward_sign, half_len, meta
+    s = _PLAN_SESSION
+    if s.lateral_outward_sign is not None:
+        outward_sign = float(s.lateral_outward_sign)
+        meta["usedLockedLateral"] = True
+        meta["locked_outward_sign"] = outward_sign
+    if s.lateral_half_len is not None:
+        half_len = float(s.lateral_half_len)
+        meta["usedLockedLateral"] = True
+        meta["locked_half_len"] = half_len
+    return outward_sign, half_len, meta
 
 
 def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
@@ -3772,6 +3963,7 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
     closure_type = merged["closure_type"] or ""
     exposure_condition = merged["exposure_condition"] or ""
     protective_vehicle_gvw = int(merged["protective_vehicle_gvw"] or 0)
+    outward_sign, _, _ = _apply_locked_lateral(outward_sign, 40.0, True)
 
     spec = sheet_spec.load(sheet_num)
     if spec is None:
@@ -3833,10 +4025,14 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
         chan = sheet_spec.compile_channelizing(
             spec, resolved, a, segs, lane_width_ft=float(lane_width),
             shoulder_width_ft=sh_ft, outward_sign=outward_sign)
+        tip_hl = (
+            float(_PLAN_SESSION.lateral_half_len)
+            if _PLAN_SESSION.lateral_half_len is not None else None)
         sym = _filter_symbol_alts(
             sheet_spec.compile_symbols(
                 spec, resolved, a, segs, outward_sign=outward_sign,
-                lane_width_ft=float(lane_width), shoulder_width_ft=sh_ft),
+                lane_width_ft=float(lane_width), shoulder_width_ft=sh_ft,
+                tip_half_len_ft=tip_hl),
             arrow_panel_choice)
         plan_by_align[str(a)] = plan
         chan_by_align[str(a)] = chan
@@ -4050,11 +4246,17 @@ def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
 
     # --- symbols
     if "symbols" in want:
+        placed_arrow_panel = False
         for a_str, prims in inner.get("symbolsByAlign", {}).items():
             align_i = int(a_str) if str(a_str).isdigit() else 0
             for p in prims:
                 try:
                     if p["kind"] == "arrowPanel":
+                        # One AP only (count=1). Skip Align2 / re-entry dupes
+                        # and leftover stacked rebuilds (live 2026-08-10).
+                        if placed_arrow_panel:
+                            continue
+                        placed_arrow_panel = True
                         r = place_cell_on_post(
                             p["cellName"], p["x"], p["y"], p["dirX"], p["dirY"],
                             angle_deg=p.get("angleDeg", 0.0),
@@ -4382,6 +4584,22 @@ def _place_locked_signs_from_stations(outward_sign: float = -1.0,
             out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
             tip_x = pt_x + out_x * half_len
             tip_y = pt_y + out_y * half_len
+            # World-locked closed-lane outward (from resolve_sheet_lateral):
+            # Align2 tan flips _outward_unit and can put G20-2 / downstream
+            # one-side signs on the wrong roadside. Keep EVERY one-side tip
+            # on the closed shoulder with the same half_len as advance signs
+            # (engineer QA 2026-08-10: G20-2 south closed EOP with W20s).
+            if (
+                side.strip().lower() != "both sides"
+                and (
+                    abs(_PLAN_SESSION.closed_outward_x) > 1e-9
+                    or abs(_PLAN_SESSION.closed_outward_y) > 1e-9
+                )
+            ):
+                out_x = float(_PLAN_SESSION.closed_outward_x)
+                out_y = float(_PLAN_SESSION.closed_outward_y)
+                tip_x = pt_x + out_x * half_len
+                tip_y = pt_y + out_y * half_len
             kwargs = dict(
                 sign_num=sign_num, road_type=road_type, side=side,
                 pt1x=tip_x, pt1y=tip_y, pt1z=pt_z, dir1x=out_x, dir1y=out_y,
@@ -4436,18 +4654,25 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
                     include_visual_qa: bool = True,
                     clear_prior_stations: bool = False,
                     force: bool = False,
-                    approach_length_ft: float = 0.0) -> dict:
+                    approach_length_ft: float = 0.0,
+                    use_locked_lateral: bool = True) -> dict:
     """SHEET-PLAN ONLY executor: advance the locked checklist without the
     LLM choosing step order.
 
     After build_wztc_order_table, the agent only needs to collect the two
     WORK AREA edge points (ask_user_choice point-pick) and call this once:
 
+      resolve_sheet_lateral(up, dn, closed_side=..., real_road_edge=...)
       run_sheet_build(upstream_edge=[...], downstream_edge=[...])
 
     It then runs (skipping stages already done):
       assemble_corridor → stations → signs+attrs → place_sheet_geometry
       → optional run_visual_qa_captures
+
+    outward_sign / half_len: when resolve_sheet_lateral has locked
+    PlanSession lateral_* and use_locked_lateral=True (default), those
+    locked values win over the −1 / 40 defaults. Pass
+    use_locked_lateral=False to force the kwargs.
 
     Outside a sheet plan: returns sheetPlanActive=False (general CAD
     stays freeform — do not use this for ad-hoc drawing).
@@ -4467,7 +4692,35 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
 
     inputs = _PLAN_SESSION.designer_inputs
     assert inputs is not None
+    outward_sign, half_len, lat_meta = _apply_locked_lateral(
+        outward_sign, half_len, use_locked_lateral)
     phases: list[dict] = []
+    if lat_meta.get("usedLockedLateral"):
+        phases.append({"phase": "locked_lateral", "result": lat_meta})
+
+    # Stale plan: order_table_built but lockedSignRows wiped — rebuild table
+    # so PLACE_SIGN is not skipped (live agent 2026-08-10).
+    if not _PLAN_SESSION.locked_sign_rows:
+        ot = build_wztc_order_table(
+            speed=inputs.speed,
+            road_type=inputs.road_type,
+            lane_width=inputs.lane_width,
+            shoulder_width=inputs.shoulder_width,
+            sheet_num=inputs.sheet_num,
+            area_type=inputs.area_type or "",
+            closure_type=inputs.closure_type or "",
+            exposure_condition=inputs.exposure_condition or "",
+            protective_vehicle_gvw=inputs.protective_vehicle_gvw or 0,
+        )
+        phases.append({"phase": "rebuild_order_table", "result": {
+            "status": ot.get("status"),
+            "lockedSignCount": len(_PLAN_SESSION.locked_sign_rows),
+            "note": "Auto-rebuilt order table — lockedSignRows was empty",
+        }})
+        if not _PLAN_SESSION.locked_sign_rows:
+            # Sheet truly has no roadside signs, or build failed to lock.
+            pass
+
     done = plan_workflow.stage_done(_PLAN_SESSION)
 
     # --- corridor ---
@@ -4650,6 +4903,22 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
     else:
         phases.append({"phase": "visual_qa", "skipped": True})
 
+    if _PLAN_SESSION.real_road_edge:
+        try:
+            guides = delete_construction_guides()
+            phases.append({"phase": "delete_construction_guides", "result": {
+                "status": guides.get("status"),
+                "deleted": guides.get("deleted"),
+                "candidateIds": guides.get("candidateIds"),
+                "note": guides.get("note"),
+            }})
+        except Exception as e:
+            phases.append({
+                "phase": "delete_construction_guides",
+                "error": str(e),
+                "note": "Guide cleanup failed — call delete_construction_guides manually",
+            })
+
     out = {
         "status": "OK",
         "sheetPlanActive": True,
@@ -4657,6 +4926,14 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
         "phases": phases,
         "planStatus": get_plan_status(),
     }
+    if _PLAN_SESSION.real_road_edge:
+        out["realRoadNext"] = (
+            "If force/clear wiped striping, place_two_way_highway (or keep "
+            "existing road) AFTER this build. delete_construction_guides "
+            "already ran when real_road_edge was locked — re-call only if "
+            "new ticks appeared. G20-2 stays on closed-shoulder EOP with "
+            "other one-side signs."
+        )
     # Lift QA captures to the top level so chat_driver can attach vision
     # the same way as a direct run_visual_qa_captures call.
     if isinstance(qa, dict) and qa.get("captures"):
@@ -5245,6 +5522,87 @@ def clear_plan_elements(keep_alignments: bool = True, align_idx: int = 0) -> dic
         placement_registry.clear_registry()
     _save_sheet_plan()
     return resp
+
+
+_GUIDE_OPS = frozenset({
+    "PLACE_ORDER_TABLE_STATIONS",
+    "PLACE_PERP_LINE",
+    "DEFINE_ALIGNMENT_SEGMENT",
+})
+
+
+def delete_construction_guides() -> dict:
+    """Delete ONLY alignment centerlines and order-table perp tick lines.
+
+    Parses Bridge/wztc-journal.tsv for create-ops in _GUIDE_OPS and deletes
+    their createdElementIds. Does NOT delete signs, channelizing, hatch,
+    dims, labels, AP/PV, or road striping. Use after a real-road sheet
+    build when ticks/align lines are no longer needed for QA.
+    """
+    from pathlib import Path
+
+    journal = Path(__file__).resolve().parent.parent / "Bridge" / "wztc-journal.tsv"
+    if not journal.exists():
+        return {"status": "OK", "deleted": 0, "note": "no journal file"}
+
+    cur_op: dict[str, str] = {}
+    cur_undone: dict[str, bool] = {}
+    ids: set[str] = set()
+    try:
+        lines = journal.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as e:
+        return {"status": "ERROR", "deleted": 0, "note": str(e)}
+
+    for ln in lines:
+        parts = ln.split("\t")
+        if len(parts) < 4:
+            continue
+        kind = parts[1].strip().upper()
+        req = parts[2].strip()
+        if kind == "REQ":
+            cur_op[req] = parts[3].strip().upper()
+            cur_undone[req] = False
+            continue
+        if kind == "UNDONE":
+            cur_undone[req] = True
+            continue
+        if kind != "RESP":
+            continue
+        if cur_undone.get(req):
+            continue
+        if parts[3].strip().upper() != "OK":
+            continue
+        op = cur_op.get(req, "")
+        if op not in _GUIDE_OPS:
+            continue
+        for p in parts:
+            if p.startswith("createdElementIds="):
+                csv = p.split("=", 1)[1]
+                for one in csv.split(","):
+                    one = one.strip()
+                    if one:
+                        ids.add(one)
+
+    deleted = 0
+    errors: list[str] = []
+    for eid in sorted(ids, key=lambda x: float(x) if x.replace(".", "", 1).isdigit() else 0):
+        try:
+            r = delete_element(eid, reason="construction guide (align/tick) cleanup")
+            if str(r.get("status", "")).upper() == "OK":
+                deleted += int(r.get("deleted") or 1)
+            else:
+                errors.append(f"{eid}:{r.get('note')}")
+        except Exception as e:
+            errors.append(f"{eid}:{e}")
+
+    return {
+        "status": "OK" if not errors else "PARTIAL",
+        "deleted": deleted,
+        "candidateIds": len(ids),
+        "ops": sorted(_GUIDE_OPS),
+        "errors": errors[:12],
+        "note": "Removed alignment lines + perp ticks only; sheet plan geometry kept.",
+    }
 
 
 def get_placements(sheet_num: str = "", kind: str = "", zone: str = "",

@@ -419,15 +419,42 @@ from tool results. Preferred path after inputs + order table:
   0. If get_plan_status / get_sheet_requirements shows buildGuidePath,
      follow that playbook (get_sheet_build_guide for full text) — prefs
      and tips for THIS sheet, not generic guesses.
-  1. ask_user_choice point-pick upstream + downstream WORK AREA edges
-  2. run_sheet_build(upstream_edge, downstream_edge) — runs corridor,
-     stations, signs+attrs, place_sheet_geometry, and scripted visual QA.
-     For a cheap try without wiping the kept corridor: begin_sheet_sandbox
-     / run_sheet_build_sandbox (offset Y), then keep_sheet_sandbox or
-     revert_sheet_sandbox.
-  3. If status=ERROR, follow phases[].replan / reflect_sheet_build — do not
+  1. ask_user_choice: closed_side relative to travel through the work bay
+     (right|left — 619-311 right-lane = right) AND point-pick upstream +
+     downstream WORK AREA edges (alignment on the left edge of the closed
+     lane). Do not invent travel/side.
+  2. resolve_sheet_lateral(upstream_edge, downstream_edge, closed_side,
+     real_road_edge=True when posts must sit on real outer EOP). Locks
+     outward_sign + half_len (lane+shoulder on real road; else 40) and
+     closed_outward so Align2 one-side signs (G20-2) stay on the SAME
+     closed shoulder as Align1 advance signs.
+  3. run_sheet_build(upstream_edge, downstream_edge) — uses locked
+     lateral; runs corridor, stations, signs+attrs, place_sheet_geometry,
+     and scripted visual QA. For a cheap try without wiping the kept
+     corridor: begin_sheet_sandbox / run_sheet_build_sandbox (offset Y),
+     then keep_sheet_sandbox or revert_sheet_sandbox.
+  4. If status=ERROR, follow phases[].replan / reflect_sheet_build — do not
      restart the whole build from scratch
-  4. Review QA frames / handoffs, then FINAL
+  5. BUILD–VERIFY–FIX (same method as the Cursor live session):
+     - Scorecard must pass (geometry-faithful). Review QA frames.
+     - On a defect: cite elementId / primitiveId / range — not "looks off."
+       Prefer get_elements_range / a tight find_elements_near over guessing.
+     - clear_plan_elements (scoped) or clear_prior before re-place — do
+       not stack duplicate PV/hatch/cones/AP. Re-run scorecard + visual QA.
+     - If capture/vision and the engineer's live screen disagree twice,
+       stop re-asserting your side; report IDs/coords and ask them.
+     - Journal-owned place_polyline striping is wiped by
+       assemble_corridor(force=True) / clear_plan_elements — re-place the
+       road AFTER the sheet build when combining real striping + WZTC.
+     - After a real-road combo: delete_construction_guides() removes ONLY
+       white alignment lines + perp ticks (not signs/cones/hatch/dims).
+     - One arrow panel only; G20-2 on the closed-shoulder roadside with
+       the other MUTCD signs (same half_len / closed_outward tip).
+     - If get_plan_status shows order_table_built but lockedSignRows /
+       signsPlaced look empty, call build_wztc_order_table again BEFORE
+       run_sheet_build — never skip signs. After scorecard+striping+guides,
+       FINAL; do not burn iterations on find_elements_near fishing.
+  6. Review handoffs, then FINAL
 
 Scorecard is geometry-faithful (primitiveIds + tip/mid coords + duplicate
 signs + kind flood). visual_qa_passed also requires automated visual rules.
@@ -476,12 +503,15 @@ side='right' for below a +X run.
     toward the intersection; place arrows in the approach (RH) half of
     two-way strips. Dedicated SAL/SAR + SLONLY only when approach
     lanes_in > through lanes_out (primary_lanes_out / secondary_lanes_out).
-    Equal in/out: shared options — 1 lane at a + → SALS+SARS pair (no
-    triple-head cell in the lib); 2 lanes → SALS + SARS; 3+ → SALS /
+    Equal in/out: shared options — 1 lane at a + → overlapping SALS+SARS
+    (no triple-head cell in the lib); 2 lanes → SALS + SARS; 3+ → SALS /
     SAS / SARS (centers straight-only). Do NOT put ONLY on shared lanes.
-    Dotted yellow center when has_turning_lanes=True, TWLT, or dedicated
-    > 0. Ask for junction point, arm types/lanes, lengths, tee_side if
-    tee, and lanes_out when a lane drops into a turn pocket (e.g. 3→2).
+    When lanes_out < lanes_in on two_way, strip is asymmetric: 3 INTO the
+    intersection approach and 2 AFTER (median fills the dropped left slot
+    on the away pack).     Tip angles: ``atan2(-tx,ty)`` on every approach (tips toward stop bar).
+    Do not flip arms 180. Dotted yellow center when has_turning_lanes=True,
+    TWLT, or dedicated > 0. Ask for junction point, arm types/lanes,
+    lengths, tee_side if tee, and lanes_out when a lane drops (e.g. 3→2).
   - Freeway ramp gore / diverge (Family 5 sketch): place_ramp_gore(
     mainline first edge, mainline_lanes, ramp_angle_deg, gore_station_ft,
     ramp_length_ft, …). Nose on ramp-side outer edge; optional gore_mark_ft

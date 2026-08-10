@@ -222,6 +222,106 @@ def two_way_highway_lines(
     return out
 
 
+def asymmetric_two_way_highway_lines(
+    lanes_first: int,
+    lanes_second: int,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    *,
+    lane_width_ft: float = 12.0,
+    yellow_gap_ft: float = 2.0,
+    median_first_ft: float = 0.0,
+    median_second_ft: float = 0.0,
+    shoulder_width_ft: float = 0.0,
+    dash_ft: float = 10.0,
+    gap_ft: float = 30.0,
+    side: Literal["right", "left"] = "right",
+) -> list[dict]:
+    """Undivided two-way with different lane counts each side of double yellow.
+
+    Built from the first travel outer edge (see ``_first_edge_from_centerline``:
+    that edge sits on the **-nx** / left-of-corridor side):
+      [lanes_first] + [optional median_first] + double yellow
+      + [optional median_second] + [lanes_second].
+
+    Lane-drop sketch: first pack = away/out (2 + median near yellow),
+    second pack = toward/approach (3). Across the box that reads
+    3 into the intersection and 2 after.
+    """
+    a = int(lanes_first)
+    b = int(lanes_second)
+    if a < 1 or b < 1:
+        raise ValueError("lanes_first and lanes_second must be >= 1")
+    if lane_width_ft <= 0 or yellow_gap_ft <= 0:
+        raise ValueError("lane_width_ft and yellow_gap_ft must be > 0")
+    if median_first_ft < 0 or median_second_ft < 0 or shoulder_width_ft < 0:
+        raise ValueError("median_* and shoulder_width_ft must be >= 0")
+    if dash_ft <= 0 or gap_ft < 0:
+        raise ValueError("dash_ft must be > 0 and gap_ft >= 0")
+
+    length, tx, ty, nx, ny = _corridor_frame(x1, y1, x2, y2, side)
+    rows: list[tuple[str, str, float]] = []
+    rows.append(("solid", "edge", 0.0))
+    for _ in range(a - 1):
+        rows.append(("dashed", "lane", lane_width_ft))
+    if median_first_ft > 0:
+        # From last dash: finish last travel lane + median void, then yellow.
+        rows.append(("skip", "median", lane_width_ft + median_first_ft))
+        rows.append(("solid", "yellow", 0.0))
+    else:
+        rows.append(("solid", "yellow", lane_width_ft))
+    rows.append(("solid", "yellow", yellow_gap_ft))
+    if median_second_ft > 0:
+        rows.append(("skip", "median", median_second_ft))
+    for _ in range(b - 1):
+        rows.append(("dashed", "lane", lane_width_ft))
+    rows.append(("solid", "edge", lane_width_ft))
+
+    out: list[dict] = []
+    off = 0.0
+    offsets: list[float] = []
+    row_i = 0
+    for i, (style, kind, delta) in enumerate(rows):
+        if i > 0:
+            off += delta
+        if style == "skip":
+            continue
+        offsets.append(off)
+        _row_at(
+            out, style=style, kind=kind, row=row_i, off=off,
+            x1=x1, y1=y1, x2=x2, y2=y2, nx=nx, ny=ny, tx=tx, ty=ty,
+            length=length, dash_ft=dash_ft, gap_ft=gap_ft,
+        )
+        row_i += 1
+    if offsets:
+        _append_shoulders(
+            out, shoulder_width_ft=shoulder_width_ft,
+            first_travel_off=offsets[0], last_travel_off=offsets[-1],
+            x1=x1, y1=y1, x2=x2, y2=y2, nx=nx, ny=ny, next_row=row_i,
+        )
+    return out
+
+
+def asymmetric_two_way_width_ft(
+    lanes_first: int,
+    lanes_second: int,
+    *,
+    lane_width_ft: float = 12.0,
+    yellow_gap_ft: float = 2.0,
+    median_first_ft: float = 0.0,
+    median_second_ft: float = 0.0,
+) -> float:
+    return (
+        float(lanes_first) * float(lane_width_ft)
+        + float(median_first_ft)
+        + float(yellow_gap_ft)
+        + float(median_second_ft)
+        + float(lanes_second) * float(lane_width_ft)
+    )
+
+
 def divided_highway_lines(
     lanes_per_direction: int,
     x1: float,

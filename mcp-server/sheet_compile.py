@@ -427,42 +427,52 @@ def compile_channelizing(spec: dict, resolved: dict, align_idx: int, segments,
             n_steps = max(math.ceil(length / long_spacing), 1) if length > 0 else 0
             stations = [lo + (hi - lo) * i / n_steps for i in range(n_steps + 1)] if length > 0 else [lo]
 
-        # Lateral offset per station. Taper runs interpolate from 0 (at the
-        # shared/tip end) to the full width (at the toe/far end); the
-        # non-taper runs (longitudinal, downstream) hold a constant offset
-        # equal to the closed-lane width -- they don't taper, the cone line
-        # just runs straight down the closed lane.
+        # Lateral offset from the ALIGNMENT, which assemble_corridor /
+        # compile_hatch treat as the LEFT EDGE of the closed lane
+        # (longitudinal channelizing / lane-line between open and closed).
+        # Live miss 2026-08-10 real-road 619-311: offsets assumed a
+        # centerline-style align and put longitudinal cones at +lane_width
+        # (fog line / "middle of the road") while hatch correctly spanned
+        # align→EOP. Sheet lateralOffsets.channelizingDeviceLine: cones run
+        # JUST OUTBOARD of that lane line (= offset ~0 on this align).
+        #
+        # Lane taper (direction of travel approach): tip UPSTREAM at the
+        # OUTER edge of the closed travel lane (+lane_width); toe toward
+        # the work area on the channelizing line (0). Shoulder taper
+        # continues that line from travel-outer (+lane) out to paved
+        # shoulder EOP (+lane+shoulder). Downstream reopens: work-end on
+        # channelizing (0), far end at travel-outer. Align2's outward is
+        # flipped in world XY vs Align1, so Align2 uses negative offsets
+        # to stay on the closed side.
         note = None
         if run["id"] == "laneTaperRun":
-            # Convention matching every 619 sheet's own taper drawing (and
-            # PerpPlacement's original "align at upstream tip" comment): the
-            # HIGHER station (upstream, away from the work area) is the tip
-            # (offset 0); the LOWER station (toward the work area) is the
-            # toe (full lane width).
-            off_lo, off_hi = lane_width_ft, 0.0
+            # hi station = upstream tip at outer travel edge; lo = toe on
+            # channelizing line (align).
+            off_lo, off_hi = 0.0, lane_width_ft
         elif run["id"] == "shoulderTaperRun":
             width = shoulder_width_ft
             if width is None:
                 width = lane_width_ft
                 note = "shoulder_width_ft not supplied -- substituted lane_width_ft, not a real shoulder measurement"
+            # Shared continuity point with lane taper tip = +lane_width.
+            # Far upstream end = outer EOP = lane + shoulder.
+            anchor_off = lane_width_ft
+            far_off = lane_width_ft + float(width)
             anchor_is_lo = zone_offset_ends.get(zone_id) == "anchor_is_lo"
-            off_lo, off_hi = (0.0, width) if anchor_is_lo else (width, 0.0)
+            off_lo, off_hi = (anchor_off, far_off) if anchor_is_lo else (far_off, anchor_off)
         elif run["id"] == "downstreamRun":
-            # Diagonal taper — not a flat row. Align 2 travels opposite
-            # align 1, so the same outward_sign points at the open side in
-            # world XY; a constant +lane_width therefore landed every
-            # downstream cone on the opposite side of centerline from the
-            # roll-ahead/longitudinal run (live 619-311: flat Y=-12 while
-            # roll-ahead sat at Y=+12). Engineer QA 2026-08-10: first cone
-            # must share the roll-ahead Y; last cone keeps the prior far
-            # end Y (that's the taper). Work-area end of the zone uses
-            # -lane_width; far end keeps +lane_width.
+            # Align 2 travels opposite Align 1 — same outward_sign flips
+            # world side. Negative offsets keep cones on the closed side.
+            # Work-area end (nearer |sta|=0) on channelizing; far end at
+            # outer travel edge so the lane reopens.
             if abs(lo) <= abs(hi):
-                off_lo, off_hi = -lane_width_ft, lane_width_ft
+                off_lo, off_hi = 0.0, -lane_width_ft
             else:
-                off_lo, off_hi = lane_width_ft, -lane_width_ft
+                off_lo, off_hi = -lane_width_ft, 0.0
         else:
-            off_lo = off_hi = lane_width_ft
+            # longitudinalRun (buffer / roll-ahead / work): on the
+            # channelizing line (align).
+            off_lo = off_hi = 0.0
 
         for sta in stations:
             t = 0.0 if hi == lo else (sta - lo) / (hi - lo)
@@ -575,7 +585,8 @@ def _lateral_offset_ft(lateral_anchor: str | None, lane_width_ft: float | None,
 def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
                      outward_sign: float = -1.0, range_pick: str = "min",
                      lane_width_ft: float | None = None,
-                     shoulder_width_ft: float | None = None) -> list[dict]:
+                     shoulder_width_ft: float | None = None,
+                     tip_half_len_ft: float | None = None) -> list[dict]:
     """Protective-vehicle / arrow-panel primitives for one alignment.
 
     Each primitive: {"kind": "protectiveVehicle"|"arrowPanel", "id",
@@ -592,7 +603,11 @@ def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
     both primitives are compiled and returned; picking one is left to the
     caller. Vehicle-mounted signs (signs.items with postMounted:false and
     mountedOn:<symbol id>) become a 'vehicleMountedSign' primitive at that
-    vehicle's own computed position, not an independent post."""
+    vehicle's own computed position, not an independent post.
+
+    tip_half_len_ft: perp tip distance for arrow-panel post base (default
+    40 abstract; real-road = lane+shoulder from channelizing-line align).
+    """
     import alignment_geometry as ag
 
     zone_range = _zone_station_ranges(spec, resolved, align_idx, range_pick)
@@ -602,6 +617,7 @@ def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
         s["mountedOn"]: s for s in spec["signs"]["items"]
         if s.get("postMounted") is False and s.get("mountedOn")
     }
+    ap_tip = float(tip_half_len_ft) if tip_half_len_ft and tip_half_len_ft > 0 else PERP_HALF_LEN_FT
 
     primitives: list[dict] = []
     prim_by_id: dict[str, dict] = {}
@@ -626,15 +642,14 @@ def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
         if is_arrow_panel:
             # Base = tip of the station perp (same attachment as roadside
             # signs), NOT the alignment center. Live miss 2026-08-10: base
-            # at centerline put the stem/face/label ~half_len (40 ft) short
-            # of the diamond-sign Y axis — engineer reported "off by y=50".
-            # half_len=40 matches place_order_table_stations / run_sheet_build.
-            tip_half_len_ft = 40.0
+            # at centerline put the stem/face/label ~half_len short of the
+            # diamond-sign Y axis. tip_half_len_ft matches run_sheet_build /
+            # resolve_sheet_lateral (40 abstract; lane+shoulder on real road).
             stem_gap_ft = 50.0
             panel_half_extent_guess_ft = 12.0
-            base_x = x + out_x * tip_half_len_ft
-            base_y = y + out_y * tip_half_len_ft
-            label_dist = (tip_half_len_ft + stem_gap_ft
+            base_x = x + out_x * ap_tip
+            base_y = y + out_y * ap_tip
+            label_dist = (ap_tip + stem_gap_ft
                           + panel_half_extent_guess_ft + symbol_label_out)
             prim = {
                 "kind": kind,

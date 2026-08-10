@@ -34,10 +34,7 @@ def test_checklist_advances_after_order_table_lock():
     st = wztc_ops.get_plan_status()
     assert st["sheetPlanActive"] is True
     assert st["currentStep"] == "corridor_ready"
-    assert st["nextTool"] == "run_sheet_build"
-
-
-def test_place_sign_refuses_before_stations_during_sheet_plan():
+    assert st["nextTool"] == "resolve_sheet_lateral"
     wztc_ops._PLAN_SESSION.order_table_built = True
     wztc_ops._PLAN_SESSION.lock_designer_inputs(
         sheet_num="619-311", speed=45, road_type="Non-Freeway",
@@ -107,7 +104,7 @@ def test_run_sheet_build_requires_edges_when_corridor_missing():
         wztc_ops.run_sheet_build()
 
 
-def test_checklist_next_tool_is_run_sheet_build_after_order_table():
+def test_checklist_next_tool_is_resolve_lateral_after_order_table():
     wztc_ops._PLAN_SESSION.order_table_built = True
     wztc_ops._PLAN_SESSION.lock_designer_inputs(
         sheet_num="619-311", speed=45, road_type="Non-Freeway",
@@ -115,5 +112,51 @@ def test_checklist_next_tool_is_run_sheet_build_after_order_table():
         closure_type="", exposure_condition="", protective_vehicle_gvw=0)
     wztc_ops._PLAN_SESSION.required_aligns = {1, 2}
     st = wztc_ops.get_plan_status()
-    assert st["nextTool"] == "run_sheet_build"
+    assert st["nextTool"] == "resolve_sheet_lateral"
+
+
+def test_empty_locked_signs_not_vacuous_done_for_619311():
+    """Stale plan with order_table_built but empty lockedSignRows must not
+    skip PLACE_SIGN on sheets that list roadside signs."""
+    s = wztc_ops._PLAN_SESSION
+    s.order_table_built = True
+    s.lock_designer_inputs(
+        sheet_num="619-311", speed=55, road_type="Non-Freeway",
+        lane_width=12, shoulder_width=">= 8 ft", area_type="URBAN",
+        closure_type="", exposure_condition="", protective_vehicle_gvw=0)
+    s.required_aligns = {1, 2}
+    s.aligns_ready = {1, 2}
+    s.stations_placed_aligns = {1, 2}
+    s.locked_sign_rows = set()
+    s.locked_sign_details = []
+    done = plan_workflow.stage_done(s)
+    assert done["signs_placed"] is False
+    st = wztc_ops.get_plan_status()
+    assert st["nextTool"] == "build_wztc_order_table"
+
+
+def test_complete_real_road_points_at_guide_cleanup():
+    s = wztc_ops._PLAN_SESSION
+    s.order_table_built = True
+    s.lock_designer_inputs(
+        sheet_num="619-311", speed=55, road_type="Non-Freeway",
+        lane_width=12, shoulder_width=">= 8 ft", area_type="URBAN",
+        closure_type="", exposure_condition="", protective_vehicle_gvw=0)
+    s.required_aligns = {1, 2}
+    s.aligns_ready = {1, 2}
+    s.stations_placed_aligns = {1, 2}
+    s.lock_sign_rows([
+        {"align_idx": 1, "sign_num": "W20-01RF"},
+        {"align_idx": 2, "sign_num": "G20-02"},
+    ])
+    s.signs_placed_rows = set(s.locked_sign_rows)
+    s.sign_attrs_applied = True
+    s.sheet_geometry_placed = True
+    s.geometry_qa_passed = True
+    s.visual_qa_passed = True
+    s.real_road_edge = True
+    st = wztc_ops.get_plan_status()
+    assert st["currentStep"] == "complete"
+    assert st["nextTool"] == "delete_construction_guides"
+    assert "place_two_way_highway" in st["nextStep"]
 

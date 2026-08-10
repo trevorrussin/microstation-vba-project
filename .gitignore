@@ -83,6 +83,8 @@ Bridge/chat-history.prev.json
 Bridge/last-build-conversation.md
 Bridge/placement-registry.jsonl
 Bridge/sheet-plan.json
+Bridge/sheet-reflection.jsonl
+Bridge/last-agent-kickoff-prompt.txt
 
 # Python bytecode cache, any location
 __pycache__/
