@@ -653,7 +653,9 @@
         "positionNote": "Downstream of the work area, 80-400 ft past the end of the downstream taper.",
         "sizeNonFreeway": "36x18",
         "sizeFreeway": "48x24",
-        "signLibraryKey": "G20-02"
+        "signLibraryKey": "G20-02",
+        "labelNote": "Two-line roadside label like every other MUTCD sign: code above, size below (G20-02 then 36\" x 18\"). Face already carries END ROAD WORK — that is the legend on the cell, not a substitute for the code/size callout. Live 2026-08-10: size-only label was wrong (engineer hand-fixed on Y=299000).",
+        "faceSymbologyNote": "Correct face stack (engineer reference next to Y=297000 build): black lettering, orange field, black inner 'grouped hole' (SF_P nested cell color=240), orange outer border (SF_P complex color=6). Library place can leave the SF_P hole at color=6; DrawSign.FixG20FaceBlackHole forces it to 240 after place. Do not paint the whole face Color=0/6 via set_sign_attributes."
       },
       {
         "signCode": "NYW8-33",
@@ -693,6 +695,8 @@
         "stationAnchor": { "zone": "laneTaper", "end": "upstream" },
         "stationAnchorNote": "At the junction of the LANE TAPER and the SHOULDER TAPER, i.e. the upstream end of the lane taper. NOT at the upstream end of the shoulder taper.",
         "lateralAnchor": "On the paved shoulder, outboard of the closed travel lane",
+        "mountingStyle": "postMounted",
+        "mountingStyleNote": "Stem line + panel cell via place_cell_on_post (no TWZSGN_P post cell — that stacks on the tip cone and reads as a doubled orange marker). Base (x,y) is the station PERP TIP (alignment + outward*half_len, half_len=40 matching place_order_table_stations), NOT the alignment centerline. Live miss 2026-08-10: centerline base put stem/face/label ~40-50 ft short of the diamond-sign Y axis. Do not place TWZSGN_P at the channelizing tip.",
         "alternative": {
           "sheetText": "OR",
           "option": "VEH #1",
@@ -725,7 +729,9 @@
         "required": true,
         "representation": {
           "mode": "markers",
-          "markerHalfSizeFt": 1.5
+          "markerHalfSizeFt": 1.5,
+          "fillMode": 0,
+          "fillModeNote": "ExecPlaceChannelizingMarkers must CreateShapeElement1(..., FillMode=0). Default fill=1 drew solid orange + outline and read as 'double rendering' even with XY dedup (live 2026-08-10)."
         },
         "longitudinalSpacing": {
           "maxFt": 40,
@@ -735,8 +741,9 @@
           { "id": "shoulderTaperRun", "zone": "shoulderTaper", "deviceCountSource": { "table": "311-02", "column": "shoulderTaper.devices" } },
           { "id": "laneTaperRun", "zone": "laneTaper", "deviceCountSource": { "table": "311-02", "column": "laneTaper.devices" } },
           { "id": "longitudinalRun", "zone": "bufferSpace..workArea", "deviceCountSource": null, "note": "Continues along the longitudinal channelizing device line past the buffer space, the roll ahead distance and the work area." },
-          { "id": "downstreamRun", "zone": "downstreamTaper", "deviceCountSource": null, "note": "Continues past the end of the downstream taper (shown on the plan)." }
+          { "id": "downstreamRun", "zone": "downstreamTaper", "deviceCountSource": null, "note": "DIAGONAL taper, not a flat row. Align 2 travels opposite align 1 so the same outward_sign points at the open side in world XY — a constant +lane_width landed every cone on the opposite side of centerline from roll-ahead. Compiler interpolates work-end offset=-lane_width (match roll-ahead world Y) to far-end offset=+lane_width (prior last-cone Y). First cone must share roll-ahead Y; last cone at far lateral; middle on the diagonal (engineer QA 2026-08-10)." }
         ],
+        "runsSharedBoundaryNote": "Adjacent runs share their boundary station by construction (e.g. shoulderTaperRun/laneTaperRun meet at the taper-continuity point, laneTaperRun/longitudinalRun meet at the bufferSpace/workArea edge). Real bug found live 2026-08-10: sheet_compile.compile_channelizing used to place one device from EACH run's endpoint-inclusive station list at that shared point, stacking two markers on top of each other ('two sets of channelizing devices'). Fixed with a placed-points dedup keyed on physical (x, y), not station number, so the second run's shared endpoint is skipped.",
         "transverse": {
           "required": "conditional",
           "condition": "A paved shoulder having a width of 8' or greater is closed for a distance greater than 800'",

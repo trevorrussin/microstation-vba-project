@@ -21,6 +21,7 @@ Applies to **this Cursor / Claude Code session** (chat replies, PR text, commit 
 - Cite concrete IDs when relevant: path, function, elementId, primitiveId, reqId, scorecard failure — not "looks fine."
 - On failure: name the next step. Do not invent a vague workaround.
 - Do not invent designer inputs, spacing, or sheet features. Ask or read the sheet/spec.
+- A tool result is not automatically evidence for the specific claim you're making — check that it actually could catch the failure mode in question. Real incident (2026-08-10, Claude Code session, see `dev-notes/agent-log.md` "HANDOFF" entry): repeatedly claimed a live 619-311 build was "fixed"/"confirmed" based on `capture_view`/`capture_window` screenshots and COM element queries, while the engineer reported seeing none of the changes on their actual physical screen — never resolved which side was wrong. `capture_view`/`capture_window` are `PrintWindow`-style OS captures, which have a known history of returning stale/blank content for GPU-accelerated (OpenGL/DirectX) windows unless the caller requests full-content rendering; this was never confirmed either way for MicroStation CONNECT. If a screenshot or query result and the engineer's live report conflict twice, stop re-asserting your side — say plainly you cannot resolve the discrepancy from your tools alone, and hand off with the concrete state (element IDs, coordinates, what was checked) rather than a third "confirmed."
 
 ## Scope
 

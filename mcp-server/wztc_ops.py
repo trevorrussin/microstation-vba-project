@@ -577,6 +577,8 @@ def resolve_color(name: str = "", red: int | None = None,
 # Default WZTC symbol library — same path as WZTCBridge.ExecPlaceCell /
 # CellPlacer.bas. attach_cell_library() defaults here when lib_path is empty.
 DEFAULT_WZTC_CELL_LIB = r"c:\pwworking\usny\d0119091\ny_plan_wztc.cel"
+# Folder of NYSDOT plan .cel libraries (utility, roadway, striping, WZTC, …).
+DEFAULT_CELL_LIB_DIR = r"c:\pwworking\usny\d0119091"
 
 # Common engineer aliases → exact LineStyles Name keys in a typical NYSDOT
 # seed. resolve_line_style also does case-insensitive substring match.
@@ -843,6 +845,193 @@ def attach_cell_library(lib_path: str = "") -> dict:
     except Exception:
         pass
     return {"status": "OK", "attached": "True", "path": attached_path}
+
+
+def list_cell_libraries(name_contains: str = "", lib_dir: str = "") -> dict:
+    """List .cel cell libraries in the NY plan cell folder (or lib_dir).
+
+    Default folder is DEFAULT_CELL_LIB_DIR (ny_plan_wztc, ny_plan_utility,
+    ny_plan_striping, ny_plan_roadway, …). Use before find_cell / attach when
+    the engineer names a theme (utility, striping, drainage) but not a path.
+    """
+    import os
+    folder = (lib_dir or "").strip() or DEFAULT_CELL_LIB_DIR
+    if not os.path.isdir(folder):
+        return {
+            "status": "ERROR",
+            "note": f"cell library folder not found: {folder}",
+            "libraries": [],
+        }
+    needle = (name_contains or "").strip().lower()
+    libs = []
+    for name in sorted(os.listdir(folder)):
+        if not name.lower().endswith(".cel"):
+            continue
+        if needle and needle not in name.lower():
+            continue
+        path = os.path.join(folder, name)
+        if not os.path.isfile(path):
+            continue
+        libs.append({
+            "name": name,
+            "path": path,
+            "sizeBytes": os.path.getsize(path),
+        })
+    return {
+        "status": "OK",
+        "libDir": folder,
+        "count": len(libs),
+        "libraries": libs,
+        "note": (
+            "Pass path= from this list to attach_cell_library / find_cell / "
+            "place_cell(library_path=...). Empty name_contains lists all .cel."
+        ),
+    }
+
+
+def find_cell(query: str, lib_dir: str = "", library_path: str = "",
+              max_results: int = 25) -> dict:
+    """Search cell name + description across NY plan .cel libraries.
+
+    Use when the engineer asks to place something by plain language
+    ('gas meter', 'catch basin', 'left turn arrow') and you do not know
+    the exact cell name or which .cel holds it. Returns matches with
+    cellName, description, libraryPath — then place_cell(cellName,
+    x, y, library_path=...).
+
+    library_path limits the search to one .cel; otherwise scans every
+    .cel under lib_dir (default DEFAULT_CELL_LIB_DIR). Restores the
+    previously attached library when finished.
+    """
+    import os
+    q = (query or "").strip()
+    if not q:
+        return {
+            "status": "ERROR",
+            "note": "find_cell requires query= (e.g. 'gas meter', 'ARROW LEFT').",
+            "matches": [],
+        }
+    try:
+        max_n = max(1, min(int(max_results), 100))
+    except (TypeError, ValueError):
+        max_n = 25
+
+    prior = cell_library_status()
+    prior_path = ""
+    if prior.get("attached") == "True":
+        prior_path = str(prior.get("path") or "")
+
+    targets: list[str] = []
+    one = (library_path or "").strip()
+    if one:
+        if not os.path.isfile(one):
+            return {
+                "status": "ERROR",
+                "note": f"library_path not found: {one}",
+                "matches": [],
+            }
+        targets = [one]
+    else:
+        listed = list_cell_libraries(lib_dir=lib_dir)
+        if listed.get("status") != "OK":
+            return {
+                "status": "ERROR",
+                "note": listed.get("note") or "list_cell_libraries failed",
+                "matches": [],
+            }
+        targets = [row["path"] for row in listed.get("libraries") or []]
+
+    needle = q.upper()
+    tokens = [t for t in needle.replace("-", " ").replace("_", " ").split() if t]
+    matches: list[dict] = []
+    libs_searched = 0
+    errors: list[str] = []
+
+    try:
+        for path in targets:
+            att = attach_cell_library(path)
+            if att.get("status") != "OK":
+                errors.append(f"{path}: {att.get('note')}")
+                continue
+            libs_searched += 1
+            rows = list_cells(name_contains="")  # may ERROR if huge — fall back
+            if (isinstance(rows, list) and rows and isinstance(rows[0], dict)
+                    and rows[0].get("status") == "ERROR"):
+                # Large lib: probe with each token / full needle
+                probes = [needle] + [t for t in tokens if t != needle]
+                seen_names: set[str] = set()
+                rows = []
+                for p in probes:
+                    for r in list_cells(name_contains=p):
+                        if not isinstance(r, dict) or not r.get("name"):
+                            continue
+                        if r["name"] in seen_names:
+                            continue
+                        seen_names.add(r["name"])
+                        rows.append(r)
+            for r in rows:
+                if not isinstance(r, dict):
+                    continue
+                nm = str(r.get("name") or "")
+                desc = str(r.get("description") or "")
+                if not nm or nm.upper() == "DEFAULT":
+                    continue
+                blob = f"{nm} {desc}".upper()
+                if needle in blob or (
+                    tokens and all(t in blob for t in tokens)
+                ):
+                    matches.append({
+                        "cellName": nm,
+                        "description": desc,
+                        "libraryPath": path,
+                        "libraryName": os.path.basename(path),
+                        "isPoint": r.get("isPoint"),
+                        "isGraphic": r.get("isGraphic"),
+                    })
+                    if len(matches) >= max_n:
+                        break
+            if len(matches) >= max_n:
+                break
+    finally:
+        # Restore prior attach so we don't strand the session on striping/etc.
+        if prior_path and os.path.isfile(prior_path):
+            try:
+                attach_cell_library(prior_path)
+            except Exception:
+                pass
+        elif prior.get("attached") != "True":
+            try:
+                attach_cell_library(DEFAULT_WZTC_CELL_LIB)
+            except Exception:
+                pass
+
+    note = (
+        f"searched {libs_searched} library(ies) for {q!r}; "
+        f"{len(matches)} match(es)."
+    )
+    if not matches:
+        note += (
+            " Try a shorter query, list_cell_libraries(name_contains=…) then "
+            "find_cell(query=…, library_path=…)."
+        )
+    elif len(matches) > 1:
+        note += (
+            " Multiple matches — ask_user_choice or pick the best "
+            "libraryName/description, then place_cell(cellName, x, y, "
+            "library_path=…)."
+        )
+    else:
+        note += " Call place_cell(cellName, x, y, library_path=returned path)."
+
+    return {
+        "status": "OK",
+        "query": q,
+        "matchCount": len(matches),
+        "matches": matches,
+        "libsSearched": libs_searched,
+        "errors": errors,
+        "note": note,
+    }
 
 
 def list_cells(name_contains: str = "", include_shared: bool = False) -> list[dict]:
@@ -2752,6 +2941,503 @@ def place_polyline(vertices: list[list[float]], reason: str = "") -> dict:
     return _ok_or_raise(_bridge.call("PLACE_POLYLINE", verticesTSV=verts_tsv, reason=reason), "place_polyline")
 
 
+def _place_road_line_segments(
+    segs: list[dict], *, reason_prefix: str, need_yellow: bool = True,
+) -> tuple[list[dict], list[str], int | None]:
+    """Place striping segments with Default/weight0; yellow kinds use resolve_color."""
+    yellow_idx: int | None = None
+    if need_yellow and any((s.get("kind") or "") == "yellow" for s in segs):
+        yc = resolve_color(name="yellow")
+        if yc.get("status") != "OK" or yc.get("index") is None:
+            return [], [f"resolve_color('yellow') failed: {yc.get('note') or yc}"], None
+        yellow_idx = int(yc["index"])
+
+    placed: list[dict] = []
+    errors: list[str] = []
+    for seg in segs:
+        kind = seg.get("kind") or "lane"
+        try:
+            r = place_polyline(
+                [[seg["x1"], seg["y1"], 0.0], [seg["x2"], seg["y2"], 0.0]],
+                reason=f"{reason_prefix} {kind} {seg['style']} row={seg['row']}",
+            )
+            eid = str(r.get("elementId") or "")
+            color = yellow_idx if kind == "yellow" and yellow_idx is not None else 0
+            if eid:
+                change_element_level(eid, "Default", own_element_only=True,
+                                     reason="road strip align-like level")
+                change_element_symbology(eid, color=color, weight=0, own_element_only=True,
+                                         reason="road strip color/weight")
+            placed.append({
+                "elementId": eid, "style": seg["style"], "kind": kind,
+                "row": seg["row"],
+                "arm": seg.get("arm") or "",
+                "x1": seg["x1"], "y1": seg["y1"], "x2": seg["x2"], "y2": seg["y2"],
+                "color": color,
+            })
+        except Exception as e:
+            errors.append(str(e))
+    return placed, errors, yellow_idx
+
+
+def _road_strip_counts(placed: list[dict]) -> dict:
+    return {
+        "solidWhiteCount": sum(
+            1 for p in placed
+            if p["style"] == "solid" and p["kind"] in ("edge", "shoulder", "gore")
+        ),
+        "solidYellowCount": sum(
+            1 for p in placed if p["style"] == "solid" and p["kind"] == "yellow"
+        ),
+        "dashedYellowSegmentCount": sum(
+            1 for p in placed if p["style"] == "dashed" and p["kind"] == "yellow"
+        ),
+        "dashedSegmentCount": sum(1 for p in placed if p["style"] == "dashed"),
+        "shoulderCount": sum(1 for p in placed if p["kind"] == "shoulder"),
+        "goreMarkCount": sum(1 for p in placed if p["kind"] == "gore"),
+        "stopBarCount": sum(1 for p in placed if p["kind"] == "stop_bar"),
+        "crosswalkCount": sum(1 for p in placed if p["kind"] == "crosswalk"),
+        "placedCount": len(placed),
+    }
+
+
+def place_lane_highway(lanes: int, x1: float, y1: float, x2: float, y2: float,
+                       lane_width_ft: float = 12.0, shoulder_width_ft: float = 0.0,
+                       dash_ft: float = 10.0, gap_ft: float = 30.0,
+                       side: str = "right", reason: str = "") -> dict:
+    """Draw an N-lane one-way highway strip (general CAD).
+
+    Two solid white outer travel edges + (lanes-1) dashed separators.
+    Optional shoulder_width_ft > 0 adds solid white EOP lines outside both
+    travel outers (sheet 'paved shoulder'). Ask for missing inputs — do
+    not invent site coordinates. Not a 619 sheet-plan tool.
+    """
+    import lane_highway as lh
+
+    side_n = (side or "right").strip().lower()
+    try:
+        segs = lh.lane_highway_lines(
+            int(lanes), float(x1), float(y1), float(x2), float(y2),
+            lane_width_ft=float(lane_width_ft),
+            shoulder_width_ft=float(shoulder_width_ft),
+            dash_ft=float(dash_ft), gap_ft=float(gap_ft),
+            side=side_n,  # type: ignore[arg-type]
+        )
+    except ValueError as e:
+        return {"status": "ERROR", "note": str(e)}
+
+    placed, errors, _ = _place_road_line_segments(
+        segs, reason_prefix=reason or f"one-way {lanes}-lane", need_yellow=False,
+    )
+    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
+    counts = _road_strip_counts(placed)
+    return {
+        "status": "OK" if not errors else "ERROR",
+        "roadType": "one_way",
+        "lanes": int(lanes),
+        "lengthFt": round(length, 3),
+        "laneWidthFt": float(lane_width_ft),
+        "shoulderWidthFt": float(shoulder_width_ft),
+        "dashFt": float(dash_ft),
+        "gapFt": float(gap_ft),
+        "side": side_n,
+        **counts,
+        "placed": placed,
+        "errors": errors,
+        "note": (
+            f"{lanes}-lane one-way: 2 travel edges + {max(lanes - 1, 0)} dashed "
+            f"row(s); shoulder={shoulder_width_ft}ft; dash={dash_ft}/{gap_ft}ft"
+        ),
+    }
+
+
+def place_two_way_highway(lanes: int, x1: float, y1: float, x2: float, y2: float,
+                          lane_width_ft: float = 12.0, yellow_gap_ft: float = 2.0,
+                          shoulder_width_ft: float = 0.0,
+                          dash_ft: float = 10.0, gap_ft: float = 30.0,
+                          side: str = "right", reason: str = "") -> dict:
+    """Draw an even-N undivided two-way road (double solid yellow center).
+
+    Optional shoulder_width_ft. Ask for missing lanes/width/endpoints/side.
+    """
+    import lane_highway as lh
+
+    side_n = (side or "right").strip().lower()
+    try:
+        segs = lh.two_way_highway_lines(
+            int(lanes), float(x1), float(y1), float(x2), float(y2),
+            lane_width_ft=float(lane_width_ft),
+            yellow_gap_ft=float(yellow_gap_ft),
+            shoulder_width_ft=float(shoulder_width_ft),
+            dash_ft=float(dash_ft), gap_ft=float(gap_ft),
+            side=side_n,  # type: ignore[arg-type]
+        )
+    except ValueError as e:
+        return {"status": "ERROR", "note": str(e)}
+
+    placed, errors, yellow_idx = _place_road_line_segments(
+        segs, reason_prefix=reason or f"two-way {lanes}-lane",
+    )
+    if errors and yellow_idx is None and not placed:
+        return {"status": "ERROR", "note": errors[0], "errors": errors}
+
+    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
+    per_dir = int(lanes) // 2
+    counts = _road_strip_counts(placed)
+    return {
+        "status": "OK" if not errors else "ERROR",
+        "roadType": "two_way_undivided",
+        "lanes": int(lanes),
+        "lanesPerDirection": per_dir,
+        "lengthFt": round(length, 3),
+        "laneWidthFt": float(lane_width_ft),
+        "yellowGapFt": float(yellow_gap_ft),
+        "shoulderWidthFt": float(shoulder_width_ft),
+        "yellowColorIndex": yellow_idx,
+        "dashFt": float(dash_ft),
+        "gapFt": float(gap_ft),
+        "side": side_n,
+        **counts,
+        "placed": placed,
+        "errors": errors,
+        "note": (
+            f"{lanes}-lane two-way undivided: double yellow gap={yellow_gap_ft}ft; "
+            f"shoulder={shoulder_width_ft}ft; yellow idx={yellow_idx}"
+        ),
+    }
+
+
+def place_divided_highway(lanes_per_direction: int, x1: float, y1: float,
+                          x2: float, y2: float, median_width_ft: float,
+                          lane_width_ft: float = 12.0,
+                          shoulder_width_ft: float = 0.0,
+                          dash_ft: float = 10.0, gap_ft: float = 30.0,
+                          side: str = "right", reason: str = "") -> dict:
+    """Draw a divided multilane / freeway dual carriageway (619-302-style).
+
+    Each direction: white outer, (N-1) dashed white, yellow median edge.
+    median_width_ft is the empty gap between the two yellows (required —
+    ask; do not invent). Optional outer shoulders. Matches sheet
+    'physical median/divider separating opposing traffic'.
+    """
+    import lane_highway as lh
+
+    side_n = (side or "right").strip().lower()
+    try:
+        segs = lh.divided_highway_lines(
+            int(lanes_per_direction), float(x1), float(y1), float(x2), float(y2),
+            median_width_ft=float(median_width_ft),
+            lane_width_ft=float(lane_width_ft),
+            shoulder_width_ft=float(shoulder_width_ft),
+            dash_ft=float(dash_ft), gap_ft=float(gap_ft),
+            side=side_n,  # type: ignore[arg-type]
+        )
+    except ValueError as e:
+        return {"status": "ERROR", "note": str(e)}
+
+    placed, errors, yellow_idx = _place_road_line_segments(
+        segs,
+        reason_prefix=reason or f"divided {lanes_per_direction}+{lanes_per_direction}",
+    )
+    if errors and yellow_idx is None and not placed:
+        return {"status": "ERROR", "note": errors[0], "errors": errors}
+
+    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
+    counts = _road_strip_counts(placed)
+    return {
+        "status": "OK" if not errors else "ERROR",
+        "roadType": "divided",
+        "lanesPerDirection": int(lanes_per_direction),
+        "lengthFt": round(length, 3),
+        "medianWidthFt": float(median_width_ft),
+        "laneWidthFt": float(lane_width_ft),
+        "shoulderWidthFt": float(shoulder_width_ft),
+        "yellowColorIndex": yellow_idx,
+        "dashFt": float(dash_ft),
+        "gapFt": float(gap_ft),
+        "side": side_n,
+        **counts,
+        "placed": placed,
+        "errors": errors,
+        "note": (
+            f"divided {lanes_per_direction}/dir + median {median_width_ft}ft; "
+            f"shoulder={shoulder_width_ft}ft; yellow idx={yellow_idx}"
+        ),
+    }
+
+
+def place_twlt_highway(lanes_per_direction: int, x1: float, y1: float,
+                       x2: float, y2: float, twlt_width_ft: float = 12.0,
+                       lane_width_ft: float = 12.0,
+                       shoulder_width_ft: float = 0.0,
+                       dash_ft: float = 10.0, gap_ft: float = 30.0,
+                       side: str = "right", reason: str = "") -> dict:
+    """Draw multilane undivided with center TWLT (619-312-style).
+
+    lanes_per_direction = travel lanes each way (TWLT not counted).
+    Center turn lane bounded by two dashed yellow lines twlt_width_ft
+    apart. Do NOT use place_two_way_highway for TWLT roads.
+    """
+    import lane_highway as lh
+
+    side_n = (side or "right").strip().lower()
+    try:
+        segs = lh.twlt_highway_lines(
+            int(lanes_per_direction), float(x1), float(y1), float(x2), float(y2),
+            twlt_width_ft=float(twlt_width_ft),
+            lane_width_ft=float(lane_width_ft),
+            shoulder_width_ft=float(shoulder_width_ft),
+            dash_ft=float(dash_ft), gap_ft=float(gap_ft),
+            side=side_n,  # type: ignore[arg-type]
+        )
+    except ValueError as e:
+        return {"status": "ERROR", "note": str(e)}
+
+    placed, errors, yellow_idx = _place_road_line_segments(
+        segs,
+        reason_prefix=reason or f"twlt {lanes_per_direction}+TWLT+{lanes_per_direction}",
+    )
+    if errors and yellow_idx is None and not placed:
+        return {"status": "ERROR", "note": errors[0], "errors": errors}
+
+    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
+    counts = _road_strip_counts(placed)
+    return {
+        "status": "OK" if not errors else "ERROR",
+        "roadType": "twlt",
+        "lanesPerDirection": int(lanes_per_direction),
+        "lengthFt": round(length, 3),
+        "twltWidthFt": float(twlt_width_ft),
+        "laneWidthFt": float(lane_width_ft),
+        "shoulderWidthFt": float(shoulder_width_ft),
+        "yellowColorIndex": yellow_idx,
+        "dashFt": float(dash_ft),
+        "gapFt": float(gap_ft),
+        "side": side_n,
+        **counts,
+        "placed": placed,
+        "errors": errors,
+        "note": (
+            f"TWLT: {lanes_per_direction}/dir + center {twlt_width_ft}ft "
+            f"(dashed yellow bounds); shoulder={shoulder_width_ft}ft"
+        ),
+    }
+
+
+def place_orthogonal_intersection(
+    junction_x: float, junction_y: float,
+    primary_road_type: str, secondary_road_type: str,
+    primary_length_ft: float, secondary_stub_ft: float,
+    primary_bearing_deg: float = 0.0,
+    junction: str = "plus", tee_side: str = "right",
+    primary_lanes: int | None = None, secondary_lanes: int | None = None,
+    primary_lanes_per_direction: int | None = None,
+    secondary_lanes_per_direction: int | None = None,
+    lane_width_ft: float = 12.0, yellow_gap_ft: float = 2.0,
+    primary_median_width_ft: float = 0.0,
+    secondary_median_width_ft: float = 0.0,
+    primary_twlt_width_ft: float = 12.0,
+    secondary_twlt_width_ft: float = 12.0,
+    primary_shoulder_width_ft: float = 0.0,
+    secondary_shoulder_width_ft: float = 0.0,
+    dash_ft: float = 10.0, gap_ft: float = 30.0,
+    side: str = "right",
+    crosswalks: bool = True, stop_bars: bool = True,
+    has_turning_lanes: bool | None = None,
+    turn_arrows: bool = True,
+    primary_lanes_out: int | None = None,
+    secondary_lanes_out: int | None = None,
+    reason: str = "",
+) -> dict:
+    """Draw a + or T intersection with MUTCD box striping rules.
+
+    Edge lines meet the box (arms connect). Yellow/dashed lane lines stop
+    at the stop bar. Defaults: crosswalks + stop bars on every approach;
+    turn arrows from ny_plan_striping.cel (SAS through; SAL/SAR + SLONLY
+    only when lanes_in > lanes_out via primary_lanes_out /
+    secondary_lanes_out). Dotted yellow center when has_turning_lanes,
+    TWLT, or dedicated > 0. Ask for missing inputs.
+    """
+    import road_junctions as rj
+
+    side_n = (side or "right").strip().lower()
+    try:
+        segs = rj.orthogonal_intersection_lines(
+            float(junction_x), float(junction_y),
+            primary_road_type=primary_road_type,
+            secondary_road_type=secondary_road_type,
+            primary_length_ft=float(primary_length_ft),
+            secondary_stub_ft=float(secondary_stub_ft),
+            primary_bearing_deg=float(primary_bearing_deg),
+            junction=junction,  # type: ignore[arg-type]
+            tee_side=tee_side,  # type: ignore[arg-type]
+            primary_lanes=primary_lanes,
+            secondary_lanes=secondary_lanes,
+            primary_lanes_per_direction=primary_lanes_per_direction,
+            secondary_lanes_per_direction=secondary_lanes_per_direction,
+            lane_width_ft=float(lane_width_ft),
+            yellow_gap_ft=float(yellow_gap_ft),
+            primary_median_width_ft=float(primary_median_width_ft),
+            secondary_median_width_ft=float(secondary_median_width_ft),
+            primary_twlt_width_ft=float(primary_twlt_width_ft),
+            secondary_twlt_width_ft=float(secondary_twlt_width_ft),
+            primary_shoulder_width_ft=float(primary_shoulder_width_ft),
+            secondary_shoulder_width_ft=float(secondary_shoulder_width_ft),
+            dash_ft=float(dash_ft), gap_ft=float(gap_ft),
+            side=side_n,  # type: ignore[arg-type]
+            crosswalks=bool(crosswalks),
+            stop_bars=bool(stop_bars),
+            has_turning_lanes=has_turning_lanes,
+            turn_arrows=bool(turn_arrows),
+            primary_lanes_out=primary_lanes_out,
+            secondary_lanes_out=secondary_lanes_out,
+        )
+    except ValueError as e:
+        return {"status": "ERROR", "note": str(e)}
+
+    arrow_metas = [s for s in segs if s.get("kind") == "turn_arrow"]
+    placeable = rj.strip_placeable_segments(segs)
+    placed, errors, yellow_idx = _place_road_line_segments(
+        placeable,
+        reason_prefix=reason or f"intersection {junction} {primary_road_type}/{secondary_road_type}",
+    )
+
+    arrows_placed: list[dict] = []
+    for meta in arrow_metas:
+        try:
+            r = place_cell(
+                str(meta["cellName"]),
+                float(meta["x"]), float(meta["y"]), 0.0,
+                angle_deg=float(meta.get("angleDeg") or 0.0),
+                library_path=str(meta.get("libraryPath") or rj.DEFAULT_STRIPING_CELL_LIB),
+                reason=reason or f"intersection turn arrow {meta['cellName']}",
+            )
+            arrows_placed.append({
+                "elementId": str(r.get("elementId") or ""),
+                "cellName": meta["cellName"],
+                "arm": meta.get("arm"),
+                "x": meta["x"], "y": meta["y"],
+                "angleDeg": meta.get("angleDeg"),
+            })
+        except Exception as e:
+            errors.append(f"turn_arrow {meta.get('cellName')}: {e}")
+
+    if errors and not placed and not arrows_placed:
+        return {"status": "ERROR", "note": errors[0], "errors": errors}
+
+    arms = sorted({p.get("arm") or "" for p in placed if p.get("arm")})
+    turning = any(
+        (p.get("arm") or "").startswith("center_extension") for p in placed
+    )
+    counts = _road_strip_counts(placed)
+    return {
+        "status": "OK" if not errors else "ERROR",
+        "roadType": "orthogonal_intersection",
+        "junction": (junction or "plus").strip().lower(),
+        "teeSide": (tee_side or "right").strip().lower(),
+        "junctionX": float(junction_x),
+        "junctionY": float(junction_y),
+        "primaryRoadType": primary_road_type,
+        "secondaryRoadType": secondary_road_type,
+        "primaryLengthFt": float(primary_length_ft),
+        "secondaryStubFt": float(secondary_stub_ft),
+        "primaryBearingDeg": float(primary_bearing_deg),
+        "crosswalks": bool(crosswalks),
+        "stopBars": bool(stop_bars),
+        "turnArrows": bool(turn_arrows),
+        "dottedCenterExtension": turning,
+        "yellowColorIndex": yellow_idx,
+        "arms": arms,
+        "arrowCount": len(arrows_placed),
+        "arrows": arrows_placed,
+        **counts,
+        "placed": placed,
+        "errors": errors,
+        "note": (
+            f"{junction} intersection @ ({junction_x},{junction_y}): "
+            f"edges-to-box; center/lane stop at stop-bar; "
+            f"CW={crosswalks} SB={stop_bars} arrows={len(arrows_placed)} "
+            f"dottedCenter={turning}"
+        ),
+    }
+
+
+def place_ramp_gore(
+    x1: float, y1: float, x2: float, y2: float,
+    mainline_lanes: int, ramp_angle_deg: float,
+    gore_station_ft: float, ramp_length_ft: float,
+    ramp_lanes: int = 1, side: str = "right",
+    gore_mark_ft: float = 40.0,
+    lane_width_ft: float = 12.0, shoulder_width_ft: float = 0.0,
+    dash_ft: float = 10.0, gap_ft: float = 30.0,
+    reason: str = "",
+) -> dict:
+    """Draw mainline one-way + diverging ramp meeting at a gore nose.
+
+    (x1,y1)->(x2,y2) = mainline first travel outer edge. Gore nose on the
+    ramp-side outer edge at gore_station_ft from start; ramp diverges by
+    ramp_angle_deg toward side. Optional solid white gore V marks
+    (gore_mark_ft). Ask for missing angle/station/lengths — do not invent.
+    """
+    import road_junctions as rj
+
+    side_n = (side or "right").strip().lower()
+    try:
+        segs = rj.ramp_gore_lines(
+            float(x1), float(y1), float(x2), float(y2),
+            mainline_lanes=int(mainline_lanes),
+            ramp_angle_deg=float(ramp_angle_deg),
+            gore_station_ft=float(gore_station_ft),
+            ramp_length_ft=float(ramp_length_ft),
+            ramp_lanes=int(ramp_lanes),
+            side=side_n,  # type: ignore[arg-type]
+            gore_mark_ft=float(gore_mark_ft),
+            lane_width_ft=float(lane_width_ft),
+            shoulder_width_ft=float(shoulder_width_ft),
+            dash_ft=float(dash_ft), gap_ft=float(gap_ft),
+        )
+    except ValueError as e:
+        return {"status": "ERROR", "note": str(e)}
+
+    nose = next((s for s in segs if s.get("kind") == "gore_nose"), None)
+    placeable = rj.strip_placeable_segments(segs)
+    placed, errors, yellow_idx = _place_road_line_segments(
+        placeable,
+        reason_prefix=reason or f"ramp gore {mainline_lanes}+{ramp_lanes}",
+        need_yellow=False,
+    )
+    if errors and not placed:
+        return {"status": "ERROR", "note": errors[0], "errors": errors}
+
+    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
+    counts = _road_strip_counts(placed)
+    return {
+        "status": "OK" if not errors else "ERROR",
+        "roadType": "ramp_gore",
+        "mainlineLanes": int(mainline_lanes),
+        "rampLanes": int(ramp_lanes),
+        "mainlineLengthFt": round(length, 3),
+        "rampLengthFt": float(ramp_length_ft),
+        "rampAngleDeg": float(ramp_angle_deg),
+        "goreStationFt": float(gore_station_ft),
+        "goreMarkFt": float(gore_mark_ft),
+        "goreNose": (
+            {"x": nose["x1"], "y": nose["y1"]} if nose else None
+        ),
+        "laneWidthFt": float(lane_width_ft),
+        "shoulderWidthFt": float(shoulder_width_ft),
+        "side": side_n,
+        "yellowColorIndex": yellow_idx,
+        **counts,
+        "placed": placed,
+        "errors": errors,
+        "note": (
+            f"ramp gore: mainline {mainline_lanes}-lane + ramp {ramp_lanes}-lane "
+            f"@ {ramp_angle_deg}deg station {gore_station_ft}ft"
+        ),
+    }
+
+
 def place_polygon(cx: float, cy: float, radius: float, sides: int, z: float = 0.0, reason: str = "") -> dict:
     """Place a regular n-gon centered at (cx,cy)."""
     return _ok_or_raise(
@@ -2915,15 +3601,36 @@ def place_channelizing_markers(vertices: list[list[float]], half_size_ft: float 
 
 
 def place_cell(cell_name: str, pt_x: float, pt_y: float, pt_z: float = 0, angle_deg: float = 0,
-               reason: str = "") -> dict:
-    """Place a single cell from the WZTC symbol library at (pt_x, pt_y, pt_z).
-    cell_name must be an exact library cell (e.g. 'TWZIA_P') — call
-    list_cells / attach_cell_library first if unsure. place_cell itself
-    re-attaches the default WZTC .cel before placing."""
-    return _ok_or_raise(
-        _bridge.call("PLACE_CELL", cellName=cell_name, ptX=pt_x, ptY=pt_y, ptZ=pt_z,
-                     angleDeg=angle_deg, reason=reason),
-        "place_cell")
+               library_path: str = "", reason: str = "") -> dict:
+    """Place a cell at (pt_x, pt_y). Default library is WZTC (ny_plan_wztc.cel).
+    Pass library_path for other libs (e.g. ny_plan_striping.cel turn arrows)."""
+    params = {
+        "cellName": cell_name, "ptX": pt_x, "ptY": pt_y, "ptZ": pt_z,
+        "angleDeg": angle_deg, "reason": reason,
+    }
+    lib = (library_path or "").strip()
+    if lib:
+        params["libraryPath"] = lib
+    return _ok_or_raise(_bridge.call("PLACE_CELL", **params), "place_cell")
+
+
+def place_cell_on_post(cell_name: str, pt_x: float, pt_y: float, dir_x: float, dir_y: float,
+                        pt_z: float = 0, angle_deg: float = 0, reason: str = "") -> dict:
+    """Place a cell on a 50 ft stem/post the same way a roadside sign is
+    built (post-outward stem, cell's inward edge snapped to the stem's
+    outer end) — for plan symbols like the Arrow Panel that should read
+    like a sign instead of floating at a bare lateral offset (engineer
+    ask 2026-08-10). (pt_x, pt_y) is the base/tick point the stem starts
+    from; (dir_x, dir_y) is the outward unit direction the stem/cell sit
+    along. Returns elementId (the cell) and stemElementId (the post
+    line)."""
+    resp = _ok_or_raise(
+        _bridge.call("PLACE_CELL_ON_POST", cellName=cell_name, ptX=pt_x, ptY=pt_y, ptZ=pt_z,
+                     dirX=dir_x, dirY=dir_y, angleDeg=angle_deg, reason=reason),
+        "place_cell_on_post")
+    resp["createdElementIds"] = [str(v) for v in
+                                  (resp.get("elementId"), resp.get("stemElementId")) if v]
+    return resp
 
 
 def set_sign_attributes(element_ids: list[str], reason: str = "") -> dict:
@@ -3347,7 +4054,28 @@ def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
             align_i = int(a_str) if str(a_str).isdigit() else 0
             for p in prims:
                 try:
-                    if p["kind"] in ("protectiveVehicle", "arrowPanel"):
+                    if p["kind"] == "arrowPanel":
+                        r = place_cell_on_post(
+                            p["cellName"], p["x"], p["y"], p["dirX"], p["dirY"],
+                            angle_deg=p.get("angleDeg", 0.0),
+                            reason=f"compiled {p['kind']} {p.get('id','')}")
+                        _register(
+                            r, kind=p["kind"],
+                            primitive_id=p.get("primitiveId") or "",
+                            bridge_op="PLACE_CELL_ON_POST",
+                            align_idx=align_i,
+                            spec_ref=p.get("specRef"),
+                            layer=p["kind"],
+                            detail={"id": p.get("id"),
+                                    "requiredNote": p.get("requiredNote")},
+                            geom_extra={
+                                "x": float(p["x"]), "y": float(p["y"]),
+                                "stationFt": p.get("stationFt"),
+                                "id": p.get("id"),
+                                "altGroup": p.get("altGroup"),
+                            },
+                        )
+                    elif p["kind"] == "protectiveVehicle":
                         r = place_cell(p["cellName"], p["x"], p["y"], 0.0,
                                        p.get("angleDeg", 0.0),
                                        reason=f"compiled {p['kind']} {p.get('id','')}")

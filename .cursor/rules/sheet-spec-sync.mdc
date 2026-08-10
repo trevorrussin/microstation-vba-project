@@ -1,0 +1,40 @@
+---
+description: After every sheet fix, update sheet JSON + build.md (required, not optional)
+alwaysApply: true
+---
+
+# Sheet spec sync after every change
+
+When you fix or learn anything about a **named 619 sheet build** (compiler,
+executor, VBA draw path, engineer QA correction, visual gotcha):
+
+## Required in the same effort (do not defer)
+
+1. **`Data/sheet-specs/<sheet>.json`** — encode anything the compiler,
+   executor, or agent must obey on the affected item (`signs.items[]`,
+   `symbols.items[]`, `representation`, `annotationStyle`, notes fields).
+2. **`Data/sheet-specs/<sheet>.build.md`** (or create/update the playbook
+   `sheet.buildGuide` points at) — human tip + Do-not / common-failure row.
+3. **`dev-notes/agent-log.md`** — cross-tool bridge (Cursor ↔ Claude Code).
+
+The in-MicroStation WZTC agent loads `buildGuide` from
+`get_sheet_requirements` / `get_sheet_build_guide`. If the tip lives only in
+chat or only in `agent-log.md`, the **next agent turn will miss it**.
+
+## Authority reminder
+
+Official PDF → sheet JSON → build playbook → chat hints. Updating JSON/playbook
+is how a live fix becomes sheet-first authority for the agent.
+
+## Anti-patterns (forbidden)
+
+- Shipping a code fix and saying “document later”
+- Logging only in `agent-log.md` without JSON/playbook
+- Leaving an outdated playbook tip that contradicts the fix (edit or replace
+  the old Do-not row — do not leave both)
+
+## Scope
+
+Applies to named-sheet work (619-xxx). General CAD one-offs still use
+`agent-log.md` when non-obvious; no sheet JSON required if no sheet was
+involved.

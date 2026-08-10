@@ -149,10 +149,21 @@ the Number property as an index (LineStyles(-104) fails; Name
 '( Dashed )' works). list_line_styles requires name_contains. ByLevel is
 not assignable via symbology — use ACTIVE_LINESTYLE / LC=ByLevel.
 
-For non-sign cells: attach_cell_library() (empty path = default WZTC
-.cel) then list_cells(name_contains=...) before place_cell — do not
-guess cell names. cell_library_status reports whether a library is
-attached. Signs still use resolve_sign_code (WZTC mode).
+For cells from any NY plan .cel library (general + WZTC mode) — gas meter,
+catch basin, striping arrow, WZTC arrow panel, etc.:
+  1. find_cell(query=…) with the engineer's words (e.g. 'gas meter').
+     Or list_cell_libraries(name_contains='utility') then
+     find_cell(query=…, library_path=<path>) to narrow.
+  2. If multiple matches, ask_user_choice — do not guess.
+  3. place_cell(cellName, x, y, library_path=match.libraryPath, angle_deg=…).
+     Ask for the insertion point (or ask_user_choice allow_point_pick) —
+     do not invent coordinates.
+  4. Do NOT guess cell names. attach_cell_library + list_cells still work
+     for browsing one attached library; find_cell is preferred when the
+     library is unknown. cell_library_status reports the current attach.
+Default empty library_path on place_cell is still ny_plan_wztc.cel (WZTC
+symbols). MUTCD face signs in WZTC mode still use resolve_sign_code +
+place_sign — not find_cell.
 
 For text: resolve_font / resolve_text_style before ACTIVE FONT or
 place_text_label when the engineer names a font/style. Annotation scale
@@ -430,6 +441,55 @@ OUTSIDE a sheet build (general CAD, one-offs, spacing questions, edits,
 explore-the-drawing): the checklist / run_sheet_build do NOT apply. Reason
 freely; use adjust_view / find_elements_near / view_drawing as needed.
 get_plan_status returns sheetPlanActive=False in that case.
+
+Road striping catalog (general CAD — not a 619 sheet-plan tool). Pick the
+tool that matches the roadway type; do NOT freestyle with place_polyline
+loops when one of these exists. Shared defaults: Default level, weight 0,
+white color 0, yellow via resolve_color inside the tool, dash=10 ft /
+gap=30 ft real gaps (not a MicroStation linestyle). Pass lane_width_ft
+when named (default 12 only if unstated). Optional shoulder_width_ft > 0
+adds solid white EOP lines outside both travel outers (sheet “paved
+shoulder”). Ask for missing lanes/widths/endpoints/side/median — never
+invent site coordinates. (x1,y1)->(x2,y2) = first travel outer edge;
+side='right' for below a +X run.
+
+  - One-way / single carriageway (freeway travel lanes without opposing
+    strip): place_lane_highway(lanes=…).
+  - Undivided two-way with double solid yellow (2/4/6… even total lanes;
+    311-style): place_two_way_highway(lanes=…).
+  - Divided / multilane with physical median (302-style — “4-lane with
+    median”, freeway dual carriageway): place_divided_highway(
+    lanes_per_direction=…, median_width_ft=… REQUIRED). Each direction
+    gets white outer + dashed separators + yellow median edge; empty
+    median gap between yellows. Do NOT fake a median with two separate
+    place_lane_highway calls unless the engineer wants that.
+  - Multilane undivided with center two-way left-turn lane (312/412 TWLT):
+    place_twlt_highway(lanes_per_direction=…, twlt_width_ft=…). TWLT is
+    bounded by two dashed yellow lines. Do NOT use place_two_way_highway
+    for TWLT roads.
+  - Orthogonal + or T intersection (cross-street sketch, MUTCD 3B.11):
+    place_orthogonal_intersection(...). Edge lines meet the intersection
+    box (arms connect). Yellow center + dashed lane lines STOP at the stop
+    bar (not through the stop/crosswalk zone). Defaults ON: crosswalks +
+    stop bars on every approach; turn arrows from ny_plan_striping.cel
+    upstream of the stop bar. Arrow ACTIVE ANGLE 0 = +Y (not +X) — travel
+    toward the intersection; place arrows in the approach (RH) half of
+    two-way strips. Dedicated SAL/SAR + SLONLY only when approach
+    lanes_in > through lanes_out (primary_lanes_out / secondary_lanes_out).
+    Equal in/out: shared options — 1 lane at a + → SALS+SARS pair (no
+    triple-head cell in the lib); 2 lanes → SALS + SARS; 3+ → SALS /
+    SAS / SARS (centers straight-only). Do NOT put ONLY on shared lanes.
+    Dotted yellow center when has_turning_lanes=True, TWLT, or dedicated
+    > 0. Ask for junction point, arm types/lanes, lengths, tee_side if
+    tee, and lanes_out when a lane drops into a turn pocket (e.g. 3→2).
+  - Freeway ramp gore / diverge (Family 5 sketch): place_ramp_gore(
+    mainline first edge, mainline_lanes, ramp_angle_deg, gore_station_ft,
+    ramp_length_ft, …). Nose on ramp-side outer edge; optional gore_mark_ft
+    solid white V. Ask for angle/station/lengths — do not invent.
+
+Do NOT freestyle intersections or gores with raw place_polyline when these
+tools exist. Curb radii, crosswalks, and painted chevrons inside the gore
+are out of scope — stop and ask if the engineer wants those extras.
 
   - Prefer ask_user_choice(allow_point_pick=True) over spatial fishing when
     the engineer can click the target in one click.

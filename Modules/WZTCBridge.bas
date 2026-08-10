@@ -153,6 +153,8 @@ Private Function ExecuteOpInner(opLine As String) As String
     Select Case opType
         Case "PLACE_CELL"
             ExecuteOpInner = ExecPlaceCell(reqId, params)
+        Case "PLACE_CELL_ON_POST"
+            ExecuteOpInner = ExecPlaceCellOnPost(reqId, params)
         Case "FIND_ELEMENTS_NEAR"
             ExecuteOpInner = ExecFindElementsNear(reqId, params)
         Case "STATION_TO_POINT"
@@ -334,6 +336,14 @@ Private Function ExecPlaceCell(reqId As String, params As Object) As String
     If params.Exists("ptZ") Then ptZ = CDbl(params("ptZ"))
     Dim angleDeg As Double: angleDeg = 0
     If params.Exists("angleDeg") Then angleDeg = CDbl(params("angleDeg"))
+    ' Optional libraryPath — striping arrows live in ny_plan_striping.cel;
+    ' default remains the WZTC symbol library.
+    Dim libPath As String: libPath = WZTC_CELL_LIB
+    If params.Exists("libraryPath") Then
+        If Trim$(CStr(params("libraryPath"))) <> "" Then
+            libPath = Trim$(CStr(params("libraryPath")))
+        End If
+    End If
 
     Dim pt As Point3d
     pt.X = ptX: pt.Y = ptY: pt.Z = ptZ
@@ -342,7 +352,7 @@ Private Function ExecPlaceCell(reqId As String, params As Object) As String
     CadInputQueue.SendKeyin "ACTIVE COLOR 0"
     CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
     CadInputQueue.SendKeyin "ACTIVE ANGLE " & angleDeg
-    CadInputQueue.SendCommand "ATTACH LIBRARY " & WZTC_CELL_LIB
+    CadInputQueue.SendCommand "ATTACH LIBRARY " & libPath
     SetCExpressionValue "tcb->activeCellUtf16", cellName, ""
     CadInputQueue.SendCommand "PLACE CELL ICON"
     CadInputQueue.SendDataPoint pt, 1
@@ -362,6 +372,46 @@ Private Function ExecPlaceCell(reqId As String, params As Object) As String
 
 PlaceError:
     ExecPlaceCell = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' PLACE_CELL_ON_POST — stem + cell assembly, same construction as a
+' roadside sign's post/stem/face chain (DrawSign.PlaceCellOnPost),
+' for plan symbols like the Arrow Panel that should read the same way
+' a sign does instead of floating at a bare lateral offset.
+' Required params: cellName, ptX, ptY, dirX, dirY
+' Optional params: ptZ (default 0), angleDeg (default 0)
+' ============================================================
+Private Function ExecPlaceCellOnPost(reqId As String, params As Object) As String
+    On Error GoTo PostError
+
+    If Not params.Exists("cellName") Then
+        ExecPlaceCellOnPost = reqId & vbTab & "ERROR" & vbTab & "note=missing cellName"
+        Exit Function
+    End If
+    If Not (params.Exists("ptX") And params.Exists("ptY") And _
+            params.Exists("dirX") And params.Exists("dirY")) Then
+        ExecPlaceCellOnPost = reqId & vbTab & "ERROR" & vbTab & "note=missing ptX/ptY/dirX/dirY"
+        Exit Function
+    End If
+
+    Dim cellName As String: cellName = params("cellName")
+    Dim ptZ As Double: ptZ = 0
+    If params.Exists("ptZ") Then ptZ = CDbl(params("ptZ"))
+    Dim angleDeg As Double: angleDeg = 0
+    If params.Exists("angleDeg") Then angleDeg = CDbl(params("angleDeg"))
+
+    Dim basePt As Point3d
+    basePt.X = CDbl(params("ptX")): basePt.Y = CDbl(params("ptY")): basePt.Z = ptZ
+
+    Dim result As String
+    result = DrawSign.PlaceCellOnPost(basePt, cellName, CDbl(params("dirX")), _
+                                       CDbl(params("dirY")), angleDeg)
+    ExecPlaceCellOnPost = reqId & vbTab & result
+    Exit Function
+
+PostError:
+    ExecPlaceCellOnPost = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 ' ============================================================

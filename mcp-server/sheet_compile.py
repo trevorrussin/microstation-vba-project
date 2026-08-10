@@ -400,6 +400,14 @@ def compile_channelizing(spec: dict, resolved: dict, align_idx: int, segments,
         return (min(stas), max(stas)) if stas else None
 
     primitives: list[dict] = []
+    # Adjacent runs (e.g. shoulderTaperRun/laneTaperRun, laneTaperRun/
+    # longitudinalRun) share their boundary station by construction (the
+    # taper-continuity point), which used to place two device primitives
+    # stacked at the exact same (x, y) -- one from each run's endpoint-
+    # inclusive station list. Track physical points already used so the
+    # second run's shared endpoint is skipped instead of doubled (real
+    # miss found live 2026-08-10: "two sets of channelizing devices").
+    placed_points: set[tuple[float, float]] = set()
     for run in sym.get("runs", []):
         zone_id = run["zone"]
         rng = span_station_range(zone_id) if ".." in zone_id else zone_range.get(zone_id)
@@ -439,6 +447,20 @@ def compile_channelizing(spec: dict, resolved: dict, align_idx: int, segments,
                 note = "shoulder_width_ft not supplied -- substituted lane_width_ft, not a real shoulder measurement"
             anchor_is_lo = zone_offset_ends.get(zone_id) == "anchor_is_lo"
             off_lo, off_hi = (0.0, width) if anchor_is_lo else (width, 0.0)
+        elif run["id"] == "downstreamRun":
+            # Diagonal taper — not a flat row. Align 2 travels opposite
+            # align 1, so the same outward_sign points at the open side in
+            # world XY; a constant +lane_width therefore landed every
+            # downstream cone on the opposite side of centerline from the
+            # roll-ahead/longitudinal run (live 619-311: flat Y=-12 while
+            # roll-ahead sat at Y=+12). Engineer QA 2026-08-10: first cone
+            # must share the roll-ahead Y; last cone keeps the prior far
+            # end Y (that's the taper). Work-area end of the zone uses
+            # -lane_width; far end keeps +lane_width.
+            if abs(lo) <= abs(hi):
+                off_lo, off_hi = -lane_width_ft, lane_width_ft
+            else:
+                off_lo, off_hi = lane_width_ft, -lane_width_ft
         else:
             off_lo = off_hi = lane_width_ft
 
@@ -447,6 +469,10 @@ def compile_channelizing(spec: dict, resolved: dict, align_idx: int, segments,
             offset = off_lo + t * (off_hi - off_lo)
             x, y, tan_x, tan_y = ag.station_to_xy(segments, sta)
             out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
+            point_key = (round(x + out_x * offset, 3), round(y + out_y * offset, 3))
+            if point_key in placed_points:
+                continue
+            placed_points.add(point_key)
             prim = {
                 "kind": "cone", "run": run["id"], "stationFt": sta,
                 "x": x + out_x * offset, "y": y + out_y * offset,
@@ -594,12 +620,54 @@ def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
             continue
         x, y, tan_x, tan_y = ag.station_to_xy(segments, sta)
         out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
+        angle_deg = math.degrees(math.atan2(tan_y, tan_x))
+        kind = "protectiveVehicle" if is_vehicle else "arrowPanel"
+
+        if is_arrow_panel:
+            # Base = tip of the station perp (same attachment as roadside
+            # signs), NOT the alignment center. Live miss 2026-08-10: base
+            # at centerline put the stem/face/label ~half_len (40 ft) short
+            # of the diamond-sign Y axis — engineer reported "off by y=50".
+            # half_len=40 matches place_order_table_stations / run_sheet_build.
+            tip_half_len_ft = 40.0
+            stem_gap_ft = 50.0
+            panel_half_extent_guess_ft = 12.0
+            base_x = x + out_x * tip_half_len_ft
+            base_y = y + out_y * tip_half_len_ft
+            label_dist = (tip_half_len_ft + stem_gap_ft
+                          + panel_half_extent_guess_ft + symbol_label_out)
+            prim = {
+                "kind": kind,
+                "id": item["id"], "cellName": item.get("cellHint") or "TWZAP_P",
+                "x": base_x, "y": base_y, "dirX": out_x, "dirY": out_y,
+                "angleDeg": angle_deg, "stationFt": sta,
+                "requiredNote": item.get("required"),
+                "primitiveId": _primitive_id(align_idx, item["id"], kind),
+                "specRef": {
+                    "zone": anchor.get("zone"), "run": None,
+                    "symbolId": item["id"], "alignIdx": align_idx,
+                },
+            }
+            primitives.append(prim)
+            prim_by_id[item["id"]] = prim
+            # Name beyond the cell (engineer reference style) — not a dim.
+            primitives.append({
+                "kind": "label",
+                "x": x + out_x * label_dist,
+                "y": y + out_y * label_dist,
+                "text": "ARROW PANEL",
+                "primitiveId": _primitive_id(align_idx, "arrowPanel", "label"),
+                "specRef": {
+                    "zone": anchor.get("zone"), "run": None,
+                    "symbolId": "arrowPanel", "alignIdx": align_idx,
+                },
+            })
+            continue
+
         offset_ft, offset_warning = _lateral_offset_ft(
             item.get("lateralAnchor"), lane_width_ft, shoulder_width_ft)
         px = x + out_x * offset_ft
         py = y + out_y * offset_ft
-        angle_deg = math.degrees(math.atan2(tan_y, tan_x))
-        kind = "protectiveVehicle" if is_vehicle else "arrowPanel"
         prim = {
             "kind": kind,
             "id": item["id"], "cellName": item.get("cellHint") or "TWZAP_P",
@@ -616,19 +684,6 @@ def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
             prim["lateralOffsetWarning"] = offset_warning
         primitives.append(prim)
         prim_by_id[item["id"]] = prim
-        if is_arrow_panel:
-            # Name under the cell (engineer reference style) — not a dim.
-            primitives.append({
-                "kind": "label",
-                "x": px + out_x * symbol_label_out,
-                "y": py + out_y * symbol_label_out,
-                "text": "ARROW PANEL",
-                "primitiveId": _primitive_id(align_idx, "arrowPanel", "label"),
-                "specRef": {
-                    "zone": anchor.get("zone"), "run": None,
-                    "symbolId": "arrowPanel", "alignIdx": align_idx,
-                },
-            })
 
         if item["id"] in signs_mounted_on:
             sign = signs_mounted_on[item["id"]]

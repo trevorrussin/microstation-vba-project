@@ -407,6 +407,12 @@ Public Sub PlaceSignAssembly(attachmentPt As Point3d, signNum As String, signSiz
     ' the black symbol reads (live 2026-08-03 south 619-311 QA).
     Call HideDuplicateYellowLegend(faceEl, cellName)
 
+    ' G20-* faces: library place can leave the SF_P "grouped hole" (inner
+    ' border cell) at color 6/orange instead of 240/black — engineer
+    ' reference next to the Y=297000 build had SF_P hole=240 with orange
+    ' outer (SF_P complex) + black SFB_P legend (2026-08-10).
+    Call FixG20FaceBlackHole(faceEl, signNum)
+
     ' --- Stem: post outward edge -> face inward edge only (on tip line) ---
     ' Element API (CreateLineElement2), NOT PLACE LINE CONSTRAINED: AccuDraw
     ' distance lock left over from a long define_alignment_segment was making
@@ -422,31 +428,27 @@ Public Sub PlaceSignAssembly(attachmentPt As Point3d, signNum As String, signSiz
     stemEl.Rewrite
 
     ' --- Text label beyond the face ---
-    ' G20-* faces already carry the full legend (END ROAD WORK, etc.);
-    ' placing the code again clutters the assembly (engineer QA 2026-08-05).
-    ' Size-only callout stays for sizing QA.
+    Dim textPt As Point3d
+    textPt.X = faceOrigin.X + dirX * (halfFace + 20#)
+    textPt.Y = faceOrigin.Y + dirY * (halfFace + 20#)
+    textPt.Z = faceOrigin.Z
+
+    ' Same two-line label as every other MUTCD sign: code above, size
+    ' below (engineer hand-fixed G20-02 on the Y=299000 corridor to
+    ' "G20-02" / "36\" x 18\"" — size-only was wrong). Use TEXTEDITOR
+    ' with signNum FIRST: a prior G20-only size-first TEXTEDITOR path
+    ' silently produced no text (2026-08-10); Element API size-only also
+    ' omitted the code the engineer requires above the size callout.
     CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
     CadInputQueue.SendKeyin "ACTIVE COLOR 0"
     CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
     CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
     CadInputQueue.SendCommand "TEXTEDITOR PLACE"
-    If Left$(UCase$(signNum), 4) = "G20-" Then
-        If Len(signSize) > 0 Then
-            Call InsertTextWithInchMarks(signSize)
-        Else
-            CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & signNum & """"
-        End If
-    Else
-        CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & signNum & """"
-        If Len(signSize) > 0 Then
-            CadInputQueue.SendCommand "TEXTEDITOR PLAYCOMMAND KEY_DOWN KEY_CODE 0x06 CONTROL_KEY_STATE UP SHIFT_KEY_STATE UP ALT_KEY_STATE UP"
-            Call InsertTextWithInchMarks(signSize)
-        End If
+    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & signNum & """"
+    If Len(signSize) > 0 Then
+        CadInputQueue.SendCommand "TEXTEDITOR PLAYCOMMAND KEY_DOWN KEY_CODE 0x06 CONTROL_KEY_STATE UP SHIFT_KEY_STATE UP ALT_KEY_STATE UP"
+        Call InsertTextWithInchMarks(signSize)
     End If
-    Dim textPt As Point3d
-    textPt.X = faceOrigin.X + dirX * (halfFace + 20#)
-    textPt.Y = faceOrigin.Y + dirY * (halfFace + 20#)
-    textPt.Z = faceOrigin.Z
     CadInputQueue.SendDataPoint textPt, 1
     CadInputQueue.SendReset
 
@@ -460,6 +462,85 @@ Sub PlaceSignFaceAndText(postPt As Point3d, signNum As String, signSize As Strin
                           dirX As Double, dirY As Double, viewAngleDeg As Double)
     Call PlaceSignAssembly(postPt, signNum, signSize, dirX, dirY, viewAngleDeg)
 End Sub
+
+' ============================================================
+' Cell-on-a-post assembly (Arrow Panel and similar plan symbols) —
+' same stem-then-face geometry as PlaceSignAssembly's post/stem/face
+' chain, minus the SignLibrary lookup and code/size text a MUTCD sign
+' needs. Engineer asked for the arrow panel to sit the same way the
+' roadside signs do (2026-08-10) instead of floating at a bare lateral
+' offset with no stem.
+' ============================================================
+Public Function PlaceCellOnPost(basePt As Point3d, cellName As String, _
+                                 dirX As Double, dirY As Double, _
+                                 viewAngleDeg As Double) As String
+    On Error GoTo PostErr
+
+    ' Stem line from the tick/base out STEM_GAP, then snap the plan cell
+    ' so its inward edge sits on the stem tip — same "post then face"
+    ' look as roadside signs, but WITHOUT placing TWZSGN_P. Arrow panel
+    ' sits on the channelizing tip; a TWZSGN_P cell there stacks on the
+    ' cone and reads as a doubled orange marker (live 2026-08-10
+    ' Y=298000 rebuild). Engineer demo on Y=299000 used stem line +
+    ' panel only.
+    Const STEM_GAP As Double = 50#
+    Const WZTC_CELL_LIB As String = "c:\pwworking\usny\d0119091\ny_plan_wztc.cel"
+
+    Dim postOuter As Point3d
+    postOuter.X = basePt.X + dirX * STEM_GAP
+    postOuter.Y = basePt.Y + dirY * STEM_GAP
+    postOuter.Z = basePt.Z
+
+    Dim stemEl As LineElement
+    Set stemEl = CreateLineElement2(Nothing, basePt, postOuter)
+    stemEl.Color = 0
+    stemEl.LineWeight = 0
+    On Error Resume Next
+    stemEl.Level = ActiveDesignFile.Levels("Default")
+    On Error GoTo PostErr
+    ActiveModelReference.AddElement stemEl
+    stemEl.Rewrite
+
+    CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
+    CadInputQueue.SendKeyin "ACTIVE COLOR 0"
+    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
+    CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
+    CadInputQueue.SendCommand "ATTACH LIBRARY " & WZTC_CELL_LIB
+    SetCExpressionValue "tcb->activeCellUtf16", cellName, ""
+
+    Dim guessPt As Point3d
+    guessPt.X = postOuter.X + dirX * 30#
+    guessPt.Y = postOuter.Y + dirY * 30#
+    guessPt.Z = postOuter.Z
+    CadInputQueue.SendCommand "PLACE CELL ICON"
+    CadInputQueue.SendDataPoint guessPt, 1
+    CadInputQueue.SendReset
+
+    Dim cellEl As Element
+    Set cellEl = FindNewestElement()
+    If cellEl Is Nothing Then
+        PlaceCellOnPost = "ERROR" & vbTab & "note=cell placement failed"
+        Exit Function
+    End If
+
+    Call SnapInwardEdgeToTip(cellEl, postOuter, dirX, dirY)
+
+    Dim finalOrigin As Point3d
+    If cellEl.IsCellElement Then
+        finalOrigin = cellEl.AsCellElement.Origin
+    ElseIf cellEl.IsSharedCellElement Then
+        finalOrigin = cellEl.AsSharedCellElement.Origin
+    End If
+
+    PlaceCellOnPost = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(cellEl.ID)) & vbTab & _
+                       "stemElementId=" & CStr(ElIDAsDouble(stemEl.ID)) & vbTab & _
+                       "x=" & finalOrigin.X & vbTab & "y=" & finalOrigin.Y & vbTab & _
+                       "note=cell-on-post assembly (stem " & STEM_GAP & "ft, no TWZSGN_P)"
+    Exit Function
+
+PostErr:
+    PlaceCellOnPost = "ERROR" & vbTab & "note=" & Err.Description
+End Function
 
 ' Half-size of element range projected onto unit dir (ft).
 Private Function HalfExtentAlongDir(el As Element, dirX As Double, dirY As Double) As Double
@@ -540,6 +621,48 @@ End Function
 ' and raise DisplayPriority on black SFB_P so the symbol reads above
 ' the yellow diamond fill (IsHidden on cell components does not stick;
 ' live 2026-08-03 south 619-311 QA).
+' G20-* sign face: force the SF_P inner "grouped hole" cell to color 240
+' (black) so the stack reads black lettering / orange field / black inner
+' border / orange outer — matching engineer hand-placed reference.
+Private Sub FixG20FaceBlackHole(faceEl As Element, signNum As String)
+    On Error GoTo FixDone
+    If Left$(UCase$(signNum), 4) <> "G20-" Then Exit Sub
+    If Not faceEl.IsCellElement Then Exit Sub
+
+    Dim cell As CellElement
+    Set cell = faceEl.AsCellElement
+    cell.ResetElementEnumeration
+
+    Dim subEl As Element
+    Dim lvlName As String
+    Dim col As Long
+    Dim guard As Integer: guard = 0
+    Do While cell.MoveToNextElement(False) And guard < 40
+        guard = guard + 1
+        Set subEl = cell.CopyCurrentElement
+        On Error Resume Next
+        lvlName = ""
+        lvlName = subEl.Level.Name
+        col = -1
+        col = CLng(subEl.Color)
+        If Err.Number <> 0 Then
+            Err.Clear
+            GoTo NextHole
+        End If
+        On Error GoTo FixDone
+
+        ' Nested cell on SF_P at orange (6) is the missing black hole;
+        ' leave SF_P type-14 outer complex orange, leave SFB_P alone.
+        If UCase$(lvlName) = "SF_P" And col = 6 And subEl.IsCellElement Then
+            subEl.Color = 240
+            cell.ReplaceCurrentElement subEl
+        End If
+NextHole:
+    Loop
+    faceEl.Rewrite
+FixDone:
+End Sub
+
 Private Sub HideDuplicateYellowLegend(faceEl As Element, cellName As String)
     On Error GoTo HideDone
     If Len(cellName) < 6 Then Exit Sub

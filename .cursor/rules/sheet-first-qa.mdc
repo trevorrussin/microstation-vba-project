@@ -39,4 +39,6 @@ After placing dims/labels/PV/AP/workspace/channelizing:
 4. Fix what you can see yourself; only then ask the engineer to review.
 
 Log non-obvious sheet-registry gaps and QA gotchas in `dev-notes/agent-log.md`.
-For named sheets, prefer updating `Data/sheet-specs/<sheet>.build.md` too.
+**Also required** (not optional): update `Data/sheet-specs/<sheet>.json` and
+`<sheet>.build.md` in the same effort — see `.cursor/rules/sheet-spec-sync.mdc`.
+The WZTC chat agent reads `buildGuide`; chat-only tips are lost next turn.

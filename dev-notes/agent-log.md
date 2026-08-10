@@ -1585,3 +1585,162 @@ Closed the two should-fix gaps fully: (1) `run_visual_qa_captures` / `run_sheet_
 ## 2026-08-09 -- Cursor -- Harness soft gaps: geometry-faithful, sandbox, playbooks, P0 history
 
 Implemented the remaining harness list (implement-all rule): (1) `sheet_geometry_faithful.py` + scorecard wiring ï¿½ tip/mid/xy drift, duplicate signs, kind flood; registry stores geom extras on place; `visual_qa_prechecks` runs `check_automated_visual_rules`. (2) Visual QA less model-only ï¿½ automated rules gate `visual_qa_passed` before frames. (3) KEEP/REVERT sandbox ï¿½ `sheet_sandbox.py` + `begin_sheet_sandbox` / `run_sheet_build_sandbox` / `keep_sheet_sandbox` / `revert_sheet_sandbox` (offset Y band; does not wipe kept corridor). (4) Playbooks for all plan sheets ï¿½ `scripts/generate_sheet_build_guides.py` created 60 stubs + `buildGuide` pointers (61 total incl. hand-authored 311); referenceLibrary skipped. (5) General CAD left prompt-shaped on purpose. (6) HARNESS_P0 ï¿½ `chat_history.harness_preflight_or_clear` at `run_turn` start clears still-broken history instead of 400-loop nudges. Tools on chat_driver + server; tests `test_harness_geometry_sandbox.py`; driver restarted.
+
+## 2026-08-10 -- Claude Code -- engineer QA on the 619-311 build: 3 more real defects found + fixed (duplicate cones, silent G20 label loss, arrow panel not sign-styled)
+
+Engineer manually edited the live 619-311 drawing to demonstrate two things wrong with the previous build, and separately spotted a third. All three were real, root-caused, and fixed -- not spec misreads:
+
+1. **Doubled channelizing devices at taper junctions** (`sheet_compile.compile_channelizing`): adjacent runs (`shoulderTaperRun`/`laneTaperRun`, `laneTaperRun`/`longitudinalRun`) share their boundary station by construction (the taper-continuity point), and each run's endpoint-inclusive station list placed its own device there -- two markers stacked exactly on top of each other at 2 junctions (confirmed live: elements 135113/135135 and 135118/135152 at identical (x, y)). Fixed with a `placed_points` dedup set keyed on physical (x, y) rounded to 3 decimals, not station number (station numbers differ per-run/per-alignment; physical coincidence is what actually matters). Cone count went from a compiled 43 to 41.
+
+2. **G20-2 label silently missing** (`Modules/DrawSign.bas` `PlaceSignAssembly`): the engineer deleted the original face+label (elements 104445/104507) after finding no visible label, then hand-placed a correct reference (cell + text) attached to the existing post/stem to show the desired result. Root cause: G20-* signs are the ONLY sign family whose label branch calls `InsertTextWithInchMarks` as the FIRST content of a freshly-armed `TEXTEDITOR PLACE` CadInputQueue session -- every other sign inserts the sign code first, then size on a second line via `KEY_DOWN`+`InsertTextWithInchMarks`. That first-content path was untested relative to the rest of the codebase's sign labels and silently produced nothing. Fixed by replacing the whole G20-* label branch with direct `CreateTextElement1` (Element API) construction, matching `WZTCExec.ExecPlaceTextLabel`'s already-reliable pattern, including a proper rotation matrix built from `viewAngleDeg` (not `Matrix3dIdentity`, so it still tracks view rotation like every other label). Re-placed G20-02 fresh via `place_sign`+`set_sign_attributes` at the exact original journal coordinates; label now renders every time.
+
+3. **Arrow panel floating at a bare lateral offset** (engineer ask, not a bug): wanted it drawn the same way a roadside sign is -- a stem/post out from the tick, panel mounted at the post's outer end -- instead of a cell placed at a flat 16 ft lateral offset with nothing connecting it to the corridor. Added `DrawSign.PlaceCellOnPost` (same stem-then-`SnapInwardEdgeToTip` construction as `PlaceSignAssembly`, minus the SignLibrary/text-label parts a MUTCD sign needs), wired as a new bridge op `PLACE_CELL_ON_POST` (`WZTCBridge.bas`), a new `wztc_ops.place_cell_on_post` / MCP tool / chat-agent op-list entry, and `sheet_compile.compile_symbols` now emits arrowPanel's base point + outward direction instead of a pre-offset position for this item specifically (protectiveVehicle unchanged -- it sits in the lane, not on a post). `619-311.json`'s `arrowPanel` item gained `mountingStyle`/`mountingStyleNote`.
+
+Every fix needed either a VBA hot-reload (`DrawSign.bas`, `WZTCBridge.bas`) + `adopt_alignment` re-bind, or an MCP server restart (`sheet_compile.py`/`wztc_ops.py`/`server.py`/`chat_driver.py`) -- hit the *wrong* one first again (restarted `chat_driver.py`, forgot the `wztc-designer` MCP connection is the actual process serving direct tool calls) and had to redo the arrow panel/cone rebuild a second time after the correct restart. `tests/` 64 passed throughout. Engineer's manual demo elements (G20-02 reference cell/label, arrow panel reference stem) were left in place until the automated rebuild reproduced the same result and started visually overlapping them (doubled text) -- engineer then explicitly approved deleting them; `delete_element`'s `own_element_only` safety correctly refused the first attempt since those elements weren't created by this session, requiring an explicit override once approved. G20-02's sign record is not currently in the placement registry (`place_sign` called directly doesn't register the way `execute_compiled_plan`'s internal sign phase does) -- harmless for `get_geometry_scorecard` (signs aren't in its tracked kinds) but a minor audit-trail gap worth closing later.
+
+## 2026-08-10 -- Claude Code -- HANDOFF: engineer reports none of the above fixes are visible on their screen, unresolved
+
+Engineer says the three fixes logged above (duplicate cones, G20-02 label, arrow panel post-mount) are NOT visible on their screen -- reports seeing "every single wrong thing from last time" in both the original corridor (Y=300000) AND a completely fresh rebuild done 100 ft away (Y=299900, built via one clean `run_sheet_build` call, all phases OK, scorecard passed, visual QA passed). This is unresolved and needs a fresh set of eyes (Cursor) or the engineer directly.
+
+**What I verified repeatedly from the Claude Code / MCP-server side, all showing the fixes ARE present:**
+- Direct COM queries (`get_elements_range`, `find_elements_near`) at the exact reported coordinates show correct single elements, not duplicates (e.g. exactly one cone at the shoulderTaper/laneTaper junction, arrow panel cell+stem as two separate elements per `get_placements`).
+- `get_geometry_scorecard` passes clean, 0 failures, for both the Y=300000 and Y=299900 builds.
+- `capture_view` (COM-level view screenshot) and `capture_window` (OS-level PrintWindow of the whole MicroStation app, ribbon and title bar visible) both show, repeatedly, across many separate calls: arrow panel on a 50 ft post, "END ROAD WORK" + "36" x 18"" legible on G20-02, single continuous cone line with no doubling.
+
+**What was investigated and ruled out or fixed along the way (real issues found, not excuses):**
+1. VBA 'Test' project was unloaded partway through this session (unknown cause -- possibly incidental to the window-focus/VBA-IDE investigation below); reloaded by the engineer, build continued fine after.
+2. The MicroStation process has multiple top-level windows -- the design view AND a separate VBA IDE window ("SnappableToggle.mvba" was the last-focused VBA module). `Get-Process`'s `MainWindowTitle` nondeterministically returned one or the other across calls, meaning earlier "bring to front" attempts may have raised the VBA IDE instead of the drawing window. Fixed live with `EnumWindows` to enumerate all top-level windows for the PID and `AttachThreadInput`+`SetForegroundWindow` targeting the correct drawing-window handle specifically (plain `SetForegroundWindow` alone was returning `False`, blocked by Windows' foreground-lock).
+3. MicroStation's process ID changed mid-session (37864 -> 7124) -- it restarted at some point, invalidating previously-found window handles. Not root-caused why it restarted.
+4. Ruled out: multiple MicroStation instances (only one `microstation.exe` process at any point checked), wrong file/model (both confirmed `DELETE.dgn` / "left lane closure" model throughout), wrong drawing location (engineer confirmed cursor readout X=23145 Y=300000, exactly on the corridor), stale cached screenshot files in `Bridge/captures/` (all predate this session by days).
+
+**Leading unresolved hypothesis:** `capture_view`/`capture_window` (both ultimately OS-level `PrintWindow`-style capture per their tool descriptions) may not reliably reflect true screen content for MicroStation CONNECT's hardware-accelerated (OpenGL) view rendering -- `PrintWindow` has known history of returning stale/blank content for GPU-composited windows unless the caller passes `PW_RENDERFULLCONTENT` (Windows 8.1+), and there is no confirmation this bridge/capture path does so. This would mean everything I "verified visually" from this side could be systematically wrong for what the engineer's physical monitor actually shows, while the underlying DGN data (confirmed independently via raw COM element queries, not just screenshots) is genuinely correct. **This is the first thing to check**: have the engineer take an actual photo or Windows Snipping Tool capture of their own physical screen (not anything Claude Code/the MCP server generates) and compare against the element IDs/coordinates below.
+
+**Concrete state to pick up from, if the drawing data itself needs re-inspection:**
+- Sheet: 619-311, inputs speed=55 Non-Freeway lane=12 shoulder=">= 8 ft" RURAL, lane closure, workers exposed.
+- Original build: corridor Y=300000, `get_geometry_scorecard('619-311')` passed, arrow panel elementIds [136255 cell, 136254 stem], G20-02 sign elementIds 136320/136323/136384/136385 (placed fresh via direct `place_sign`+`set_sign_attributes`, NOT registered in placement-registry -- known gap, noted above), cones deduped (41 not 43).
+- Fresh rebuild: corridor Y=299900 (100 ft below original), built via single `run_sheet_build(upstream_edge=[23760,299900], downstream_edge=[23860,299900])` call, all phases OK including scripted `visual_qa` (frames saved to `Bridge/captures/qa_619-311_*.png` -- these ARE fresh, from this rebuild, worth the engineer/Cursor opening directly as files rather than via any tool-mediated screenshot). Arrow panel elementIds [136754, 136753] per `get_placements`.
+- `Modules/DrawSign.bas`, `Modules/WZTCBridge.bas`, `mcp-server/sheet_compile.py`, `mcp-server/wztc_ops.py`, `mcp-server/server.py`, `mcp-server/chat_driver.py` all carry the fixes described in the two entries above this one. None of that code has been reverted.
+
+Engineer is moving to Cursor for a fresh look. Whoever picks this up: start by opening `Bridge/captures/qa_619-311_full_corridor.png`, `qa_619-311_upstream.png`, `qa_619-311_work_area.png`, `qa_619-311_downstream.png` directly as image files (not through any capture tool) as the least-mediated evidence available, and compare against what the engineer sees locally.
+
+## 2026-08-10 -- Cursor -- 619-311 rebuild at Y=299000 confirms three QA fixes in DGN data
+
+Engineer asked for a new corridor **1000 ft below** the Y=300000 band (not the prior 100 ft / Y=299900 rebuild). Built via `scripts/rebuild_619311_y299000.py`: edges `[23760,299000]` / `[23860,299000]`, speed 55 / Non-Freeway / 12 / `>= 8 ft` / RURAL. Hot-reloaded `DrawSign.bas` / `WZTCBridge.bas` / `WZTCExec.bas` first. Did **not** wipe the older Y=300k / 299.9k bands.
+
+`run_sheet_build` status OK, scorecard passed (dims 8 / labels 6 / cones 4 runs / AP 1 / PV 1 / hatch 1), `visualQaPassed` true. COM/registry verification (not only PrintWindow):
+
+1. **Cone dedup** -- 41 channelizing element IDs, **41 unique centers**, **0** duplicate XY, **0** pairs closer than 0.75 ft (`get_elements_range` per registry cone id).
+2. **G20 size label** -- element `137174` text `36" x 18"` on `SF_P`; face cell `137112` + stem `137173`; captures show `END ROAD WORK` on the face.
+3. **Arrow panel on post** -- `PLACE_CELL_ON_POST`: stem line `137229` (base 22465,299000 -> tip +50 Y) + cell `137230` (type 2, ~47x23 at tip).
+
+Captures: `Bridge/captures/cursor_299000_*.png` + `inspect_299000*.json`. If the engineer's physical screen still disagrees with these element IDs at Y=299000, the remaining issue is view/GPU capture vs monitor -- not missing DGN geometry for this band.
+
+## 2026-08-10 -- Cursor -- three engineer QA fixes from Y=299000 demo; rebuild at Y=297000
+
+Engineer hand-corrected the Y=299000 corridor for G20 + AP style, and said cones still double-rendered (they could not fix those by hand). Root causes found against that demo + COM:
+
+1. **G20 label** -- prior G20 path placed size-only (`36" x 18"`). Engineer text node was `G20-02 | 36" x 18"`. `DrawSign.PlaceSignAssembly` now uses the same TEXTEDITOR two-line path as every other MUTCD sign (code first, then size) for G20 too.
+2. **Cone double rendering** -- XY dedup was already correct (41 unique). Live markers had `FillMode=1` (filled): `CreateShapeElement1(Nothing, sq)` default fill + orange outline read as stacked/double squares. Fixed in `WZTCExec.ExecPlaceChannelizingMarkers` to `CreateShapeElement1(Nothing, sq, 0)` (same fill-none pattern as workspace).
+3. **Arrow panel** -- stem+cell is correct (matches engineer demo). Adding `TWZSGN_P` at the tip (tried once) stacked on the tip cone and looked like a doubled orange marker; kept stem-line + snapped cell only (no post cell on the channelizing tip).
+
+Verified live at **Y=297000** (left prior bands): scorecard pass; 41 cones `FillMode=0`, 0 pairs closer than 2 ft; G20 text `G20-02 | 36" x 18"`; AP `PLACE_CELL_ON_POST` stem+cell ids. Captures `Bridge/captures/cursor_297000_*.png`.
+
+## 2026-08-10 -- Cursor -- G20 black hole, AP tip base, diagonal downstream taper (Y=296000)
+
+Engineer compared a hand-placed correct G20-02 face next to the automated one at Y=297000 and flagged three remaining issues; fixed and rebuilt at Y=296000:
+
+1. **G20 black grouped hole** -- cell subelement dump: ours had SF_P nested cell color=6 (orange); engineer copy had color=240 (black). Outer SF_P complex stayed orange, SFB_P legend black on both. Added `DrawSign.FixG20FaceBlackHole` after face place to force SF_P nested-cell color 240.
+2. **Arrow panel Y** -- `compile_symbols` used alignment center as `place_cell_on_post` base; roadside signs attach at the perp tip (`half_len=40`). Base is now tip = station + outward*40 so stem/face/label share the diamond-sign axis (was ~40-50 ft short).
+3. **Downstream taper diagonal** -- `downstreamRun` used constant `lane_width`; on align 2 that landed a flat row on the opposite side of centerline from roll-ahead. Now interpolates `-lane_width` (work end, matches roll-ahead world Y) to `+lane_width` (far end, prior last-cone Y).
+
+Verified Y=296000: G20 hole color 240; downstream cones Y 296012/296000/295988; scorecard pass. Captures `Bridge/captures/cursor_296000_*.png`.
+
+## 2026-08-10 -- Cursor -- documented 619-311 QA fixes in JSON/playbook + sheet-spec-sync rule
+
+Encoded the live 2026-08-10 engineer QA fixes into `Data/sheet-specs/619-311.json` (G20 `labelNote`/`faceSymbologyNote`, arrowPanel `mountingStyleNote` tip-base + no TWZSGN_P, channelizing `fillMode:0`, `downstreamRun` diagonal note) and `619-311.build.md` (signs/symbols section + Do-not rows). Added alwaysApply `.cursor/rules/sheet-spec-sync.mdc` and mirrored in `CLAUDE.md` / hardened `sheet-first-qa.mdc`: after every named-sheet fix, update JSON + build.md + agent-log in the same effort â€” the WZTC agent loads `buildGuide` and will miss chat-only tips.
+
+## 2026-08-10 -- Cursor -- place_lane_highway wired for WZTC chat agent
+
+Engineer asked to draw N-lane highway strips (any length) from the in-MicroStation agent the same way we drew them live (2 solid edges Default/color0/weight0; lanes-1 dashed separators at 12 ft; 10 ft dash / 30 ft real gap). Added `mcp-server/lane_highway.py` (pure geometry) + `wztc_ops.place_lane_highway`; exposed on `server.py` MCP and `chat_driver` `_BASE_OP_NAMES` (general + wztc modes). `prompts.py` general-CAD section tells the agent to call it (ask for missing lanes/endpoints/side). Tests `tests/test_lane_highway.py`; live smoke 2-lane 100 ft OK; driver restarted.
+
+## 2026-08-10 -- Cursor -- place_two_way_highway (even lanes + dual yellow)
+
+Same general-CAD idea as `place_lane_highway`, for undivided two-way roads. Geometry in `mcp-server/lane_highway.py` (`two_way_highway_lines`): always 2 solid white outsides + 2 solid yellow center lines `yellow_gap_ft` apart (default 2); total lanes even; `L=lanes/2` per direction with `(L-1)` dashed white rows on each side of the yellow pair (2-lane: none; 4: one each; 6: two each). Same 10/30 real-gap dashes and Default/weight0; yellow via `resolve_color('yellow')` (live idx 4). Wired `wztc_ops.place_two_way_highway`, MCP `server.py`, `chat_driver` `_BASE_OP_NAMES`, `prompts.py` (use this tool for two-way, not one-way). Tests 12 pass; live smoke 2/4/6-lane @ Y=294200/294000/293800 OK; driver restarted PID 53584.
+
+## 2026-08-10 -- Cursor -- road strip catalog: divided + TWLT + shoulders
+
+Sheet inventory (`geometry.crossSection` / registry `roadType`) showed five recurring corridors beyond one-way/two-way: undivided±shoulders (311), divided+median (302), TWLT (312/412), ramps/gore, intersections. Built the next strip tools (general CAD, same Default/weight0 / 10-30 dash / yellow via `resolve_color`):
+
+- `place_divided_highway(lanes_per_direction, median_width_ft, …)` — dual carriageway, yellow median edges + empty median gap (302-style).
+- `place_twlt_highway(lanes_per_direction, twlt_width_ft, …)` — center turn lane bounded by dashed yellow (312-style); do not use two-way for TWLT.
+- Optional `shoulder_width_ft` on all strip tools (solid white EOP outside travel outers).
+
+Geometry in `lane_highway.py`; shared placer `_place_road_line_segments` in `wztc_ops`; MCP + `chat_driver` + catalog prompt in `prompts.py`. Intersections/ramp-gore deferred (prompt says ask). Tests 18 pass; live smoke divided 3+3@Y=293600 and TWLT@Y=293400 OK; driver PID 50220.
+
+## 2026-08-10 -- Cursor -- intersection + ramp-gore road tools
+
+Second batch of general-CAD roadway topology (after strip catalog). New `mcp-server/road_junctions.py`:
+
+- `place_orthogonal_intersection` — + or T; primary strip through junction; secondary stubs start outside primary pavement (travel+shoulder); arm types reuse `one_way|two_way|divided|twlt` via `build_strip_lines` / `travel_width_ft` in `lane_highway.py`.
+- `place_ramp_gore` — mainline one-way + diverging ramp; nose on ramp-side outer edge at `gore_station_ft`; optional solid white gore V (`gore_mark_ft`).
+
+Wired MCP + `chat_driver` + prompt catalog (replaces “not in catalog yet”). Tests `tests/test_road_junctions.py` + prior strip tests = 25 pass. Live smoke: plus @ (23800,293200), tee @ (24100,293200), gore nose (23390,292964). Driver PID 9384. Out of scope still: curb radii, crosswalks, gore chevrons.
+
+## 2026-08-10 -- Cursor -- intersection MUTCD box striping (gap + stop/crosswalk + dotted)
+
+Engineer flagged continuous corridor striping through junctions as wrong. Reworked `orthogonal_intersection_lines` / `place_orthogonal_intersection` to MUTCD 3B.11 / 685-style sketch rules:
+
+1. Approach arms **gap** at the intersection box (primary split into `primary_neg`/`primary_pos`; stubs leave mark depth clear) — no solid edge/center through intersecting approaches.
+2. Defaults **ON**: transverse white **crosswalk** (8 ft pair) + **stop bar** (4 ft beyond) on every approach (both primary sides + all stubs).
+3. **Dotted yellow center extensions** (2/4) through the box when `has_turning_lanes=True`, or auto when either arm is `twlt`.
+
+Prompt + MCP updated. Tests 28 pass; live smoke plus @ (23800,292800) CW=8 SB=4 dotted; tee TWLT CW=6 SB=3. Driver PID 25016.
+
+## 2026-08-10 -- Cursor -- intersection edge connect + stop-bar clip + striping arrows
+
+Engineer QA: yellow/dashes ran through the stop box, and arms looked disconnected. Root cause: stubs started after mark_depth (gap), while primary yellow/lane continued to the box through the stop/crosswalk zone.
+
+Fix in `road_junctions.orthogonal_intersection_lines`:
+- Edge/shoulder still run to the intersection box (arms meet).
+- Yellow center + dashed lane clipped at the stop-bar station (`_clip_center_lane_before_stop`).
+- Turn arrows from `ny_plan_striping.cel` (SAL/SAR/SAS/SALS + SLONLY) as metas, placed via `PLACE_CELL` with new optional `libraryPath` (VBA `WZTCBridge.ExecPlaceCell`; default still WZTC).
+
+Live smoke @ (23800,292500): yellow_inside_stop_zone=0; stub edges at box; 10 arrow cells; CW=8 SB=4. Tests 31 pass. Driver PID 43444.
+
+## 2026-08-10 -- Cursor -- any-library cell find + place (general + WZTC)
+
+Gap: agent could `attach_cell_library`/`list_cells` but `place_cell` was WZTC-mode only, and there was no cross-library search — so ''place a gas meter'' was not a wired path.
+
+Shipped:
+- `list_cell_libraries` — lists `c:\pwworking\usny\d0119091\*.cel`
+- `find_cell(query=…)` — scans name+description across those libs (restores prior attach); live: `gas meter` ? `UGM` in `ny_plan_utility.cel`
+- `place_cell(..., library_path=)` already existed (VBA `libraryPath`); moved `place_cell` into `_BASE_OP_NAMES` so **general** mode can place too (`place_cell_on_post` stays WZTC)
+- Prompt: find_cell ? place_cell(library_path=…); MUTCD faces still `place_sign`
+
+Tests `tests/test_cell_libraries.py`; smoke placed UGM; driver restarted.
+
+## 2026-08-10 -- Cursor -- intersection arrow facing + dedicated-lane math
+
+Engineer: arrows faced wrong; do not put SAL/SAR+SLONLY on continuous multilane; dedicated = max(0, lanes_in - lanes_out). Side-road example near prior smoke matched travel-toward-box.
+
+Root cause for facing: assumed striping cell +X = travel. Live probe of SAS at ACTIVE ANGLE 0/90/180/270 showed **angle 0 points +Y**. Fix: `_ms_striping_arrow_angle_deg` = `atan2(-travel_x, travel_y)` in `road_junctions._append_turn_arrow_metas`.
+
+Lane math: drop `has_turning_lanes` as the arrow selector. New `primary_lanes_out` / `secondary_lanes_out` (default = lanes_in ? all SAS). Dedicated pockets get SAL/SAR + SLONLY (odd dedicated prefers left). Dotted center still from explicit `has_turning_lanes`, TWLT, or dedicated > 0.
+
+Wired through `wztc_ops` / MCP `server.py` / `prompts.py`. Tests 32 pass. Live smoke @ (24650,291200) continuous SAS-only angles {-90,0,90,180}; @ (25150,291200) 3?2 dedicated SAL+SLONLY+SAS. Driver PID 34304.
+
+## 2026-08-10 -- Cursor -- shared turn-option arrows + RH approach lane placement
+
+Engineer clarified lane math: dedicated SAL/SAR+SLONLY only when lanes_in > lanes_out; when equal, shared options by safe turns (1-lane + ? L/S/R; 2 ? SALS+SARS; 3+ ? SALS/SAS/SARS). Prior smoke put arrows on the **opposing** half of two-way strips (left of travel from full-width centers), so they looked wrong-way even when ACTIVE ANGLE was correct.
+
+Fix in `road_junctions`:
+- Approach centers from centerline toward **right** of travel (US), past yellow/median/TWLT clearance; one-way still full-width left-to-right.
+- `_shared_through_cells` + `_allowed_turns_for_arm` (plus = L/S/R; tee stub = L+R only; primary tee = straight + turn toward stub).
+- No triple-head cell in `ny_plan_striping.cel` — single-lane L/S/R emits stacked SALS+SARS.
+- SLONLY only on dedicated pockets; through lanes lose that turn once a pocket exists.
+
+Live smoke @ (27000,291200) 2+2 shared; (27500,291200) 3+3; (28000,291200) 3?2 dedicated. Tests 15 pass. Driver restarted.
+
+## 2026-08-10 -- Cursor -- arrow facing confirmed via bbox (not vision)
+
+Capture-vision repeatedly claimed tips faced away; element bbox vs cell origin proves SAS tip follows ACTIVE ANGLE with **0 = +Y**, **-90/+270 = +X**. Formula stays `atan2(-travel_x, travel_y)` (no +180 — that made west tips face away). Real facing bug was RH-lane placement (arrows sat in opposing two-way half). Shared SALS/SAS/SARS math + dedicated ONLY kept. Engineer should QA fresh smokes at (30000 / 30450 / 30900, 291200), not older junctions.

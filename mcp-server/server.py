@@ -196,6 +196,22 @@ def list_cells(name_contains: str = "", include_shared: bool = False) -> list[di
 
 
 @mcp.tool()
+def list_cell_libraries(name_contains: str = "", lib_dir: str = "") -> dict:
+    """List .cel libraries in the NY plan cell folder (utility, striping,
+    roadway, wztc, …). Filter with name_contains e.g. 'utility'."""
+    return wztc_ops.list_cell_libraries(name_contains, lib_dir)
+
+
+@mcp.tool()
+def find_cell(query: str, lib_dir: str = "", library_path: str = "",
+              max_results: int = 25) -> dict:
+    """Search cell name+description across NY plan .cel libraries for a
+    plain-language query (e.g. 'gas meter', 'ARROW LEFT'). Returns
+    cellName + libraryPath for place_cell(..., library_path=...)."""
+    return wztc_ops.find_cell(query, lib_dir, library_path, max_results)
+
+
+@mcp.tool()
 def list_fonts(name_contains: str = "") -> list[dict]:
     """List fonts in the active DGN. Optional name_contains filter."""
     return wztc_ops.list_fonts(name_contains)
@@ -755,6 +771,131 @@ def place_polyline(vertices: list[list[float]], reason: str = "") -> dict:
 
 
 @mcp.tool()
+def place_lane_highway(lanes: int, x1: float, y1: float, x2: float, y2: float,
+                       lane_width_ft: float = 12.0, shoulder_width_ft: float = 0.0,
+                       dash_ft: float = 10.0, gap_ft: float = 30.0,
+                       side: str = "right", reason: str = "") -> dict:
+    """Draw an N-lane one-way highway strip (general CAD). Two solid outer
+    travel edges + (lanes-1) dashed separators. Optional shoulder_width_ft
+    adds solid white EOP outside both outers. Dashes 10/30 real gaps.
+    Ask for missing lanes/width/endpoints/side."""
+    return wztc_ops.place_lane_highway(
+        lanes, x1, y1, x2, y2, lane_width_ft, shoulder_width_ft,
+        dash_ft, gap_ft, side, reason)
+
+
+@mcp.tool()
+def place_two_way_highway(lanes: int, x1: float, y1: float, x2: float, y2: float,
+                          lane_width_ft: float = 12.0, yellow_gap_ft: float = 2.0,
+                          shoulder_width_ft: float = 0.0,
+                          dash_ft: float = 10.0, gap_ft: float = 30.0,
+                          side: str = "right", reason: str = "") -> dict:
+    """Draw even-N undivided two-way (double solid yellow center). Optional
+    shoulder_width_ft. Yellow via resolve_color. Ask for missing inputs."""
+    return wztc_ops.place_two_way_highway(
+        lanes, x1, y1, x2, y2, lane_width_ft, yellow_gap_ft,
+        shoulder_width_ft, dash_ft, gap_ft, side, reason)
+
+
+@mcp.tool()
+def place_divided_highway(lanes_per_direction: int, x1: float, y1: float,
+                          x2: float, y2: float, median_width_ft: float,
+                          lane_width_ft: float = 12.0,
+                          shoulder_width_ft: float = 0.0,
+                          dash_ft: float = 10.0, gap_ft: float = 30.0,
+                          side: str = "right", reason: str = "") -> dict:
+    """Draw divided multilane/freeway dual carriageway (619-302-style).
+    Each dir: white outer, (N-1) dashed, yellow median edge; median_width_ft
+    empty gap between yellows (required — ask). Optional shoulders."""
+    return wztc_ops.place_divided_highway(
+        lanes_per_direction, x1, y1, x2, y2, median_width_ft,
+        lane_width_ft, shoulder_width_ft, dash_ft, gap_ft, side, reason)
+
+
+@mcp.tool()
+def place_twlt_highway(lanes_per_direction: int, x1: float, y1: float,
+                       x2: float, y2: float, twlt_width_ft: float = 12.0,
+                       lane_width_ft: float = 12.0,
+                       shoulder_width_ft: float = 0.0,
+                       dash_ft: float = 10.0, gap_ft: float = 30.0,
+                       side: str = "right", reason: str = "") -> dict:
+    """Draw multilane undivided with center TWLT (619-312-style).
+    lanes_per_direction = travel lanes each way (TWLT not counted).
+    TWLT bounded by two dashed yellow lines. Do not use two_way for TWLT."""
+    return wztc_ops.place_twlt_highway(
+        lanes_per_direction, x1, y1, x2, y2, twlt_width_ft,
+        lane_width_ft, shoulder_width_ft, dash_ft, gap_ft, side, reason)
+
+
+@mcp.tool()
+def place_orthogonal_intersection(
+    junction_x: float, junction_y: float,
+    primary_road_type: str, secondary_road_type: str,
+    primary_length_ft: float, secondary_stub_ft: float,
+    primary_bearing_deg: float = 0.0,
+    junction: str = "plus", tee_side: str = "right",
+    primary_lanes: int | None = None, secondary_lanes: int | None = None,
+    primary_lanes_per_direction: int | None = None,
+    secondary_lanes_per_direction: int | None = None,
+    lane_width_ft: float = 12.0, yellow_gap_ft: float = 2.0,
+    primary_median_width_ft: float = 0.0,
+    secondary_median_width_ft: float = 0.0,
+    primary_twlt_width_ft: float = 12.0,
+    secondary_twlt_width_ft: float = 12.0,
+    primary_shoulder_width_ft: float = 0.0,
+    secondary_shoulder_width_ft: float = 0.0,
+    dash_ft: float = 10.0, gap_ft: float = 30.0,
+    side: str = "right",
+    crosswalks: bool = True, stop_bars: bool = True,
+    has_turning_lanes: bool | None = None,
+    turn_arrows: bool = True,
+    primary_lanes_out: int | None = None,
+    secondary_lanes_out: int | None = None,
+    reason: str = "",
+) -> dict:
+    """Draw a + or T intersection (MUTCD box rules). Edges meet the box;
+    yellow/dashes stop at stop bar; defaults: crosswalks + stop bars +
+    striping turn arrows (ny_plan_striping.cel). SAL/SAR + SLONLY only when
+    approach lanes_in > through lanes_out (primary_lanes_out /
+    secondary_lanes_out); equal → SAS only. Dotted center when
+    has_turning_lanes, TWLT, or dedicated > 0."""
+    return wztc_ops.place_orthogonal_intersection(
+        junction_x, junction_y, primary_road_type, secondary_road_type,
+        primary_length_ft, secondary_stub_ft, primary_bearing_deg,
+        junction, tee_side, primary_lanes, secondary_lanes,
+        primary_lanes_per_direction, secondary_lanes_per_direction,
+        lane_width_ft, yellow_gap_ft,
+        primary_median_width_ft, secondary_median_width_ft,
+        primary_twlt_width_ft, secondary_twlt_width_ft,
+        primary_shoulder_width_ft, secondary_shoulder_width_ft,
+        dash_ft, gap_ft, side, crosswalks, stop_bars,
+        has_turning_lanes, turn_arrows,
+        primary_lanes_out, secondary_lanes_out, reason)
+
+
+@mcp.tool()
+def place_ramp_gore(
+    x1: float, y1: float, x2: float, y2: float,
+    mainline_lanes: int, ramp_angle_deg: float,
+    gore_station_ft: float, ramp_length_ft: float,
+    ramp_lanes: int = 1, side: str = "right",
+    gore_mark_ft: float = 40.0,
+    lane_width_ft: float = 12.0, shoulder_width_ft: float = 0.0,
+    dash_ft: float = 10.0, gap_ft: float = 30.0,
+    reason: str = "",
+) -> dict:
+    """Draw mainline one-way + diverging ramp at a gore nose (Family 5
+    sketch, general CAD). Mainline first edge (x1,y1)->(x2,y2); nose at
+    gore_station_ft on ramp-side edge; ramp_angle_deg toward side.
+    Ask for missing angle/station/lengths."""
+    return wztc_ops.place_ramp_gore(
+        x1, y1, x2, y2, mainline_lanes, ramp_angle_deg,
+        gore_station_ft, ramp_length_ft, ramp_lanes, side,
+        gore_mark_ft, lane_width_ft, shoulder_width_ft,
+        dash_ft, gap_ft, reason)
+
+
+@mcp.tool()
 def place_polygon(cx: float, cy: float, radius: float, sides: int, z: float = 0.0, reason: str = "") -> dict:
     """Place a regular n-gon."""
     return wztc_ops.place_polygon(cx, cy, radius, sides, z, reason)
@@ -871,9 +1012,20 @@ def place_element_run(element_idx: int, vertices: list[list[float]], reason: str
 
 @mcp.tool()
 def place_cell(cell_name: str, pt_x: float, pt_y: float, pt_z: float = 0, angle_deg: float = 0,
-               reason: str = "") -> dict:
-    """Place a single cell from the WZTC symbol library at (pt_x, pt_y, pt_z)."""
-    return wztc_ops.place_cell(cell_name, pt_x, pt_y, pt_z, angle_deg, reason)
+               library_path: str = "", reason: str = "") -> dict:
+    """Place a cell at (pt_x, pt_y). Default library is WZTC; pass
+    library_path for ny_plan_striping.cel etc."""
+    return wztc_ops.place_cell(cell_name, pt_x, pt_y, pt_z, angle_deg,
+                               library_path, reason)
+
+
+@mcp.tool()
+def place_cell_on_post(cell_name: str, pt_x: float, pt_y: float, dir_x: float, dir_y: float,
+                        pt_z: float = 0, angle_deg: float = 0, reason: str = "") -> dict:
+    """Place a cell on a 50 ft stem/post the same way a roadside sign is
+    built, instead of a bare lateral offset. (pt_x, pt_y) is the base/tick
+    point; (dir_x, dir_y) is the outward unit direction."""
+    return wztc_ops.place_cell_on_post(cell_name, pt_x, pt_y, dir_x, dir_y, pt_z, angle_deg, reason)
 
 
 @mcp.tool()

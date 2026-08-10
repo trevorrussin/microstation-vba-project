@@ -381,6 +381,7 @@ _BASE_OP_NAMES = [
     "list_levels", "list_colors", "resolve_color",
     "list_line_styles", "resolve_line_style",
     "cell_library_status", "attach_cell_library", "list_cells",
+    "list_cell_libraries", "find_cell",
     "list_fonts", "resolve_font", "list_text_styles", "resolve_text_style",
     "describe_drawing_state", "classify_site_features",
     "handoff",
@@ -394,6 +395,13 @@ _BASE_OP_NAMES = [
     # actually callable even though the system prompt told it to use it.
     "hatch_element", "place_arc", "place_text_label",
     "place_circle", "place_ellipse", "place_block", "place_polyline", "place_polygon",
+    "place_lane_highway",
+    "place_two_way_highway",
+    "place_divided_highway",
+    "place_twlt_highway",
+    "place_orthogonal_intersection",
+    "place_ramp_gore",
+    "place_cell",
     "change_element_symbology", "copy_parallel", "crosshatch_element", "remove_hatch",
     "break_line", "extend_line", "fillet_elements", "create_complex_string",
     "place_fence_block", "fence_undefine", "fence_copy_contents",
@@ -416,7 +424,7 @@ _WZTC_OP_NAMES = [
     "compute_spacing", "get_sheet_requirements", "get_sheet_build_guide",
     "resolve_sign_code",
     "place_perp_line", "place_sign", "place_workspace", "place_element_run",
-    "place_cell", "set_sign_attributes",
+    "place_cell_on_post", "set_sign_attributes",
     # Added 2026-08-02 -- agent-driven-8-step-wizard plan (Components 1-3):
     # orchestrate the full WZTCDesigner->DrawWorkSpace->AlignDraw->PlacePerp
     # sequence without opening any form. See prompts.WZTC_SYSTEM_PROMPT_ADDENDUM's

@@ -117,6 +117,22 @@ revert or overwrite it. Ask for clarification if the change is unclear.
 
 ---
 
+## Sheet spec sync (after every named-sheet fix)
+
+When you fix or learn anything about a **619-xxx** sheet build (compiler, VBA,
+engineer QA), update **in the same effort**:
+
+1. `Data/sheet-specs/<sheet>.json` — notes the compiler/agent must obey
+2. `Data/sheet-specs/<sheet>.build.md` — playbook tip + Do-not row
+   (`sheet.buildGuide`; loaded by `get_sheet_requirements` /
+   `get_sheet_build_guide` for the in-MicroStation agent)
+3. `dev-notes/agent-log.md` — cross-tool bridge
+
+Do **not** leave tips only in chat or only in the agent-log — the next WZTC
+agent turn will miss them. Mirror of `.cursor/rules/sheet-spec-sync.mdc`.
+
+---
+
 ## Cross-Tool Work Log (Cursor + Claude Code)
 
 This project is sometimes worked on from Cursor as well as Claude Code. Neither tool can see

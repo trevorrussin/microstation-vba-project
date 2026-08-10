@@ -262,8 +262,14 @@ Public Function ExecPlaceChannelizingMarkers(verticesTSV As String, _
         sq(2).X = cx + halfSizeFt: sq(2).Y = cy + halfSizeFt: sq(2).Z = cz
         sq(3).X = cx - halfSizeFt: sq(3).Y = cy + halfSizeFt: sq(3).Z = cz
 
+        ' FillMode 0 = none (same as ExecPlaceWorkspace). Default
+        ' CreateShapeElement1 fill was 1 on live 619-311 builds — each
+        ' marker drew as solid fill + outline and read as "double
+        ' rendering" even when XY dedup left a single element per point
+        ' (engineer QA 2026-08-10). Numeric 0: msdFillModeNone is not
+        ' defined in this VBA project.
         Dim shapeEl As ShapeElement
-        Set shapeEl = CreateShapeElement1(Nothing, sq)
+        Set shapeEl = CreateShapeElement1(Nothing, sq, 0)
         shapeEl.Color = 6
         shapeEl.LineWeight = 2
         On Error Resume Next
