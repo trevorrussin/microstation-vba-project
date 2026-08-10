@@ -66,6 +66,7 @@ spec = json.loads(pathlib.Path("Data/sheet-specs/619-311.json").read_text())
 | `signs` | Per-sign order, legend substitution, flags, sizes, mounting |
 | `symbols` | Arrow panel, protective vehicles, channelizing devices, spotter, work area hatch |
 | `annotations` | Exactly what is dimensioned and labeled, in the sheet's own wording |
+| `annotationStyle` | How dims/labels/overlays draw (lengthOnly, nameOnly, overlay side, offsets) |
 | `details` | Detail 311A |
 | `notes` | The five printed notes, verbatim, plus plan callouts |
 | `rules` | Machine-checkable assertions with the failure each one guards against |
@@ -73,6 +74,25 @@ spec = json.loads(pathlib.Path("Data/sheet-specs/619-311.json").read_text())
 | `tableRoles` | Canonical role name -> this sheet's actual table id, so generic tooling never hardcodes `"311-NN"` |
 | `legend` | (reference-library sheets only) Symbol/description rows, e.g. 619-011's 33-item WZTC legend |
 | `knownExcerpts` | (reference-library sheets only) Which plan sheets are confirmed to reprint an exact excerpt of one of this sheet's tables |
+
+### Live-build playbook (`<sheet>.build.md`)
+
+Companion markdown next to the JSON (e.g. `619-311.build.md`, pointed at by
+`sheet.buildGuide`). Holds tips, QA checklist, and gotchas for the next live
+build so they are not stuck only in `dev-notes/agent-log.md`.
+
+- Machine-enforced prefs stay in the JSON (`annotationStyle`, channelizing
+  `representation`, `annotations`, `rules`).
+- The agent loads the playbook via `get_sheet_requirements` /
+  `get_sheet_build_guide` / `get_plan_status.buildGuidePath`.
+- When a live build surfaces a new preference: encode it in JSON if the
+  compiler must obey; otherwise append the tip to the `.build.md`.
+
+Authoring procedure for new JSON specs: see `AUTHORING.md`. Gate status:
+see `STATUS.md`. Live-build playbooks: every plan sheet has
+`Data/sheet-specs/<sheet>.build.md` (generate stubs with
+`python scripts/generate_sheet_build_guides.py`; hand-author tips like
+`619-311.build.md`).
 
 ### `corridor` is the backbone
 

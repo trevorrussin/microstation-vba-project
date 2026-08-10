@@ -201,6 +201,8 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = BridgePlaceSign(reqId, params)
         Case "PLACE_ELEMENT_RUN"
             ExecuteOpInner = BridgePlaceElementRun(reqId, params)
+        Case "PLACE_CHANNELIZING_MARKERS"
+            ExecuteOpInner = BridgePlaceChannelizingMarkers(reqId, params)
         Case "PLACE_WORKSPACE"
             ExecuteOpInner = BridgePlaceWorkspace(reqId, params)
         Case "SET_SIGN_ATTRIBUTES"
@@ -928,6 +930,30 @@ Private Function BridgePlaceElementRun(reqId As String, params As Object) As Str
     Exit Function
 WErr:
     BridgePlaceElementRun = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: verticesTSV. Optional: halfSizeFt (default 1.5).
+Private Function BridgePlaceChannelizingMarkers(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("verticesTSV") Then
+        BridgePlaceChannelizingMarkers = reqId & vbTab & "ERROR" & vbTab & "note=missing verticesTSV"
+        Exit Function
+    End If
+    Dim halfSz As Double: halfSz = 1.5
+    If params.Exists("halfSizeFt") Then halfSz = CDbl(params("halfSizeFt"))
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlaceChannelizingMarkers(CStr(params("verticesTSV")), halfSz)
+    ' Exec already embeds createdElementIds; still capture any missed IDs.
+    If Left(result, 2) = "OK" Then
+        If InStr(1, result, "createdElementIds=", vbTextCompare) = 0 Then
+            result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+        End If
+    End If
+    BridgePlaceChannelizingMarkers = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgePlaceChannelizingMarkers = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 ' Required params: verticesTSV (pipe-separated "x,y,z", >= 3 points)
@@ -1965,6 +1991,13 @@ ClearNextLine:
     End If
     Dim scopeNote As String: scopeNote = ""
     If filterAlign > 0 Then scopeNote = " alignIdx=" & filterAlign & " only"
+
+    ' When the corridor itself is wiped, also drop SharedState bookkeeping
+    ' so assemble_corridor / define+commit can start a fresh session instead
+    ' of appending onto a Drawn=True alignment with a stale first point.
+    If Not keepAlign And filterAlign = 0 Then
+        Call AlignmentTool.ResetAllAlignmentBookkeeping
+    End If
 
     ExecClearPlanElements = reqId & vbTab & delResult & vbTab & _
         "clearedReqCount=" & clearedReqs.Count & vbTab & _

@@ -18,8 +18,9 @@
     "pdfPages": 2,
     "transcribedBy": "Cursor (Family 1 intermediate TWLT sibling)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Intermediate TWLT. Diff vs 312: PV=011 INTERMEDIATE; adds NYR9-11; channelizing matrix 412-05; 20' spacing; pages rotation=270. Tables 412-01 AW A/B, 412-02 roll, 412-03 PV, 412-04 taper(no shoulder), 412-06 sizes — roles by content. (Sheet also prints 412-06 / 011-03 refs.)",
-    "pageRotation": 270
+    "provenanceNote": "Intermediate TWLT. Diff vs 312: PV=011 INTERMEDIATE; adds NYR9-11; channelizing matrix 412-05; 20' spacing; pages rotation=270. Tables 412-01 AW A/B, 412-02 roll, 412-03 PV, 412-04 taper(no shoulder), 412-06 sizes \u2014 roles by content. (Sheet also prints 412-06 / 011-03 refs.)",
+    "pageRotation": 270,
+    "buildGuide": "619-412.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -203,7 +204,7 @@
           "YY": "1000 FT."
         }
       ],
-      "note": "Sheet prints A/B only (no C column) — two advance warning signs."
+      "note": "Sheet prints A/B only (no C column) \u2014 two advance warning signs."
     },
     "412-02": {
       "title": "ROLL AHEAD DISTANCE",
@@ -726,7 +727,7 @@
           "zone": "laneTaper",
           "end": "upstream"
         },
-        "note": "Plan labels L/2 — half of lane taper L from Table 412-04."
+        "note": "Plan labels L/2 \u2014 half of lane taper L from Table 412-04."
       },
       {
         "id": "laneTaper",
@@ -901,7 +902,7 @@
               "end": "upstream"
             },
             "direction": "upstream",
-            "note": "L/2 overlay — does not consume station."
+            "note": "L/2 overlay \u2014 does not consume station."
           }
         ],
         "excludedRows": [
@@ -984,7 +985,7 @@
         "sizeNonFreeway": "36x36",
         "sizeFreeway": "48x48",
         "signLibraryBase": "W20-05L",
-        "note": "TWLT/left-side approach — SignLibrary W20-05L + legend suffix."
+        "note": "TWLT/left-side approach \u2014 SignLibrary W20-05L + legend suffix."
       },
       {
         "signCode": "W4-2L",
@@ -1194,7 +1195,7 @@
       "id": "no-shoulder-taper-row",
       "severity": "error",
       "source": "Table 412-04",
-      "assert": "No SHOULDER TAPER sequential row — table has no shoulder columns.",
+      "assert": "No SHOULDER TAPER sequential row \u2014 table has no shoulder columns.",
       "commonFailure": "Copying 311 shoulder overlay."
     },
     {

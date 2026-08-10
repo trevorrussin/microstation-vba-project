@@ -29,6 +29,10 @@ import pathlib
 import re
 from typing import Optional
 
+from pydantic import ValidationError
+
+import sheet_schema
+
 SPEC_DIR = pathlib.Path(__file__).resolve().parent.parent / "Data" / "sheet-specs"
 
 # Table 311-03 style legend placeholders map onto SignLibrary's message-variant
@@ -106,11 +110,85 @@ def has_spec(sheet_num: str) -> bool:
     return spec_path(sheet_num).is_file()
 
 
+def build_guide_path(sheet_num: str, spec: Optional[dict] = None) -> Optional[pathlib.Path]:
+    """Resolve Data/sheet-specs/<sheet>.build.md (or sheet.buildGuide override).
+
+    Machine prefs stay in the JSON; the companion .build.md holds live-build
+    tips/QA/gotchas so the next session does not re-learn them from agent-log.
+    """
+    name = None
+    if spec is None and has_spec(sheet_num):
+        try:
+            spec = load(sheet_num)
+        except SpecError:
+            spec = None
+    if isinstance(spec, dict):
+        sheet_meta = spec.get("sheet") or {}
+        if isinstance(sheet_meta, dict):
+            name = sheet_meta.get("buildGuide") or None
+    if not name:
+        name = f"{sheet_num}.build.md"
+    # Only allow basename under SPEC_DIR (no path traversal).
+    base = pathlib.Path(str(name)).name
+    if not base.lower().endswith(".md"):
+        return None
+    path = SPEC_DIR / base
+    return path if path.is_file() else None
+
+
+def load_build_guide(sheet_num: str) -> Optional[dict]:
+    """Load the sheet build playbook markdown, if present.
+
+    Returns dict with path (repo-relative), absolutePath, sheetNum, text,
+    charCount — or None when no companion guide exists.
+    """
+    path = build_guide_path(sheet_num)
+    if path is None:
+        return None
+    text = path.read_text(encoding="utf-8")
+    try:
+        rel = str(path.relative_to(SPEC_DIR.parent.parent))
+    except ValueError:
+        rel = str(path)
+    return {
+        "sheetNum": sheet_num,
+        "path": rel.replace("\\", "/"),
+        "absolutePath": str(path),
+        "charCount": len(text),
+        "text": text,
+    }
+
+
 def load(sheet_num: str) -> Optional[dict]:
+    """Load + Pydantic-validate a sheet spec. Returns the original dict on
+    success (callers keep working against plain dicts); raises SpecError
+    when the JSON exists but fails the schema gate."""
     p = spec_path(sheet_num)
     if not p.is_file():
         return None
-    return json.loads(p.read_text(encoding="utf-8"))
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    try:
+        sheet_schema.validate_sheet_dict(raw)
+    except ValidationError as e:
+        raise SpecError(
+            f"sheet {sheet_num} failed Pydantic schema: "
+            f"{sheet_schema.format_validation_error(e)}"
+        ) from e
+    return raw
+
+
+def load_raw_path(path: pathlib.Path) -> dict:
+    """Load a spec from an explicit path (validator script). Same schema
+    gate as load()."""
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        sheet_schema.validate_sheet_dict(raw)
+    except ValidationError as e:
+        raise SpecError(
+            f"{path.name} failed Pydantic schema: "
+            f"{sheet_schema.format_validation_error(e)}"
+        ) from e
+    return raw
 
 
 def _band(row: dict, speed: int) -> bool:
@@ -378,6 +456,7 @@ def station_walk(spec: dict, resolved: dict, range_pick: str = "min") -> list[di
             sta += ln
             out.append({"alignIdx": al["alignIdx"], "alignName": al["name"],
                         "rowNum": r["rowNum"], "type": r["type"], "zone": r["zone"],
+                        "lengthZone": zid,
                         "item": r.get("signCode") or r.get("label"),
                         "lengthFt": ln, "stationFt": sta})
         for o in al.get("overlayZones", []):

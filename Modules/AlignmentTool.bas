@@ -39,6 +39,24 @@ Private Sub SetupView()
 End Sub
 
 ' ============================================================
+' RESET SHAREDSTATE BOOKKEEPING FOR ALL ALIGNMENTS
+' Called from CLEAR_PLAN_ELEMENTS when keepAlignments=N so a
+' fresh assemble_corridor / define+commit can start clean.
+' Does NOT delete DGN geometry — journal clear already did that.
+' ============================================================
+Public Sub ResetAllAlignmentBookkeeping()
+    Dim i As Integer
+    For i = 1 To 10
+        wztcAlignDrawn(i) = False
+        wztcAlignGraphicGroup(i) = 0
+        wztcAlignSessionCount(i) = 0
+        wztcAlignMaxIDSnapshot(i) = 0
+        alignFirstPtCapturedArr(i) = False
+        hasLastPointArr(i) = False
+    Next i
+End Sub
+
+' ============================================================
 ' GET CURRENT MAX ELEMENT ID IN MODEL
 ' ============================================================
 Public Function GetCurrentMaxID() As Double
@@ -430,6 +448,40 @@ Public Function CommitCurrentAlignmentHeadless(aIdx As Integer) As String
     wztcAlignMaxIDSnapshot(aIdx) = GetCurrentMaxID()
     If aIdx = 1 Then wztcAlignmentStartMaxID = wztcAlignMaxIDSnapshot(aIdx)
 
+    ' Headless DEFINE_ALIGNMENT_SEGMENT never runs the interactive first-click
+    ' capture. Station 0 must be the first vertex of the earliest session
+    ' segment in this GG (CreateLineElement2 StartPoint = vertices[0]) so
+    ' assemble_corridor / place_order_table_stations walk away from the
+    ' work-area edge. Always refresh on headless commit — a re-assemble
+    ' after a bad corridor must not keep a stale first point from the
+    ' prior commit (alignFirstPtCapturedArr would otherwise block update).
+    Dim firstID As Double: firstID = 0
+    Dim firstEl As Element: Set firstEl = Nothing
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        If el.GraphicGroup = newGG And el.IsLineElement Then
+            Dim thisID As Double: thisID = ElIDAsDouble(el.ID)
+            If firstEl Is Nothing Or thisID < firstID Then
+                firstID = thisID
+                Set firstEl = el
+            End If
+        End If
+    Loop
+    If Not firstEl Is Nothing Then
+        Dim fp As Point3d
+        fp = firstEl.AsLineElement.StartPoint
+        wztcAlignFirstPtX(aIdx) = fp.X
+        wztcAlignFirstPtY(aIdx) = fp.Y
+        wztcAlignFirstPtZ(aIdx) = fp.Z
+        alignFirstPtCapturedArr(aIdx) = True
+        If aIdx = 1 Then
+            wztcAlignmentFirstPointX = fp.X
+            wztcAlignmentFirstPointY = fp.Y
+            wztcAlignmentFirstPointZ = fp.Z
+        End If
+    End If
+
     CommitCurrentAlignmentHeadless = "OK" & vbTab & "alignIdx=" & aIdx & vbTab & _
                                      "graphicGroup=" & newGG & vbTab & "elementCount=" & groupedCount
     Exit Function
@@ -483,16 +535,14 @@ Public Function AdoptExistingAlignmentElement(aIdx As Integer, elementId As Doub
     Dim s As Point3d, e As Point3d
     s = el.AsLineElement.StartPoint
     e = el.AsLineElement.EndPoint
-    ' Prefer west/start as first point for eastbound south corridor
-    If s.X <= e.X Then
-        wztcAlignFirstPtX(aIdx) = s.X
-        wztcAlignFirstPtY(aIdx) = s.Y
-        wztcAlignFirstPtZ(aIdx) = s.Z
-    Else
-        wztcAlignFirstPtX(aIdx) = e.X
-        wztcAlignFirstPtY(aIdx) = e.Y
-        wztcAlignFirstPtZ(aIdx) = e.Z
-    End If
+    ' Station 0 = LINE StartPoint (vertex order), not "west end". West-prefer
+    ' flipped Upstream walks that run west from the work-area edge
+    ' (assemble_corridor / live 2026-08-04). Reverse the LINE if the other
+    ' end should be station 0.
+    wztcAlignFirstPtX(aIdx) = s.X
+    wztcAlignFirstPtY(aIdx) = s.Y
+    wztcAlignFirstPtZ(aIdx) = s.Z
+    alignFirstPtCapturedArr(aIdx) = True
     If aIdx = 1 Then
         wztcAlignmentFirstPointX = wztcAlignFirstPtX(1)
         wztcAlignmentFirstPointY = wztcAlignFirstPtY(1)

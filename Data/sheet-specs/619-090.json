@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 6 two-lane two-way / flagger)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Family 6 temporary closure. AW+buffer only; no PV/roll/taper."
+    "provenanceNote": "Family 6 temporary closure. AW+buffer only; no PV/roll/taper.",
+    "buildGuide": "619-090.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -33,7 +34,7 @@
       "note": "Buffer table rows for listed speeds only."
     },
     "laneWidthFt": null,
-    "laneWidthNote": "No merging/lane taper on flagger sheets — lane width is not a lookup input.",
+    "laneWidthNote": "No merging/lane taper on flagger sheets \u2014 lane width is not a lookup input.",
     "shoulderWidthBands": [
       "<= 4 ft",
       "5 - 7 ft",
@@ -176,7 +177,7 @@
       "columnMeaning": {
         "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES"
       },
-      "note": "Buffer-only table — NO laneTaper / shoulderTaper columns (flagger operation, not merging).",
+      "note": "Buffer-only table \u2014 NO laneTaper / shoulderTaper columns (flagger operation, not merging).",
       "rows": [
         {
           "speedMph": 25,
@@ -396,7 +397,7 @@
           },
           {
             "label": "MERGING TAPER",
-            "reason": "Closure / flagger — no merge."
+            "reason": "Closure / flagger \u2014 no merge."
           },
           {
             "label": "LANE TAPER",
@@ -475,7 +476,7 @@
         "id": "centerlineCones",
         "sheetLabel": "CENTERLINE CONES",
         "required": false,
-        "note": "Optional — enhance flagger visibility; 100 ft min from flagger."
+        "note": "Optional \u2014 enhance flagger visibility; 100 ft min from flagger."
       },
       {
         "id": "channelizingDevices",
@@ -525,14 +526,14 @@
       "6. WORK SHOULD BE SCHEDULED DURING NON-PEAK HOURS",
       "7. TO AND PRIOR THE C TO INCREASED EXPECTED PLACING THE VOLUME IF NEEDED. ADVANCE OF TRAFFIC WARNING THAT SIGNS, NEEDS CONSIDERATION TO BE HELD AND NEEDS DISTANCES TO BE GIVEN B"
     ],
-    "backfillNote": "Verbatim notes backfilled 2026-08-03 from PDF text layer (Family 6 follow-up per Claude assessment). Placement rules[] were already populated; this restores printed prose. Extract geometry=rot. Rotated-page notes may retain minor column-order artifacts — confirm against PDF for edge-case wording."
+    "backfillNote": "Verbatim notes backfilled 2026-08-03 from PDF text layer (Family 6 follow-up per Claude assessment). Placement rules[] were already populated; this restores printed prose. Extract geometry=rot. Rotated-page notes may retain minor column-order artifacts \u2014 confirm against PDF for edge-case wording."
   },
   "rules": [
     {
       "id": "no-merging-taper",
       "severity": "error",
       "source": "Sheet structure / flagger operation",
-      "assert": "Do not place MERGING TAPER or LANE TAPER — flagger operation uses stop/slow control, not a merge.",
+      "assert": "Do not place MERGING TAPER or LANE TAPER \u2014 flagger operation uses stop/slow control, not a merge.",
       "commonFailure": "Cloning 302/311 merging taper corridor onto a flagger sheet."
     },
     {

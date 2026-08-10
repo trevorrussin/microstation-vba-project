@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 6 two-lane two-way / flagger)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Moving flaggers. Fixed 500' gaps. Roll 2-band (no <=40). Buffer == 311. No AW table."
+    "provenanceNote": "Moving flaggers. Fixed 500' gaps. Roll 2-band (no <=40). Buffer == 311. No AW table.",
+    "buildGuide": "619-314.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -33,14 +34,14 @@
       "note": "Buffer 25-55; roll-ahead only >=45 bands (45-50 and >=55)."
     },
     "laneWidthFt": null,
-    "laneWidthNote": "No merging/lane taper on flagger sheets — lane width is not a lookup input.",
+    "laneWidthNote": "No merging/lane taper on flagger sheets \u2014 lane width is not a lookup input.",
     "shoulderWidthBands": [
       "<= 4 ft",
       "5 - 7 ft",
       ">= 8 ft"
     ],
     "areaTypes": null,
-    "areaTypeNote": "No AW spacing table — plan uses fixed 500' gaps."
+    "areaTypeNote": "No AW spacing table \u2014 plan uses fixed 500' gaps."
   },
   "inputs": [
     {
@@ -191,7 +192,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN/MAX",
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES \u2014 STATIONARY OPERATION MIN/MAX",
       "rows": [
         {
           "speedBand": ">= 55 MPH",
@@ -231,7 +232,7 @@
       "columnMeaning": {
         "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES"
       },
-      "note": "Buffer-only table — NO laneTaper / shoulderTaper columns (flagger operation, not merging).",
+      "note": "Buffer-only table \u2014 NO laneTaper / shoulderTaper columns (flagger operation, not merging).",
       "rows": [
         {
           "speedMph": 25,
@@ -502,7 +503,7 @@
         "excludedRows": [
           {
             "label": "MERGING TAPER",
-            "reason": "Moving flagger — no merge."
+            "reason": "Moving flagger \u2014 no merge."
           },
           {
             "label": "LANE TAPER",
@@ -590,7 +591,7 @@
         "sizeNonFreeway": "36x18",
         "sizeFreeway": "48x24",
         "signLibraryKey": "G20-01",
-        "note": "ROAD WORK NEXT X MILES — conditional Note 6."
+        "note": "ROAD WORK NEXT X MILES \u2014 conditional Note 6."
       },
       {
         "signCode": "W7-3a",
@@ -599,7 +600,7 @@
         "sizeNonFreeway": "24x18",
         "sizeFreeway": "36x30",
         "signLibraryKey": "W07-03A",
-        "note": "NEXT X MILES plaque — conditional Note 5."
+        "note": "NEXT X MILES plaque \u2014 conditional Note 5."
       },
       {
         "signCode": "W3-4",
@@ -648,7 +649,7 @@
         "id": "centerlineCones",
         "sheetLabel": "CENTERLINE CONES",
         "required": false,
-        "note": "Optional — enhance flagger visibility; 100 ft min from flagger."
+        "note": "Optional \u2014 enhance flagger visibility; 100 ft min from flagger."
       },
       {
         "id": "channelizingDevices",
@@ -704,14 +705,14 @@
       "7. HOUR, KEEP OPERATOR WHEN WHEELS MOVING, THE PROTECTIVE SHALL ALIGNED THE REMAIN PROTECTIVE VEHICLE WITH IN THE THE VEHICLE SHALL VEHICLE LANE BE STRIPING SHALL WITH AN UNOCCUPIED MAINTAIN THE AND SAFETY LANE. THE TRUCK WHEN BELT APPROPRIATE AND POSITIONED STATIONARY HEADREST ROLL PARALLEL FOR AHEAD PROPERLY A PERIOD DISTANCE TO TRAFFIC, ADJUSTED OF MORE AND PARKING AND THAN THE 1 WORK U.S. CUSTOMARY ZONE",
       "8. CHANNELIZING TRANSMISSIONS) BRAKE SET, PLACED DEVICE AND IN HAVE 2ND SPACING GEAR THE FRONT (CENTER (MANUAL WHEELS TO TRANSMISSIONS CENTER) ALIGNED SHALL WITH /ENGINE NOT THE EXCEED LANE OFF) STRIPING. OR 40' PARK IN THE / NEUTRAL ACTIVE WORK (AUTOMATIC SPACE. LANE TWO-LANE CLOSURE SHORT"
     ],
-    "backfillNote": "Verbatim notes backfilled 2026-08-03 from PDF text layer (Family 6 follow-up per Claude assessment). Placement rules[] were already populated; this restores printed prose. Extract geometry=rot. Rotated-page notes may retain minor column-order artifacts — confirm against PDF for edge-case wording."
+    "backfillNote": "Verbatim notes backfilled 2026-08-03 from PDF text layer (Family 6 follow-up per Claude assessment). Placement rules[] were already populated; this restores printed prose. Extract geometry=rot. Rotated-page notes may retain minor column-order artifacts \u2014 confirm against PDF for edge-case wording."
   },
   "rules": [
     {
       "id": "no-merging-taper",
       "severity": "error",
       "source": "Sheet structure / flagger operation",
-      "assert": "Do not place MERGING TAPER or LANE TAPER — flagger operation uses stop/slow control, not a merge.",
+      "assert": "Do not place MERGING TAPER or LANE TAPER \u2014 flagger operation uses stop/slow control, not a merge.",
       "commonFailure": "Cloning 302/311 merging taper corridor onto a flagger sheet."
     },
     {

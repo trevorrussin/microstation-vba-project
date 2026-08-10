@@ -16,7 +16,8 @@
     "pdfPages": 1,
     "transcribedBy": "Cursor (Family 2 sibling of 619-302; corridor/anchors/notes direct from extract_plan_geometry + plan crop; tables cross-checked cell-identical to 302 except sign-size W20-5aR)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Two-lane closure variant of Family 2 reference 619-302. Same DATUM SHARING (shoulder taper inside gap A). Dual merging tapers with a dimensioned 2L span between them — not a single MERGING TAPER. Tables 303-01/02/03/04 verified identical to 302-01/05/03/02; 303-05 replaces W20-5R with W20-5aR."
+    "provenanceNote": "Two-lane closure variant of Family 2 reference 619-302. Same DATUM SHARING (shoulder taper inside gap A). Dual merging tapers with a dimensioned 2L span between them \u2014 not a single MERGING TAPER. Tables 303-01/02/03/04 verified identical to 302-01/05/03/02; 303-05 replaces W20-5R with W20-5aR.",
+    "buildGuide": "619-303.build.md"
   },
   "applicability": {
     "roadType": "Freeway/Multilane Divided",
@@ -50,7 +51,7 @@
     "shoulderWidthBandNote": "Same three-band structure as 619-311 -- do not interpolate per-foot values above 8 ft.",
     "areaTypes": null,
     "areaTypeNote": "This sheet's Table 302-03 is keyed by ROAD TYPE (URBAN <=30/35-40/>=45, RURAL, FREEWAY), not by a separate AREA TYPE dimension like 619-311's Table 311-03 -- FREEWAY is a road-type row here, not a modifier on URBAN/RURAL. Matches 619-011.json's tables['011-06'] shape exactly.",
-    "closureNote": "Closes the two rightmost travel lanes. Note 5: left two-lane closures are symmetrical — substitute W20-5aL and W4-2L."
+    "closureNote": "Closes the two rightmost travel lanes. Note 5: left two-lane closures are symmetrical \u2014 substitute W20-5aL and W4-2L."
   },
   "inputs": [
     {
@@ -314,7 +315,7 @@
         "XX": "SIGN LEGEND substituted into W20-1: 'ROAD WORK XX'",
         "YY": "SIGN LEGEND substituted into W20-5R: 'RIGHT LANE CLOSED YY'"
       },
-      "note": "Confirmed identical to 619-011.json tables['011-06'] on all 5 rows including FREEWAY (A=1000,B=1500,C=2640,XX='1 MILE',YY='½ MILE') -- this is the same NYSDOT-wide advance-warning-spacing rule, not sheet-specific data.",
+      "note": "Confirmed identical to 619-011.json tables['011-06'] on all 5 rows including FREEWAY (A=1000,B=1500,C=2640,XX='1 MILE',YY='\u00bd MILE') -- this is the same NYSDOT-wide advance-warning-spacing rule, not sheet-specific data.",
       "rows": [
         {
           "roadType": "URBAN",
@@ -369,7 +370,7 @@
           "B": 1500,
           "C": 2640,
           "XX": "1 MILE",
-          "YY": "½ MILE"
+          "YY": "\u00bd MILE"
         }
       ]
     },
@@ -733,7 +734,7 @@
         "signSizeClass"
       ],
       "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
-      "note": "Identical to 619-302's 302-04 except W20-5R is replaced by W20-5aR (RIGHT TWO LANES CLOSED) — verified from PDF word extraction. WARNING FLAG row present.",
+      "note": "Identical to 619-302's 302-04 except W20-5R is replaced by W20-5aR (RIGHT TWO LANES CLOSED) \u2014 verified from PDF word extraction. WARNING FLAG row present.",
       "rows": [
         {
           "signCode": "G20-2",
@@ -870,7 +871,7 @@
         "dimensioned": true,
         "spans": "W4-2R to the upstream end of the first (upstream) MERGING TAPER L",
         "containsOverlay": "shoulderTaper",
-        "note": "DATUM SHARING at y=575.8: SHOULDER TAPER (x=154.5, 575.8-600.5) shares datum with A (x=281.8, 575.8-640.3) — overlay inside A, same pattern as 302/311."
+        "note": "DATUM SHARING at y=575.8: SHOULDER TAPER (x=154.5, 575.8-600.5) shares datum with A (x=281.8, 575.8-640.3) \u2014 overlay inside A, same pattern as 302/311."
       },
       {
         "id": "shoulderTaper",
@@ -910,7 +911,7 @@
           ]
         },
         "dimensioned": true,
-        "note": "First MERGING TAPER L a driver encounters — closes the outer (rightmost) travel lane. Length L from Table 303-04. Vector segment y 505.1-575.8 on x=154.5."
+        "note": "First MERGING TAPER L a driver encounters \u2014 closes the outer (rightmost) travel lane. Length L from Table 303-04. Vector segment y 505.1-575.8 on x=154.5."
       },
       {
         "id": "taperGap2L",
@@ -928,7 +929,7 @@
           ]
         },
         "dimensioned": true,
-        "note": "Straight channelizing span between the two merging tapers. Sheet labels it 2L — length is 2× the L value from Table 303-04 (not a separate table column). Vector segment y 382.8-505.1 on x=281.8."
+        "note": "Straight channelizing span between the two merging tapers. Sheet labels it 2L \u2014 length is 2\u00d7 the L value from Table 303-04 (not a separate table column). Vector segment y 382.8-505.1 on x=281.8."
       },
       {
         "id": "mergingTaperDownstream",
@@ -945,7 +946,7 @@
           ]
         },
         "dimensioned": true,
-        "note": "Second MERGING TAPER L — closes the next travel lane into the work area. Same L as the upstream taper. Vector segment y 321.5-382.8 on x=154.5."
+        "note": "Second MERGING TAPER L \u2014 closes the next travel lane into the work area. Same L as the upstream taper. Vector segment y 321.5-382.8 on x=154.5."
       },
       {
         "id": "bufferSpace",
@@ -1116,7 +1117,7 @@
               "end": "upstream"
             },
             "direction": "upstream",
-            "note": "Overlay inside gap A — same DATUM SHARING pattern as 302/311."
+            "note": "Overlay inside gap A \u2014 same DATUM SHARING pattern as 302/311."
           }
         ],
         "excludedRows": [
@@ -1275,7 +1276,7 @@
           "end": "upstream"
         },
         "lateralAnchor": "At head of second merging taper (in the already-closed outer lane)",
-        "note": "Second arrow panel — two-lane closures show one panel per merging taper."
+        "note": "Second arrow panel \u2014 two-lane closures show one panel per merging taper."
       },
       {
         "id": "protectiveVehicle1",
@@ -1291,7 +1292,7 @@
       {
         "id": "protectiveVehicle2",
         "sheetLabel": "VEH #2",
-        "required": "per Note 9 — only when shoulder width is >= 8 ft",
+        "required": "per Note 9 \u2014 only when shoulder width is >= 8 ft",
         "stationAnchor": {
           "zone": "mergingTaperDownstream",
           "end": "upstream",
@@ -1299,7 +1300,7 @@
         },
         "lateralAnchor": "Closed paved shoulder",
         "cellHint": "TWZWVA_P",
-        "confidenceNote": "Medium — label and Note 9 confirmed; exact station vs second taper tip should be visually confirmed before live placement relies on it."
+        "confidenceNote": "Medium \u2014 label and Note 9 confirmed; exact station vs second taper tip should be visually confirmed before live placement relies on it."
       },
       {
         "id": "protectiveVehicleCluster",
@@ -1320,7 +1321,7 @@
         "required": true,
         "longitudinalSpacing": {
           "maxFt": 40,
-          "sheetText": "Note 7 — not to exceed 40' in the active work space."
+          "sheetText": "Note 7 \u2014 not to exceed 40' in the active work space."
         },
         "runs": [
           {
@@ -1557,7 +1558,7 @@
       "id": "two-arrow-panels",
       "severity": "error",
       "source": "Plan layout",
-      "assert": "Two arrow panels — one at the upstream end of each merging taper.",
+      "assert": "Two arrow panels \u2014 one at the upstream end of each merging taper.",
       "commonFailure": "Placing only the single arrow panel that 619-302 shows."
     },
     {

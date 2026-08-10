@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 6 two-lane two-way / flagger)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Crosswalk/pedestrian. Sign sizes + channelizing + advance-placement guidelines. No corridor taper."
+    "provenanceNote": "Crosswalk/pedestrian. Sign sizes + channelizing + advance-placement guidelines. No corridor taper.",
+    "buildGuide": "619-322.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -152,12 +153,12 @@
       "confidence": "drawing",
       "keyedBy": [],
       "rows": [],
-      "note": "Advisory placement guidelines — not A/B/C AW spacing."
+      "note": "Advisory placement guidelines \u2014 not A/B/C AW spacing."
     }
   },
   "corridor": {
     "confidence": "drawing",
-    "description": "Crosswalk closure — pedestrian devices; minimal G20-2 for order-table smoke.",
+    "description": "Crosswalk closure \u2014 pedestrian devices; minimal G20-2 for order-table smoke.",
     "zones": [
       {
         "id": "workArea",
@@ -232,7 +233,7 @@
       }
     ],
     "liveBuild": "n/a",
-    "liveBuildNote": "Pedestrian sheet — no vehicle order-table build."
+    "liveBuildNote": "Pedestrian sheet \u2014 no vehicle order-table build."
   },
   "signs": {
     "confidence": "verbatim",
@@ -329,7 +330,7 @@
         "id": "centerlineCones",
         "sheetLabel": "CENTERLINE CONES",
         "required": false,
-        "note": "Optional — enhance flagger visibility; 100 ft min from flagger."
+        "note": "Optional \u2014 enhance flagger visibility; 100 ft min from flagger."
       },
       {
         "id": "channelizingDevices",
@@ -363,7 +364,7 @@
       "id": "no-merging-taper",
       "severity": "error",
       "source": "Sheet structure / flagger operation",
-      "assert": "Do not place MERGING TAPER or LANE TAPER — flagger operation uses stop/slow control, not a merge.",
+      "assert": "Do not place MERGING TAPER or LANE TAPER \u2014 flagger operation uses stop/slow control, not a merge.",
       "commonFailure": "Cloning 302/311 merging taper corridor onto a flagger sheet."
     },
     {

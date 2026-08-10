@@ -4,3 +4,6 @@ pymupdf
 anthropic>=0.115.0
 python-dotenv
 Pillow
+pydantic>=2.0.0
+shapely>=2.0.0
+pytest>=8.0.0

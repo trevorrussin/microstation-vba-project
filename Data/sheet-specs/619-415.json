@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 3 intermediate ramp sibling of 619-301)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Intermediate shoulder at ramp. 415-01 buffer+shoulder match 301-03; speed-keyed roll-ahead; 20' spacing; NYR9-11; plan spacing includes 1320'."
+    "provenanceNote": "Intermediate shoulder at ramp. 415-01 buffer+shoulder match 301-03; speed-keyed roll-ahead; 20' spacing; NYR9-11; plan spacing includes 1320'.",
+    "buildGuide": "619-415.build.md"
   },
   "applicability": {
     "roadType": "Freeway/Multilane Divided",
@@ -32,14 +33,14 @@
         55,
         65
       ],
-      "note": "Table 301-03 covers 45,50,55,65 only — no 25-40 or 60 rows in PDF text layer."
+      "note": "Table 301-03 covers 45,50,55,65 only \u2014 no 25-40 or 60 rows in PDF text layer."
     },
     "laneWidthFt": [
       10,
       11,
       12
     ],
-    "laneWidthNote": "No lane/merging taper on this sheet — lane width is not a lookup input.",
+    "laneWidthNote": "No lane/merging taper on this sheet \u2014 lane width is not a lookup input.",
     "shoulderWidthBands": [
       "<= 4 ft",
       "5 - 7 ft",
@@ -128,7 +129,7 @@
     }
   ],
   "tableRoles": {
-    "note": "Family 3 ramp-approach intermediate. Roles by CONTENT (numbering != 402): 415-01=taperAndBuffer, 415-02=rollAheadDistance, 415-03=protectiveVehicle, 415-04=channelizingApplication, 415-05=signSizes. NO advanceWarningSpacing table — AHEAD 1 MILE on plan + Note 8.",
+    "note": "Family 3 ramp-approach intermediate. Roles by CONTENT (numbering != 402): 415-01=taperAndBuffer, 415-02=rollAheadDistance, 415-03=protectiveVehicle, 415-04=channelizingApplication, 415-05=signSizes. NO advanceWarningSpacing table \u2014 AHEAD 1 MILE on plan + Note 8.",
     "taperAndBuffer": "415-01",
     "rollAheadDistance": "415-02",
     "protectiveVehicle": "415-03",
@@ -323,7 +324,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES FOR CLOSED TRAFFIC VEHICLES AND/OR SHOULDER — STATIONARY OPERATION MIN/MAX",
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES FOR CLOSED TRAFFIC VEHICLES AND/OR SHOULDER \u2014 STATIONARY OPERATION MIN/MAX",
       "note": "2 rows in PDF (>=55, 45-50). Omits <=40 MPH row from 402-02.",
       "rows": [
         {
@@ -538,7 +539,7 @@
   },
   "corridor": {
     "confidence": "drawing",
-    "description": "Upstream against traffic from work: ROLL AHEAD → BUFFER → SHOULDER TAPER (consumes station — unlike Family 2 overlay) → W21-5aR → W21-5bR → W20-1. Plan spacing callouts 1000'/1500'/1320' mapped to gaps A/B/C (nearest→farthest). No MERGING TAPER.",
+    "description": "Upstream against traffic from work: ROLL AHEAD \u2192 BUFFER \u2192 SHOULDER TAPER (consumes station \u2014 unlike Family 2 overlay) \u2192 W21-5aR \u2192 W21-5bR \u2192 W20-1. Plan spacing callouts 1000'/1500'/1320' mapped to gaps A/B/C (nearest\u2192farthest). No MERGING TAPER.",
     "zones": [
       {
         "id": "signC",
@@ -557,7 +558,7 @@
         },
         "dimensioned": true,
         "spans": "W20-1 to W21-5bR",
-        "note": "Plan callout 1320' (¼ mile) — not from a numbered spacing table."
+        "note": "Plan callout 1320' (\u00bc mile) \u2014 not from a numbered spacing table."
       },
       {
         "id": "signB",
@@ -761,7 +762,7 @@
         "excludedRows": [
           {
             "label": "MERGING TAPER",
-            "reason": "Shoulder closure — no merging/lane taper."
+            "reason": "Shoulder closure \u2014 no merging/lane taper."
           },
           {
             "label": "Vehicle Space",
@@ -813,7 +814,7 @@
         "sizeNonFreeway": "24x18",
         "sizeFreeway": "36x30",
         "signLibraryKey": "W07-03aP",
-        "note": "Note 6 — supplemental plaque on W20-1 when work span > 2 miles."
+        "note": "Note 6 \u2014 supplemental plaque on W20-1 when work span > 2 miles."
       },
       {
         "signCode": "G20-2",
@@ -846,7 +847,7 @@
         "sizeNonFreeway": "36x36",
         "sizeFreeway": "48x48",
         "signLibraryKey": "W20-01RM",
-        "signLibraryNote": "Plan uses mile-based XX on freeway; no spacing table — fixed freeway mile key."
+        "signLibraryNote": "Plan uses mile-based XX on freeway; no spacing table \u2014 fixed freeway mile key."
       },
       {
         "signCode": "W21-5bR",
@@ -884,7 +885,7 @@
         "sizeNonFreeway": "30x36",
         "sizeFreeway": "36x48",
         "signLibraryKey": "R2-1",
-        "note": "Note 9 — mid A/B regulatory speed."
+        "note": "Note 9 \u2014 mid A/B regulatory speed."
       },
       {
         "signCode": "NYR2-6",
@@ -935,7 +936,7 @@
         "required": true,
         "longitudinalSpacing": {
           "maxFt": 20,
-          "sheetText": "Intermediate Note — 20' max."
+          "sheetText": "Intermediate Note \u2014 20' max."
         },
         "runs": [
           {
@@ -1073,7 +1074,7 @@
     {
       "id": "fixed-spacing-placement",
       "severity": "warning",
-      "assert": "Bridge still builds from payload spacings — OK if order table uses fixedFt gaps."
+      "assert": "Bridge still builds from payload spacings \u2014 OK if order table uses fixedFt gaps."
     },
     {
       "id": "w7-3a-g20-1-conditional",
@@ -1083,7 +1084,7 @@
     {
       "id": "nonfreeway-sizes-inferred",
       "severity": "warning",
-      "assert": "301-04 NON-FREEWAY sizes filled from typical values — rotated PDF omitted that column."
+      "assert": "301-04 NON-FREEWAY sizes filled from typical values \u2014 rotated PDF omitted that column."
     }
   ],
   "knownExcerpts": {

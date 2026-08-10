@@ -19,7 +19,8 @@
     "transcribedBy": "Cursor (Family 1 sibling of 619-311)",
     "transcribedOn": "2026-08-03",
     "provenanceNote": "Intermediate single-lane sibling of 317/311. Taper/AW/roll == 311. PV = 011 INTERMEDIATE_TERM. Adds NYR9-11 + 20' device spacing + channelizing matrix. 2 pages.",
-    "pageRotation": 0
+    "pageRotation": 0,
+    "buildGuide": "619-414.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -44,7 +45,7 @@
       "5 - 7 ft",
       ">= 8 ft"
     ],
-    "shoulderWidthBandNote": "Table 311-02 has exactly three shoulder columns. Any shoulder width of 8 ft or more maps to the '>= 8 ft' band. Do not interpolate per-foot values between 8 and 12 ft — the sheet does not provide them.",
+    "shoulderWidthBandNote": "Table 311-02 has exactly three shoulder columns. Any shoulder width of 8 ft or more maps to the '>= 8 ft' band. Do not interpolate per-foot values between 8 and 12 ft \u2014 the sheet does not provide them.",
     "areaTypes": [
       "URBAN",
       "RURAL"
@@ -848,7 +849,7 @@
           "end": "upstream"
         },
         "lateralShift": "From the outer edge of the paved shoulder inward to the outer edge of the closed travel lane",
-        "note": "L/3 per the Table 414-02 column header. It is the UPSTREAM continuation of the same cone line as the lane taper — the two tapers share the point at the travel-lane/shoulder edge and must be drawn continuous, with no lateral jog. It is an OVERLAY on gap A, not a sequential station: it starts where the lane taper ends and runs upstream inside A."
+        "note": "L/3 per the Table 414-02 column header. It is the UPSTREAM continuation of the same cone line as the lane taper \u2014 the two tapers share the point at the travel-lane/shoulder edge and must be drawn continuous, with no lateral jog. It is an OVERLAY on gap A, not a sequential station: it starts where the lane taper ends and runs upstream inside A."
       },
       {
         "id": "laneTaper",
@@ -883,7 +884,7 @@
         },
         "dimensioned": true,
         "mustBeEmpty": true,
-        "mustBeEmptyReason": "Note 4 — no workers, equipment or other vehicles in the buffer space."
+        "mustBeEmptyReason": "Note 4 \u2014 no workers, equipment or other vehicles in the buffer space."
       },
       {
         "id": "protectiveVehicle1",
@@ -908,7 +909,7 @@
         },
         "dimensioned": true,
         "mustBeEmpty": true,
-        "mustBeEmptyReason": "Note 4 — no workers, equipment or other vehicles in the roll ahead distance.",
+        "mustBeEmptyReason": "Note 4 \u2014 no workers, equipment or other vehicles in the roll ahead distance.",
         "spans": "Rear of the protective vehicle to the upstream edge of the WORK AREA"
       },
       {
@@ -917,7 +918,7 @@
         "kind": "workArea",
         "sheetLabel": "WORK AREA",
         "lengthSource": null,
-        "lengthNote": "Project-specific. The sheet does not set a work area length — it must come from the engineer/site. This is the ONLY length on this sheet that is not table-driven.",
+        "lengthNote": "Project-specific. The sheet does not set a work area length \u2014 it must come from the engineer/site. This is the ONLY length on this sheet that is not table-driven.",
         "hatched": true,
         "dimensioned": false,
         "note": "Hatched box spanning the closed travel lane and the closed paved shoulder. Bounded upstream by the ROLL AHEAD DISTANCE and downstream by the DOWNSTREAM TAPER."
@@ -1028,7 +1029,7 @@
               "end": "upstream"
             },
             "direction": "upstream",
-            "note": "Drawn and dimensioned, but consumes no station in the walk — it runs inside gap A. Adding it as a sequential row pushes every advance sign upstream by L/3."
+            "note": "Drawn and dimensioned, but consumes no station in the walk \u2014 it runs inside gap A. Adding it as a sequential row pushes every advance sign upstream by L/3."
           }
         ],
         "excludedRows": [
@@ -1071,7 +1072,7 @@
   },
   "signs": {
     "confidence": "verbatim",
-    "note": "Order and legend text are both sheet-driven. The XX/YY legend substitution from Table 414-01 is what disambiguates SignLibrary variants — do not resolve a distance-vs-AHEAD variant by guessing.",
+    "note": "Order and legend text are both sheet-driven. The XX/YY legend substitution from Table 414-01 is what disambiguates SignLibrary variants \u2014 do not resolve a distance-vs-AHEAD variant by guessing.",
     "items": [
       {
         "signCode": "G20-2",
@@ -1111,7 +1112,7 @@
         "sizeNonFreeway": "48x24",
         "sizeFreeway": "48x24",
         "signLibraryKey": null,
-        "signLibraryNote": "This is a VEHICLE-MOUNTED sign, not a roadside post-mounted advance warning sign. On the plan it is a leader callout pointing at the protective vehicle. A missing SignLibrary post-mounted entry for NYW8-33 is therefore NOT a gap that blocks this sheet — do not place it on a post."
+        "signLibraryNote": "This is a VEHICLE-MOUNTED sign, not a roadside post-mounted advance warning sign. On the plan it is a leader callout pointing at the protective vehicle. A missing SignLibrary post-mounted entry for NYW8-33 is therefore NOT a gap that blocks this sheet \u2014 do not place it on a post."
       },
       {
         "signCode": "W4-2R",
@@ -1145,7 +1146,7 @@
         "sizeFreeway": "48x48",
         "signLibraryKey": null,
         "signLibraryBase": "W20-01R",
-        "signLibraryNote": "SignLibrary key = base + legend suffix. 'W20-01R' is the Work (ROAD) family — the R here means ROAD, not Right (contrast W20-05R where R means Right). Suffix from the Table 414-01 XX value: AHEAD -> A, a feet distance -> F, a mile distance -> M. URBAN >= 45 MPH gives 'ROAD WORK 1000 FT.' -> W20-01RF; URBAN <= 40 MPH gives 'ROAD WORK AHEAD' -> W20-01RA."
+        "signLibraryNote": "SignLibrary key = base + legend suffix. 'W20-01R' is the Work (ROAD) family \u2014 the R here means ROAD, not Right (contrast W20-05R where R means Right). Suffix from the Table 414-01 XX value: AHEAD -> A, a feet distance -> F, a mile distance -> M. URBAN >= 45 MPH gives 'ROAD WORK 1000 FT.' -> W20-01RF; URBAN <= 40 MPH gives 'ROAD WORK AHEAD' -> W20-01RA."
       },
       {
         "signCode": "W20-5R",
@@ -1440,7 +1441,7 @@
       "id": "arrow-panel-anchor",
       "severity": "error",
       "source": "Plan layout",
-      "assert": "The arrow panel sits at the upstream end of the LANE TAPER, on the shoulder — the same station where the shoulder taper begins.",
+      "assert": "The arrow panel sits at the upstream end of the LANE TAPER, on the shoulder \u2014 the same station where the shoulder taper begins.",
       "commonFailure": "Anchoring it at the upstream end of the shoulder taper, one full shoulder-taper length too far upstream."
     },
     {

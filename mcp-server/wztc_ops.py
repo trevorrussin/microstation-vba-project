@@ -23,12 +23,22 @@ that belongs in one of those two tools.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
+import json
 
+import plan_workflow
+import placement_registry
+import sheet_sandbox
+import sheet_scorecard
 import sheet_spec
 import view_capture
 
 _bridge = None
+
+_BRIDGE_DIR = Path(__file__).resolve().parent.parent / "Bridge"
+SHEET_PLAN_PATH = _BRIDGE_DIR / "sheet-plan.json"
 
 # list_registry_commands' hard cap on rows returned -- see that function's
 # docstring. Data/command-registry.tsv has ~1800 rows (~1600
@@ -91,7 +101,8 @@ def _ok_or_raise(resp: dict, context: str) -> dict:
 
 # ================================================================ Query
 
-def find_elements_near(x: float, y: float, radius: float, type_filter: str = "") -> list[dict]:
+def find_elements_near(x: float, y: float, radius: float, type_filter: str = "",
+                       force: bool = False) -> list[dict]:
     """Find drawn elements within radius (ft) of (x, y) in the active model.
     type_filter narrows by kind (e.g. 'CELL'); empty string matches all
     types. Returns candidates with distance and range (nearest first when
@@ -108,7 +119,36 @@ def find_elements_near(x: float, y: float, radius: float, type_filter: str = "")
     If you ALREADY have an elementId (from an element pick or a prior
     result), do NOT search for it with this tool — call
     get_elements_range([id]) instead. Long lines/arcs often sit far from
-    where you are looking, and a wide search will miss them under the cap."""
+    where you are looking, and a wide search will miss them under the cap.
+
+    Mid sheet-plan session: wide radius or repeated calls are refused
+    (live 2026-08-04 burned MAX_TOOL_ITERATIONS fishing). Prefer
+    view_drawing once then FINAL after place_sheet_geometry. force=True
+    to override."""
+    if _PLAN_SESSION.order_table_built and not force:
+        _PLAN_SESSION.find_near_calls += 1
+        if radius > 250.0:
+            raise ValueError(
+                f"find_elements_near radius={radius:g} ft is too wide during a "
+                f"sheet plan — keep ≤250 ft or pass force=True. For visual QA "
+                f"after place_sheet_geometry use view_drawing "
+                f"(not capture_view — that is MCP-only, not a chat tool) "
+                f"once, then FINAL; do not fish the model."
+            )
+        if _PLAN_SESSION.find_near_calls > 6:
+            raise ValueError(
+                f"find_elements_near called {_PLAN_SESSION.find_near_calls} times "
+                f"this plan session — stop fishing. Use view_drawing once for "
+                f"visual QA, then FINAL (or pass force=True for a real needed lookup)."
+            )
+        if _PLAN_SESSION.sheet_geometry_placed and _PLAN_SESSION.find_near_calls > 2:
+            raise ValueError(
+                "place_sheet_geometry already succeeded this session — do not "
+                "keep probing with find_elements_near. Call view_drawing once "
+                "(chat tool — do not call capture_view), note any defect, "
+                "fix if critical, then FINAL. "
+                "Pass force=True only for a targeted delete/fix."
+            )
     resp = _ok_or_raise(
         _bridge.call("FIND_ELEMENTS_NEAR", x=x, y=y, radius=radius, typeFilter=type_filter),
         "find_elements_near")
@@ -181,36 +221,253 @@ def get_alignment_vertices(align_idx: int) -> list[dict]:
     return resp.get("rows", [])
 
 
+_LEVEL_ALIASES_PATH = Path(__file__).resolve().parent.parent / "Data" / "level-aliases.tsv"
+_LEVEL_CATEGORIES_PATH = Path(__file__).resolve().parent.parent / "Data" / "level-categories.tsv"
+_LEVEL_ALIASES_CACHE: dict[str, tuple[str, ...]] | None = None
+_LEVEL_CATEGORIES_CACHE: dict[str, str] | None = None
+
+
+def _load_level_aliases() -> dict[str, tuple[str, ...]]:
+    """alias (lower) → OR-needles for list_levels expansion. Missing/empty
+    file → {}. See Data/level-aliases.tsv (feature-specific terms only)."""
+    global _LEVEL_ALIASES_CACHE
+    if _LEVEL_ALIASES_CACHE is not None:
+        return _LEVEL_ALIASES_CACHE
+    out: dict[str, tuple[str, ...]] = {}
+    try:
+        text = _LEVEL_ALIASES_PATH.read_text(encoding="utf-8")
+    except OSError:
+        _LEVEL_ALIASES_CACHE = out
+        return out
+    for line in text.splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#"):
+            continue
+        if "\t" not in raw:
+            continue
+        alias, needles = raw.split("\t", 1)
+        alias_key = " ".join(alias.strip().lower().split())
+        parts = tuple(p.strip() for p in needles.split("|") if p.strip())
+        if alias_key and parts:
+            out[alias_key] = parts
+    _LEVEL_ALIASES_CACHE = out
+    return out
+
+
+def _load_level_categories() -> dict[str, str]:
+    """English discipline → HDM Exhibit 20-5 category letter (A–X, plus V/Z).
+    See Data/level-categories.tsv."""
+    global _LEVEL_CATEGORIES_CACHE
+    if _LEVEL_CATEGORIES_CACHE is not None:
+        return _LEVEL_CATEGORIES_CACHE
+    out: dict[str, str] = {}
+    try:
+        text = _LEVEL_CATEGORIES_PATH.read_text(encoding="utf-8")
+    except OSError:
+        _LEVEL_CATEGORIES_CACHE = out
+        return out
+    for line in text.splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#"):
+            continue
+        if "\t" not in raw:
+            continue
+        alias, letter = raw.split("\t", 1)
+        alias_key = " ".join(alias.strip().lower().split())
+        letter = letter.strip().upper()
+        if alias_key and len(letter) == 1 and letter.isalpha():
+            out[alias_key] = letter
+    _LEVEL_CATEGORIES_CACHE = out
+    return out
+
+
+def _level_category_letter(name: str) -> str | None:
+    """HDM first-character category for a coded level name, or None.
+
+    Matches all-caps feature codes (DCB_P) and Letter_English styles
+    (O_Details_…). Skips Draft_* / Default* English layers that happen
+    to start with a category letter.
+    """
+    if not name:
+        return None
+    upper = name.upper()
+    if upper.startswith("DRAFT") or upper.startswith("DEFAULT"):
+        return None
+    first = name[0].upper()
+    if not first.isalpha():
+        return None
+    token0 = name.split("_", 1)[0]
+    # All-caps feature code token (DCB, TWZCD, DSSD, …)
+    if token0.isupper() and len(token0) >= 2 and token0.isalnum():
+        return first
+    # Discipline_English (O_Details_…, U_Electric_…)
+    if len(name) >= 2 and name[1] == "_":
+        return first
+    return None
+
+
+def _level_search_needles(name_contains: str) -> tuple[list[str], str | None]:
+    """Return (needles, alias_hit). Always includes the raw query as a
+    needle; if it matches a feature alias key (or is a word in a multi-word
+    key), also OR in that alias's prefixes. Exact alias key wins over
+    substring of a longer key."""
+    raw = (name_contains or "").strip()
+    if not raw:
+        return [], None
+    needles = [raw]
+    aliases = _load_level_aliases()
+    key = " ".join(raw.lower().split())
+    hit = None
+    if key in aliases:
+        hit = key
+        for n in aliases[key]:
+            if n not in needles:
+                needles.append(n)
+    else:
+        # Single-token query matching a word inside a multi-word alias
+        # (len>=4 to avoid "of" → "right of way").
+        for alias_key, parts in aliases.items():
+            words = alias_key.split()
+            if key == alias_key or (len(key) >= 4 and key in words):
+                hit = alias_key
+                for n in parts:
+                    if n not in needles:
+                        needles.append(n)
+                break
+    return needles, hit
+
+
+def _level_search_category(name_contains: str) -> tuple[str | None, str | None]:
+    """Return (category_letter, category_alias_key) if the query maps to an
+    HDM discipline letter via Data/level-categories.tsv."""
+    key = " ".join((name_contains or "").strip().lower().split())
+    if not key:
+        return None, None
+    cats = _load_level_categories()
+    if key in cats:
+        return cats[key], key
+    for alias_key, letter in cats.items():
+        words = alias_key.split()
+        if key == alias_key or (len(key) >= 4 and key in words):
+            return letter, alias_key
+    return None, None
+
+
+def _level_prefix_histogram(names: list[str], limit: int = 25) -> str:
+    from collections import Counter
+    counts = Counter(n.split("_", 1)[0].upper() for n in names if n)
+    return ", ".join(f"{k}({v})" for k, v in counts.most_common(limit))
+
+
 def list_levels(name_contains: str = "") -> list[dict]:
     """List levels in the active design file matching name_contains
     (case-insensitive substring, e.g. 'TWZ', 'Traffic', 'SF_P').
+
+    Matching (OR):
+      1. Literal / feature-alias needles (Data/level-aliases.tsv) against
+         the level name.
+      2. HDM category letter (Data/level-categories.tsv) — e.g. 'drainage'
+         matches every coded D* level in the file, not a hand-picked subset.
+
     name_contains is REQUIRED — this file can have thousands of levels
     (measured live at 3046); an unfiltered dump costs real tokens and
     still won't surface the level you want if it isn't in the first page.
     Results are hard-capped at MAX_LISTED_ROWS matches. Returns name,
-    number, isDisplayed."""
+    number, isDisplayed; may include matchedVia notes."""
     needle = (name_contains or "").strip()
     if not needle:
         return [{
             "status": "ERROR",
             "note": "list_levels requires name_contains (e.g. 'TWZ', 'SFB', "
-                    "'Traffic'). Refusing unfiltered listing — this DGN can "
-                    "have thousands of levels.",
+                    "'Traffic', or 'drainage'). Refusing unfiltered listing — "
+                    "this DGN can have thousands of levels.",
         }]
+    needles, alias_hit = _level_search_needles(needle)
+    cat_letter, cat_alias = _level_search_category(needle)
     resp = _ok_or_raise(_bridge.call("LIST_LEVELS"), "list_levels")
     rows = resp.get("rows", [])
-    upper = needle.upper()
-    rows = [r for r in rows if upper in str(r.get("name", "")).upper()]
-    total = len(rows)
+    upper_needles = [n.upper() for n in needles]
+
+    def _needle_hit(name: str) -> str | None:
+        u = name.upper()
+        for n, orig in zip(upper_needles, needles):
+            if n in u:
+                return orig
+        return None
+
+    matched: list[dict] = []
+    matched_names: list[str] = []
+    for r in rows:
+        name = str(r.get("name", ""))
+        via = _needle_hit(name)
+        if via is None and cat_letter:
+            if _level_category_letter(name) == cat_letter:
+                via = f"category:{cat_letter}"
+        if via is None:
+            continue
+        row = dict(r)
+        if via.upper() != needle.upper():
+            row["matchedVia"] = via
+        matched.append(row)
+        matched_names.append(name)
+
+    total = len(matched)
     if total > MAX_LISTED_ROWS:
-        rows = rows[:MAX_LISTED_ROWS]
-        rows.append({
-            "note": (
-                f"{total} levels matched name_contains={name_contains!r} -- "
-                f"showing first {MAX_LISTED_ROWS}. Tighten the filter."
+        matched = matched[:MAX_LISTED_ROWS]
+        note = (
+            f"{total} levels matched name_contains={name_contains!r}"
+        )
+        if cat_letter:
+            note += f" (HDM category {cat_letter}"
+            if cat_alias:
+                note += f" via {cat_alias!r}"
+            note += ")"
+        if len(needles) > 1:
+            note += f" (needles={needles})"
+        note += (
+            f" — showing first {MAX_LISTED_ROWS}. "
+            f"Prefixes: {_level_prefix_histogram(matched_names)}. "
+            f"Tighten with a feature prefix (e.g. list_levels('DCB'))."
+        )
+        matched.append({"note": note})
+    if total == 0:
+        bits = [f"No levels matched {name_contains!r}"]
+        if alias_hit:
+            bits.append(
+                f"feature alias {alias_hit!r}→"
+                f"{list(_load_level_aliases().get(alias_hit, ()))}"
             )
-        })
-    return rows
+        if cat_alias and cat_letter:
+            bits.append(f"category {cat_alias!r}→{cat_letter}*")
+        bits.append("Ask the engineer for the project prefix, then retry.")
+        matched.append({"note": " — ".join(bits)})
+    else:
+        meta: dict = {}
+        if cat_alias and cat_letter:
+            meta["categoryExpanded"] = cat_alias
+            meta["categoryLetter"] = cat_letter
+        if alias_hit and any(
+            str(r.get("matchedVia", "")).upper() != f"CATEGORY:{cat_letter}"
+            for r in matched
+            if isinstance(r, dict) and r.get("matchedVia")
+        ):
+            meta["aliasExpanded"] = alias_hit
+            meta["needles"] = needles
+        if meta:
+            note_parts = []
+            if "categoryLetter" in meta:
+                note_parts.append(
+                    f"HDM category {meta['categoryLetter']}* via "
+                    f"Data/level-categories.tsv ({cat_alias})."
+                )
+            if "aliasExpanded" in meta:
+                note_parts.append(
+                    f"Feature alias {alias_hit} → {needles[1:]} "
+                    f"(Data/level-aliases.tsv)."
+                )
+            meta["note"] = " ".join(note_parts)
+            matched.append(meta)
+    return matched
 
 
 # Common color-name → RGB for resolve_color. Tables don't store names —
@@ -869,7 +1126,8 @@ def capture_window(title_substring: str) -> dict:
 def adjust_view(zoom_out_percent: float = 0, pan_x: float = 0, pan_y: float = 0,
                  view_num: int = 1,
                  center_x: float | None = None, center_y: float | None = None,
-                 width: float | None = None, height: float | None = None) -> dict:
+                 width: float | None = None, height: float | None = None,
+                 force: bool = False) -> dict:
     """Zoom and/or pan the current MicroStation view by an EXACT amount.
     This is the reliable replacement for the ZOOM_*/PAN_VIEW_* command-
     registry key-ins -- ALL of those are now needs-testing (disabled)
@@ -897,9 +1155,30 @@ def adjust_view(zoom_out_percent: float = 0, pan_x: float = 0, pan_y: float = 0,
       Positive pan_x = east/right, positive pan_y = north/up.
 
     Prefer focus_view_on_elements when you have elementIds. Takes ~2.5s to
-    settle — call capture_view / view_drawing afterward to see the result.
+    settle — call view_drawing afterward to see the result (chat agent).
+    MCP clients may use capture_view instead.
     Returned width/height are what MicroStation actually applied after
-    aspect-fit."""
+    aspect-fit.
+
+    SHEET-PLAN ONLY: after place_sheet_geometry, free pan/zoom is refused
+    (use run_visual_qa_captures). General CAD / pre-compiler work is
+    unaffected. force=True to override."""
+    if (not force
+            and not _PLAN_SESSION._qa_capture_active
+            and _PLAN_SESSION.sheet_plan_active()
+            and _PLAN_SESSION.sheet_geometry_placed
+            and not _PLAN_SESSION.visual_qa_passed):
+        plan_workflow.raise_plan_gate(
+            "Free adjust_view after place_sheet_geometry is refused during a "
+            "sheet build — that is how the agent burned MAX_TOOL_ITERATIONS "
+            "zooming into unrelated site geometry (live 2026-08-04).",
+            tool="adjust_view",
+            current_step="visual_qa_passed",
+            next_tool="run_visual_qa_captures",
+            next_step="Call run_visual_qa_captures() for scripted "
+                      "corridor/upstream/work-area/downstream shots, then FINAL. "
+                      "Pass force=True only for a targeted engineer-directed pan.",
+        )
     state = view_capture.get_view_state(view_num=view_num)
 
     if center_x is not None and center_y is not None:
@@ -953,7 +1232,7 @@ def focus_view_on_elements(element_ids, margin: float = 1.3, view_num: int = 1,
     if rng["height"] < 1.0:
         h = max(h, min_height)
     applied = adjust_view(center_x=rng["centerX"], center_y=rng["centerY"],
-                          width=w, height=h, view_num=view_num)
+                          width=w, height=h, view_num=view_num, force=True)
     applied["focusedRange"] = {
         "lowX": rng["lowX"], "lowY": rng["lowY"],
         "highX": rng["highX"], "highY": rng["highY"],
@@ -986,12 +1265,78 @@ def get_sheet_requirements(sheet_num: str) -> dict:
     sheets; some stubs have empty signs when not in the 2026 Book 3 PDF).
     Check notes for stub/catalog rows. A 'found: false' result means the
     sheet number is unknown to the registry — ask the engineer rather
-    than guessing."""
+    than guessing.
+
+    When Data/sheet-specs/<sheet>.build.md exists (or sheet.buildGuide),
+    attaches buildGuidePath + full buildGuide text — live tips/prefs the
+    agent must follow on the next build (not agent-log only)."""
     resp = _bridge.call("GET_SHEET_REQUIREMENTS", sheetNum=sheet_num)
     if resp["status"] == "ERROR":
         return {"found": False, "note": resp.get("note", "")}
     resp["found"] = True
+    guide = _attach_build_guide_fields(sheet_num, resp)
+    if guide is None and sheet_spec.has_spec(sheet_num):
+        resp["buildGuidePath"] = None
+        resp["buildGuideNote"] = (
+            f"No Data/sheet-specs/{sheet_num}.build.md yet — follow the "
+            "JSON spec + prompts; add a .build.md when live tips accumulate."
+        )
     return resp
+
+
+def get_sheet_build_guide(sheet_num: str) -> dict:
+    """Return the durable live-build playbook for a named 619 sheet.
+
+    Companion file Data/sheet-specs/<sheet>.build.md (override via
+    sheet.buildGuide in the JSON). Machine-enforced prefs stay in the
+    JSON; this markdown holds tips, QA checklist, and gotchas so the
+    next build reuses them. Call after get_sheet_requirements when
+    buildGuide was truncated or you need a fresh copy mid-turn."""
+    sn = (sheet_num or "").strip()
+    if not sn:
+        return {"status": "ERROR", "found": False, "note": "sheet_num required"}
+    guide = sheet_spec.load_build_guide(sn)
+    if guide is None:
+        return {
+            "status": "OK",
+            "found": False,
+            "sheetNum": sn,
+            "hasSpec": sheet_spec.has_spec(sn),
+            "note": (
+                f"No build guide at Data/sheet-specs/{sn}.build.md "
+                "(and no sheet.buildGuide override). Use the JSON spec "
+                "+ get_sheet_requirements; author a .build.md for tips."
+            ),
+        }
+    return {
+        "status": "OK",
+        "found": True,
+        "sheetNum": guide["sheetNum"],
+        "path": guide["path"],
+        "charCount": guide["charCount"],
+        "text": guide["text"],
+        "hasSpec": sheet_spec.has_spec(sn),
+        "note": (
+            "Follow this playbook on named-sheet builds. Encode compiler "
+            "prefs in the JSON; keep human tips here (not only agent-log)."
+        ),
+    }
+
+
+def _attach_build_guide_fields(sheet_num: str, resp: dict) -> Optional[dict]:
+    """Merge load_build_guide into a tool response dict. Returns guide or None."""
+    guide = sheet_spec.load_build_guide(sheet_num)
+    if guide is None:
+        return None
+    resp["buildGuidePath"] = guide["path"]
+    resp["buildGuideCharCount"] = guide["charCount"]
+    resp["buildGuide"] = guide["text"]
+    resp["buildGuideNote"] = (
+        "Durable live-build playbook — follow tips/QA/gotchas. "
+        "Machine prefs are in the sheet JSON (annotationStyle, etc.). "
+        "Re-fetch via get_sheet_build_guide if needed."
+    )
+    return guide
 
 
 def resolve_sign_code(code: str) -> list[dict]:
@@ -1042,24 +1387,49 @@ class DesignerInputs:
 
 @dataclass
 class PlanSession:
-    """In-process plan-session state (chat_driver process lifetime). Soft
-    memory so place_perp_line/place_sign/the heuristic PlaceOrderTable*
-    tools can refuse incomplete or bypassed-path patterns instead of
-    silently drawing them — e.g. the incomplete-sketch pattern that shipped
-    live 2026-08-02 (workspace + alignment + one sign + one tick, declared
-    "done" with no order table). Cleared by reset() (exit_mode) or rebuilt
-    when build_wztc_order_table runs.
+    """In-process plan-session state (chat_driver process lifetime).
 
-    A single instance lives at module scope as _PLAN_SESSION below — this
-    class exists so each field has a name, a type, and (where the logic is
-    more than a single assignment) a method, instead of every caller
-    reaching into an untyped dict by string key."""
+    SCOPE: checklist / PLAN_GATE / anti-fish-after-compiler apply ONLY while
+    a named 619 sheet build is active (order_table_built + designer_inputs).
+    General CAD, one-offs, and non-sheet WZTC tasks stay unconstrained —
+    the agent still reasons freely there. Cleared by reset() (exit_mode)
+    or rebuilt when build_wztc_order_table runs.
+
+    Soft memory so place_perp_line/place_sign/heuristic PlaceOrderTable*
+    tools can refuse incomplete sheet-plan patterns (live 2026-08-02
+    incomplete-sketch miss)."""
     placed_workspace: bool = False
     order_table_built: bool = False
     stations_placed_aligns: set[int] = field(default_factory=set)
     designer_inputs: Optional[DesignerInputs] = None
     locked_sign_rows: set[tuple[int, str]] = field(default_factory=set)
+    locked_sign_details: list[dict] = field(default_factory=list)
     aligns_ready: set[int] = field(default_factory=set)
+    # Anti-fishing counters (live 2026-08-04) — only incremented/enforced
+    # while sheet plan active (see find_elements_near).
+    find_near_calls: int = 0
+    sheet_geometry_placed: bool = False
+    # Sheet-build checklist bits (ignored when sheet_plan_active is False).
+    required_aligns: set[int] = field(default_factory=set)
+    signs_placed_rows: set[tuple[int, str]] = field(default_factory=set)
+    sign_attrs_applied: bool = False
+    geometry_qa_passed: bool = False
+    visual_qa_passed: bool = False
+    # Last place_order_table_stations rows per align (for run_sheet_build tips).
+    last_station_rows: dict[int, list] = field(default_factory=dict)
+    # True only while run_visual_qa_captures drives adjust_view internally.
+    _qa_capture_active: bool = False
+    # Durable plan extras (Bridge/sheet-plan.json).
+    work_area_edges: Optional[dict] = None
+    plan_updated_at: str = ""
+    # Post-placement scorecard + phase-boundary replan / reflection.
+    last_scorecard: Optional[dict] = None
+    last_compiled: Optional[dict] = None
+    last_failed_phase: str = ""
+    last_replan: Optional[dict] = None
+    visual_qa_failures: list[str] = field(default_factory=list)
+    reflection_log: list[dict] = field(default_factory=list)
+    sandbox: Optional[dict] = None
 
     def reset(self) -> None:
         """Drop plan-flow memory (call from exit_mode so a later general/
@@ -1069,7 +1439,26 @@ class PlanSession:
         self.stations_placed_aligns = set()
         self.designer_inputs = None
         self.locked_sign_rows = set()
+        self.locked_sign_details = []
         self.aligns_ready = set()
+        self.find_near_calls = 0
+        self.sheet_geometry_placed = False
+        self.required_aligns = set()
+        self.signs_placed_rows = set()
+        self.sign_attrs_applied = False
+        self.geometry_qa_passed = False
+        self.visual_qa_passed = False
+        self.last_station_rows = {}
+        self._qa_capture_active = False
+        self.work_area_edges = None
+        self.plan_updated_at = ""
+        self.last_scorecard = None
+        self.last_compiled = None
+        self.last_failed_phase = ""
+        self.last_replan = None
+        self.visual_qa_failures = []
+        self.reflection_log = []
+        self.sandbox = None
 
     def lock_designer_inputs(self, **kwargs) -> None:
         self.designer_inputs = DesignerInputs(**kwargs)
@@ -1080,8 +1469,10 @@ class PlanSession:
         return {"locked": True, **asdict(self.designer_inputs)}
 
     def lock_sign_rows(self, sign_rows: list[dict]) -> None:
+        self.locked_sign_details = [dict(r) for r in (sign_rows or [])]
         self.locked_sign_rows = {
-            (int(r["align_idx"]), str(r["sign_num"]).strip().upper()) for r in sign_rows
+            (int(r["align_idx"]), str(r["sign_num"]).strip().upper())
+            for r in self.locked_sign_details
         }
 
     def mark_align_ready(self, align_idx: int) -> bool:
@@ -1089,14 +1480,178 @@ class PlanSession:
         self.aligns_ready.add(align_idx)
         return not ({1, 2} - self.aligns_ready)
 
+    def sheet_plan_active(self) -> bool:
+        return plan_workflow.sheet_plan_active(self)
+
 
 _PLAN_SESSION = PlanSession()
+
+
+def _iso_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _save_sheet_plan() -> Optional[Path]:
+    """Persist PlanSession checklist to Bridge/sheet-plan.json.
+    No-op (returns None) when no sheet plan is active."""
+    s = _PLAN_SESSION
+    if not s.sheet_plan_active():
+        return None
+    s.plan_updated_at = _iso_now()
+    di = s.designer_inputs
+    payload = {
+        "schemaVersion": "1",
+        "updatedAt": s.plan_updated_at,
+        "sheetNum": di.sheet_num if di else "",
+        "designerInputs": asdict(di) if di else None,
+        "requiredAligns": sorted(s.required_aligns),
+        "alignsReady": sorted(s.aligns_ready),
+        "stationsPlacedAligns": sorted(s.stations_placed_aligns),
+        "signsPlaced": [
+            f"{a}:{c}" for a, c in sorted(s.signs_placed_rows)
+        ],
+        "lockedSignRows": list(s.locked_sign_details),
+        "checklist": {
+            "inputs_locked": di is not None,
+            "order_table_built": s.order_table_built,
+            "corridor_ready": bool(s.aligns_ready & {1, 2}) and not (
+                (s.required_aligns or {1, 2}) - s.aligns_ready
+            ),
+            "stations_placed": sorted(s.stations_placed_aligns),
+            "signs_placed": [
+                f"{a}:{c}" for a, c in sorted(s.signs_placed_rows)
+            ],
+            "sign_attrs_applied": s.sign_attrs_applied,
+            "compiler_placed": s.sheet_geometry_placed,
+            "geometry_qa_passed": s.geometry_qa_passed,
+            "visual_qa_passed": s.visual_qa_passed,
+        },
+        "workAreaEdges": s.work_area_edges,
+        "lastStationRowsByAlign": {
+            str(k): v for k, v in s.last_station_rows.items()
+        },
+        "placedWorkspace": s.placed_workspace,
+        "lastFailedPhase": s.last_failed_phase or None,
+        "lastReplan": s.last_replan,
+        "scorecardPassed": (
+            None if s.last_scorecard is None
+            else bool(s.last_scorecard.get("passed"))
+        ),
+        "visualQaFailures": list(s.visual_qa_failures or []),
+    }
+    SHEET_PLAN_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SHEET_PLAN_PATH.write_text(
+        json.dumps(payload, indent=2), encoding="utf-8")
+    return SHEET_PLAN_PATH
+
+
+def _clear_sheet_plan_file() -> None:
+    try:
+        if SHEET_PLAN_PATH.exists():
+            SHEET_PLAN_PATH.unlink()
+    except OSError:
+        pass
+
+
+def _load_sheet_plan(path: Optional[Path] = None) -> dict:
+    """Load Bridge/sheet-plan.json into _PLAN_SESSION. Returns status dict."""
+    p = path or SHEET_PLAN_PATH
+    if not p.exists():
+        return {"status": "OK", "loaded": False, "note": "no sheet-plan.json"}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        return {"status": "ERROR", "loaded": False, "note": str(e)}
+    if not data.get("order_table_built") and not (data.get("checklist") or {}).get(
+            "order_table_built"):
+        # tolerate either top-level or checklist-only
+        if not data.get("designerInputs"):
+            return {"status": "OK", "loaded": False, "note": "empty plan file"}
+
+    s = _PLAN_SESSION
+    s.reset()
+    di = data.get("designerInputs")
+    if di:
+        s.lock_designer_inputs(**{
+            k: di[k] for k in (
+                "sheet_num", "speed", "road_type", "lane_width", "shoulder_width",
+                "area_type", "closure_type", "exposure_condition",
+                "protective_vehicle_gvw",
+            ) if k in di
+        })
+    cl = data.get("checklist") or {}
+    s.order_table_built = bool(
+        data.get("order_table_built", cl.get("order_table_built", True)))
+    s.required_aligns = set(int(x) for x in (data.get("requiredAligns") or []))
+    s.aligns_ready = set(int(x) for x in (data.get("alignsReady") or []))
+    s.stations_placed_aligns = set(
+        int(x) for x in (data.get("stationsPlacedAligns")
+                         or cl.get("stations_placed") or []))
+    signs = data.get("signsPlaced") or cl.get("signs_placed") or []
+    s.signs_placed_rows = set()
+    for item in signs:
+        if isinstance(item, str) and ":" in item:
+            a, c = item.split(":", 1)
+            try:
+                s.signs_placed_rows.add((int(a), c.upper()))
+            except ValueError:
+                pass
+    if data.get("lockedSignRows"):
+        s.lock_sign_rows(data["lockedSignRows"])
+    s.sign_attrs_applied = bool(
+        data.get("sign_attrs_applied", cl.get("sign_attrs_applied", False)))
+    s.sheet_geometry_placed = bool(
+        data.get("sheet_geometry_placed", cl.get("compiler_placed", False)))
+    s.geometry_qa_passed = bool(
+        data.get("geometry_qa_passed", cl.get("geometry_qa_passed", False)))
+    s.visual_qa_passed = bool(
+        data.get("visual_qa_passed", cl.get("visual_qa_passed", False)))
+    s.placed_workspace = bool(data.get("placedWorkspace", False))
+    s.work_area_edges = data.get("workAreaEdges")
+    s.plan_updated_at = str(data.get("updatedAt") or "")
+    s.last_failed_phase = str(data.get("lastFailedPhase") or "")
+    s.last_replan = data.get("lastReplan")
+    s.visual_qa_failures = list(data.get("visualQaFailures") or [])
+    lsr = data.get("lastStationRowsByAlign") or {}
+    s.last_station_rows = {
+        int(k): list(v) for k, v in lsr.items()
+        if str(k).isdigit()
+    }
+    return {
+        "status": "OK",
+        "loaded": True,
+        "sheetNum": (s.designer_inputs.sheet_num if s.designer_inputs else ""),
+        "persistedPath": str(p),
+        "updatedAt": s.plan_updated_at,
+        "sheetPlanActive": s.sheet_plan_active(),
+    }
+
+
+def try_restore_sheet_plan() -> dict:
+    """Chat-driver startup: restore incomplete plan across process restarts."""
+    if not SHEET_PLAN_PATH.exists():
+        return {"status": "OK", "loaded": False}
+    try:
+        data = json.loads(SHEET_PLAN_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"status": "OK", "loaded": False}
+    cl = data.get("checklist") or {}
+    complete = bool(cl.get("visual_qa_passed")) and bool(cl.get("compiler_placed"))
+    if complete:
+        return {
+            "status": "OK",
+            "loaded": False,
+            "note": "prior sheet plan already complete — not restoring gates",
+        }
+    return _load_sheet_plan()
 
 
 def reset_plan_session_flags() -> None:
     """Drop plan-flow memory (call from exit_mode so a later general/wztc
     task doesn't inherit a prior plan's gate state)."""
     _PLAN_SESSION.reset()
+    _clear_sheet_plan_file()
+    placement_registry.clear_registry()
 
 
 def _check_corridor_topology_if_ready(align_idx: int, force: bool) -> Optional[str]:
@@ -1110,6 +1665,7 @@ def _check_corridor_topology_if_ready(align_idx: int, force: bool) -> Optional[s
     spec locked for this build)."""
     if not _PLAN_SESSION.mark_align_ready(align_idx):
         return None
+    _save_sheet_plan()
     inputs = _PLAN_SESSION.designer_inputs
     if inputs is None:
         return None
@@ -1150,6 +1706,145 @@ def get_locked_designer_inputs() -> dict:
     continue in a fresh turn (history re-reading is what silently regressed
     live 2026-08-04 into a re-asked area_type)."""
     return _PLAN_SESSION.get_locked_inputs_dict()
+
+
+def get_plan_status() -> dict:
+    """Sheet-build checklist for the CURRENT named 619 plan only.
+
+    After build_wztc_order_table, call this (or follow each tool's nextStep)
+    instead of rediscovering progress from chat. Returns checklist done
+    flags, currentStep, nextTool, remainingSigns, stationsNeeded.
+
+    Outside a sheet build (no order table locked): returns
+    sheetPlanActive=False — general CAD tasks are NOT gated; keep
+    reasoning freely. force/one_off escapes still apply on individual tools."""
+    if not _PLAN_SESSION.sheet_plan_active():
+        return {
+            "status": "OK",
+            "sheetPlanActive": False,
+            "note": (
+                "No named sheet plan active (build_wztc_order_table has not "
+                "locked a sheet this session). Deterministic checklist does "
+                "NOT apply — reason freely for general CAD / one-offs / "
+                "questions. Call build_wztc_order_table when starting a 619 "
+                "standard-sheet build."
+            ),
+            "nextTool": None,
+            "nextStep": None,
+        }
+    out = plan_workflow.build_status_dict(_PLAN_SESSION)
+    out["sheetPlanActive"] = True
+    out["persistedPath"] = str(SHEET_PLAN_PATH) if SHEET_PLAN_PATH.exists() else None
+    out["updatedAt"] = _PLAN_SESSION.plan_updated_at or None
+    if _PLAN_SESSION.work_area_edges:
+        out["workAreaEdges"] = _PLAN_SESSION.work_area_edges
+    if _PLAN_SESSION.last_failed_phase:
+        out["lastFailedPhase"] = _PLAN_SESSION.last_failed_phase
+    if _PLAN_SESSION.last_replan:
+        out["lastReplan"] = _PLAN_SESSION.last_replan
+    if _PLAN_SESSION.last_scorecard is not None:
+        out["scorecardPassed"] = bool(_PLAN_SESSION.last_scorecard.get("passed"))
+        out["scorecardFailureCount"] = len(
+            _PLAN_SESSION.last_scorecard.get("failures") or [])
+    if _PLAN_SESSION.visual_qa_failures:
+        out["visualQaFailures"] = list(_PLAN_SESSION.visual_qa_failures)
+    di = _PLAN_SESSION.designer_inputs
+    if di is not None and di.sheet_num:
+        guide = sheet_spec.load_build_guide(di.sheet_num)
+        if guide is not None:
+            out["buildGuidePath"] = guide["path"]
+            out["buildGuideCharCount"] = guide["charCount"]
+            # Short excerpt so checklist turns see tips without a second call;
+            # full text via get_sheet_build_guide / get_sheet_requirements.
+            excerpt = guide["text"][:2000]
+            if len(guide["text"]) > 2000:
+                excerpt += "\n\n…[truncated — call get_sheet_build_guide for full playbook]"
+            out["buildGuideExcerpt"] = excerpt
+            out["nextStepHint"] = (
+                (out.get("nextStep") or "")
+                + " Follow buildGuidePath / buildGuideExcerpt "
+                  "(get_sheet_build_guide for full text)."
+            ).strip()
+        else:
+            out["buildGuidePath"] = None
+    return out
+
+
+def _attach_plan_next(resp: dict) -> dict:
+    """Stamp nextStep/nextTool from checklist onto a successful tool result
+    during an active sheet plan (no-op otherwise)."""
+    if not isinstance(resp, dict):
+        return resp
+    if not _PLAN_SESSION.sheet_plan_active():
+        return resp
+    st = plan_workflow.build_status_dict(_PLAN_SESSION)
+    resp.setdefault("planCurrentStep", st.get("currentStep"))
+    resp.setdefault("nextTool", st.get("nextTool"))
+    resp.setdefault("nextStep", st.get("nextStep"))
+    return resp
+
+
+def _merge_locked_designer_inputs(
+        sheet_num: str, speed: int, lane_width: int, shoulder_width: str,
+        area_type: str = "", closure_type: str = "",
+        exposure_condition: str = "", protective_vehicle_gvw: int = 0,
+        force: bool = False) -> dict:
+    """Fill blank compile/place kwargs from locked DesignerInputs.
+    Live miss 2026-08-04: place_sheet_geometry(area_type='') after the
+    engineer already locked RURAL. Conflicts raise unless force=True."""
+    inputs = _PLAN_SESSION.designer_inputs
+    out = {
+        "sheet_num": sheet_num,
+        "speed": speed,
+        "lane_width": lane_width,
+        "shoulder_width": shoulder_width,
+        "area_type": area_type or "",
+        "closure_type": closure_type or "",
+        "exposure_condition": exposure_condition or "",
+        "protective_vehicle_gvw": protective_vehicle_gvw or 0,
+        "filledFromLock": [],
+    }
+    if inputs is None:
+        return out
+
+    def _blank(v) -> bool:
+        return v is None or (isinstance(v, str) and not str(v).strip()) or v == 0
+
+    pairs = [
+        ("sheet_num", inputs.sheet_num, sheet_num),
+        ("speed", inputs.speed, speed),
+        ("lane_width", inputs.lane_width, lane_width),
+        ("shoulder_width", inputs.shoulder_width, shoulder_width),
+        ("area_type", inputs.area_type, area_type),
+        ("closure_type", inputs.closure_type, closure_type),
+        ("exposure_condition", inputs.exposure_condition, exposure_condition),
+        ("protective_vehicle_gvw", inputs.protective_vehicle_gvw, protective_vehicle_gvw),
+    ]
+    for key, locked, passed in pairs:
+        if _blank(passed) and not _blank(locked):
+            out[key] = locked
+            out["filledFromLock"].append(key)
+            continue
+        if _blank(passed) or _blank(locked):
+            continue
+        # Normalize light string compare for shoulder/area
+        lp = str(locked).strip()
+        pp = str(passed).strip()
+        if key in ("speed", "lane_width", "protective_vehicle_gvw"):
+            try:
+                same = int(locked) == int(passed)
+            except (TypeError, ValueError):
+                same = lp == pp
+        else:
+            same = lp.upper() == pp.upper()
+        if not same and not force:
+            raise ValueError(
+                f"{key}={passed!r} conflicts with locked designer input "
+                f"{key}={locked!r} from build_wztc_order_table. Reuse the "
+                f"locked value (or call get_locked_designer_inputs). "
+                f"Pass force=True only for an intentional override."
+            )
+    return out
 
 
 def _refuse_if_spec_path_available(tool_name: str, force: bool) -> None:
@@ -1269,15 +1964,29 @@ def place_sign(sign_num: str, road_type: str, side: str,
         else:
             ok = key in locked_codes
         if not ok:
-            raise ValueError(
-                f"sign_num={sign_num!r} is not in build_wztc_order_table's resolved "
-                f"sign_rows for this build ({sorted(locked_codes)}). Do not hand-pick a "
-                f"resolve_sign_code candidate or a manually-guessed legend variant — the "
-                f"order table already resolved the correct one from the sheet's own "
-                f"legend table. If build_wztc_order_table's inputs were wrong, fix and "
-                f"re-call it rather than overriding here. Pass one_off=True only for a "
-                f"genuine ad-hoc sign the engineer explicitly asked for outside the order "
-                f"table."
+            plan_workflow.raise_plan_gate(
+                f"sign_num={sign_num!r} is not in build_wztc_order_table's "
+                f"resolved sign_rows for this sheet build.",
+                tool="place_sign",
+                current_step="signs_placed",
+                missing=[f"requested:{sign_num}"],
+                accepted=sorted(locked_codes),
+                next_tool="place_sign",
+                next_step=(
+                    "Use a sign_num from the locked order table (accepted list). "
+                    "Pass one_off=True only for a genuine ad-hoc sign outside the sheet."
+                ),
+            )
+        # Sheet plan: stations for this align must exist before signs.
+        if (align_idx and align_idx > 0
+                and align_idx not in _PLAN_SESSION.stations_placed_aligns):
+            plan_workflow.raise_plan_gate(
+                f"stations not placed yet for align_idx={align_idx}.",
+                tool="place_sign",
+                current_step="stations_placed",
+                missing=[f"align_idx={align_idx}"],
+                next_tool="place_order_table_stations",
+                next_step=f"place_order_table_stations(align_idx={align_idx}) first",
             )
     kwargs = dict(signNum=sign_num, roadType=road_type, side=side,
                   pt1X=pt1x, pt1Y=pt1y, pt1Z=pt1z, dir1X=dir1x, dir1Y=dir1y,
@@ -1285,7 +1994,33 @@ def place_sign(sign_num: str, road_type: str, side: str,
                   reason=reason)
     if align_idx and align_idx > 0:
         kwargs["alignIdx"] = align_idx
-    return _ok_or_raise(_bridge.call("PLACE_SIGN", **kwargs), "place_sign")
+    resp = _ok_or_raise(_bridge.call("PLACE_SIGN", **kwargs), "place_sign")
+    if align_idx and align_idx > 0 and _PLAN_SESSION.sheet_plan_active() and not one_off:
+        _PLAN_SESSION.signs_placed_rows.add(
+            (int(align_idx), str(sign_num).strip().upper()))
+        _save_sheet_plan()
+    if isinstance(resp, dict):
+        ids = placement_registry.parse_created_ids(resp)
+        if ids:
+            sheet = ""
+            if _PLAN_SESSION.designer_inputs:
+                sheet = _PLAN_SESSION.designer_inputs.sheet_num
+            placement_registry.append_placement(
+                sheet_num=sheet,
+                align_idx=int(align_idx or 0),
+                kind="sign",
+                primitive_id=f"{int(align_idx or 0)}:{str(sign_num).strip().upper()}:sign",
+                bridge_op="PLACE_SIGN",
+                element_ids=ids,
+                spec_ref={"signNum": str(sign_num).strip().upper(),
+                          "zone": None, "run": None, "alignIdx": int(align_idx or 0)},
+                req_id=str(resp.get("reqId") or resp.get("req_id") or ""),
+                extra={
+                    "x": float(pt1x), "y": float(pt1y), "z": float(pt1z or 0),
+                    "signNum": str(sign_num).strip().upper(),
+                },
+            )
+    return _attach_plan_next(resp) if isinstance(resp, dict) else resp
 
 def place_workspace(vertices: list[list[float]], reason: str = "") -> dict:
     """Place the work space boundary (unfilled shape) + hatch stripes.
@@ -1417,8 +2152,29 @@ def build_wztc_order_table(speed: int, road_type: str, lane_width: int, shoulder
                      nonSignRowsTSV=spec_rows_tsv, spacingOverridesTSV=overrides_tsv),
         "build_wztc_order_table")
     resp.update(spec_info)
+    _attach_build_guide_fields(sheet_num, resp)
     _PLAN_SESSION.order_table_built = True
     _PLAN_SESSION.stations_placed_aligns = set()
+    _PLAN_SESSION.find_near_calls = 0
+    _PLAN_SESSION.sheet_geometry_placed = False
+    _PLAN_SESSION.signs_placed_rows = set()
+    _PLAN_SESSION.sign_attrs_applied = False
+    _PLAN_SESSION.geometry_qa_passed = False
+    _PLAN_SESSION.visual_qa_passed = False
+    _PLAN_SESSION.last_station_rows = {}
+    req_aligns: set[int] = set()
+    for a in (spec.get("orderTable") or {}).get("alignments") or []:
+        try:
+            req_aligns.add(int(a.get("alignIdx") or a.get("align_idx") or 0))
+        except (TypeError, ValueError):
+            pass
+    for r in sign_rows:
+        try:
+            req_aligns.add(int(r["align_idx"]))
+        except (KeyError, TypeError, ValueError):
+            pass
+    req_aligns.discard(0)
+    _PLAN_SESSION.required_aligns = req_aligns or {1, 2}
     _PLAN_SESSION.lock_designer_inputs(
         sheet_num=sheet_num, speed=speed, road_type=road_type,
         lane_width=lane_width, shoulder_width=shoulder_width,
@@ -1427,11 +2183,13 @@ def build_wztc_order_table(speed: int, road_type: str, lane_width: int, shoulder
         protective_vehicle_gvw=protective_vehicle_gvw,
     )
     _PLAN_SESSION.lock_sign_rows(sign_rows)
-    return resp
+    placement_registry.clear_registry()
+    _save_sheet_plan()
+    return _attach_plan_next(resp)
 
 
 def find_reference_linework(level_name_contains: str, include_references: bool = False,
-                            ref_name_contains: str = "") -> list[dict]:
+                            ref_name_contains: str = "", force: bool = False) -> list[dict]:
     """Locate connected line/line-string chains on a level, for auto-
     tracing an alignment or work-space boundary without clicks. Ask the
     engineer which level holds the roadway centerline first — never guess
@@ -1447,7 +2205,23 @@ def find_reference_linework(level_name_contains: str, include_references: bool =
     longest is the intended roadway, but don't assume; a short/odd result
     should be confirmed with the engineer rather than used blindly.
     verticesTSV feeds straight into define_alignment_segment/
-    place_workspace with no re-encoding."""
+    place_workspace with no re-encoding.
+
+    After build_wztc_order_table: refuse vague Default/RDEFAULT fishing
+    (live 2026-08-04) — prefer assemble_corridor with work-area edge
+    point-picks. force=True to override."""
+    needle = (level_name_contains or "").strip().lower()
+    vague = needle in ("default", "rdefault", "def", "level default")
+    if _PLAN_SESSION.order_table_built and vague and not force:
+        raise ValueError(
+            f"find_reference_linework(level={level_name_contains!r}) is too "
+            f"broad during a sheet plan (Default matches dozens of elements "
+            f"and will be refused by the bridge). Prefer "
+            f"assemble_corridor(upstream_edge, downstream_edge) after "
+            f"ask_user_choice(allow_point_pick=True) for the two WORK AREA "
+            f"edges. Pass a specific CL/ROAD level name, or force=True only "
+            f"if the engineer named Default explicitly."
+        )
     resp = _ok_or_raise(
         _bridge.call("FIND_REFERENCE_LINEWORK", levelNameContains=level_name_contains,
                      includeReferences="Y" if include_references else "N",
@@ -1456,7 +2230,8 @@ def find_reference_linework(level_name_contains: str, include_references: bool =
     return resp.get("rows", [])
 
 
-def define_alignment_segment(align_idx: int, vertices: list[list[float]], reason: str = "") -> dict:
+def define_alignment_segment(align_idx: int, vertices: list[list[float]],
+                             reason: str = "", force: bool = False) -> dict:
     """Create straight alignment line segments from vertices (Default
     level/color 0/weight 0) and record them as one drawing session for
     align_idx — the same bookkeeping AlignDraw's interactive clicking
@@ -1465,7 +2240,25 @@ def define_alignment_segment(align_idx: int, vertices: list[list[float]], reason
     point-picks when no usable reference geometry exists. Call this one
     or more times per alignment, then commit_alignment once when done.
     align_idx convention: 1=Upstream, 2=Downstream (matches
-    build_wztc_order_table)."""
+    build_wztc_order_table).
+
+    When a sheet order table is locked and alignments are not both ready,
+    prefer assemble_corridor over freestyle define+commit pairs (live
+    2026-08-04 Downstream-on-Upstream miss). Pass force=True for curved
+    corridors or engineer-directed redefine."""
+    if (_PLAN_SESSION.order_table_built
+            and _PLAN_SESSION.designer_inputs is not None
+            and sheet_spec.has_spec(_PLAN_SESSION.designer_inputs.sheet_num)
+            and not ({1, 2} <= _PLAN_SESSION.aligns_ready)
+            and not force):
+        raise ValueError(
+            "define_alignment_segment refused during a sheet-spec plan — "
+            "call assemble_corridor(upstream_edge, downstream_edge) after "
+            "point-picking the two work-area edges (prevents Downstream "
+            "committed along Upstream's line). Pass force=True only for a "
+            "curved corridor or when the engineer explicitly asked to "
+            "define segments by hand."
+        )
     verts_tsv = "|".join(f"{p[0]},{p[1]},{p[2] if len(p) > 2 else 0}" for p in vertices)
     return _ok_or_raise(
         _bridge.call("DEFINE_ALIGNMENT_SEGMENT", alignIdx=align_idx, verticesTSV=verts_tsv, reason=reason),
@@ -1524,6 +2317,201 @@ def adopt_alignment(align_idx: int, element_id: str, force: bool = False) -> dic
     return resp
 
 
+def _pt3(p) -> list[float]:
+    if not isinstance(p, (list, tuple)) or len(p) < 2:
+        raise ValueError(f"point must be [x,y] or [x,y,z], got {p!r}")
+    return [float(p[0]), float(p[1]), float(p[2]) if len(p) > 2 else 0.0]
+
+
+def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
+                      approach_length_ft: float = 0.0,
+                      force: bool = False) -> dict:
+    """Build both plan alignments from the two work-area edge points.
+
+    Contract (sheet orderTable.alignments[].station0):
+      Align1 sta0 = upstream work-area edge; station increases AWAY upstream
+      Align2 sta0 = downstream work-area edge; station increases AWAY downstream
+    Work length = distance between the two edges (compile_hatch uses that).
+
+    Vertices drawn (first vertex = station 0):
+      Upstream:   [up_edge, up_edge - T * approach]
+      Downstream: [dn_edge, dn_edge + T * approach]
+    where T is the unit travel direction through the work bay
+    (upstream_edge → downstream_edge).
+
+    approach_length_ft=0 (default) auto-sizes from the locked sheet's
+    station_walk max + 50 ft slack so ticks never clamp. Requires
+    build_wztc_order_table first (locked DesignerInputs).
+
+    Prefer this over freestyle define_alignment_segment pairs — live
+    2026-08-04 Downstream was committed +1000 ft along Upstream's own
+    line, which topology now catches but this primitive prevents.
+
+    If alignments are already ready this session, pass force=True to
+    clear_plan_elements(keep_alignments=False) first (wipes corridor +
+    plan geometry and resets VBA alignment bookkeeping)."""
+    import math
+    inputs = _PLAN_SESSION.designer_inputs
+    if inputs is None:
+        raise ValueError(
+            "assemble_corridor requires build_wztc_order_table first "
+            "(locked designer inputs + sheet spec drive approach length).")
+    up = _pt3(upstream_edge)
+    dn = _pt3(downstream_edge)
+    dx, dy = dn[0] - up[0], dn[1] - up[1]
+    work_len = math.hypot(dx, dy)
+    if work_len < 1.0:
+        raise ValueError(
+            f"assemble_corridor: upstream and downstream edges are only "
+            f"{work_len:.3f} ft apart — need two distinct work-area edges.")
+    tx, ty = dx / work_len, dy / work_len
+
+    spec = sheet_spec.load(inputs.sheet_num)
+    if spec is None:
+        raise ValueError(
+            f"assemble_corridor: no sheet spec for {inputs.sheet_num!r}")
+    resolved = sheet_spec.resolve(
+        spec, inputs.speed, inputs.lane_width, inputs.shoulder_width,
+        inputs.area_type or None, inputs.closure_type or None,
+        inputs.exposure_condition or None,
+        protective_vehicle_gvw=inputs.protective_vehicle_gvw or None)
+    walk = sheet_spec.station_walk(spec, resolved)
+    max_need = max((float(w["stationFt"]) for w in walk), default=0.0)
+    approach = float(approach_length_ft) if approach_length_ft and approach_length_ft > 0 else (
+        max_need + 50.0)
+    if approach < max_need:
+        raise ValueError(
+            f"assemble_corridor: approach_length_ft={approach:.1f} is shorter "
+            f"than station_walk max {max_need:.1f} ft — ticks will clamp. "
+            f"Omit approach_length_ft for auto, or pass >= {max_need + 50:.1f}.")
+
+    if _PLAN_SESSION.aligns_ready & {1, 2}:
+        if not force:
+            raise ValueError(
+                "assemble_corridor: alignments already ready this session. "
+                "Pass force=True to wipe corridor via "
+                "clear_plan_elements(keep_alignments=False) and rebuild, "
+                "or adopt_alignment if recovering SharedState only.")
+        clear_plan_elements(keep_alignments=False)
+
+    up_out = [up[0] - tx * approach, up[1] - ty * approach, up[2]]
+    dn_out = [dn[0] + tx * approach, dn[1] + ty * approach, dn[2]]
+
+    # force=True on define: freestyle define is refused mid-plan; this
+    # primitive is the allowed path and must not trip its own gate.
+    d1 = define_alignment_segment(
+        1, [up, up_out],
+        reason=f"assemble_corridor Upstream edge→away ({approach:.0f} ft approach)",
+        force=True)
+    c1 = commit_alignment(1, force=force)
+    d2 = define_alignment_segment(
+        2, [dn, dn_out],
+        reason=f"assemble_corridor Downstream edge→away ({approach:.0f} ft approach)",
+        force=True)
+    c2 = commit_alignment(2, force=force)
+
+    _PLAN_SESSION.work_area_edges = {
+        "upstream": list(up),
+        "downstream": list(dn),
+    }
+    _save_sheet_plan()
+
+    return {
+        "status": "OK",
+        "workAreaLengthFt": round(work_len, 3),
+        "approachLengthFt": round(approach, 3),
+        "stationWalkMaxFt": round(max_need, 3),
+        "travelUnit": [round(tx, 6), round(ty, 6)],
+        "upstream": {"sta0": up, "outward": up_out, "define": d1, "commit": c1},
+        "downstream": {"sta0": dn, "outward": dn_out, "define": d2, "commit": c2},
+        "nextStep": (
+            "place_order_table_stations per alignment (runs cross_validate), "
+            "then place_sign / place_sheet_geometry"
+        ),
+    }
+
+
+def cross_validate_stations(align_idx: int = 0, tol_ft: float = 0.5,
+                            force: bool = False) -> dict:
+    """Compare VBA get_alignment_stationing vs Python station_walk, and
+    ensure the drawn path is long enough for the farthest walk station.
+
+    align_idx=0 checks every locked order-table alignment that is ready
+    (typically 1 and 2). Called automatically by place_order_table_stations
+    and place_sheet_geometry unless force=True on those ops.
+
+    Raises ValueError listing mismatches unless force=True (then returns
+    them under failures / warning)."""
+    inputs = _PLAN_SESSION.designer_inputs
+    if inputs is None:
+        raise ValueError(
+            "cross_validate_stations requires build_wztc_order_table first "
+            "(locked designer inputs).")
+    spec = sheet_spec.load(inputs.sheet_num)
+    if spec is None:
+        raise ValueError(
+            f"cross_validate_stations: no sheet spec for {inputs.sheet_num!r}")
+    resolved = sheet_spec.resolve(
+        spec, inputs.speed, inputs.lane_width, inputs.shoulder_width,
+        inputs.area_type or None, inputs.closure_type or None,
+        inputs.exposure_condition or None,
+        protective_vehicle_gvw=inputs.protective_vehicle_gvw or None)
+    walk_all = sheet_spec.station_walk(spec, resolved)
+
+    idxs = [align_idx] if align_idx and align_idx > 0 else sorted(
+        {int(a["alignIdx"]) for a in (spec.get("orderTable") or {}).get("alignments") or []}
+        or [1, 2]
+    )
+
+    import alignment_geometry as ag
+    failures: list[str] = []
+    per_align: list[dict] = []
+    for aidx in idxs:
+        vba_rows = get_alignment_stationing(aidx)
+        walk_rows = [w for w in walk_all if int(w["alignIdx"]) == aidx]
+        table_fails = sheet_spec.compare_station_tables(vba_rows, walk_rows, tol_ft=tol_ft)
+        segs = ag.parse_vertices(get_alignment_vertices(aidx))
+        path_len = ag.total_length(segs)
+        max_walk = max((float(w["stationFt"]) for w in walk_rows), default=0.0)
+        path_fails: list[str] = []
+        if path_len + tol_ft < max_walk:
+            path_fails.append(
+                f"cross-validate: align {aidx} path length {path_len:.1f} ft "
+                f"< station_walk max {max_walk:.1f} ft — extend via "
+                f"assemble_corridor (longer approach) or redefine the "
+                f"alignment; otherwise place_order_table_stations will clamp."
+            )
+        all_fails = table_fails + path_fails
+        failures.extend(all_fails)
+        per_align.append({
+            "alignIdx": aidx,
+            "vbaRowCount": len(vba_rows),
+            "walkRowCount": len([w for w in walk_rows if w.get("rowNum") is not None]),
+            "pathLengthFt": round(path_len, 3),
+            "stationWalkMaxFt": round(max_walk, 3),
+            "failures": all_fails,
+        })
+
+    result = {
+        "status": "OK" if not failures else "FAIL",
+        "tolFt": tol_ft,
+        "alignments": per_align,
+        "failures": failures,
+    }
+    if failures and not force:
+        raise ValueError(
+            "cross_validate_stations failed: " + "; ".join(failures) +
+            " Fix the corridor (prefer assemble_corridor) or rebuild the "
+            "order table; pass force=True only to proceed knowingly."
+        )
+    if failures and force:
+        result["warning"] = (
+            f"cross_validate_stations failures ignored (force=True): "
+            f"{'; '.join(failures)}"
+        )
+    return result
+
+
 def place_order_table_stations(align_idx: int, reset_session: bool = False,
                                 clear_prior: bool = False,
                                 force: bool = False) -> dict:
@@ -1562,6 +2550,19 @@ def place_order_table_stations(align_idx: int, reset_session: bool = False,
       place_sign(..., pt1=tip, dir1=outward)
     VBA builds the edge-connected stem/post/face from that tip; wrong pt1/dir
     is what produced assemblies along the road or floating off the tick."""
+    if _PLAN_SESSION.sheet_plan_active():
+        if align_idx not in _PLAN_SESSION.aligns_ready:
+            plan_workflow.raise_plan_gate(
+                f"align_idx={align_idx} is not committed/adopted yet.",
+                tool="place_order_table_stations",
+                current_step="corridor_ready",
+                missing=[f"align_idx={align_idx}"],
+                next_tool="assemble_corridor",
+                next_step=(
+                    "assemble_corridor(upstream_edge, downstream_edge) after "
+                    "point-picking work-area edges (or commit/adopt this align)."
+                ),
+            )
     already = align_idx in _PLAN_SESSION.stations_placed_aligns
     if already and not clear_prior and not force:
         raise ValueError(
@@ -1570,6 +2571,15 @@ def place_order_table_stations(align_idx: int, reset_session: bool = False,
             f"rebuilding — otherwise ticks/cells/channelizing stack on the "
             f"previous run. Pass force=True only for intentional additive placement."
         )
+    # Preflight: VBA order-table stations must match Python station_walk and
+    # the drawn path must be long enough (else ticks clamp at path end).
+    # force=True softens to a warning so intentional overrides still work.
+    xv = None
+    if _PLAN_SESSION.designer_inputs is not None:
+        try:
+            xv = cross_validate_stations(align_idx=align_idx, force=force)
+        except ValueError:
+            raise
     cleared = None
     if clear_prior:
         cleared = clear_plan_elements(keep_alignments=True, align_idx=align_idx)
@@ -1578,9 +2588,14 @@ def place_order_table_stations(align_idx: int, reset_session: bool = False,
                      resetSession="Y" if reset_session else "N"),
         "place_order_table_stations")
     _PLAN_SESSION.stations_placed_aligns.add(align_idx)
+    if isinstance(resp, dict) and resp.get("rows") is not None:
+        _PLAN_SESSION.last_station_rows[int(align_idx)] = list(resp.get("rows") or [])
+    _save_sheet_plan()
     if cleared is not None:
         resp["clearedPrior"] = cleared
-    return resp
+    if xv is not None:
+        resp["crossValidate"] = xv
+    return _attach_plan_next(resp)
 
 
 def place_order_table_labels(align_idx: int, outward_sign: float = -1.0,
@@ -1886,6 +2901,19 @@ def place_element_run(element_idx: int, vertices: list[list[float]], reason: str
         "place_element_run")
 
 
+def place_channelizing_markers(vertices: list[list[float]], half_size_ft: float = 1.5,
+                                reason: str = "") -> dict:
+    """Place discrete small orange squares at each cone center (TWZCD_P,
+    color 6, solid linestyle). Prefer this over place_element_run for
+    sheet-compiled channelizing — polylines on TWZCD_P pick up a custom
+    ByLevel linestyle that reads as a solid orange wash."""
+    verts_tsv = "|".join(f"{p[0]},{p[1]},{p[2] if len(p) > 2 else 0}" for p in vertices)
+    return _ok_or_raise(
+        _bridge.call("PLACE_CHANNELIZING_MARKERS", verticesTSV=verts_tsv,
+                     halfSizeFt=half_size_ft, reason=reason),
+        "place_channelizing_markers")
+
+
 def place_cell(cell_name: str, pt_x: float, pt_y: float, pt_z: float = 0, angle_deg: float = 0,
                reason: str = "") -> dict:
     """Place a single cell from the WZTC symbol library at (pt_x, pt_y, pt_z).
@@ -1906,9 +2934,13 @@ def set_sign_attributes(element_ids: list[str], reason: str = "") -> dict:
     or weight 3 bleaches or wrecks the legend; live 2026-08-03).
     element_ids from place_sign createdElementIds; applied count may be
     less than requested because faces are skipped on purpose."""
-    return _ok_or_raise(
+    resp = _ok_or_raise(
         _bridge.call("SET_SIGN_ATTRIBUTES", elementIds=",".join(element_ids), reason=reason),
         "set_sign_attributes")
+    if _PLAN_SESSION.sheet_plan_active():
+        _PLAN_SESSION.sign_attrs_applied = True
+        _save_sheet_plan()
+    return _attach_plan_next(resp) if isinstance(resp, dict) else resp
 
 
 def handoff(kind: str, from_sta: Optional[float] = None, to_sta: Optional[float] = None,
@@ -2004,10 +3036,14 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
                         outward_sign: float = -1.0,
                         sheet_elements: str = "",
                         arrow_panel_choice: str = "trailer",
-                        include_primitives: bool = False) -> dict:
+                        include_primitives: bool = False,
+                        force: bool = False) -> dict:
     """Compile a sheet-faithful placement plan in absolute model coords
     (no drawing). Requires Data/sheet-specs/<sheet>.json and committed/
     adopted alignments for each align_idxs entry.
+
+    Blank designer kwargs are filled from get_locked_designer_inputs when
+    an order table was built this session; conflicts raise unless force=True.
 
     Returns gateFailures (empty = pass), primitive counts, and (when
     include_primitives=True) the plan dict that place_sheet_geometry
@@ -2015,6 +3051,20 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
     preview — leave include_primitives=False for agent calls (coords are
     huge); place_sheet_geometry keeps the full plan in-process."""
     import sheet_spec
+
+    merged = _merge_locked_designer_inputs(
+        sheet_num, speed, lane_width, shoulder_width,
+        area_type=area_type, closure_type=closure_type,
+        exposure_condition=exposure_condition,
+        protective_vehicle_gvw=protective_vehicle_gvw, force=force)
+    sheet_num = merged["sheet_num"]
+    speed = int(merged["speed"])
+    lane_width = int(merged["lane_width"])
+    shoulder_width = str(merged["shoulder_width"])
+    area_type = merged["area_type"] or ""
+    closure_type = merged["closure_type"] or ""
+    exposure_condition = merged["exposure_condition"] or ""
+    protective_vehicle_gvw = int(merged["protective_vehicle_gvw"] or 0)
 
     spec = sheet_spec.load(sheet_num)
     if spec is None:
@@ -2025,8 +3075,18 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
 
     roles = spec.get("tableRoles") or {}
     if roles.get("advanceWarningSpacing") and not area_type:
-        raise ValueError(
-            f"sheet {sheet_num} needs area_type='URBAN'/'RURAL'/'FREEWAY'")
+        plan_workflow.raise_plan_gate(
+            f"sheet {sheet_num} needs area_type.",
+            tool="compile_sheet_plan",
+            current_step="compiler_placed",
+            missing=["area_type"],
+            accepted=["URBAN", "RURAL", "FREEWAY"],
+            next_tool="place_sheet_geometry",
+            next_step=(
+                "Pass area_type from get_locked_designer_inputs (or omit and "
+                "let auto-fill). Do not guess other parameters."
+            ),
+        )
 
     gvw = protective_vehicle_gvw if protective_vehicle_gvw and protective_vehicle_gvw > 0 else None
     try:
@@ -2041,7 +3101,15 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
         req = get_sheet_requirements(sheet_num)
         sheet_elements = req.get("elements") or ""
 
-    idxs = list(align_idxs) if align_idxs else [1]
+    if align_idxs:
+        idxs = list(align_idxs)
+    else:
+        # Default to every alignment the sheet itself declares (not just
+        # [1]) so two-alignment sheets (e.g. 619-311's upstream+downstream
+        # split) get their work-area hatch compiled by default -- compile_hatch
+        # needs both align 1 and align 2 present in segs_by_align, and
+        # silently defaulting to [1] alone used to drop it with no error.
+        idxs = sorted({a["alignIdx"] for a in spec.get("orderTable", {}).get("alignments", [])}) or [1]
     sh_ft = _shoulder_width_ft(shoulder_width)
     segs_by_align = {i: _segments_for_align(i) for i in idxs}
 
@@ -2106,6 +3174,8 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
         "arrowPanelChoice": arrow_panel_choice,
         "planAlignIdxs": idxs,
     }
+    if merged.get("filledFromLock"):
+        out["filledFromLock"] = merged["filledFromLock"]
     if include_primitives:
         out["plan"] = {
             "alignIdxs": idxs,
@@ -2119,12 +3189,15 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
 
 
 def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
-                           force: bool = False) -> dict:
+                           force: bool = False,
+                           sheet_num: str = "") -> dict:
     """Place primitives from compile_sheet_plan / place_sheet_geometry.
     Internal helper — agent should call place_sheet_geometry, not this.
     layers defaults to dimensions,labels,channelizing,symbols,hatch
     (stations/signs stay on place_order_table_stations + place_sign).
-    Refuses if plan['gateFailures'] is non-empty unless force=True."""
+    Refuses if plan['gateFailures'] is non-empty unless force=True.
+
+    Captures createdElementIds into Bridge/placement-registry.jsonl."""
     if not plan or "plan" not in plan:
         raise ValueError("execute_compiled_plan needs the dict returned by compile_sheet_plan")
 
@@ -2138,71 +3211,191 @@ def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
             f"rules gate failed ({len(gate)}): {gate[:3]}… Pass force=True to place anyway, "
             f"or fix inputs / alignments and recompile.")
 
+    sheet = sheet_num or plan.get("sheet") or ""
+    if not sheet and _PLAN_SESSION.designer_inputs:
+        sheet = _PLAN_SESSION.designer_inputs.sheet_num
+
     want = set(layers or ["dimensions", "labels", "channelizing", "symbols", "hatch"])
     placed: list[dict] = []
     errors: list[str] = []
 
-    def _ok(layer, detail):
-        placed.append({"layer": layer, **detail})
+    def _register(resp, *, kind, primitive_id, bridge_op, align_idx, spec_ref, layer, detail,
+                  geom_extra=None):
+        ids = placement_registry.parse_created_ids(resp if isinstance(resp, dict) else {})
+        req_id = ""
+        if isinstance(resp, dict):
+            req_id = str(resp.get("reqId") or resp.get("req_id") or "")
+        entry = {"layer": layer, **detail, "createdElementIds": ids,
+                 "primitiveId": primitive_id, "reqId": req_id}
+        if isinstance(resp, dict):
+            entry["status"] = resp.get("status", detail.get("status"))
+        placed.append(entry)
+        if ids:
+            extra = dict(geom_extra or {})
+            placement_registry.append_placement(
+                sheet_num=sheet,
+                align_idx=int(align_idx or 0),
+                kind=kind,
+                primitive_id=primitive_id or f"0:unknown:{kind}",
+                bridge_op=bridge_op,
+                element_ids=ids,
+                spec_ref=spec_ref or {},
+                req_id=req_id,
+                extra=extra or None,
+            )
+        return entry
 
     # --- dimensions + labels (per align); skip station primitives (ticks
     # come from place_order_table_stations)
     if "dimensions" in want or "labels" in want:
-        for _a_str, prims in inner["planByAlign"].items():
+        for a_str, prims in inner["planByAlign"].items():
+            align_i = int(a_str) if str(a_str).isdigit() else 0
             for p in prims:
                 try:
                     if p["kind"] == "dimension" and "dimensions" in want:
                         t1, t2, off = p["tip1"], p["tip2"], p["offset"]
                         r = place_dimension(t1[0], t1[1], t2[0], t2[1], off[0], off[1],
                                             reason=f"compiled dim {p.get('text','')}")
-                        _ok("dimension", {"status": r.get("status"), "text": p.get("text")})
+                        mid = (0.5 * (float(t1[0]) + float(t2[0])),
+                               0.5 * (float(t1[1]) + float(t2[1])))
+                        _register(
+                            r, kind="dimension",
+                            primitive_id=p.get("primitiveId") or "",
+                            bridge_op="PLACE_DIMENSION",
+                            align_idx=align_i,
+                            spec_ref=p.get("specRef"),
+                            layer="dimension",
+                            detail={"text": p.get("text")},
+                            geom_extra={
+                                "tip1": list(t1)[:3], "tip2": list(t2)[:3],
+                                "offset": list(off)[:3],
+                                "midX": mid[0], "midY": mid[1],
+                                "text": p.get("text"),
+                            },
+                        )
                     elif p["kind"] == "label" and "labels" in want:
                         r = place_text_label(p["text"], p["x"], p["y"],
                                              reason="compiled Non-Sign label")
-                        _ok("label", {"status": r.get("status"), "text": p.get("text")})
+                        _register(
+                            r, kind="label",
+                            primitive_id=p.get("primitiveId") or "",
+                            bridge_op="PLACE_TEXT_LABEL",
+                            align_idx=align_i,
+                            spec_ref=p.get("specRef"),
+                            layer="label",
+                            detail={"text": p.get("text")},
+                            geom_extra={
+                                "x": float(p["x"]), "y": float(p["y"]),
+                                "text": p.get("text"),
+                            },
+                        )
                 except Exception as e:
                     errors.append(f"{p.get('kind')}: {e}")
 
-    # --- channelizing: one Channelizing Devices polyline per cone run
-    # (correct tip-to-toe geometry from the compiler; not individual circles)
+    # --- channelizing: discrete markers (representation.mode=markers)
     if "channelizing" in want:
-        for _a_str, prims in inner.get("channelizingByAlign", {}).items():
+        for a_str, prims in inner.get("channelizingByAlign", {}).items():
+            align_i = int(a_str) if str(a_str).isdigit() else 0
             by_run: dict[str, list] = {}
             for p in prims:
                 if p.get("kind") == "cone":
                     by_run.setdefault(p.get("run", "run"), []).append(p)
             for run_id, cones in by_run.items():
                 cones_sorted = sorted(cones, key=lambda c: float(c.get("stationFt", 0)))
-                if len(cones_sorted) < 2:
+                if not cones_sorted:
                     continue
+                rep = cones_sorted[0].get("representation") or {
+                    "mode": "markers", "markerHalfSizeFt": 1.5}
+                mode = str(rep.get("mode") or "markers").lower()
+                if mode != "markers":
+                    errors.append(
+                        f"channelizing {run_id}: unsupported representation.mode="
+                        f"{mode!r} (only 'markers' is implemented)")
+                    continue
+                half = float(rep.get("markerHalfSizeFt") or 1.5)
                 verts = [[c["x"], c["y"], 0.0] for c in cones_sorted]
                 try:
-                    r = place_element_run(2, verts,
-                                          reason=f"compiled channelizing {run_id}")
-                    _ok("channelizing_run", {"run": run_id, "cones": len(cones_sorted),
-                                             "status": r.get("status")})
+                    r = place_channelizing_markers(
+                        verts, half_size_ft=half,
+                        reason=f"compiled channelizing markers {run_id}")
+                    prim_id = (cones_sorted[0].get("primitiveId")
+                               or f"{align_i}:{run_id}:cone")
+                    spec_ref = cones_sorted[0].get("specRef") or {
+                        "zone": None, "run": run_id, "alignIdx": align_i}
+                    _register(
+                        r, kind="cone",
+                        primitive_id=prim_id,
+                        bridge_op="PLACE_CHANNELIZING_MARKERS",
+                        align_idx=align_i,
+                        spec_ref=spec_ref,
+                        layer="channelizing_markers",
+                        detail={"run": run_id, "cones": len(cones_sorted)},
+                        geom_extra={
+                            "x": float(cones_sorted[0]["x"]),
+                            "y": float(cones_sorted[0]["y"]),
+                            "run": run_id,
+                            "coneCount": len(cones_sorted),
+                            "stationFt": cones_sorted[0].get("stationFt"),
+                        },
+                    )
                 except Exception as e:
                     errors.append(f"channelizing {run_id}: {e}")
 
     # --- symbols
     if "symbols" in want:
-        for _a_str, prims in inner.get("symbolsByAlign", {}).items():
+        for a_str, prims in inner.get("symbolsByAlign", {}).items():
+            align_i = int(a_str) if str(a_str).isdigit() else 0
             for p in prims:
                 try:
                     if p["kind"] in ("protectiveVehicle", "arrowPanel"):
                         r = place_cell(p["cellName"], p["x"], p["y"], 0.0,
                                        p.get("angleDeg", 0.0),
                                        reason=f"compiled {p['kind']} {p.get('id','')}")
-                        _ok(p["kind"], {"id": p.get("id"), "status": r.get("status"),
-                                        "requiredNote": p.get("requiredNote")})
+                        _register(
+                            r, kind=p["kind"],
+                            primitive_id=p.get("primitiveId") or "",
+                            bridge_op="PLACE_CELL",
+                            align_idx=align_i,
+                            spec_ref=p.get("specRef"),
+                            layer=p["kind"],
+                            detail={"id": p.get("id"),
+                                    "requiredNote": p.get("requiredNote")},
+                            geom_extra={
+                                "x": float(p["x"]), "y": float(p["y"]),
+                                "stationFt": p.get("stationFt"),
+                                "id": p.get("id"),
+                                "altGroup": p.get("altGroup"),
+                            },
+                        )
+                    elif p["kind"] == "label":
+                        r = place_text_label(p["text"], p["x"], p["y"],
+                                             reason="compiled symbol label")
+                        _register(
+                            r, kind="label",
+                            primitive_id=p.get("primitiveId") or "",
+                            bridge_op="PLACE_TEXT_LABEL",
+                            align_idx=align_i,
+                            spec_ref=p.get("specRef"),
+                            layer="symbol_label",
+                            detail={"text": p.get("text")},
+                            geom_extra={
+                                "x": float(p["x"]), "y": float(p["y"]),
+                                "text": p.get("text"),
+                            },
+                        )
                     elif p["kind"] == "vehicleMountedSign":
                         r = handoff(
                             kind="callout",
                             notes=(f"{p.get('signCode')} vehicle-mounted on "
                                    f"{p.get('mountedOn')} at ({p['x']:.1f},{p['y']:.1f})"),
                             reason="compiled vehicle-mounted sign (not a roadside post)")
-                        _ok("vehicleMountedSign", {"signCode": p.get("signCode"),
-                                                   "status": r.get("status")})
+                        placed.append({
+                            "layer": "vehicleMountedSign",
+                            "signCode": p.get("signCode"),
+                            "status": r.get("status") if isinstance(r, dict) else None,
+                            "primitiveId": p.get("primitiveId"),
+                            "createdElementIds": [],
+                        })
                 except Exception as e:
                     errors.append(f"symbol {p.get('kind')}: {e}")
 
@@ -2213,13 +3406,28 @@ def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
                 if p.get("kind") == "hatch":
                     verts = [[x, y, 0.0] for x, y in p["boundary"]]
                     r = place_workspace(verts, reason="compiled work-area hatch")
-                    _ok("hatch", {"status": r.get("status"),
-                                  "workAreaLengthFt": p.get("workAreaLengthFt")})
+                    _register(
+                        r, kind="hatch",
+                        primitive_id=p.get("primitiveId") or "0:workArea:hatch",
+                        bridge_op="PLACE_WORKSPACE",
+                        align_idx=0,
+                        spec_ref=p.get("specRef"),
+                        layer="hatch",
+                        detail={"workAreaLengthFt": p.get("workAreaLengthFt")},
+                    )
                 elif p.get("kind") == "transverseRun":
                     t1, t2 = p["tip1"], p["tip2"]
                     r = place_element_run(2, [[t1[0], t1[1], 0], [t2[0], t2[1], 0]],
                                           reason="compiled transverse channelizing")
-                    _ok("transverseRun", {"status": r.get("status")})
+                    _register(
+                        r, kind="transverseRun",
+                        primitive_id=p.get("primitiveId") or "",
+                        bridge_op="PLACE_ELEMENT_RUN",
+                        align_idx=0,
+                        spec_ref=p.get("specRef"),
+                        layer="transverseRun",
+                        detail={},
+                    )
             except Exception as e:
                 errors.append(f"hatch: {e}")
 
@@ -2228,6 +3436,11 @@ def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
         "placedCount": len(placed),
         "placed": placed[:40],
         "placedTruncated": max(0, len(placed) - 40),
+        "placedWithIds": [
+            {"primitiveId": p.get("primitiveId"), "kind": p.get("layer"),
+             "elementIds": p.get("createdElementIds") or []}
+            for p in placed if p.get("createdElementIds")
+        ][:80],
         "errors": errors,
     }
 
@@ -2255,14 +3468,74 @@ def place_sheet_geometry(sheet_num: str, speed: int, lane_width: int, shoulder_w
     place_sign for every isSign row. Alignments must already be
     committed or adopted.
 
-    Pass the SAME designer inputs already used for build_wztc_order_table —
-    especially area_type ('URBAN'/'RURAL'/'FREEWAY') when the sheet has an
-    advance-warning spacing table. Do NOT pass area_type='' and re-ask if
-    the engineer already answered it earlier in this build.
+    Blank designer kwargs (esp. area_type='') are auto-filled from the
+    locked build_wztc_order_table inputs — do NOT re-ask the engineer.
+    Conflicting values raise unless force=True.
 
     dry_run=True: compile + rules gate only (no drawing).
-    force=True: place even if the rules gate reports failures.
+    force=True: place even if the rules gate reports failures; also allows
+    intentional designer-input overrides.
     arrow_panel_choice: 'trailer' (default TWZAP_P) or 'vehicle' (OR PV)."""
+    # Sheet-plan checklist: stations (and normally signs) before compiler.
+    # force=True skips; general CAD never hits this (no order table).
+    if _PLAN_SESSION.sheet_plan_active() and not force and not dry_run:
+        done = plan_workflow.stage_done(_PLAN_SESSION)
+        if not done["corridor_ready"]:
+            plan_workflow.raise_plan_gate(
+                "corridor not ready for place_sheet_geometry.",
+                tool="place_sheet_geometry",
+                current_step="corridor_ready",
+                next_tool="assemble_corridor",
+                next_step="assemble_corridor then place_order_table_stations",
+            )
+        if not done["stations_placed"]:
+            st = plan_workflow.next_action(_PLAN_SESSION, done)
+            plan_workflow.raise_plan_gate(
+                "stations incomplete for place_sheet_geometry.",
+                tool="place_sheet_geometry",
+                current_step="stations_placed",
+                missing=st.get("stationsNeeded") or [],
+                next_tool="place_order_table_stations",
+                next_step=st.get("nextStep") or "",
+            )
+        if not done["signs_placed"]:
+            st = plan_workflow.next_action(_PLAN_SESSION, done)
+            plan_workflow.raise_plan_gate(
+                "order-table signs incomplete for place_sheet_geometry.",
+                tool="place_sheet_geometry",
+                current_step="signs_placed",
+                missing=st.get("remainingSigns") or [],
+                next_tool="place_sign",
+                next_step=st.get("nextStep") or "",
+            )
+        if not done["sign_attrs_applied"]:
+            plan_workflow.raise_plan_gate(
+                "set_sign_attributes not applied yet for this sheet build.",
+                tool="place_sheet_geometry",
+                current_step="sign_attrs_applied",
+                next_tool="set_sign_attributes",
+                next_step="set_sign_attributes on createdElementIds from each place_sign",
+            )
+    # Same station/path preflight as place_order_table_stations — compiler
+    # hatch/dims assume Align1/2 sta0 are work-area edges and path length
+    # covers the walk.
+    xv = None
+    if _PLAN_SESSION.designer_inputs is not None and not dry_run:
+        idxs = align_idxs if align_idxs else [1, 2]
+        fails_acc: list[str] = []
+        aligns_out: list[dict] = []
+        for aidx in idxs:
+            one = cross_validate_stations(align_idx=int(aidx), force=True)
+            aligns_out.extend(one.get("alignments") or [])
+            fails_acc.extend(one.get("failures") or [])
+        xv = {"status": "OK" if not fails_acc else "FAIL",
+              "alignments": aligns_out, "failures": fails_acc}
+        if fails_acc and not force:
+            raise ValueError(
+                "place_sheet_geometry blocked by cross_validate_stations: "
+                + "; ".join(fails_acc)
+                + " Fix via assemble_corridor / redefine, or force=True."
+            )
     compiled = compile_sheet_plan(
         sheet_num, speed, lane_width, shoulder_width,
         area_type=area_type, closure_type=closure_type,
@@ -2271,22 +3544,910 @@ def place_sheet_geometry(sheet_num: str, speed: int, lane_width: int, shoulder_w
         align_idxs=align_idxs, outward_sign=outward_sign,
         sheet_elements=sheet_elements,
         arrow_panel_choice=arrow_panel_choice,
-        include_primitives=True)
+        include_primitives=True, force=force)
     if dry_run:
         slim = {k: v for k, v in compiled.items() if k != "plan"}
         slim["note"] = "dry_run — nothing drawn; pass dry_run=False to place"
         return slim
-    executed = execute_compiled_plan(compiled, layers=layers, force=force)
-    return {
-        "status": executed["status"],
-        "sheet": sheet_num,
-        "gateFailures": compiled.get("gateFailures") or [],
+    executed = execute_compiled_plan(
+        compiled, layers=layers, force=force,
+        sheet_num=str(compiled.get("sheet") or sheet_num))
+    _PLAN_SESSION.sheet_geometry_placed = True
+    _PLAN_SESSION.find_near_calls = 0  # allow ≤2 targeted QA lookups, then refuse
+    gates = compiled.get("gateFailures") or []
+    sheet_key = str(compiled.get("sheet") or sheet_num)
+    reg_rows = placement_registry.resolve_latest_placements(sheet_num=sheet_key)
+    scorecard = sheet_scorecard.build_placement_scorecard(
+        compiled, registry_rows=reg_rows, executed=executed, gate_failures=gates)
+    _PLAN_SESSION.last_scorecard = scorecard
+    _PLAN_SESSION.last_compiled = compiled
+    _PLAN_SESSION.geometry_qa_passed = bool(scorecard.get("passed"))
+    _PLAN_SESSION.visual_qa_passed = False
+    _PLAN_SESSION.visual_qa_failures = []
+    if not scorecard.get("passed"):
+        _PLAN_SESSION.last_failed_phase = "place_sheet_geometry"
+    _save_sheet_plan()
+    out = {
+        "status": executed["status"] if scorecard.get("passed") else "PARTIAL",
+        "sheet": sheet_key,
+        "gateFailures": gates,
         "counts": compiled.get("counts"),
         "placedCount": executed.get("placedCount"),
         "placed": executed.get("placed"),
+        "placedWithIds": executed.get("placedWithIds"),
         "placedTruncated": executed.get("placedTruncated"),
         "errors": executed.get("errors"),
+        "scorecard": {
+            "passed": scorecard.get("passed"),
+            "failures": (scorecard.get("failures") or [])[:20],
+            "expectedByKind": (scorecard.get("expected") or {}).get("byKind"),
+            "placedByKind": (scorecard.get("placed") or {}).get("byKind"),
+            "missingPrimitiveIds": scorecard.get("missingPrimitiveIds") or [],
+            "citationCount": len(scorecard.get("citations") or []),
+        },
         "arrowPanelChoice": arrow_panel_choice,
+        "deferred": [
+            p for p in (executed.get("placed") or [])
+            if str(p.get("status", "")).upper() in ("DEFERRED", "HANDOFF")
+            or p.get("layer") == "vehicleMountedSign"
+        ],
+        "nextStep": (
+            "run_visual_qa_captures" if scorecard.get("passed")
+            else "Fix scorecard.failures then re-run place_sheet_geometry "
+                 "(or force=True only if engineer accepts)"
+        ),
+    }
+    if compiled.get("filledFromLock"):
+        out["filledFromLock"] = compiled["filledFromLock"]
+    if xv is not None:
+        out["crossValidate"] = xv
+    return _attach_plan_next(out)
+
+
+def _sign_detail_for(align_idx: int, sign_num: str) -> dict:
+    key = str(sign_num).strip().upper()
+    for r in _PLAN_SESSION.locked_sign_details:
+        if int(r.get("align_idx") or 0) == int(align_idx) and str(r.get("sign_num", "")).strip().upper() == key:
+            return r
+    return {"align_idx": align_idx, "sign_num": sign_num, "side": "One Side"}
+
+
+def _place_locked_signs_from_stations(outward_sign: float = -1.0,
+                                      half_len: float = 40.0) -> dict:
+    """Place every locked order-table sign at the outward perp tip of its
+    station row. Uses last_station_rows from place_order_table_stations."""
+    from sheet_compile import _outward_unit
+
+    inputs = _PLAN_SESSION.designer_inputs
+    if inputs is None:
+        raise ValueError("no locked designer inputs")
+    road_type = inputs.road_type or "Non-Freeway"
+    placed: list[dict] = []
+    attr_ids: list[str] = []
+    errors: list[str] = []
+
+    for align_idx in sorted(_PLAN_SESSION.required_aligns or {1, 2}):
+        rows = _PLAN_SESSION.last_station_rows.get(int(align_idx)) or []
+        if not rows:
+            errors.append(f"align {align_idx}: no station rows cached — place_order_table_stations first")
+            continue
+        for row in rows:
+            if str(row.get("isSign", "")).strip().upper() not in ("Y", "YES", "TRUE", "1"):
+                continue
+            sign_num = str(row.get("label") or "").strip()
+            if not sign_num:
+                errors.append(f"align {align_idx}: isSign row missing label")
+                continue
+            if (int(align_idx), sign_num.upper()) in _PLAN_SESSION.signs_placed_rows:
+                continue
+            try:
+                pt_x = float(row["ptX"])
+                pt_y = float(row["ptY"])
+                pt_z = float(row.get("ptZ") or 0)
+                tan_x = float(row["tanX"])
+                tan_y = float(row["tanY"])
+            except (KeyError, TypeError, ValueError) as e:
+                errors.append(f"align {align_idx} {sign_num}: bad station coords ({e})")
+                continue
+            detail = _sign_detail_for(align_idx, sign_num)
+            side = str(detail.get("side") or "One Side")
+            out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
+            tip_x = pt_x + out_x * half_len
+            tip_y = pt_y + out_y * half_len
+            kwargs = dict(
+                sign_num=sign_num, road_type=road_type, side=side,
+                pt1x=tip_x, pt1y=tip_y, pt1z=pt_z, dir1x=out_x, dir1y=out_y,
+                align_idx=int(align_idx), one_off=False,
+            )
+            if side.strip().lower() == "both sides":
+                kwargs.update(
+                    pt2x=pt_x - out_x * half_len,
+                    pt2y=pt_y - out_y * half_len,
+                    pt2z=pt_z,
+                    dir2x=-out_x,
+                    dir2y=-out_y,
+                )
+            try:
+                resp = place_sign(**kwargs)
+                ids = []
+                if isinstance(resp, dict):
+                    raw = resp.get("createdElementIds") or resp.get("elementIds") or ""
+                    if isinstance(raw, str) and raw.strip():
+                        ids = [x.strip() for x in raw.replace(";", ",").split(",") if x.strip()]
+                    elif isinstance(raw, list):
+                        ids = [str(x) for x in raw]
+                    eid = resp.get("elementId")
+                    if eid:
+                        ids.append(str(eid))
+                attr_ids.extend(ids)
+                placed.append({"align_idx": align_idx, "sign_num": sign_num,
+                               "status": (resp or {}).get("status", "OK"),
+                               "elementIds": ids})
+            except Exception as e:
+                errors.append(f"align {align_idx} {sign_num}: {e}")
+
+    attrs = None
+    if attr_ids:
+        try:
+            attrs = set_sign_attributes(attr_ids, reason="run_sheet_build batch")
+        except Exception as e:
+            errors.append(f"set_sign_attributes: {e}")
+    elif placed and not errors:
+        # Signs placed but no IDs returned — mark attrs incomplete
+        pass
+
+    return {"placed": placed, "setSignAttributes": attrs, "errors": errors,
+            "attrElementIds": attr_ids}
+
+
+def run_sheet_build(upstream_edge: Optional[list[float]] = None,
+                    downstream_edge: Optional[list[float]] = None,
+                    outward_sign: float = -1.0,
+                    half_len: float = 40.0,
+                    arrow_panel_choice: str = "trailer",
+                    include_visual_qa: bool = True,
+                    clear_prior_stations: bool = False,
+                    force: bool = False,
+                    approach_length_ft: float = 0.0) -> dict:
+    """SHEET-PLAN ONLY executor: advance the locked checklist without the
+    LLM choosing step order.
+
+    After build_wztc_order_table, the agent only needs to collect the two
+    WORK AREA edge points (ask_user_choice point-pick) and call this once:
+
+      run_sheet_build(upstream_edge=[...], downstream_edge=[...])
+
+    It then runs (skipping stages already done):
+      assemble_corridor → stations → signs+attrs → place_sheet_geometry
+      → optional run_visual_qa_captures
+
+    Outside a sheet plan: returns sheetPlanActive=False (general CAD
+    stays freeform — do not use this for ad-hoc drawing).
+
+    force=True: pass through to assemble/place_sheet_geometry gates.
+    clear_prior_stations=True: wipe+re-place stations before signs."""
+    if not _PLAN_SESSION.sheet_plan_active():
+        return {
+            "status": "OK",
+            "sheetPlanActive": False,
+            "note": (
+                "No named sheet plan active. run_sheet_build is only for "
+                "619 standard-sheet builds after build_wztc_order_table. "
+                "For general CAD, call place_*/adjust_view yourself."
+            ),
+        }
+
+    inputs = _PLAN_SESSION.designer_inputs
+    assert inputs is not None
+    phases: list[dict] = []
+    done = plan_workflow.stage_done(_PLAN_SESSION)
+
+    # --- corridor ---
+    if not done["corridor_ready"]:
+        if upstream_edge is None or downstream_edge is None:
+            plan_workflow.raise_plan_gate(
+                "corridor not ready — need work-area edge point-picks.",
+                tool="run_sheet_build",
+                current_step="corridor_ready",
+                missing=["upstream_edge", "downstream_edge"],
+                next_tool="ask_user_choice",
+                next_step=(
+                    "ask_user_choice(allow_point_pick=True) for upstream then "
+                    "downstream WORK AREA edges, then re-call "
+                    "run_sheet_build(upstream_edge=..., downstream_edge=...)"
+                ),
+            )
+        corr = assemble_corridor(
+            upstream_edge, downstream_edge,
+            approach_length_ft=approach_length_ft, force=force)
+        phases.append({"phase": "assemble_corridor", "result": {
+            k: corr.get(k) for k in (
+                "status", "workAreaLengthFt", "approachLengthFt",
+                "stationWalkMaxFt", "nextStep") if k in corr
+        }})
+        done = plan_workflow.stage_done(_PLAN_SESSION)
+    else:
+        phases.append({"phase": "assemble_corridor", "skipped": True,
+                       "note": "corridor already ready"})
+
+    # --- stations ---
+    req = sorted(_PLAN_SESSION.required_aligns or {1, 2})
+    station_results = []
+    first = True
+    for aidx in req:
+        need = (aidx not in _PLAN_SESSION.stations_placed_aligns) or clear_prior_stations
+        if not need:
+            station_results.append({"align_idx": aidx, "skipped": True})
+            continue
+        st = place_order_table_stations(
+            align_idx=aidx,
+            reset_session=first,
+            clear_prior=clear_prior_stations and (aidx in _PLAN_SESSION.stations_placed_aligns),
+            force=force or clear_prior_stations,
+        )
+        first = False
+        station_results.append({
+            "align_idx": aidx,
+            "status": st.get("status"),
+            "rowCount": len(st.get("rows") or []),
+        })
+    phases.append({"phase": "stations", "aligns": station_results})
+    done = plan_workflow.stage_done(_PLAN_SESSION)
+
+    # --- signs + attrs ---
+    if not done["signs_placed"] or not done["sign_attrs_applied"]:
+        signs = _place_locked_signs_from_stations(outward_sign=outward_sign, half_len=half_len)
+        phases.append({"phase": "signs", "result": {
+            "placedCount": len(signs.get("placed") or []),
+            "errors": signs.get("errors") or [],
+            "attrsStatus": (signs.get("setSignAttributes") or {}).get("status"),
+        }})
+        if signs.get("errors") and not force:
+            plan_workflow.raise_plan_gate(
+                "run_sheet_build sign phase had errors",
+                tool="run_sheet_build",
+                current_step="signs_placed",
+                missing=signs["errors"][:8],
+                next_tool="place_sign",
+                next_step="Fix listed sign errors or pass force=True to continue",
+            )
+    else:
+        phases.append({"phase": "signs", "skipped": True})
+    done = plan_workflow.stage_done(_PLAN_SESSION)
+
+    # --- compiler (re-enter if scorecard failed; preserve earlier phases) ---
+    geom = None
+    replan = None
+    if not done["compiler_placed"] or not done.get("geometry_qa_passed"):
+        try:
+            geom = place_sheet_geometry(
+                sheet_num=inputs.sheet_num,
+                speed=inputs.speed,
+                lane_width=inputs.lane_width,
+                shoulder_width=inputs.shoulder_width,
+                area_type=inputs.area_type or "",
+                closure_type=inputs.closure_type or "",
+                exposure_condition=inputs.exposure_condition or "",
+                protective_vehicle_gvw=inputs.protective_vehicle_gvw or 0,
+                align_idxs=req,
+                outward_sign=outward_sign,
+                arrow_panel_choice=arrow_panel_choice,
+                dry_run=False,
+                force=force,
+            )
+        except Exception as e:
+            replan = _replan_after_failure(
+                "place_sheet_geometry", {"failures": [str(e)]})
+            phases.append({"phase": "place_sheet_geometry", "error": str(e),
+                           "replan": replan})
+            out = {
+                "status": "ERROR",
+                "sheetPlanActive": True,
+                "sheet": inputs.sheet_num,
+                "phases": phases,
+                "failedPhase": "place_sheet_geometry",
+                "replan": replan,
+                "planStatus": get_plan_status(),
+            }
+            return _attach_plan_next(out)
+        sc = geom.get("scorecard") or {}
+        phases.append({"phase": "place_sheet_geometry", "result": {
+            "status": geom.get("status"),
+            "gateFailures": geom.get("gateFailures"),
+            "placedCount": geom.get("placedCount"),
+            "counts": geom.get("counts"),
+            "deferred": geom.get("deferred"),
+            "scorecardPassed": sc.get("passed"),
+            "scorecardFailures": sc.get("failures"),
+        }})
+        if not sc.get("passed") and not force:
+            replan = _replan_after_failure("place_sheet_geometry", {
+                "failures": sc.get("failures") or [],
+                "gateFailures": geom.get("gateFailures") or [],
+            })
+            out = {
+                "status": "ERROR",
+                "sheetPlanActive": True,
+                "sheet": inputs.sheet_num,
+                "phases": phases,
+                "failedPhase": "place_sheet_geometry",
+                "replan": replan,
+                "planStatus": get_plan_status(),
+            }
+            return _attach_plan_next(out)
+    else:
+        phases.append({"phase": "place_sheet_geometry", "skipped": True})
+
+    # --- visual QA ---
+    qa = None
+    if include_visual_qa and not _PLAN_SESSION.visual_qa_passed:
+        try:
+            qa = run_visual_qa_captures(force=force)
+            phases.append({"phase": "visual_qa", "result": {
+                "status": qa.get("status"),
+                "visualQaPassed": qa.get("visualQaPassed"),
+                "frames": [c.get("frame") for c in (qa.get("captures") or [])],
+                "checklist": qa.get("checklist"),
+                "failures": qa.get("failures"),
+            }})
+            if str(qa.get("status", "")).upper() == "ERROR" and not force:
+                replan = qa.get("replan") or _replan_after_failure(
+                    "visual_qa", {"failures": qa.get("failures") or []})
+                out = {
+                    "status": "ERROR",
+                    "sheetPlanActive": True,
+                    "sheet": inputs.sheet_num,
+                    "phases": phases,
+                    "failedPhase": "visual_qa",
+                    "replan": replan,
+                    "planStatus": get_plan_status(),
+                }
+                return _attach_plan_next(out)
+        except Exception as e:
+            replan = _replan_after_failure("visual_qa", {"failures": [str(e)]})
+            phases.append({"phase": "visual_qa", "error": str(e), "replan": replan})
+            out = {
+                "status": "ERROR",
+                "sheetPlanActive": True,
+                "sheet": inputs.sheet_num,
+                "phases": phases,
+                "failedPhase": "visual_qa",
+                "replan": replan,
+                "planStatus": get_plan_status(),
+            }
+            return _attach_plan_next(out)
+    elif not include_visual_qa:
+        phases.append({"phase": "visual_qa", "skipped": True,
+                       "note": "include_visual_qa=False"})
+    else:
+        phases.append({"phase": "visual_qa", "skipped": True})
+
+    out = {
+        "status": "OK",
+        "sheetPlanActive": True,
+        "sheet": inputs.sheet_num,
+        "phases": phases,
+        "planStatus": get_plan_status(),
+    }
+    # Lift QA captures to the top level so chat_driver can attach vision
+    # the same way as a direct run_visual_qa_captures call.
+    if isinstance(qa, dict) and qa.get("captures"):
+        out["captures"] = qa["captures"]
+        out["visualQaPassed"] = qa.get("visualQaPassed")
+        out["checklist"] = qa.get("checklist")
+        out["visionAttachedByChatDriver"] = True
+    _attach_build_guide_fields(inputs.sheet_num, out)
+    return _attach_plan_next(out)
+
+
+def _alignment_bbox_pts(align_idxs: list[int]) -> list[tuple[float, float]]:
+    pts: list[tuple[float, float]] = []
+    for a in align_idxs:
+        try:
+            rows = get_alignment_vertices(int(a))
+        except Exception:
+            continue
+        for r in rows:
+            for kx, ky in (("sx", "sy"), ("ex", "ey")):
+                if kx in r and ky in r:
+                    try:
+                        pts.append((float(r[kx]), float(r[ky])))
+                    except (TypeError, ValueError):
+                        pass
+    return pts
+
+
+def _replan_after_failure(phase: str, detail: dict | None = None) -> dict:
+    """Map a failed sheet-build phase to resumeFrom / nextTool / fixHints.
+    Preserves successful earlier phases (does not wipe them)."""
+    detail = detail or {}
+    failures = list(detail.get("failures") or detail.get("errors") or [])
+    gates = list(detail.get("gateFailures") or [])
+    blob = " ".join(str(x) for x in (failures + gates)).lower()
+
+    if phase in ("assemble_corridor", "corridor"):
+        resume, tool = "assemble_corridor", "assemble_corridor"
+        hints = ["Re-pick distinct upstream/downstream WORK AREA edges",
+                 "Then run_sheet_build(upstream_edge=..., downstream_edge=...)"]
+    elif phase == "stations":
+        resume, tool = "place_order_table_stations", "place_order_table_stations"
+        hints = ["place_order_table_stations for missing aligns",
+                 "Or run_sheet_build() to resume from stations"]
+    elif phase == "signs":
+        resume, tool = "place_sign", "place_sign"
+        hints = ["Fix listed sign errors; use locked order-table sign_num",
+                 "set_sign_attributes on createdElementIds"]
+    elif phase in ("place_sheet_geometry", "compiler", "geometry_qa"):
+        if "corridor-topology" in blob or "topology" in blob:
+            resume, tool = "assemble_corridor", "assemble_corridor"
+            hints = ["corridor-topology failure — rebuild edges via assemble_corridor",
+                     "Then re-run place_sheet_geometry / run_sheet_build"]
+        else:
+            resume, tool = "place_sheet_geometry", "place_sheet_geometry"
+            hints = ["Read scorecard.failures / gateFailures",
+                     "Fix inputs or delete_placements then re-place",
+                     "Call reflect_sheet_build for citations"]
+    elif phase in ("visual_qa", "visual_qa_captures"):
+        resume, tool = "run_visual_qa_captures", "get_geometry_scorecard"
+        hints = ["Scorecard must pass before visual_qa_passed can be True",
+                 "get_geometry_scorecard → fix → place_sheet_geometry → "
+                 "run_visual_qa_captures"]
+    else:
+        resume, tool = "get_plan_status", "get_plan_status"
+        hints = ["call get_plan_status / reflect_sheet_build"]
+
+    replan = {
+        "failedPhase": phase,
+        "resumeFrom": resume,
+        "nextTool": tool,
+        "nextStep": "; ".join(hints),
+        "fixHints": hints,
+        "preservedPhases": [
+            s["id"] for s in plan_workflow.PLAN_STAGES
+            if plan_workflow.stage_done(_PLAN_SESSION).get(s["id"])
+        ],
+        "detailSample": (failures or gates)[:8],
+    }
+    _PLAN_SESSION.last_failed_phase = phase
+    _PLAN_SESSION.last_replan = replan
+    _save_sheet_plan()
+    return replan
+
+
+def get_geometry_scorecard(sheet_num: str = "") -> dict:
+    """Return the last post-placement scorecard, or rebuild from registry.
+
+    Prefer calling after place_sheet_geometry. Does not draw."""
+    sheet = sheet_num
+    if not sheet and _PLAN_SESSION.designer_inputs:
+        sheet = _PLAN_SESSION.designer_inputs.sheet_num
+    if _PLAN_SESSION.last_scorecard is not None:
+        sc = dict(_PLAN_SESSION.last_scorecard)
+        sc["source"] = "session"
+        sc["sheetNum"] = sheet
+        return sc
+    rows = placement_registry.resolve_latest_placements(sheet_num=sheet or "")
+    sc = sheet_scorecard.build_placement_scorecard(
+        {"plan": {}, "gateFailures": [], "counts": {}},
+        registry_rows=rows)
+    sc["source"] = "registry_only"
+    sc["note"] = (
+        "No compiled plan in session — coverage check is registry-only. "
+        "Re-run place_sheet_geometry for a full scorecard."
+    )
+    sc["sheetNum"] = sheet
+    return sc
+
+
+def reflect_sheet_build(max_iterations: int = 1) -> dict:
+    """Structured reflection for the active sheet build (evaluator step).
+
+    Deterministic critique citing registry primitiveIds / reqIds / scorecard
+    failures. Caps iterations; appends to Bridge/sheet-reflection.jsonl.
+    Does NOT auto-fix geometry — returns revision_instructions for the
+    agent (or run_sheet_build resumeFrom)."""
+    if not _PLAN_SESSION.sheet_plan_active():
+        return {
+            "status": "OK",
+            "sheetPlanActive": False,
+            "note": "No sheet plan — reflection is for named 619 builds only.",
+        }
+    max_iterations = max(1, min(int(max_iterations or 1), 3))
+    sheet = _PLAN_SESSION.designer_inputs.sheet_num if _PLAN_SESSION.designer_inputs else ""
+    rows = placement_registry.resolve_latest_placements(sheet_num=sheet)
+    scorecard = _PLAN_SESSION.last_scorecard or sheet_scorecard.build_placement_scorecard(
+        {"plan": {}, "gateFailures": [], "counts": {}}, registry_rows=rows)
+    pre = sheet_scorecard.visual_qa_prechecks(
+        scorecard, registry_rows=rows,
+        sheet_geometry_placed=_PLAN_SESSION.sheet_geometry_placed)
+
+    issues: list[str] = []
+    revision: list[str] = []
+    for f in (scorecard.get("failures") or []):
+        issues.append(str(f))
+        revision.append(f"Fix: {f}")
+    for f in pre:
+        if f not in issues:
+            issues.append(f)
+            revision.append(f"Fix: {f}")
+    if not _PLAN_SESSION.sign_attrs_applied and _PLAN_SESSION.locked_sign_rows:
+        issues.append("reflection: sign_attrs_applied is False")
+        revision.append("set_sign_attributes on place_sign createdElementIds")
+    if _PLAN_SESSION.last_failed_phase:
+        issues.append(f"reflection: last_failed_phase={_PLAN_SESSION.last_failed_phase}")
+        if _PLAN_SESSION.last_replan:
+            revision.append(
+                f"Resume from {_PLAN_SESSION.last_replan.get('resumeFrom')} "
+                f"via {_PLAN_SESSION.last_replan.get('nextTool')}"
+            )
+
+    satisfactory = (
+        not issues
+        and bool(scorecard.get("passed"))
+        and bool(_PLAN_SESSION.geometry_qa_passed)
+    )
+    citations = list(scorecard.get("citations") or [])[:24]
+    if not citations:
+        for r in rows[:24]:
+            citations.append({
+                "primitiveId": r.get("primitiveId"),
+                "kind": r.get("kind"),
+                "elementIds": r.get("elementIds") or [],
+                "reqId": r.get("reqId") or "",
+                "specRef": r.get("specRef") or {},
+            })
+
+    artifact = {
+        "ts": _iso_now(),
+        "sheetNum": sheet,
+        "satisfactory": satisfactory,
+        "issues": issues[:40],
+        "revision_instructions": revision[:40],
+        "citations": citations,
+        "planStatus": {
+            "geometryQaPassed": _PLAN_SESSION.geometry_qa_passed,
+            "visualQaPassed": _PLAN_SESSION.visual_qa_passed,
+            "compilerPlaced": _PLAN_SESSION.sheet_geometry_placed,
+            "lastFailedPhase": _PLAN_SESSION.last_failed_phase or None,
+        },
+        "maxIterations": max_iterations,
+    }
+    _PLAN_SESSION.reflection_log.append(artifact)
+    if len(_PLAN_SESSION.reflection_log) > 20:
+        _PLAN_SESSION.reflection_log = _PLAN_SESSION.reflection_log[-20:]
+    refl_path = _BRIDGE_DIR / "sheet-reflection.jsonl"
+    try:
+        refl_path.parent.mkdir(parents=True, exist_ok=True)
+        with refl_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(artifact, separators=(",", ":")) + "\n")
+    except OSError:
+        pass
+
+    out = {
+        "status": "OK",
+        "sheetPlanActive": True,
+        "satisfactory": satisfactory,
+        "issues": issues[:40],
+        "revision_instructions": revision[:40],
+        "citations": citations,
+        "scorecardPassed": bool(scorecard.get("passed")),
+        "lastReplan": _PLAN_SESSION.last_replan,
+        "artifactPath": str(refl_path),
+        "note": (
+            "Reflection complete (deterministic). If satisfactory=False, follow "
+            "revision_instructions and cite primitiveIds when deleting/fixing. "
+            "Do not declare FINAL until visual_qa_passed after a passing scorecard."
+            if not satisfactory else
+            "Reflection satisfactory — run_visual_qa_captures if not yet passed, then FINAL."
+        ),
+    }
+    return _attach_plan_next(out)
+
+
+def run_visual_qa_captures(view_num: int = 1, force: bool = False) -> dict:
+    """SHEET-PLAN ONLY: scripted visual QA captures + hard prechecks.
+
+    Captures four frames from locked alignment geometry. Marks
+    visual_qa_passed ONLY when the geometry scorecard passes and the
+    placement registry has compiler artifacts (unless force=True).
+
+    Outside a sheet plan: returns sheetPlanActive=False."""
+    if not _PLAN_SESSION.sheet_plan_active():
+        return {
+            "status": "OK",
+            "sheetPlanActive": False,
+            "note": (
+                "No sheet plan active — run_visual_qa_captures is a sheet-build "
+                "tool. For general CAD use adjust_view + view_drawing freely."
+            ),
+        }
+    if not _PLAN_SESSION.sheet_geometry_placed:
+        plan_workflow.raise_plan_gate(
+            "place_sheet_geometry has not succeeded yet.",
+            tool="run_visual_qa_captures",
+            current_step="compiler_placed",
+            next_tool="place_sheet_geometry",
+            next_step="Finish compiler path first, then run_visual_qa_captures",
+        )
+
+    sheet = (_PLAN_SESSION.designer_inputs.sheet_num
+             if _PLAN_SESSION.designer_inputs else "")
+    reg_rows = placement_registry.resolve_latest_placements(sheet_num=sheet)
+    scorecard = _PLAN_SESSION.last_scorecard
+    pre_fails = sheet_scorecard.visual_qa_prechecks(
+        scorecard, registry_rows=reg_rows,
+        sheet_geometry_placed=_PLAN_SESSION.sheet_geometry_placed,
+        compiled=_PLAN_SESSION.last_compiled)
+    if pre_fails and not force:
+        _PLAN_SESSION.visual_qa_passed = False
+        _PLAN_SESSION.visual_qa_failures = list(pre_fails)
+        replan = _replan_after_failure("visual_qa", {"failures": pre_fails})
+        return _attach_plan_next({
+            "status": "ERROR",
+            "sheetPlanActive": True,
+            "visualQaPassed": False,
+            "failures": pre_fails,
+            "replan": replan,
+            "note": (
+                "visual_qa_passed NOT set — scorecard/registry prechecks failed. "
+                "Fix failures, then re-call. Pass force=True only if the engineer "
+                "accepts captures without a passing scorecard."
+            ),
+        })
+
+    req = sorted(_PLAN_SESSION.required_aligns or _PLAN_SESSION.aligns_ready or {1, 2})
+    pts = _alignment_bbox_pts(req)
+    if len(pts) < 2:
+        plan_workflow.raise_plan_gate(
+            "could not read alignment vertices for framing.",
+            tool="run_visual_qa_captures",
+            current_step="visual_qa_passed",
+            next_step="adopt/commit alignments, or pass force adjust_view manually",
+        )
+
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    cx = (min_x + max_x) / 2.0
+    cy = (min_y + max_y) / 2.0
+    full_w = max(max_x - min_x, 50.0) * 1.25
+    full_h = max(max_y - min_y, 50.0) * 1.25
+    span = max(max_x - min_x, 1.0)
+    third = span / 3.0
+    frames = [
+        ("full_corridor", cx, cy, full_w, full_h),
+        ("upstream", min_x + third * 0.5, cy, max(third * 1.4, 200.0), max(full_h * 0.7, 150.0)),
+        ("work_area", cx, cy, max(third * 1.4, 200.0), max(full_h * 0.7, 150.0)),
+        ("downstream", max_x - third * 0.5, cy, max(third * 1.4, 200.0), max(full_h * 0.7, 150.0)),
+    ]
+
+    captures: list[dict] = []
+    checklist = [
+        "Dims: length text above each tip-to-tip span",
+        "Labels: feature names below where sheet calls for them",
+        "PV at roll-ahead / protective-vehicle bay per sheet; AP per sheet; no AP/PV overlap",
+        "Channelizing stops where sheet shows; hatch in work area only",
+        "Ignore pre-existing site geometry far from the corridor",
+        "Registry citations: use reflect_sheet_build / get_placements for IDs",
+        "Chat agent: frames are attached as vision + panel SCREENSHOT — review them before FINAL",
+    ]
+    _PLAN_SESSION._qa_capture_active = True
+    cap_dir = _BRIDGE_DIR / "captures"
+    cap_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        for name, fx, fy, fw, fh in frames:
+            adjust_view(center_x=fx, center_y=fy, width=fw, height=fh,
+                        view_num=view_num, force=True)
+            cap = capture_view()
+            src = Path(str(cap.get("path") or ""))
+            durable = cap_dir / f"qa_{sheet or 'sheet'}_{name}.png"
+            try:
+                if src.is_file():
+                    import shutil
+                    shutil.copy2(src, durable)
+                    path_out = str(durable)
+                else:
+                    path_out = str(src) if src else ""
+            except OSError:
+                path_out = str(src) if src else ""
+            captures.append({
+                "frame": name,
+                "path": path_out,
+                "centerX": fx, "centerY": fy, "width": fw, "height": fh,
+            })
+    finally:
+        _PLAN_SESSION._qa_capture_active = False
+
+    _PLAN_SESSION.visual_qa_passed = True
+    _PLAN_SESSION.visual_qa_failures = list(pre_fails) if force else []
+    if _PLAN_SESSION.last_failed_phase == "visual_qa":
+        _PLAN_SESSION.last_failed_phase = ""
+    _save_sheet_plan()
+    out = {
+        "status": "OK",
+        "sheetPlanActive": True,
+        "visualQaPassed": True,
+        "forced": bool(force and pre_fails),
+        "precheckFailuresIgnored": list(pre_fails) if force else [],
+        "captures": captures,
+        "checklist": checklist,
+        "scorecardPassed": bool(scorecard.get("passed")) if scorecard else None,
+        "visionAttachedByChatDriver": True,
+        "note": (
+            "Scripted visual QA complete (scorecard prechecks passed). "
+            "Four frames are on disk under Bridge/captures/qa_*.png. "
+            "In the in-MicroStation chat agent, chat_driver attaches those "
+            "frames as vision + panel SCREENSHOT — review them against the "
+            "checklist, fix only critical defects, then FINAL. "
+            "Call reflect_sheet_build if you need registry citations. "
+            "Do NOT call a non-existent capture_view tool; use view_drawing "
+            "only for an extra ad-hoc look outside these frames."
+        ),
+    }
+    return _attach_plan_next(out)
+
+
+def begin_sheet_sandbox(upstream_edge: Optional[list[float]] = None,
+                        downstream_edge: Optional[list[float]] = None,
+                        offset_y_ft: float = 2000.0) -> dict:
+    """Start a KEEP/REVERT sandbox on an offset Y band (does not wipe the
+    kept corridor). Pass work-area edges or reuse PlanSession.work_area_edges.
+
+    Next: run_sheet_build_sandbox() or run_sheet_build with returned edges.
+    Then keep_sheet_sandbox() or revert_sheet_sandbox()."""
+    if not _PLAN_SESSION.sheet_plan_active():
+        return {
+            "status": "ERROR",
+            "note": "No sheet plan — build_wztc_order_table first.",
+        }
+    edges = _PLAN_SESSION.work_area_edges or {}
+    up = upstream_edge or edges.get("upstream") or edges.get("upstream_edge")
+    dn = downstream_edge or edges.get("downstream") or edges.get("downstream_edge")
+    if not up or not dn:
+        return {
+            "status": "ERROR",
+            "note": (
+                "Need upstream_edge and downstream_edge (or prior "
+                "work_area_edges on the plan). Point-pick edges first."
+            ),
+        }
+    sheet = (_PLAN_SESSION.designer_inputs.sheet_num
+             if _PLAN_SESSION.designer_inputs else "")
+    out = sheet_sandbox.begin_sandbox(
+        upstream_edge=list(up),
+        downstream_edge=list(dn),
+        offset_y_ft=float(offset_y_ft),
+        sheet_num=sheet,
+    )
+    _PLAN_SESSION.sandbox = out.get("sandbox")
+    _PLAN_SESSION.work_area_edges = {
+        "upstream": out["upstream_edge"],
+        "downstream": out["downstream_edge"],
+        "sandbox": True,
+        "bandId": (out.get("sandbox") or {}).get("bandId"),
+    }
+    # Fresh corridor on the sandbox band — reset placement checklist bits
+    # that belong to the prior band without wiping designer inputs.
+    _PLAN_SESSION.stations_placed_aligns = set()
+    _PLAN_SESSION.signs_placed_rows = set()
+    _PLAN_SESSION.sign_attrs_applied = False
+    _PLAN_SESSION.sheet_geometry_placed = False
+    _PLAN_SESSION.geometry_qa_passed = False
+    _PLAN_SESSION.visual_qa_passed = False
+    _PLAN_SESSION.aligns_ready = set()
+    _PLAN_SESSION.last_station_rows = {}
+    _save_sheet_plan()
+    return _attach_plan_next(out)
+
+
+def get_sheet_sandbox() -> dict:
+    """Return active sandbox band state (Bridge/sandbox-state.json)."""
+    out = sheet_sandbox.get_sandbox()
+    out["sessionSandbox"] = _PLAN_SESSION.sandbox
+    return out
+
+
+def run_sheet_build_sandbox(offset_y_ft: float = 2000.0,
+                            include_visual_qa: bool = True,
+                            force: bool = False) -> dict:
+    """begin_sheet_sandbox (if needed) + run_sheet_build on sandbox edges.
+
+    Cheap try path: score with get_geometry_scorecard; KEEP or REVERT."""
+    st = sheet_sandbox.get_sandbox()
+    if not st.get("active"):
+        edges = _PLAN_SESSION.work_area_edges or {}
+        up = edges.get("upstream") or edges.get("upstream_edge")
+        dn = edges.get("downstream") or edges.get("downstream_edge")
+        if not up or not dn:
+            return {
+                "status": "ERROR",
+                "note": (
+                    "No active sandbox and no work_area_edges. Call "
+                    "begin_sheet_sandbox(upstream_edge, downstream_edge) first."
+                ),
+            }
+        # If edges already sandbox-flagged, use them; else begin.
+        if not edges.get("sandbox"):
+            begun = begin_sheet_sandbox(
+                upstream_edge=list(up), downstream_edge=list(dn),
+                offset_y_ft=offset_y_ft)
+            if begun.get("status") == "ERROR":
+                return begun
+            up = begun["upstream_edge"]
+            dn = begun["downstream_edge"]
+        else:
+            up, dn = edges["upstream"], edges["downstream"]
+    else:
+        sb = st["sandbox"]
+        up = sb["sandboxUpstream"]
+        dn = sb["sandboxDownstream"]
+    result = run_sheet_build(
+        upstream_edge=up, downstream_edge=dn,
+        include_visual_qa=include_visual_qa, force=force,
+        clear_prior_stations=True,
+    )
+    result["sandbox"] = sheet_sandbox.get_sandbox().get("sandbox")
+    result["nextStepHint"] = (
+        "Scorecard in result / get_geometry_scorecard. "
+        "KEEP: keep_sheet_sandbox(). REVERT: revert_sheet_sandbox()."
+    )
+    return result
+
+
+def keep_sheet_sandbox() -> dict:
+    """Mark the active sandbox band as KEPT (prior reference band untouched)."""
+    out = sheet_sandbox.keep_sandbox()
+    if out.get("status") == "OK":
+        _PLAN_SESSION.sandbox = out.get("sandbox")
+        _save_sheet_plan()
+    return out
+
+
+def revert_sheet_sandbox() -> dict:
+    """REVERT sandbox try: clear plan elements on the sandbox corridor and
+    soft-delete registry heads created after sandbox start. Does not restore
+    DGN of the reference band (it was never cleared)."""
+    st = sheet_sandbox.get_sandbox()
+    if not st.get("active") and not (st.get("sandbox") or {}).get("bandId"):
+        return {"status": "ERROR", "note": "No sandbox band to revert."}
+    sb = st.get("sandbox") or {}
+    # Wipe sandbox placements (journal-owned). keep_alignments=False removes
+    # the sandbox corridor lines too so a later try can redefine.
+    cleared = clear_plan_elements(keep_alignments=False)
+    # Soft-delete registry rows newer than checkpoint length heuristic:
+    # delete all current heads for this sheet (sandbox-only build).
+    sheet = sb.get("sheetNum") or (
+        _PLAN_SESSION.designer_inputs.sheet_num
+        if _PLAN_SESSION.designer_inputs else "")
+    heads = placement_registry.resolve_latest_placements(sheet_num=sheet)
+    pids = [str(r.get("primitiveId")) for r in heads if r.get("primitiveId")]
+    deleted = 0
+    if pids:
+        deleted = placement_registry.mark_deleted(set(pids))
+    marked = sheet_sandbox.mark_reverted({
+        "cleared": cleared,
+        "softDeletedPrimitiveIds": len(pids),
+        "softDeletedCount": deleted,
+    })
+    _PLAN_SESSION.sandbox = marked
+    _PLAN_SESSION.stations_placed_aligns = set()
+    _PLAN_SESSION.signs_placed_rows = set()
+    _PLAN_SESSION.sheet_geometry_placed = False
+    _PLAN_SESSION.geometry_qa_passed = False
+    _PLAN_SESSION.visual_qa_passed = False
+    _PLAN_SESSION.aligns_ready = set()
+    _save_sheet_plan()
+    return {
+        "status": "OK",
+        "sandbox": marked,
+        "cleared": cleared,
+        "softDeleted": deleted,
+        "note": (
+            "Sandbox REVERTED — sandbox corridor/plan elements cleared. "
+            "Reference band (pre-offset) was not touched. "
+            "Call begin_sheet_sandbox again to retry."
+        ),
     }
 
 
@@ -2330,12 +4491,90 @@ def clear_plan_elements(keep_alignments: bool = True, align_idx: int = 0) -> dic
         "clear_plan_elements")
     if align_idx and align_idx > 0:
         _PLAN_SESSION.stations_placed_aligns.discard(align_idx)
+        _PLAN_SESSION.signs_placed_rows = {
+            (a, c) for a, c in _PLAN_SESSION.signs_placed_rows if a != align_idx
+        }
+        _PLAN_SESSION.last_station_rows.pop(int(align_idx), None)
+        _PLAN_SESSION.sheet_geometry_placed = False
+        _PLAN_SESSION.geometry_qa_passed = False
+        _PLAN_SESSION.visual_qa_passed = False
+        _PLAN_SESSION.sign_attrs_applied = False
     else:
         _PLAN_SESSION.placed_workspace = False
         _PLAN_SESSION.stations_placed_aligns = set()
+        _PLAN_SESSION.signs_placed_rows = set()
+        _PLAN_SESSION.sign_attrs_applied = False
+        _PLAN_SESSION.sheet_geometry_placed = False
+        _PLAN_SESSION.geometry_qa_passed = False
+        _PLAN_SESSION.visual_qa_passed = False
+        _PLAN_SESSION.last_station_rows = {}
+        if not keep_alignments:
+            _PLAN_SESSION.aligns_ready = set()
+            _PLAN_SESSION.work_area_edges = None
     # order_table_built stays True — SharedState still holds the table;
     # rebuild does not need to rebuild the table unless inputs change.
+    if not (align_idx and align_idx > 0):
+        placement_registry.clear_registry()
+    _save_sheet_plan()
     return resp
+
+
+def get_placements(sheet_num: str = "", kind: str = "", zone: str = "",
+                   run: str = "", align_idx: int = 0) -> list[dict]:
+    """List agent-placed primitives from Bridge/placement-registry.jsonl.
+
+    Filter by sheet_num / kind (dimension, label, cone, sign, …) / zone /
+    run / align_idx. Empty filters match all. Use this instead of fishing
+    the journal for 'delete the channelizers' style edits."""
+    rows = placement_registry.load_placements(
+        sheet_num=sheet_num, kind=kind, zone=zone, run=run, align_idx=align_idx)
+    if not rows:
+        return [{
+            "note": (
+                "No matching placement-registry records. Registry only tracks "
+                "agent-placed geometry from place_sheet_geometry / place_sign."
+            )
+        }]
+    return rows
+
+
+def delete_placements(kind: str = "", zone: str = "", run: str = "",
+                      align_idx: int = 0, sheet_num: str = "",
+                      reason: str = "") -> dict:
+    """Delete DGN elements for matching placement-registry records.
+
+    Resolves elementIds from the registry, calls delete_element per id,
+    then removes those registry lines. Stale IDs (hand-edited/deleted)
+    are reported under failed — no auto-rebind."""
+    rows = placement_registry.load_placements(
+        sheet_num=sheet_num, kind=kind, zone=zone, run=run, align_idx=align_idx)
+    if not rows or (len(rows) == 1 and rows[0].get("note")):
+        return {"status": "OK", "deleted": 0, "note": "no matching placements"}
+    deleted: list[str] = []
+    failed: list[dict] = []
+    gone_prims: set[str] = set()
+    for rec in rows:
+        pid = str(rec.get("primitiveId") or "")
+        ids = [str(x) for x in (rec.get("elementIds") or [])]
+        all_ok = True
+        for eid in ids:
+            try:
+                delete_element(eid, own_element_only=True,
+                               reason=reason or f"delete_placements {pid}")
+                deleted.append(eid)
+            except Exception as e:
+                all_ok = False
+                failed.append({"elementId": eid, "primitiveId": pid, "error": str(e)})
+        if all_ok and pid:
+            gone_prims.add(pid)
+    removed = placement_registry.mark_deleted(gone_prims)
+    return {
+        "status": "OK" if not failed else "PARTIAL",
+        "deletedCount": len(deleted),
+        "deleted": deleted[:80],
+        "failed": failed[:40],
+        "registryRemoved": removed,
+    }
 
 def get_journal(limit: int = 20) -> list[str]:
     """Return the last `limit` raw journal lines — every op run this

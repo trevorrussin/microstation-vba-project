@@ -1,0 +1,70 @@
+# NYSDOT HDM Ch.20 Exhibit 20-5 — first character of a FEATURE CODE level
+# name is the category. Used by list_levels so "drainage" matches every D*
+# code (DCB, DSSD, …), not only hand-picked aliases.
+#
+# Format:  alias<TAB>CATEGORY_LETTER
+# Only applied to all-caps feature-code names (see wztc_ops._is_feature_code_level).
+# English / multi-word aliases may repeat the same letter.
+
+alignment	A
+alignments	A
+bridge	B
+bridges	B
+control	C
+drainage	D
+drain	D
+storm	D
+sewer	D
+culvert	D
+environmental	E
+environment	E
+geotech	G
+geotechnical	G
+its	I
+intelligent transportation	I
+landscape	L
+natural	L
+terrain	L
+topo	L
+topography	L
+contour	L
+row	M
+right of way	M
+right-of-way	M
+mapping	M
+plan sheet	N
+plan sheets	N
+sheet	N
+object details	O
+details	O
+annotation	O
+dimension	O
+notes	O
+pavement	P
+paving	P
+roadway	R
+road	R
+signing	S
+striping	S
+pavement marking	S
+marking	S
+traffic	T
+traffic control	T
+wztc	T
+workzone	T
+work zone	T
+utilities	U
+utility	U
+lighting	U
+electric	U
+gas	U
+water	U
+cross section	X
+cross sections	X
+profile	X
+profiles	X
+# Extra letters seen in this project's DGN (not in Exhibit 20-5):
+survey	V
+visualization	V
+aviation	Z
+airport	Z

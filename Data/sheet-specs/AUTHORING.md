@@ -240,3 +240,37 @@ structural difference from the family reference is a flag to slow down, not to p
 (302-02, 311-02, 317-02…). They may well carry identical values, but that must be *verified
 by extraction*, not assumed — assuming it yields silently wrong numbers that pass every
 validator.
+
+---
+
+## Live-build playbook (`<sheet>.build.md`)
+
+After the JSON is gate-green, add a companion markdown next to it:
+
+```
+Data/sheet-specs/619-311.json
+Data/sheet-specs/619-311.build.md
+```
+
+Point at it from the JSON:
+
+```json
+"sheet": {
+  "number": "619-311",
+  "buildGuide": "619-311.build.md",
+  ...
+}
+```
+
+**Split of concerns:**
+
+| Lives in | Content |
+|---|---|
+| `<sheet>.json` | Machine prefs the compiler must obey (`annotationStyle`, channelizing `representation`, `annotations`, `rules`) |
+| `<sheet>.build.md` | Human/agent tips: preferred call path, visual QA checklist, NYW8-33 handoff, do-nots, script pointers |
+
+The agent loads the playbook via `get_sheet_requirements` / `get_sheet_build_guide` /
+`get_plan_status.buildGuidePath`. When a live build surfaces a new preference, update
+the JSON (if code must obey) and/or append the tip to `.build.md` — do not leave it only
+in `dev-notes/agent-log.md`. See `619-311.build.md` as the worked example.
+

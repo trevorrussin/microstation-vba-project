@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 4 mowing / parkway-adjacent)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Mowing / continuously-moving shoulder closure or lane encroachment on NON-FREEWAY. 3 tables. W8-23 only. NON-FREEWAY PV matrix with speed bands. Moving roll-ahead including <=40. No tapers. Work area <=40 ft (Note 4). If duration >5 min → reconfigure to 619-201."
+    "provenanceNote": "Mowing / continuously-moving shoulder closure or lane encroachment on NON-FREEWAY. 3 tables. W8-23 only. NON-FREEWAY PV matrix with speed bands. Moving roll-ahead including <=40. No tapers. Work area <=40 ft (Note 4). If duration >5 min \u2192 reconfigure to 619-201.",
+    "buildGuide": "619-041.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",

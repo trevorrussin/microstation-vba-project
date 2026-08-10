@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 3 ramp sibling of 619-301)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Short-term shoulder at ramp. 315-01/02 match 301; 315-03 adds lateralShiftTaper; plan spacing 2640'/1500'/1000' (FREEWAY-like C); W3-7a ramp plaque."
+    "provenanceNote": "Short-term shoulder at ramp. 315-01/02 match 301; 315-03 adds lateralShiftTaper; plan spacing 2640'/1500'/1000' (FREEWAY-like C); W3-7a ramp plaque.",
+    "buildGuide": "619-315.build.md"
   },
   "applicability": {
     "roadType": "Freeway/Multilane Divided",
@@ -32,7 +33,7 @@
         55,
         65
       ],
-      "note": "Table 301-03 covers 45,50,55,65 only — no 25-40 or 60 rows in PDF text layer."
+      "note": "Table 301-03 covers 45,50,55,65 only \u2014 no 25-40 or 60 rows in PDF text layer."
     },
     "laneWidthFt": [
       10,
@@ -150,7 +151,7 @@
     }
   ],
   "tableRoles": {
-    "note": "Family 3 ramp-approach short-term. Roles by CONTENT: 315-01=protectiveVehicle, 315-02=rollAheadDistance (GVW, like 301-02), 315-03=taperAndBuffer (expanded ramp), 315-04=signSizes, 315-05=channelizingApplication (NEW vs 301). NO advanceWarningSpacing table — spacing on plan (2640'/1500'/1000').",
+    "note": "Family 3 ramp-approach short-term. Roles by CONTENT: 315-01=protectiveVehicle, 315-02=rollAheadDistance (GVW, like 301-02), 315-03=taperAndBuffer (expanded ramp), 315-04=signSizes, 315-05=channelizingApplication (NEW vs 301). NO advanceWarningSpacing table \u2014 spacing on plan (2640'/1500'/1000').",
     "protectiveVehicle": "315-01",
     "rollAheadDistance": "315-02",
     "taperAndBuffer": "315-03",
@@ -221,7 +222,7 @@
       "keyedBy": [
         "protectiveVehicleGvwLbs"
       ],
-      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN and MAX, by protective-vehicle gross vehicle weight (not posted speed).",
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES \u2014 STATIONARY OPERATION MIN and MAX, by protective-vehicle gross vehicle weight (not posted speed).",
       "note": "Identical to 301-02: roll-ahead keyed by protective-vehicle GVW.",
       "rows": [
         {
@@ -264,7 +265,7 @@
       "columnMeaning": {
         "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES",
         "lateralShiftTaper": "LATERAL TAPER LENGTH (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES FOR LANE WIDTH (LATERAL SHIFT OF TRAFFIC FLOW PATH)",
-        "shoulderTaper": "SHOULDER TAPER LENGTH (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES FOR SHOULDER WIDTH — 7 bands (<=4 through 12 ft) on ramp sheet"
+        "shoulderTaper": "SHOULDER TAPER LENGTH (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES FOR SHOULDER WIDTH \u2014 7 bands (<=4 through 12 ft) on ramp sheet"
       },
       "note": "4 speed columns (45,50,55,65). Buffer + first 3 shoulder bands match 301-03; adds lateralShiftTaper (lane 10/11/12) and shoulder bands 9-12 ft.",
       "rows": [
@@ -664,7 +665,7 @@
   },
   "corridor": {
     "confidence": "drawing",
-    "description": "Upstream against traffic from work: ROLL AHEAD → BUFFER → SHOULDER TAPER (consumes station — unlike Family 2 overlay) → W21-5aR → W21-5bR → W20-1. Plan spacing callouts 1000'/1500'/1320' mapped to gaps A/B/C (nearest→farthest). No MERGING TAPER.",
+    "description": "Upstream against traffic from work: ROLL AHEAD \u2192 BUFFER \u2192 SHOULDER TAPER (consumes station \u2014 unlike Family 2 overlay) \u2192 W21-5aR \u2192 W21-5bR \u2192 W20-1. Plan spacing callouts 1000'/1500'/1320' mapped to gaps A/B/C (nearest\u2192farthest). No MERGING TAPER.",
     "zones": [
       {
         "id": "signC",
@@ -683,7 +684,7 @@
         },
         "dimensioned": true,
         "spans": "W20-1 to W21-5bR",
-        "note": "Plan callout 2640' (FREEWAY C) — ramp sheet uses standard freeway C unlike 301's 1320'."
+        "note": "Plan callout 2640' (FREEWAY C) \u2014 ramp sheet uses standard freeway C unlike 301's 1320'."
       },
       {
         "id": "signB",
@@ -887,7 +888,7 @@
         "excludedRows": [
           {
             "label": "MERGING TAPER",
-            "reason": "Shoulder closure — no merging/lane taper."
+            "reason": "Shoulder closure \u2014 no merging/lane taper."
           },
           {
             "label": "Vehicle Space",
@@ -968,7 +969,7 @@
         "sizeNonFreeway": "36x36",
         "sizeFreeway": "48x48",
         "signLibraryKey": "W20-01RM",
-        "signLibraryNote": "Plan uses mile-based XX on freeway; no spacing table — fixed freeway mile key."
+        "signLibraryNote": "Plan uses mile-based XX on freeway; no spacing table \u2014 fixed freeway mile key."
       },
       {
         "signCode": "W7-3a",
@@ -979,7 +980,7 @@
         "sizeNonFreeway": "24x18",
         "sizeFreeway": "36x30",
         "signLibraryKey": "W07-03aP",
-        "note": "Note 6 — supplemental plaque on W20-1 when work span > 2 miles."
+        "note": "Note 6 \u2014 supplemental plaque on W20-1 when work span > 2 miles."
       },
       {
         "signCode": "G20-2",
@@ -1032,7 +1033,7 @@
         "required": true,
         "longitudinalSpacing": {
           "maxFt": 40,
-          "sheetText": "Note 5 — not to exceed 40'."
+          "sheetText": "Note 5 \u2014 not to exceed 40'."
         },
         "runs": [
           {
@@ -1176,12 +1177,12 @@
     {
       "id": "w3-7a-not-in-size-table",
       "severity": "warning",
-      "assert": "W3-7a may not appear in 315-04 — tracked as optional sign."
+      "assert": "W3-7a may not appear in 315-04 \u2014 tracked as optional sign."
     },
     {
       "id": "downstream-500",
       "severity": "warning",
-      "assert": "Plan may show 500' downstream taper — confirm before relying on 50-100 default."
+      "assert": "Plan may show 500' downstream taper \u2014 confirm before relying on 50-100 default."
     }
   ],
   "knownExcerpts": {

@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 6 two-lane two-way / flagger)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Pedestrian/sidewalk sheet. Sign sizes + channelizing only — NO AW/buffer/taper/roll corridor tables."
+    "provenanceNote": "Pedestrian/sidewalk sheet. Sign sizes + channelizing only \u2014 NO AW/buffer/taper/roll corridor tables.",
+    "buildGuide": "619-519.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -84,7 +85,7 @@
     }
   ],
   "tableRoles": {
-    "note": "Pedestrian/sidewalk sheet. Sign sizes + channelizing only — NO AW/buffer/taper/roll corridor tables.",
+    "note": "Pedestrian/sidewalk sheet. Sign sizes + channelizing only \u2014 NO AW/buffer/taper/roll corridor tables.",
     "signSizes": "519-01",
     "channelizingApplication": "519-02"
   },
@@ -140,7 +141,7 @@
   },
   "corridor": {
     "confidence": "drawing",
-    "description": "Pedestrian detour — channelizing + sidewalk-closed signs; no vehicle corridor taper walk.",
+    "description": "Pedestrian detour \u2014 channelizing + sidewalk-closed signs; no vehicle corridor taper walk.",
     "zones": [
       {
         "id": "workArea",
@@ -179,7 +180,7 @@
         "alignIdx": 1,
         "name": "Upstream",
         "station0": "Sidewalk work",
-        "walkDirection": "N/A — pedestrian",
+        "walkDirection": "N/A \u2014 pedestrian",
         "rows": [
           {
             "rowNum": 1,
@@ -218,7 +219,7 @@
       }
     ],
     "liveBuild": "n/a",
-    "liveBuildNote": "Pedestrian sheet — no vehicle order-table build."
+    "liveBuildNote": "Pedestrian sheet \u2014 no vehicle order-table build."
   },
   "signs": {
     "confidence": "verbatim",
@@ -299,7 +300,7 @@
         "id": "centerlineCones",
         "sheetLabel": "CENTERLINE CONES",
         "required": false,
-        "note": "Optional — enhance flagger visibility; 100 ft min from flagger."
+        "note": "Optional \u2014 enhance flagger visibility; 100 ft min from flagger."
       },
       {
         "id": "channelizingDevices",
@@ -346,7 +347,7 @@
       "id": "no-merging-taper",
       "severity": "error",
       "source": "Sheet structure / flagger operation",
-      "assert": "Do not place MERGING TAPER or LANE TAPER — flagger operation uses stop/slow control, not a merge.",
+      "assert": "Do not place MERGING TAPER or LANE TAPER \u2014 flagger operation uses stop/slow control, not a merge.",
       "commonFailure": "Cloning 302/311 merging taper corridor onto a flagger sheet."
     },
     {

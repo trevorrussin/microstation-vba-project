@@ -19,7 +19,8 @@
     "transcribedBy": "Cursor (Family 1 TWLT sibling of 619-311)",
     "transcribedOn": "2026-08-03",
     "provenanceNote": "Two-way left turn lane closure. Table roles by content: 01=AW(A/B), 02=roll, 03=PV, 04=taper(buffer+lane only, no shoulder), 05=sizes. Plan dimensions L and L/2 (shifting) from laneTaper; no shoulder-taper columns. Extra signs W9-3, R4-7.",
-    "pageRotation": 0
+    "pageRotation": 0,
+    "buildGuide": "619-312.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -202,7 +203,7 @@
           "YY": "1000 FT."
         }
       ],
-      "note": "Sheet prints A/B only (no C column) — two advance warning signs."
+      "note": "Sheet prints A/B only (no C column) \u2014 two advance warning signs."
     },
     "312-02": {
       "title": "ROLL AHEAD DISTANCE",
@@ -695,7 +696,7 @@
           "zone": "laneTaper",
           "end": "upstream"
         },
-        "note": "Plan labels L/2 — half of lane taper L from Table 312-04."
+        "note": "Plan labels L/2 \u2014 half of lane taper L from Table 312-04."
       },
       {
         "id": "laneTaper",
@@ -870,7 +871,7 @@
               "end": "upstream"
             },
             "direction": "upstream",
-            "note": "L/2 overlay — does not consume station."
+            "note": "L/2 overlay \u2014 does not consume station."
           }
         ],
         "excludedRows": [
@@ -953,7 +954,7 @@
         "sizeNonFreeway": "36x36",
         "sizeFreeway": "48x48",
         "signLibraryBase": "W20-05L",
-        "note": "TWLT/left-side approach — SignLibrary W20-05L + legend suffix."
+        "note": "TWLT/left-side approach \u2014 SignLibrary W20-05L + legend suffix."
       },
       {
         "signCode": "W4-2L",
@@ -1151,7 +1152,7 @@
       "id": "no-shoulder-taper-row",
       "severity": "error",
       "source": "Table 312-04",
-      "assert": "No SHOULDER TAPER sequential row — table has no shoulder columns.",
+      "assert": "No SHOULDER TAPER sequential row \u2014 table has no shoulder columns.",
       "commonFailure": "Copying 311 shoulder overlay."
     },
     {

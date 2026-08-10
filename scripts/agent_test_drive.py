@@ -89,7 +89,7 @@ def reply_for_ask(line: str, args: argparse.Namespace) -> str:
         return (
             f"EXTEND the corridor. Define Upstream at Y={y} from X=1018000 to "
             f"X=1024000 (6000 ft). Downstream as needed. Approved — proceed "
-            "stations, every isSign, dims/labels/WS/chan/PV/AP, capture_view."
+            "stations, every isSign, dims/labels/WS/chan/PV/AP, view_drawing / run_visual_qa_captures."
         )
 
     # Multi-field asks: answer everything at once

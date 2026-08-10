@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 4 mobile)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Mobile parkway lane closure. 3 tables only — NO taper/buffer. Signs NYW8-33 + W20-5R. Moving-operation roll-ahead (higher than stationary). Plan spacing to W20-5R: 500' min / 2 mile max. If duration >15 min → reconfigure to 619-212."
+    "provenanceNote": "Mobile parkway lane closure. 3 tables only \u2014 NO taper/buffer. Signs NYW8-33 + W20-5R. Moving-operation roll-ahead (higher than stationary). Plan spacing to W20-5R: 500' min / 2 mile max. If duration >15 min \u2192 reconfigure to 619-212.",
+    "buildGuide": "619-114.build.md"
   },
   "applicability": {
     "roadType": "Parkway",
@@ -35,7 +36,7 @@
       "note": "Roll-ahead bands >=55 and 45-50; 65 uses >=55."
     },
     "laneWidthFt": null,
-    "laneWidthNote": "No taper table — lane width not a lookup.",
+    "laneWidthNote": "No taper table \u2014 lane width not a lookup.",
     "shoulderWidthBands": [
       "<= 4 ft",
       "5 - 7 ft",
@@ -153,7 +154,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "note": "MOVING OPERATION values (based on protective vehicle speed of 15 MPH) — higher than stationary 306/212.",
+      "note": "MOVING OPERATION values (based on protective vehicle speed of 15 MPH) \u2014 higher than stationary 306/212.",
       "rows": [
         {
           "speedBand": ">= 55 MPH",
@@ -379,7 +380,7 @@
     "dimensions": [
       {
         "zone": "gapA",
-        "label": "500' (MINIMUM) … 2 MILE (MAXIMUM)"
+        "label": "500' (MINIMUM) \u2026 2 MILE (MAXIMUM)"
       },
       {
         "zone": "rollAheadDistance",

@@ -29,6 +29,77 @@ from sheet_resolve import station_walk
 
 PERP_HALF_LEN_FT = 40.0  # Modules/PerpPlacement.bas:47 -- keep in sync
 
+# Defaults match today's hardcoded engineer-reference style. Sheet JSON may
+# override via top-level "annotationStyle" (see Data/sheet-specs/619-311.json).
+_DEFAULT_ANNOTATION_STYLE = {
+    "dimensionText": "lengthOnly",
+    "featureLabel": "nameOnly",
+    "overlayDimSide": "opposite",
+    "offsetsFt": {
+        "dimOutward": 15.0,
+        "labelExtra": 20.0,
+        "symbolLabel": 25.0,
+    },
+}
+
+_DEFAULT_CHANNELIZING_REPRESENTATION = {
+    "mode": "markers",
+    "markerHalfSizeFt": 1.5,
+}
+
+
+def annotation_style(spec: dict | None) -> dict:
+    """Merge sheet annotationStyle over defaults (deep-merge offsetsFt)."""
+    style = {
+        "dimensionText": _DEFAULT_ANNOTATION_STYLE["dimensionText"],
+        "featureLabel": _DEFAULT_ANNOTATION_STYLE["featureLabel"],
+        "overlayDimSide": _DEFAULT_ANNOTATION_STYLE["overlayDimSide"],
+        "offsetsFt": dict(_DEFAULT_ANNOTATION_STYLE["offsetsFt"]),
+    }
+    raw = (spec or {}).get("annotationStyle") or {}
+    for key in ("dimensionText", "featureLabel", "overlayDimSide"):
+        if key in raw and raw[key] is not None:
+            style[key] = raw[key]
+    offs = raw.get("offsetsFt") or {}
+    for key in ("dimOutward", "labelExtra", "symbolLabel"):
+        if key in offs and offs[key] is not None:
+            style["offsetsFt"][key] = float(offs[key])
+    return style
+
+
+def channelizing_representation(sym: dict | None) -> dict:
+    """Merge channelizingDevices.representation over marker defaults."""
+    out = dict(_DEFAULT_CHANNELIZING_REPRESENTATION)
+    raw = (sym or {}).get("representation") or {}
+    if raw.get("mode"):
+        out["mode"] = str(raw["mode"])
+    if raw.get("markerHalfSizeFt") is not None:
+        out["markerHalfSizeFt"] = float(raw["markerHalfSizeFt"])
+    return out
+
+
+def _primitive_id(align_idx: int, ref: str, kind: str) -> str:
+    """Stable id: {align}:{zone|runId|symbolId}:{kind}."""
+    clean = (ref or "unknown").replace(" ", "")
+    return f"{int(align_idx)}:{clean}:{kind}"
+
+
+def _dim_text(length_ft: float, style: dict) -> str:
+    policy = style.get("dimensionText") or "lengthOnly"
+    if policy == "lengthOnly":
+        return f"{length_ft:g}"
+    # Unknown policies fall back to length-only (never invent names on dims).
+    return f"{length_ft:g}"
+
+
+def _label_text(item: str, length_ft: float, style: dict) -> str:
+    name = _feature_label_text(item)
+    policy = style.get("featureLabel") or "nameOnly"
+    if policy == "nameAndLength":
+        return f"{name} {length_ft:g}'"
+    return name
+
+
 _ORDER_LABEL_KINDS = {
     "ROLL AHEAD": "RollAhead",
     "VEHICLE SPACE": "VehicleSpace",
@@ -69,6 +140,15 @@ def _should_annotate_non_sign_label(label: str, sheet_elements: str) -> bool:
     return False
 
 
+def _feature_label_text(item: str) -> str:
+    """Plan feature name only — length lives on the DimensionElement.
+    Strips the station_walk '(overlay)' suffix for overlay zones."""
+    t = " ".join((item or "").strip().split())
+    if t.upper().endswith("(OVERLAY)"):
+        t = t[: t.upper().rfind("(OVERLAY)")].strip()
+    return t
+
+
 def _outward_unit(tan_x: float, tan_y: float, outward_sign: float) -> tuple[float, float]:
     """Mirrors Modules/PerpPlacement.bas's OutwardUnit() exactly."""
     if outward_sign >= 0:
@@ -77,8 +157,8 @@ def _outward_unit(tan_x: float, tan_y: float, outward_sign: float) -> tuple[floa
 
 
 def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
-                  outward_sign: float = -1.0, offset_dist: float = 15.0,
-                  text_extra_along: float = 20.0, sheet_elements: str = "",
+                  outward_sign: float = -1.0, offset_dist: float | None = None,
+                  text_extra_along: float | None = None, sheet_elements: str = "",
                   range_pick: str = "min") -> list[dict]:
     """Compile one alignment's stations/dimensions/labels into an explicit
     list of placement primitives in absolute model coordinates.
@@ -90,34 +170,53 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
       {"kind": "station", "rowNum", "item", "stationFt", "x", "y", "tanX", "tanY"}
       {"kind": "dimension", "tip1": (x,y), "tip2": (x,y), "offset": (x,y), "text"}
       {"kind": "label", "x", "y", "text"}
-    "dimension"/"label" primitive shapes are chosen to map directly onto
-    PLACE_DIMENSION (x1,y1,x2,y2,ox,oy) and PLACE_TEXT_LABEL (text,x,y) --
-    execution is a thin loop over these, not a translation layer.
+    Offsets / label text / overlay side come from spec["annotationStyle"]
+    (defaults = engineer reference style). Each primitive carries
+    primitiveId + specRef for the placement registry.
 
     Does not call the bridge and does not require MicroStation to be open
     once `segments` has been fetched -- pure Python from there.
     """
     import alignment_geometry as ag  # local import: mcp-server-only dependency
 
+    style = annotation_style(spec)
+    offs = style["offsetsFt"]
+    if offset_dist is None:
+        offset_dist = float(offs["dimOutward"])
+    if text_extra_along is None:
+        text_extra_along = float(offs["labelExtra"])
+
     walk = [w for w in station_walk(spec, resolved, range_pick) if w["alignIdx"] == align_idx]
     primitives: list[dict] = []
+    zone_defs = {z["id"]: z for z in spec.get("corridor", {}).get("zones", [])}
+
+    def _zone_dimensioned(zone_id: str | None) -> bool:
+        # Sheet's own "dimensioned" flag wins; default True for zones that
+        # don't specify it (e.g. taper/buffer/roll-ahead all say True anyway).
+        return bool(zone_defs.get(zone_id, {}).get("dimensioned", True))
 
     prev_x, prev_y, _, _ = ag.station_to_xy(segments, 0.0)
     for row in walk:
         if row["rowNum"] is None:
             continue  # overlay zones don't consume a station in this walk
+        zone = str(row.get("zone") or row.get("item") or f"row{row['rowNum']}")
         x, y, tan_x, tan_y = ag.station_to_xy(segments, row["stationFt"])
         primitives.append({
             "kind": "station", "rowNum": row["rowNum"], "item": row["item"],
             "stationFt": row["stationFt"], "x": x, "y": y, "tanX": tan_x, "tanY": tan_y,
+            "primitiveId": _primitive_id(align_idx, zone, "station"),
+            "specRef": {"zone": zone, "run": None, "alignIdx": align_idx},
         })
 
         out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
 
         # Dimension every consecutive tick pair (tip-to-tip), Sign and
         # Non-Sign rows alike, same gate as PlaceOrderTableDimensions
-        # ("spacing > 0" -- skip zero-length overlay-adjacent artifacts).
-        if row["lengthFt"] > 0:
+        # ("spacing > 0" -- skip zero-length overlay-adjacent artifacts) --
+        # unless the zone that actually determines this row's length is
+        # marked dimensioned=False on the sheet (e.g. gapEndRoadWork, which
+        # the real sheet expresses as a text callout, not a dimension line).
+        if row["lengthFt"] > 0 and _zone_dimensioned(row.get("lengthZone", zone)):
             t1x = prev_x + out_x * PERP_HALF_LEN_FT
             t1y = prev_y + out_y * PERP_HALF_LEN_FT
             t2x = x + out_x * PERP_HALF_LEN_FT
@@ -126,12 +225,15 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
             oy = 0.5 * (t1y + t2y) + out_y * offset_dist
             primitives.append({
                 "kind": "dimension", "tip1": (t1x, t1y), "tip2": (t2x, t2y),
-                "offset": (ox, oy), "text": f"{row['lengthFt']:g}",
+                "offset": (ox, oy), "text": _dim_text(row["lengthFt"], style),
+                "primitiveId": _primitive_id(align_idx, zone, "dimension"),
+                "specRef": {"zone": zone, "run": None, "alignIdx": align_idx},
             })
 
         # Name labels below the dim line: Non-Sign rows only, gated on
         # whether this sheet's elements list actually has this feature
-        # (same as ShouldAnnotateNonSignLabel).
+        # (same as ShouldAnnotateNonSignLabel). Length stays on the dim —
+        # do not duplicate it in the label text (engineer reference style).
         if (row["type"] == "Non-Sign" and row["lengthFt"] > 0
                 and _should_annotate_non_sign_label(row["item"], sheet_elements)):
             mid_x = 0.5 * (prev_x + x) + out_x * PERP_HALF_LEN_FT
@@ -139,10 +241,57 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
             label_out = offset_dist + text_extra_along
             tx = mid_x + out_x * label_out
             ty = mid_y + out_y * label_out
-            txt = f"{row['item']} {row['lengthFt']:g}'"
-            primitives.append({"kind": "label", "x": tx, "y": ty, "text": txt})
+            primitives.append({
+                "kind": "label", "x": tx, "y": ty,
+                "text": _label_text(row["item"], row["lengthFt"], style),
+                "primitiveId": _primitive_id(align_idx, zone, "label"),
+                "specRef": {"zone": zone, "run": None, "alignIdx": align_idx},
+            })
 
         prev_x, prev_y = x, y
+
+    # Overlay zones (e.g. SHOULDER TAPER inside gap A): dimension + label on
+    # the opposite side of the main sign/dim column by default
+    # (annotationStyle.overlayDimSide). Still no sequential station tick.
+    overlay_sign = (
+        -outward_sign if style.get("overlayDimSide", "opposite") == "opposite"
+        else outward_sign
+    )
+    for row in walk:
+        if row.get("type") != "Overlay" or float(row.get("lengthFt") or 0) <= 0:
+            continue
+        label = _feature_label_text(row["item"])
+        if not _should_annotate_non_sign_label(label, sheet_elements):
+            continue
+        zone = str(row.get("zone") or label)
+        anchor, far = _overlay_span(row)
+        ax, ay, _, _ = ag.station_to_xy(segments, anchor)
+        fx, fy, _, _ = ag.station_to_xy(segments, far)
+        mx, my, mtx, mty = ag.station_to_xy(segments, 0.5 * (anchor + far))
+        out_x, out_y = _outward_unit(mtx, mty, overlay_sign)
+        t1x = ax + out_x * PERP_HALF_LEN_FT
+        t1y = ay + out_y * PERP_HALF_LEN_FT
+        t2x = fx + out_x * PERP_HALF_LEN_FT
+        t2y = fy + out_y * PERP_HALF_LEN_FT
+        ox = 0.5 * (t1x + t2x) + out_x * offset_dist
+        oy = 0.5 * (t1y + t2y) + out_y * offset_dist
+        primitives.append({
+            "kind": "dimension", "tip1": (t1x, t1y), "tip2": (t2x, t2y),
+            "offset": (ox, oy), "text": _dim_text(row["lengthFt"], style),
+            "primitiveId": _primitive_id(align_idx, zone, "dimension"),
+            "specRef": {"zone": zone, "run": None, "alignIdx": align_idx,
+                        "overlay": True},
+        })
+        label_out = offset_dist + text_extra_along
+        primitives.append({
+            "kind": "label",
+            "x": mx + out_x * (PERP_HALF_LEN_FT + label_out),
+            "y": my + out_y * (PERP_HALF_LEN_FT + label_out),
+            "text": _label_text(row["item"], row["lengthFt"], style),
+            "primitiveId": _primitive_id(align_idx, zone, "label"),
+            "specRef": {"zone": zone, "run": None, "alignIdx": align_idx,
+                        "overlay": True},
+        })
 
     return primitives
 
@@ -225,6 +374,7 @@ def compile_channelizing(spec: dict, resolved: dict, align_idx: int, segments,
     if not sym:
         return []
     long_spacing = float((sym.get("longitudinalSpacing") or {}).get("maxFt", 40.0))
+    representation = channelizing_representation(sym)
 
     walk = [w for w in station_walk(spec, resolved, range_pick) if w["alignIdx"] == align_idx]
     zone_range = _zone_station_ranges(spec, resolved, align_idx, range_pick)
@@ -266,7 +416,7 @@ def compile_channelizing(spec: dict, resolved: dict, align_idx: int, segments,
             stations = [lo + (hi - lo) * i / n_steps for i in range(count)]
         else:
             length = hi - lo
-            n_steps = max(int(round(length / long_spacing)), 1) if length > 0 else 0
+            n_steps = max(math.ceil(length / long_spacing), 1) if length > 0 else 0
             stations = [lo + (hi - lo) * i / n_steps for i in range(n_steps + 1)] if length > 0 else [lo]
 
         # Lateral offset per station. Taper runs interpolate from 0 (at the
@@ -297,8 +447,15 @@ def compile_channelizing(spec: dict, resolved: dict, align_idx: int, segments,
             offset = off_lo + t * (off_hi - off_lo)
             x, y, tan_x, tan_y = ag.station_to_xy(segments, sta)
             out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
-            prim = {"kind": "cone", "run": run["id"], "stationFt": sta,
-                    "x": x + out_x * offset, "y": y + out_y * offset}
+            prim = {
+                "kind": "cone", "run": run["id"], "stationFt": sta,
+                "x": x + out_x * offset, "y": y + out_y * offset,
+                "representation": dict(representation),
+                "primitiveId": _primitive_id(align_idx, run["id"], "cone"),
+                "specRef": {
+                    "zone": zone_id, "run": run["id"], "alignIdx": align_idx,
+                },
+            }
             if note:
                 prim["note"] = note
             primitives.append(prim)
@@ -413,6 +570,8 @@ def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
     import alignment_geometry as ag
 
     zone_range = _zone_station_ranges(spec, resolved, align_idx, range_pick)
+    style = annotation_style(spec)
+    symbol_label_out = float(style["offsetsFt"]["symbolLabel"])
     signs_mounted_on: dict[str, dict] = {
         s["mountedOn"]: s for s in spec["signs"]["items"]
         if s.get("postMounted") is False and s.get("mountedOn")
@@ -440,24 +599,47 @@ def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
         px = x + out_x * offset_ft
         py = y + out_y * offset_ft
         angle_deg = math.degrees(math.atan2(tan_y, tan_x))
-
+        kind = "protectiveVehicle" if is_vehicle else "arrowPanel"
         prim = {
-            "kind": "protectiveVehicle" if is_vehicle else "arrowPanel",
+            "kind": kind,
             "id": item["id"], "cellName": item.get("cellHint") or "TWZAP_P",
             "x": px, "y": py, "angleDeg": angle_deg, "stationFt": sta,
             "requiredNote": item.get("required"),
             "lateralOffsetFt": offset_ft,
+            "primitiveId": _primitive_id(align_idx, item["id"], kind),
+            "specRef": {
+                "zone": anchor.get("zone"), "run": None,
+                "symbolId": item["id"], "alignIdx": align_idx,
+            },
         }
         if offset_warning:
             prim["lateralOffsetWarning"] = offset_warning
         primitives.append(prim)
         prim_by_id[item["id"]] = prim
+        if is_arrow_panel:
+            # Name under the cell (engineer reference style) — not a dim.
+            primitives.append({
+                "kind": "label",
+                "x": px + out_x * symbol_label_out,
+                "y": py + out_y * symbol_label_out,
+                "text": "ARROW PANEL",
+                "primitiveId": _primitive_id(align_idx, "arrowPanel", "label"),
+                "specRef": {
+                    "zone": anchor.get("zone"), "run": None,
+                    "symbolId": "arrowPanel", "alignIdx": align_idx,
+                },
+            })
 
         if item["id"] in signs_mounted_on:
             sign = signs_mounted_on[item["id"]]
             primitives.append({
                 "kind": "vehicleMountedSign", "signCode": sign["signCode"],
                 "mountedOn": item["id"], "x": px, "y": py, "angleDeg": angle_deg,
+                "primitiveId": _primitive_id(align_idx, sign["signCode"], "vehicleMountedSign"),
+                "specRef": {
+                    "zone": anchor.get("zone"), "run": None,
+                    "signNum": sign["signCode"], "alignIdx": align_idx,
+                },
             })
 
     # Second pass: link "OR" alternatives between already-compiled
@@ -571,6 +753,8 @@ def compile_hatch(spec: dict, resolved: dict, align1_segments, align2_segments,
         "workAreaLengthFt": length, "widthFt": width,
         "align2ProjectedStationOnAlign1Ft": p2_projected_station,
         "align2PerpDistFromAlign1Ft": p2_perp_dist_ft,
+        "primitiveId": "0:workArea:hatch",
+        "specRef": {"zone": "workArea", "run": None, "alignIdx": 0},
     }]
 
     sym = next((s for s in spec["symbols"]["items"] if s["id"] == "channelizingDevices"), None)
@@ -596,9 +780,12 @@ def compile_hatch(spec: dict, resolved: dict, align1_segments, align2_segments,
                     break
                 sx, sy = p1x + (p2x - p1x) * t, p1y + (p2y - p1y) * t
                 primitives.append({
-                    "kind": "transverseRun", "run": "transverse", "stationFromP1Ft": k * max_spacing,
+                    "kind": "transverseRun", "run": "transverse",
+                    "stationFromP1Ft": k * max_spacing,
                     "tip1": offset_pt(sx, sy, 0.0), "tip2": offset_pt(sx, sy, width),
                     "note": transverse.get("sheetText"),
+                    "primitiveId": _primitive_id(0, f"transverse{k}", "transverseRun"),
+                    "specRef": {"zone": "workArea", "run": "transverse", "alignIdx": 0},
                 })
 
     return primitives

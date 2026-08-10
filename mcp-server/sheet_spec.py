@@ -27,7 +27,10 @@ from sheet_resolve import (
     shoulder_band,
     spec_path,
     has_spec,
+    build_guide_path,
+    load_build_guide,
     load,
+    load_raw_path,
     legend_suffix,
     resolve,
     sign_library_key,
@@ -39,6 +42,8 @@ from sheet_resolve import (
 
 from sheet_compile import (
     PERP_HALF_LEN_FT,
+    annotation_style,
+    channelizing_representation,
     compile_plan,
     compile_channelizing,
     check_taper_continuity,
@@ -48,14 +53,16 @@ from sheet_compile import (
 
 from sheet_rules import (
     check_corridor_topology,
+    compare_station_tables,
     run_rules_gate,
 )
 
 __all__ = [
     "SPEC_DIR", "SpecError", "allowed_speeds", "shoulder_band", "spec_path",
-    "has_spec", "load", "legend_suffix", "resolve", "sign_library_key",
+    "has_spec", "load", "load_raw_path", "legend_suffix", "resolve", "sign_library_key",
     "zone_length", "canonical_order_label", "order_table_rows", "station_walk",
-    "PERP_HALF_LEN_FT", "compile_plan", "compile_channelizing",
+    "PERP_HALF_LEN_FT", "annotation_style", "channelizing_representation",
+    "compile_plan", "compile_channelizing",
     "check_taper_continuity", "compile_symbols", "compile_hatch",
-    "check_corridor_topology", "run_rules_gate",
+    "check_corridor_topology", "compare_station_tables", "run_rules_gate",
 ]

@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 5 ramp-adjacent)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "113 MOBILE left shoulder on exit ramp — 2 tables only"
+    "provenanceNote": "113 MOBILE left shoulder on exit ramp \u2014 2 tables only",
+    "buildGuide": "619-113.build.md"
   },
   "applicability": {
     "roadType": "Freeway",
@@ -136,37 +137,37 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "note": "No numbered roll-ahead table — Note gives 80 ft (<=45 mph ramp) / 160 ft (>45).",
-        "rows": [
-            {
-              "speedBand": "> 45 MPH",
-              "minMph": 46,
-              "maxMph": null,
-              "min": {
-                "ft": 160,
-                "skipLines": 4
-              },
-              "max": {
-                "ft": 200,
-                "skipLines": 5
-              },
-              "note": "Note 4 prefers 160 ft when ramp speed > 45 mph."
-            },
-            {
-              "speedBand": "<= 45 MPH",
-              "minMph": null,
-              "maxMph": 45,
-              "min": {
-                "ft": 80,
-                "skipLines": 2
-              },
-              "max": {
-                "ft": 120,
-                "skipLines": 3
-              },
-              "note": "Note 4 prefers 80 ft when ramp speed <= 45 mph."
-            }
-          ]
+      "note": "No numbered roll-ahead table \u2014 Note gives 80 ft (<=45 mph ramp) / 160 ft (>45).",
+      "rows": [
+        {
+          "speedBand": "> 45 MPH",
+          "minMph": 46,
+          "maxMph": null,
+          "min": {
+            "ft": 160,
+            "skipLines": 4
+          },
+          "max": {
+            "ft": 200,
+            "skipLines": 5
+          },
+          "note": "Note 4 prefers 160 ft when ramp speed > 45 mph."
+        },
+        {
+          "speedBand": "<= 45 MPH",
+          "minMph": null,
+          "maxMph": 45,
+          "min": {
+            "ft": 80,
+            "skipLines": 2
+          },
+          "max": {
+            "ft": 120,
+            "skipLines": 3
+          },
+          "note": "Note 4 prefers 80 ft when ramp speed <= 45 mph."
+        }
+      ]
     },
     "113-02": {
       "title": "REQUIRED SIGN SIZES",

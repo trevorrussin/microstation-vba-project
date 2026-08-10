@@ -17,14 +17,15 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 3 short-duration sibling of 619-301)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Short-duration shoulder. NO taper/buffer table. Operator remains in PV. Roll-ahead by speed. Plan spacing ~1000'. Signs W21-5 / W20-1. P+TMIA not PVH+TMIA."
+    "provenanceNote": "Short-duration shoulder. NO taper/buffer table. Operator remains in PV. Roll-ahead by speed. Plan spacing ~1000'. Signs W21-5 / W20-1. P+TMIA not PVH+TMIA.",
+    "buildGuide": "619-205.build.md"
   },
   "applicability": {
     "roadType": "Freeway/Multilane Divided",
     "roadway": "Multilane divided or freeway",
     "closure": "Right shoulder closure",
     "duration": "Short Duration",
-    "durationDefinition": "Work that occupies a location up to 1 hour (short duration) — operator stays in the protective vehicle.",
+    "durationDefinition": "Work that occupies a location up to 1 hour (short duration) \u2014 operator stays in the protective vehicle.",
     "speedRangeMph": {
       "allowed": [
         45,
@@ -35,7 +36,7 @@
       "note": "Roll-ahead table covers >=55 and 45-50 bands; 65 uses >=55 row."
     },
     "laneWidthFt": null,
-    "laneWidthNote": "No lane/merging taper on this sheet — lane width is not a lookup input.",
+    "laneWidthNote": "No lane/merging taper on this sheet \u2014 lane width is not a lookup input.",
     "shoulderWidthBands": [
       "<= 4 ft",
       "5 - 7 ft",
@@ -102,7 +103,7 @@
     }
   ],
   "tableRoles": {
-    "note": "Family 3 short-duration shoulder. 3 tables only — NO taperAndBuffer role. 205-02=rollAheadDistance (speed bands). 205-03=signSizes.",
+    "note": "Family 3 short-duration shoulder. 3 tables only \u2014 NO taperAndBuffer role. 205-02=rollAheadDistance (speed bands). 205-03=signSizes.",
     "protectiveVehicle": "205-01",
     "rollAheadDistance": "205-02",
     "signSizes": "205-03"
@@ -116,7 +117,7 @@
         "exposureCondition",
         "roadTypeForProtectiveVehicle"
       ],
-      "note": "Short-duration: 4 rows (lane+shoulder). FREEWAY column only in PDF text layer. P+TMIA codes — not 301-01 PVH+TMIA.",
+      "note": "Short-duration: 4 rows (lane+shoulder). FREEWAY column only in PDF text layer. P+TMIA codes \u2014 not 301-01 PVH+TMIA.",
       "rows": [
         {
           "closureType": "LANE CLOSURE OR ENCROACHMENT",
@@ -165,7 +166,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN and MAX by posted speed (not GVW like 301-02).",
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES \u2014 STATIONARY OPERATION MIN and MAX by posted speed (not GVW like 301-02).",
       "note": "2 speed bands (>=55, 45-50). Values match 401-02/402-02 first two rows.",
       "rows": [
         {
@@ -418,7 +419,7 @@
         "required": true,
         "longitudinalSpacing": {
           "maxFt": 40,
-          "sheetText": "Plan — 40' cone spacing."
+          "sheetText": "Plan \u2014 40' cone spacing."
         },
         "runs": [
           {
@@ -495,7 +496,7 @@
     {
       "id": "w21-5-generic",
       "severity": "warning",
-      "assert": "Sheet uses W21-5; SignLibrary key W21-05 — confirm cell exists."
+      "assert": "Sheet uses W21-5; SignLibrary key W21-05 \u2014 confirm cell exists."
     }
   ],
   "knownExcerpts": {

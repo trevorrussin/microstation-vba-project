@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 9 mowing/mulching/marking)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Family 9 reference. Two-lane mowing/mulching lane encroachment, shoulder <8'. PVH/PVL×speed PV matrix; GVW×speed moving roll-ahead; W21-8/W23-1/NYW cluster. Fallback to 619-022 when vehicle stays on shoulder."
+    "provenanceNote": "Family 9 reference. Two-lane mowing/mulching lane encroachment, shoulder <8'. PVH/PVL\u00d7speed PV matrix; GVW\u00d7speed moving roll-ahead; W21-8/W23-1/NYW cluster. Fallback to 619-022 when vehicle stays on shoulder.",
+    "buildGuide": "619-023.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -107,7 +108,7 @@
     }
   ],
   "tableRoles": {
-    "note": "3 tables. NO taperAndBuffer / advanceWarningSpacing. Roll is GVW×speed matrix encoded as speed-keyed min/max.",
+    "note": "3 tables. NO taperAndBuffer / advanceWarningSpacing. Roll is GVW\u00d7speed matrix encoded as speed-keyed min/max.",
     "protectiveVehicle": "023-01",
     "rollAheadDistance": "023-02",
     "signSizes": "023-03"
@@ -168,7 +169,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "note": "Printed as GVW columns (9,500-21,999 / 22,000+) × speed rows (45-55 / <=40), MOVING OPERATION 15 MPH MAX. Encoded speed-keyed with min=heavy / max=light for resolve(); lightGvw/heavyGvw preserve verbatim cells.",
+      "note": "Printed as GVW columns (9,500-21,999 / 22,000+) \u00d7 speed rows (45-55 / <=40), MOVING OPERATION 15 MPH MAX. Encoded speed-keyed with min=heavy / max=light for resolve(); lightGvw/heavyGvw preserve verbatim cells.",
       "rows": [
         {
           "speedBand": "45 - 55 MPH",
@@ -386,7 +387,7 @@
         "sizeNonFreeway": "36x36",
         "sizeFreeway": "48x48",
         "signLibraryKey": null,
-        "note": "Not in SignLibrary.bas — cell TBD."
+        "note": "Not in SignLibrary.bas \u2014 cell TBD."
       },
       {
         "signCode": "NYW8-35",

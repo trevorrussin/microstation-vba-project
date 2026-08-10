@@ -206,6 +206,9 @@ Public Function ExecPlaceElementRun(elementIdx As Integer, verticesTSV As String
     lineEl.LineWeight = 2
     On Error Resume Next
     lineEl.Level = ActiveDesignFile.Levels(lvlName)
+    ' Force solid — TWZCD_P ByLevel custom linestyle stamps huge orange
+    ' cones along the whole polyline (live 2026-08-05 engineer QA).
+    lineEl.LineStyle = ActiveDesignFile.LineStyles(0)
     On Error GoTo ElemError
     ActiveModelReference.AddElement lineEl
     lineEl.Rewrite
@@ -217,6 +220,77 @@ Public Function ExecPlaceElementRun(elementIdx As Integer, verticesTSV As String
 
 ElemError:
     ExecPlaceElementRun = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' ============================================================
+' DISCRETE CHANNELIZING MARKERS (small orange squares)
+' verticesTSV: pipe-separated "x,y,z" cone centers. halfSizeFt is half
+' the square side (default 1.5 => 3x3 ft). Solid linestyle + color 6 on
+' TWZCD_P — matches engineer hand-drawn reference; avoids ByLevel cone
+' linestyle that reads as a solid orange wash when used on polylines.
+' ============================================================
+Public Function ExecPlaceChannelizingMarkers(verticesTSV As String, _
+                                              Optional halfSizeFt As Double = 1.5) As String
+    On Error GoTo MkError
+
+    Dim pts() As String
+    pts = Split(verticesTSV, "|")
+    Dim n As Integer: n = UBound(pts) + 1
+    If n < 1 Then
+        ExecPlaceChannelizingMarkers = "ERROR" & vbTab & "note=need at least 1 vertex"
+        Exit Function
+    End If
+    If halfSizeFt <= 0 Then halfSizeFt = 1.5
+
+    Dim lvlName As String
+    lvlName = DrawElements.GetElementLevel(2)  ' Channelizing Devices
+
+    Dim i As Integer, coords() As String
+    Dim cx As Double, cy As Double, cz As Double
+    Dim ids As String: ids = ""
+    Dim placed As Integer: placed = 0
+
+    For i = 0 To n - 1
+        coords = Split(pts(i), ",")
+        If UBound(coords) < 1 Then GoTo NextMk
+        cx = CDbl(coords(0)): cy = CDbl(coords(1))
+        If UBound(coords) >= 2 Then cz = CDbl(coords(2)) Else cz = 0
+
+        Dim sq(0 To 3) As Point3d
+        sq(0).X = cx - halfSizeFt: sq(0).Y = cy - halfSizeFt: sq(0).Z = cz
+        sq(1).X = cx + halfSizeFt: sq(1).Y = cy - halfSizeFt: sq(1).Z = cz
+        sq(2).X = cx + halfSizeFt: sq(2).Y = cy + halfSizeFt: sq(2).Z = cz
+        sq(3).X = cx - halfSizeFt: sq(3).Y = cy + halfSizeFt: sq(3).Z = cz
+
+        Dim shapeEl As ShapeElement
+        Set shapeEl = CreateShapeElement1(Nothing, sq)
+        shapeEl.Color = 6
+        shapeEl.LineWeight = 2
+        On Error Resume Next
+        shapeEl.Level = ActiveDesignFile.Levels(lvlName)
+        shapeEl.LineStyle = ActiveDesignFile.LineStyles(0)
+        On Error GoTo MkError
+        ActiveModelReference.AddElement shapeEl
+        shapeEl.Rewrite
+        If ids <> "" Then ids = ids & ","
+        ids = ids & CStr(ElIDAsDouble(shapeEl.ID))
+        placed = placed + 1
+NextMk:
+    Next i
+
+    If placed = 0 Then
+        ExecPlaceChannelizingMarkers = "ERROR" & vbTab & "note=no markers placed"
+        Exit Function
+    End If
+    ExecPlaceChannelizingMarkers = "OK" & vbTab & "level=" & lvlName & vbTab & _
+        "markerCount=" & placed & vbTab & "halfSizeFt=" & halfSizeFt & vbTab & _
+        "elementId=" & Split(ids, ",")(0) & vbTab & _
+        "createdElementIds=" & ids & vbTab & _
+        "note=placed discrete channelizing markers"
+    Exit Function
+
+MkError:
+    ExecPlaceChannelizingMarkers = "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 ' ============================================================
@@ -542,6 +616,19 @@ Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
     ' ny_Plan has ShowSecondaryText=True (primary above + secondary
     ' below). Force one measurement only for the placement copy —
     ' do not OverrideTextHeight here (annotation scale would explode it).
+    '
+    ' Do NOT restore oStyle.ShowSecondaryText after assigning it to oDim.
+    ' oDim.DimensionStyle links to the shared NAMED style object by
+    ' reference, not a snapshot, and MicroStation defers a dimension's real
+    ' sub-geometry (arrows/text/witness lines) to the next redraw rather
+    ' than computing it synchronously here. Root cause of every dimension
+    ' in a multi-dimension batch rendering invisible except the last one:
+    ' restoring ShowSecondaryText=True right after assignment left the
+    ' EARLIER dimension's pending geometry to be computed against a style
+    ' state that a later call's own mutate-then-restore cycle stomped on
+    ' first. Leaving it False (never restored) means every dimension this
+    ' function places from here on renders against a stable, single style
+    ' state — confirmed live placing 8 dimensions back-to-back.
     On Error Resume Next
     Dim oStyle As DimensionStyle
     Dim styleErrNum As Long: styleErrNum = 0
@@ -552,13 +639,10 @@ Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
         styleErrDesc = Err.Description
         Err.Clear
     End If
-    Dim savedSec As Boolean
     Dim styleApplied As Boolean: styleApplied = False
     If Not oStyle Is Nothing Then
-        savedSec = oStyle.ShowSecondaryText
         oStyle.ShowSecondaryText = False
         Set oDim.DimensionStyle = oStyle
-        oStyle.ShowSecondaryText = savedSec
         If Err.Number = 0 Then styleApplied = True Else styleErrNum = Err.Number: styleErrDesc = Err.Description
     End If
     On Error GoTo DimErr

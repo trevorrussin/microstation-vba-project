@@ -1,0 +1,31 @@
+# Specific English feature terms → level-name substrings (OR'd).
+# Discipline / category words (drainage, traffic, utilities, …) live in
+# Data/level-categories.tsv and match EVERY coded level in that HDM letter
+# (D*, T*, U*, …) — do not duplicate those here.
+#
+# Format:  alias<TAB>needle1|needle2|needle3
+
+catch basin	DCB
+catchbasin	DCB
+inlet	DINV|DCB
+manhole	DSM|DCB
+culvert	CULV|DSSD|DCB
+pipe	PIPE|DCP|DCB|DSSD
+channelizing	TWZCD
+barrier	TWZB|BA_
+sign	SF_|SFB_|TWZSGN
+curb	CURB|BDC|BDPC
+sidewalk	SW_|BDSW|SIDEWALK
+guardrail	GR_|BGP|GUARD
+fence	FNC|BFNC|EFNS|EFNV
+electric	ECT|EDMC|UELC
+lighting	LITE|LIGHT|LELTR
+gas	UGAS|GAS
+water	UWAT|WATER
+existing	_E|_E_|EX_
+proposed	_P|_P_
+demolition	DEMO|DEM_
+centerline	CL_|ALG
+hatch	HATCH|TWZWS
+dtm	DTM|TIN
+tin	TIN|DTM

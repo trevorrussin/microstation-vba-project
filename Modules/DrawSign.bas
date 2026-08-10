@@ -422,15 +422,26 @@ Public Sub PlaceSignAssembly(attachmentPt As Point3d, signNum As String, signSiz
     stemEl.Rewrite
 
     ' --- Text label beyond the face ---
+    ' G20-* faces already carry the full legend (END ROAD WORK, etc.);
+    ' placing the code again clutters the assembly (engineer QA 2026-08-05).
+    ' Size-only callout stays for sizing QA.
     CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
     CadInputQueue.SendKeyin "ACTIVE COLOR 0"
     CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
     CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
     CadInputQueue.SendCommand "TEXTEDITOR PLACE"
-    CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & signNum & """"
-    If Len(signSize) > 0 Then
-        CadInputQueue.SendCommand "TEXTEDITOR PLAYCOMMAND KEY_DOWN KEY_CODE 0x06 CONTROL_KEY_STATE UP SHIFT_KEY_STATE UP ALT_KEY_STATE UP"
-        Call InsertTextWithInchMarks(signSize)
+    If Left$(UCase$(signNum), 4) = "G20-" Then
+        If Len(signSize) > 0 Then
+            Call InsertTextWithInchMarks(signSize)
+        Else
+            CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & signNum & """"
+        End If
+    Else
+        CadInputQueue.SendKeyin "TEXTEDITOR PLAYCOMMAND INSERT_TEXT """ & signNum & """"
+        If Len(signSize) > 0 Then
+            CadInputQueue.SendCommand "TEXTEDITOR PLAYCOMMAND KEY_DOWN KEY_CODE 0x06 CONTROL_KEY_STATE UP SHIFT_KEY_STATE UP ALT_KEY_STATE UP"
+            Call InsertTextWithInchMarks(signSize)
+        End If
     End If
     Dim textPt As Point3d
     textPt.X = faceOrigin.X + dirX * (halfFace + 20#)

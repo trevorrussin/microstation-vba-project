@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 5 ramp-adjacent)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Family 5 long-term exit-ramp. Lane+3band; gaps 1000/1500/2640 (standard freeway C)."
+    "provenanceNote": "Family 5 long-term exit-ramp. Lane+3band; gaps 1000/1500/2640 (standard freeway C).",
+    "buildGuide": "619-518.build.md"
   },
   "applicability": {
     "roadType": "Freeway",
@@ -444,7 +445,7 @@
         "order": 3,
         "kind": "sign",
         "signCode": "W20-5",
-        "sheetLegend": "RIGHT LANE CLOSED ½ MILE"
+        "sheetLegend": "RIGHT LANE CLOSED \u00bd MILE"
       },
       {
         "id": "gapB",
@@ -475,7 +476,7 @@
         "dimensioned": true,
         "spans": "W4-2R to upstream end of MERGING TAPER",
         "containsOverlay": "shoulderTaper",
-        "note": "Fixed plan callout — no advance-warning spacing table."
+        "note": "Fixed plan callout \u2014 no advance-warning spacing table."
       },
       {
         "id": "shoulderTaper",
@@ -710,7 +711,7 @@
       },
       {
         "signCode": "W20-5",
-        "sheetLegend": "RIGHT LANE CLOSED ½ MILE",
+        "sheetLegend": "RIGHT LANE CLOSED \u00bd MILE",
         "legendSubstitution": null,
         "shape": "diamond",
         "warningFlags": false,

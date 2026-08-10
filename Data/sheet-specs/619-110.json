@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 7 mobile)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Freeway mobile shoulder closure (no lane encroachment, shoulder >=8'). 3 tables. W8-23 only. PV matrix uses PVH+TMIA (like 301), NOT P,TMIA. Roll-ahead is GVW-keyed MOVING values (200/5-240/6 light; 160/4-200/5 heavy) \u2014 header '45-60 / w 55' is context like 301, not row keys. Fallback 619-205. Errata 1 Eff. 09/01/23 (EB 23-016)."
+    "provenanceNote": "Freeway mobile shoulder closure (no lane encroachment, shoulder >=8'). 3 tables. W8-23 only. PV matrix uses PVH+TMIA (like 301), NOT P,TMIA. Roll-ahead is GVW-keyed MOVING values (200/5-240/6 light; 160/4-200/5 heavy) \u2014 header '45-60 / w 55' is context like 301, not row keys. Fallback 619-205. Errata 1 Eff. 09/01/23 (EB 23-016).",
+    "buildGuide": "619-110.build.md"
   },
   "applicability": {
     "roadType": "Freeway",

@@ -28,9 +28,15 @@ Do not drop sheet features because a verbal hint suggested they were optional.
 
 After placing dims/labels/PV/AP/workspace/channelizing:
 
-1. `adjust_view` + `capture_view` (or `view_capture`) on the critical spans
-2. Check: dim length above / label below / X-centered; PV in VS bay; no AP/PV overlap;
-   channelizing stops where the sheet shows; workspace hatch in the work area
-3. Fix what you can see yourself; only then ask the engineer to review
+1. Sheet builds: `run_visual_qa_captures` (or `run_sheet_build` which calls it).
+   The chat driver attaches those frames as vision + panel SCREENSHOT — review
+   them. Do **not** call `capture_view` from the chat agent (MCP-only); use
+   `view_drawing` for ad-hoc looks outside scripted QA.
+2. General CAD: `adjust_view` + `view_drawing` on the critical spans.
+3. Check: dim length above / label below / X-centered; PV in bay per sheet;
+   no AP/PV overlap; channelizing stops where the sheet shows; workspace hatch
+   in the work area.
+4. Fix what you can see yourself; only then ask the engineer to review.
 
 Log non-obvious sheet-registry gaps and QA gotchas in `dev-notes/agent-log.md`.
+For named sheets, prefer updating `Data/sheet-specs/<sheet>.build.md` too.

@@ -17,11 +17,12 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Misc work-beyond-shoulder)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Work beyond shoulder, all roadways. Advance-placement distance table + W20-1/G20-1/G20-2 sizes. No PV/roll/tapers. live-build n/a (sign-only)."
+    "provenanceNote": "Work beyond shoulder, all roadways. Advance-placement distance table + W20-1/G20-1/G20-2 sizes. No PV/roll/tapers. live-build n/a (sign-only).",
+    "buildGuide": "619-080.build.md"
   },
   "applicability": {
     "roadType": "All Roadways",
-    "roadway": "All roadways — work beyond the shoulders within the right-of-way",
+    "roadway": "All roadways \u2014 work beyond the shoulders within the right-of-way",
     "closure": "Work beyond shoulder",
     "duration": "Any (special)",
     "speedRangeMph": {

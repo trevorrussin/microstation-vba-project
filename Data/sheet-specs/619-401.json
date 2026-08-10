@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 3 intermediate sibling of 619-301)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Intermediate shoulder closure. 401-03 buffer+shoulder match 301-03; adds laneTaper + channelizing matrix; 20' device spacing; roll-ahead speed-keyed (not GVW); PVH+TMIA."
+    "provenanceNote": "Intermediate shoulder closure. 401-03 buffer+shoulder match 301-03; adds laneTaper + channelizing matrix; 20' device spacing; roll-ahead speed-keyed (not GVW); PVH+TMIA.",
+    "buildGuide": "619-401.build.md"
   },
   "applicability": {
     "roadType": "Freeway/Multilane Divided",
@@ -32,7 +33,7 @@
         55,
         65
       ],
-      "note": "Table 301-03 covers 45,50,55,65 only — no 25-40 or 60 rows in PDF text layer."
+      "note": "Table 301-03 covers 45,50,55,65 only \u2014 no 25-40 or 60 rows in PDF text layer."
     },
     "laneWidthFt": [
       10,
@@ -128,7 +129,7 @@
     }
   ],
   "tableRoles": {
-    "note": "Family 3 intermediate shoulder. 5 tables. 401-03=taperAndBuffer with lane+shoulder columns (301-03 is shoulder-only). 401-04=channelizingApplication. NO advanceWarningSpacing — spacing on plan + notes.",
+    "note": "Family 3 intermediate shoulder. 5 tables. 401-03=taperAndBuffer with lane+shoulder columns (301-03 is shoulder-only). 401-04=channelizingApplication. NO advanceWarningSpacing \u2014 spacing on plan + notes.",
     "protectiveVehicle": "401-01",
     "rollAheadDistance": "401-02",
     "taperAndBuffer": "401-03",
@@ -144,7 +145,7 @@
         "exposureCondition",
         "roadTypeForProtectiveVehicle"
       ],
-      "note": "4 rows (lane+shoulder). FREEWAY-only column in PDF — all PVH+TMIA.",
+      "note": "4 rows (lane+shoulder). FREEWAY-only column in PDF \u2014 all PVH+TMIA.",
       "rows": [
         {
           "closureType": "LANE CLOSURE OR ENCROACHMENT",
@@ -544,7 +545,7 @@
   },
   "corridor": {
     "confidence": "drawing",
-    "description": "Upstream against traffic from work: ROLL AHEAD → BUFFER → SHOULDER TAPER (consumes station — unlike Family 2 overlay) → W21-5aR → W21-5bR → W20-1. Plan spacing callouts 1000'/1500'/1320' mapped to gaps A/B/C (nearest→farthest). No MERGING TAPER.",
+    "description": "Upstream against traffic from work: ROLL AHEAD \u2192 BUFFER \u2192 SHOULDER TAPER (consumes station \u2014 unlike Family 2 overlay) \u2192 W21-5aR \u2192 W21-5bR \u2192 W20-1. Plan spacing callouts 1000'/1500'/1320' mapped to gaps A/B/C (nearest\u2192farthest). No MERGING TAPER.",
     "zones": [
       {
         "id": "signC",
@@ -563,7 +564,7 @@
         },
         "dimensioned": true,
         "spans": "W20-1 to W21-5bR",
-        "note": "Plan callout 1320' (¼ mile) — not from a numbered spacing table."
+        "note": "Plan callout 1320' (\u00bc mile) \u2014 not from a numbered spacing table."
       },
       {
         "id": "signB",
@@ -767,7 +768,7 @@
         "excludedRows": [
           {
             "label": "MERGING TAPER",
-            "reason": "Shoulder closure — no merging/lane taper."
+            "reason": "Shoulder closure \u2014 no merging/lane taper."
           },
           {
             "label": "Vehicle Space",
@@ -829,7 +830,7 @@
         "sizeNonFreeway": "24x18",
         "sizeFreeway": "36x30",
         "signLibraryKey": "W07-03aP",
-        "note": "Note 6 — supplemental plaque on W20-1 when work span > 2 miles."
+        "note": "Note 6 \u2014 supplemental plaque on W20-1 when work span > 2 miles."
       },
       {
         "signCode": "W20-1",
@@ -841,7 +842,7 @@
         "sizeNonFreeway": "36x36",
         "sizeFreeway": "48x48",
         "signLibraryKey": "W20-01RM",
-        "signLibraryNote": "Plan uses mile-based XX on freeway; no spacing table — fixed freeway mile key."
+        "signLibraryNote": "Plan uses mile-based XX on freeway; no spacing table \u2014 fixed freeway mile key."
       },
       {
         "signCode": "W20-5aR",
@@ -880,7 +881,7 @@
         "sizeNonFreeway": "30x36",
         "sizeFreeway": "36x48",
         "signLibraryKey": "R2-1",
-        "note": "Note 9 — mid A/B regulatory speed."
+        "note": "Note 9 \u2014 mid A/B regulatory speed."
       },
       {
         "signCode": "NYR2-6",
@@ -931,7 +932,7 @@
         "required": true,
         "longitudinalSpacing": {
           "maxFt": 20,
-          "sheetText": "Note — intermediate 20' max (not 301's 40')."
+          "sheetText": "Note \u2014 intermediate 20' max (not 301's 40')."
         },
         "runs": [
           {
@@ -1078,7 +1079,7 @@
     {
       "id": "sign-codes-may-differ",
       "severity": "warning",
-      "assert": "Draft lists W21-5bU/W21-5c variants — verify SignLibrary keys before live placement."
+      "assert": "Draft lists W21-5bU/W21-5c variants \u2014 verify SignLibrary keys before live placement."
     }
   ],
   "knownExcerpts": {

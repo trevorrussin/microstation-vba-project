@@ -19,7 +19,20 @@
     "pdfPages": 1,
     "transcribedBy": "Cursor",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Tables, notes and legend are verbatim from the PDF vector text layer (PyMuPDF word extraction with coordinates). Layout anchors, lateral extents and symbol positions are measured from the drawing geometry and are marked confidence='drawing'. The NYSDOT catalog lists this sheet as both 1 and 2 sheets in different index pages; the repository PDF retrieved 2026-08-03 has 1 page."
+    "provenanceNote": "Tables, notes and legend are verbatim from the PDF vector text layer (PyMuPDF word extraction with coordinates). Layout anchors, lateral extents and symbol positions are measured from the drawing geometry and are marked confidence='drawing'. The NYSDOT catalog lists this sheet as both 1 and 2 sheets in different index pages; the repository PDF retrieved 2026-08-03 has 1 page.",
+    "buildGuide": "619-311.build.md"
+  },
+
+  "annotationStyle": {
+    "dimensionText": "lengthOnly",
+    "featureLabel": "nameOnly",
+    "overlayDimSide": "opposite",
+    "offsetsFt": {
+      "dimOutward": 15,
+      "labelExtra": 20,
+      "symbolLabel": 25
+    },
+    "notes": "Live prefs: length on dim only; name labels below sheet features; SHOULDER TAPER overlay on opposite side; ARROW PANEL label from compile_symbols. See sheet.buildGuide."
   },
 
   "applicability": {
@@ -710,6 +723,10 @@
         "sheetLabel": "CHANNELIZING DEVICES",
         "deviceSymbol": "CONE",
         "required": true,
+        "representation": {
+          "mode": "markers",
+          "markerHalfSizeFt": 1.5
+        },
         "longitudinalSpacing": {
           "maxFt": 40,
           "sheetText": "RECOMMENDED CONE SPACING NOT TO EXCEED 40 FT"

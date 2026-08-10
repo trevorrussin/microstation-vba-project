@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 5 ramp-adjacent)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Family 5 intermediate entrance. 7-band shoulder grid; laneTaper aliases 10/11/12 ft cols (plan MERGING L refs same table). Gaps like 318."
+    "provenanceNote": "Family 5 intermediate entrance. 7-band shoulder grid; laneTaper aliases 10/11/12 ft cols (plan MERGING L refs same table). Gaps like 318.",
+    "buildGuide": "619-417.build.md"
   },
   "applicability": {
     "roadType": "Freeway",
@@ -530,15 +531,15 @@
           "fixedFt": 1320
         },
         "dimensioned": true,
-        "spans": "W20-1 (1 MILE) to W20-1 (½ MILE)"
+        "spans": "W20-1 (1 MILE) to W20-1 (\u00bd MILE)"
       },
       {
         "id": "signC",
         "order": 3,
         "kind": "sign",
         "signCode": "W20-1",
-        "sheetLegend": "ROAD WORK ½ MILE",
-        "note": "Second W20-1; SignLibrary key W20-01RPM preferred — order table reuses W20-1."
+        "sheetLegend": "ROAD WORK \u00bd MILE",
+        "note": "Second W20-1; SignLibrary key W20-01RPM preferred \u2014 order table reuses W20-1."
       },
       {
         "id": "gapC",
@@ -549,14 +550,14 @@
           "fixedFt": 1320
         },
         "dimensioned": true,
-        "spans": "W20-1 (½ MILE) to W20-5"
+        "spans": "W20-1 (\u00bd MILE) to W20-5"
       },
       {
         "id": "signB",
         "order": 5,
         "kind": "sign",
         "signCode": "W20-5",
-        "sheetLegend": "RIGHT LANE CLOSED ½ MILE"
+        "sheetLegend": "RIGHT LANE CLOSED \u00bd MILE"
       },
       {
         "id": "gapB",
@@ -587,7 +588,7 @@
         "dimensioned": true,
         "spans": "W4-2R to upstream end of MERGING TAPER",
         "containsOverlay": "shoulderTaper",
-        "note": "Fixed plan callout — no advance-warning spacing table."
+        "note": "Fixed plan callout \u2014 no advance-warning spacing table."
       },
       {
         "id": "shoulderTaper",
@@ -817,7 +818,7 @@
     "items": [
       {
         "signCode": "W20-1",
-        "sheetLegend": "ROAD WORK 1 MILE / ½ MILE",
+        "sheetLegend": "ROAD WORK 1 MILE / \u00bd MILE",
         "legendSubstitution": null,
         "shape": "diamond",
         "warningFlags": true,
@@ -829,7 +830,7 @@
       },
       {
         "signCode": "W20-5",
-        "sheetLegend": "RIGHT LANE CLOSED ½ MILE",
+        "sheetLegend": "RIGHT LANE CLOSED \u00bd MILE",
         "legendSubstitution": null,
         "shape": "diamond",
         "warningFlags": false,

@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 4 parkway reference)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Family 4 reference — parkway right lane closure with shoulder < 8 ft. Hybrid of Family 2 corridor (MERGING + DOWNSTREAM) and Family 3 spacing (fixed plan gaps 1000/1500/2640, no advance-warning table). NO shoulder-taper dimension on plan despite L/3 columns in table 306-03. NO NYW8-33. Speeds 45/50/55/65 only. Tables verified vs 302-02 overlap identical."
+    "provenanceNote": "Family 4 reference \u2014 parkway right lane closure with shoulder < 8 ft. Hybrid of Family 2 corridor (MERGING + DOWNSTREAM) and Family 3 spacing (fixed plan gaps 1000/1500/2640, no advance-warning table). NO shoulder-taper dimension on plan despite L/3 columns in table 306-03. NO NYW8-33. Speeds 45/50/55/65 only. Tables verified vs 302-02 overlap identical.",
+    "buildGuide": "619-306.build.md"
   },
   "applicability": {
     "roadType": "Parkway",
@@ -32,7 +33,7 @@
         55,
         65
       ],
-      "note": "Table 306-03 covers 45/50/55/65 only — same 4-speed set as Family 3 301-03."
+      "note": "Table 306-03 covers 45/50/55/65 only \u2014 same 4-speed set as Family 3 301-03."
     },
     "laneWidthFt": [
       10,
@@ -179,7 +180,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN and MAX",
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES \u2014 STATIONARY OPERATION MIN and MAX",
       "note": "2 bands (>=55, 45-50). Identical to 302-05 first two rows. No <=40 row.",
       "rows": [
         {
@@ -222,7 +223,7 @@
       "columnMeaning": {
         "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES",
         "laneTaper": "TAPER LENGTH: L (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES, FOR LANE WIDTH IN FT.",
-        "shoulderTaper": "SHOULDER TAPER LENGTH: L/3 FOR SHOULDER WIDTH — printed in table; NOT dimensioned on this plan"
+        "shoulderTaper": "SHOULDER TAPER LENGTH: L/3 FOR SHOULDER WIDTH \u2014 printed in table; NOT dimensioned on this plan"
       },
       "note": "4 speeds 45/50/55/65. All cells identical to 302-02 on overlapping speeds. Plan uses MERGING TAPER only (no shoulder-taper dimension).",
       "rows": [
@@ -399,7 +400,7 @@
         "signCode",
         "signSizeClass"
       ],
-      "note": "5 rows — NO NYW8-33 (unlike 302). FREEWAY sizes only extracted from text layer.",
+      "note": "5 rows \u2014 NO NYW8-33 (unlike 302). FREEWAY sizes only extracted from text layer.",
       "rows": [
         {
           "signCode": "G20-2",
@@ -431,7 +432,7 @@
   },
   "corridor": {
     "confidence": "drawing",
-    "description": "From extract_plan_geometry.py: DOWNSTREAM 50-100 → ROLL AHEAD → BUFFER → MERGING TAPER → 1000' → 1500' → 2640'. No shoulder-taper overlay (absent from plan).",
+    "description": "From extract_plan_geometry.py: DOWNSTREAM 50-100 \u2192 ROLL AHEAD \u2192 BUFFER \u2192 MERGING TAPER \u2192 1000' \u2192 1500' \u2192 2640'. No shoulder-taper overlay (absent from plan).",
     "zones": [
       {
         "id": "signC",
@@ -450,14 +451,14 @@
         },
         "dimensioned": true,
         "spans": "W20-1 to W20-5R",
-        "note": "Plan callout 2640' — no AW spacing table."
+        "note": "Plan callout 2640' \u2014 no AW spacing table."
       },
       {
         "id": "signB",
         "order": 3,
         "kind": "sign",
         "signCode": "W20-5R",
-        "sheetLegend": "RIGHT LANE CLOSED ½ MILE"
+        "sheetLegend": "RIGHT LANE CLOSED \u00bd MILE"
       },
       {
         "id": "gapB",
@@ -699,7 +700,7 @@
       },
       {
         "signCode": "W20-5R",
-        "sheetLegend": "RIGHT LANE CLOSED ½ MILE",
+        "sheetLegend": "RIGHT LANE CLOSED \u00bd MILE",
         "shape": "diamond",
         "postMounted": true,
         "corridorZone": "signB",
@@ -831,7 +832,7 @@
       "2. THE PROTECTIVE VEHICLE(S) SHALL MAINTAIN THE APPROPRIATE ROLL AHEAD DISTANCE, BE AN UNOCCUPIED TRUCK POSITIONED PARALLEL TO TRAFFIC, PARKING BRAKE SET, PLACED IN 2ND GEAR (MANUAL TRANSMISSIONS /ENGINE OFF) OR PARK / NEUTRAL (AUTOMATIC TRANSMISSIONS) AND HAVE THE FRONT WHEELS ALIGNED WITH THE LANE STRIPING.",
       "3. THERE SHALL BE NO WORKERS, EQUIPMENT OR OTHER VEHICLES IN THE BUFFER SPACE OR ROLL AHEAD DISTANCE."
     ],
-    "notesOrderNote": "Exactly 3 numbered notes — fewer than 302's 8 (no left-lane / VEH#2 / transverse / 40' notes on this parkway sheet)."
+    "notesOrderNote": "Exactly 3 numbered notes \u2014 fewer than 302's 8 (no left-lane / VEH#2 / transverse / 40' notes on this parkway sheet)."
   },
   "rules": [
     {
@@ -852,14 +853,14 @@
       "id": "no-shoulder-taper-row",
       "severity": "error",
       "source": "Plan geometry",
-      "assert": "Do not emit SHOULDER TAPER as a sequential station — not dimensioned on this sheet.",
+      "assert": "Do not emit SHOULDER TAPER as a sequential station \u2014 not dimensioned on this sheet.",
       "commonFailure": "Ignoring this sheet-specific rule and using a generic default from another family."
     },
     {
       "id": "fixed-freeway-gaps",
       "severity": "error",
       "source": "Plan callouts",
-      "assert": "Gaps are fixed 1000/1500/2640 — do not look up an AW spacing table.",
+      "assert": "Gaps are fixed 1000/1500/2640 \u2014 do not look up an AW spacing table.",
       "commonFailure": "Ignoring this sheet-specific rule and using a generic default from another family."
     }
   ],

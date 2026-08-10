@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 9 mowing/mulching/marking)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Non-freeway mowing shoulder closure / lane encroachment. PVH/PVL matrix for both LANE and SHOULDER closures; GVW×speed roll-ahead; W21-8 + W8-23."
+    "provenanceNote": "Non-freeway mowing shoulder closure / lane encroachment. PVH/PVL matrix for both LANE and SHOULDER closures; GVW\u00d7speed roll-ahead; W21-8 + W8-23.",
+    "buildGuide": "619-022.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -176,7 +177,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "note": "Same GVW×speed matrix as 023-02.",
+      "note": "Same GVW\u00d7speed matrix as 023-02.",
       "rows": [
         {
           "speedBand": "45 - 55 MPH",

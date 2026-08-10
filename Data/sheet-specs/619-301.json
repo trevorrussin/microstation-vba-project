@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 3 reference; tables from _draft_619301_tables.json; corridor from plan callouts + extract_plan_geometry)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Family 3 reference — RIGHT SHOULDER CLOSURE. Structural break from Family 2: no advance-warning spacing table (plan callouts 1320'/1500'/1000'); shoulder taper only (no merging taper); roll-ahead keyed by PV GVW not speed; signs W21-5aR/W21-5bR; PVH+TMIA. Speeds 45/50/55/65 only. Page rotation=270."
+    "provenanceNote": "Family 3 reference \u2014 RIGHT SHOULDER CLOSURE. Structural break from Family 2: no advance-warning spacing table (plan callouts 1320'/1500'/1000'); shoulder taper only (no merging taper); roll-ahead keyed by PV GVW not speed; signs W21-5aR/W21-5bR; PVH+TMIA. Speeds 45/50/55/65 only. Page rotation=270.",
+    "buildGuide": "619-301.build.md"
   },
   "applicability": {
     "roadType": "Freeway/Multilane Divided",
@@ -32,10 +33,10 @@
         55,
         65
       ],
-      "note": "Table 301-03 covers 45,50,55,65 only — no 25-40 or 60 rows in PDF text layer."
+      "note": "Table 301-03 covers 45,50,55,65 only \u2014 no 25-40 or 60 rows in PDF text layer."
     },
     "laneWidthFt": null,
-    "laneWidthNote": "No lane/merging taper on this sheet — lane width is not a lookup input.",
+    "laneWidthNote": "No lane/merging taper on this sheet \u2014 lane width is not a lookup input.",
     "shoulderWidthBands": [
       "<= 4 ft",
       "5 - 7 ft",
@@ -123,7 +124,7 @@
     }
   ],
   "tableRoles": {
-    "note": "Family 3 shoulder-closure reference. Only 4 numbered tables. 301-02=rollAheadDistance (was 05 on 302). 301-03=taperAndBuffer shoulder-only (was 02 on 302). NO advanceWarningSpacing role — spacing is plan-callout + Note 6/7.",
+    "note": "Family 3 shoulder-closure reference. Only 4 numbered tables. 301-02=rollAheadDistance (was 05 on 302). 301-03=taperAndBuffer shoulder-only (was 02 on 302). NO advanceWarningSpacing role \u2014 spacing is plan-callout + Note 6/7.",
     "protectiveVehicle": "301-01",
     "rollAheadDistance": "301-02",
     "taperAndBuffer": "301-03",
@@ -139,7 +140,7 @@
         "roadTypeForProtectiveVehicle",
         "preconstructionPostedSpeedMph"
       ],
-      "note": "Shoulder closure sheet: 2 exposure rows (not 302's 4 lane+shoulder rows). All cells PVH+TMIA — intermediate-term heavy-PV codes, not 302-01 P/TMIA.",
+      "note": "Shoulder closure sheet: 2 exposure rows (not 302's 4 lane+shoulder rows). All cells PVH+TMIA \u2014 intermediate-term heavy-PV codes, not 302-01 P/TMIA.",
       "speedBands": [
         {
           "id": "ge45",
@@ -193,7 +194,7 @@
       "keyedBy": [
         "protectiveVehicleGvwLbs"
       ],
-      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN and MAX, by protective-vehicle gross vehicle weight (not posted speed).",
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES \u2014 STATIONARY OPERATION MIN and MAX, by protective-vehicle gross vehicle weight (not posted speed).",
       "note": "Header prints PRECONSTRUCTION POSTED SPEED LIMIT 45-55 / w 60 context but data rows are GVW bands. Differs structurally from 302-05.",
       "rows": [
         {
@@ -234,9 +235,9 @@
       ],
       "columnMeaning": {
         "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES",
-        "shoulderTaper": "SHOULDER TAPER LENGTH (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES, FOR SHOULDER WIDTH — NO lane/merging taper column on this sheet"
+        "shoulderTaper": "SHOULDER TAPER LENGTH (FT.)/ # OF SKIP LINES/ # OF CHANNELIZING DEVICES, FOR SHOULDER WIDTH \u2014 NO lane/merging taper column on this sheet"
       },
-      "note": "4 speed columns (45, 50, 55, 65 mph) in PDF text layer — not 8 rows like 302-02. Shoulder taper values on overlapping speeds match 302-02 shoulderTaper column.",
+      "note": "4 speed columns (45, 50, 55, 65 mph) in PDF text layer \u2014 not 8 rows like 302-02. Shoulder taper values on overlapping speeds match 302-02 shoulderTaper column.",
       "rows": [
         {
           "speedMph": 45,
@@ -344,7 +345,7 @@
         "signSizeClass"
       ],
       "footnote": "*FREEWAY SIZES MAY BE USED ON NON-FREEWAY, IF SPACE CONSTRAINTS DO NOT EXIST.",
-      "note": "Shoulder-closure sign set: W21-5aR/W21-5bR, W7-3a, G20-1/G20-2. NON-FREEWAY column largely absent from rotated PDF text layer — FREEWAY sizes extracted.",
+      "note": "Shoulder-closure sign set: W21-5aR/W21-5bR, W7-3a, G20-1/G20-2. NON-FREEWAY column largely absent from rotated PDF text layer \u2014 FREEWAY sizes extracted.",
       "rows": [
         {
           "signCode": "NYR2-6",
@@ -357,7 +358,7 @@
           "NON-FREEWAY": "30x36",
           "FREEWAY": "36x48",
           "note": "PDF splits R2-1 OR / NYR2-2 across lines; only FREEWAY column extracted",
-          "nonFreewayNote": "Filled from typical MUTCD/family sizes — PDF text layer (rotation=270) omitted NON-FREEWAY column."
+          "nonFreewayNote": "Filled from typical MUTCD/family sizes \u2014 PDF text layer (rotation=270) omitted NON-FREEWAY column."
         },
         {
           "signCode": "WARNING FLAG",
@@ -369,49 +370,49 @@
           "NON-FREEWAY": "36x36",
           "FREEWAY": "48x48",
           "note": "NON-FREEWAY size column absent from rotated PDF text layer",
-          "nonFreewayNote": "Filled from typical MUTCD/family sizes — PDF text layer (rotation=270) omitted NON-FREEWAY column."
+          "nonFreewayNote": "Filled from typical MUTCD/family sizes \u2014 PDF text layer (rotation=270) omitted NON-FREEWAY column."
         },
         {
           "signCode": "W21-5aR",
           "NON-FREEWAY": "36x36",
           "FREEWAY": "48x48",
           "note": "NON-FREEWAY size column absent from rotated PDF text layer",
-          "nonFreewayNote": "Filled from typical MUTCD/family sizes — PDF text layer (rotation=270) omitted NON-FREEWAY column."
+          "nonFreewayNote": "Filled from typical MUTCD/family sizes \u2014 PDF text layer (rotation=270) omitted NON-FREEWAY column."
         },
         {
           "signCode": "W20-1",
           "NON-FREEWAY": "36x36",
           "FREEWAY": "48x48",
           "note": "NON-FREEWAY size column absent from rotated PDF text layer",
-          "nonFreewayNote": "Filled from typical MUTCD/family sizes — PDF text layer (rotation=270) omitted NON-FREEWAY column."
+          "nonFreewayNote": "Filled from typical MUTCD/family sizes \u2014 PDF text layer (rotation=270) omitted NON-FREEWAY column."
         },
         {
           "signCode": "W7-3a",
           "NON-FREEWAY": "24x18",
           "FREEWAY": "36x30",
           "note": "NON-FREEWAY size column absent from rotated PDF text layer",
-          "nonFreewayNote": "Filled from typical MUTCD/family sizes — PDF text layer (rotation=270) omitted NON-FREEWAY column."
+          "nonFreewayNote": "Filled from typical MUTCD/family sizes \u2014 PDF text layer (rotation=270) omitted NON-FREEWAY column."
         },
         {
           "signCode": "G20-2",
           "NON-FREEWAY": "36x18",
           "FREEWAY": "48x24",
           "note": "NON-FREEWAY size column absent from rotated PDF text layer",
-          "nonFreewayNote": "Filled from typical MUTCD/family sizes — PDF text layer (rotation=270) omitted NON-FREEWAY column."
+          "nonFreewayNote": "Filled from typical MUTCD/family sizes \u2014 PDF text layer (rotation=270) omitted NON-FREEWAY column."
         },
         {
           "signCode": "G20-1",
           "NON-FREEWAY": "36x18",
           "FREEWAY": "48x24",
           "note": "NON-FREEWAY size column absent from rotated PDF text layer",
-          "nonFreewayNote": "Filled from typical MUTCD/family sizes — PDF text layer (rotation=270) omitted NON-FREEWAY column."
+          "nonFreewayNote": "Filled from typical MUTCD/family sizes \u2014 PDF text layer (rotation=270) omitted NON-FREEWAY column."
         }
       ]
     }
   },
   "corridor": {
     "confidence": "drawing",
-    "description": "Upstream against traffic from work: ROLL AHEAD → BUFFER → SHOULDER TAPER (consumes station — unlike Family 2 overlay) → W21-5aR → W21-5bR → W20-1. Plan spacing callouts 1000'/1500'/1320' mapped to gaps A/B/C (nearest→farthest). No MERGING TAPER.",
+    "description": "Upstream against traffic from work: ROLL AHEAD \u2192 BUFFER \u2192 SHOULDER TAPER (consumes station \u2014 unlike Family 2 overlay) \u2192 W21-5aR \u2192 W21-5bR \u2192 W20-1. Plan spacing callouts 1000'/1500'/1320' mapped to gaps A/B/C (nearest\u2192farthest). No MERGING TAPER.",
     "zones": [
       {
         "id": "signC",
@@ -430,7 +431,7 @@
         },
         "dimensioned": true,
         "spans": "W20-1 to W21-5bR",
-        "note": "Plan callout 1320' (¼ mile) — not from a numbered spacing table."
+        "note": "Plan callout 1320' (\u00bc mile) \u2014 not from a numbered spacing table."
       },
       {
         "id": "signB",
@@ -634,7 +635,7 @@
         "excludedRows": [
           {
             "label": "MERGING TAPER",
-            "reason": "Shoulder closure — no merging/lane taper."
+            "reason": "Shoulder closure \u2014 no merging/lane taper."
           },
           {
             "label": "Vehicle Space",
@@ -687,7 +688,7 @@
         "sizeNonFreeway": "36x36",
         "sizeFreeway": "48x48",
         "signLibraryKey": "W20-01RM",
-        "signLibraryNote": "Plan uses mile-based XX on freeway; no spacing table — fixed freeway mile key."
+        "signLibraryNote": "Plan uses mile-based XX on freeway; no spacing table \u2014 fixed freeway mile key."
       },
       {
         "signCode": "W21-5bR",
@@ -728,7 +729,7 @@
         "sizeNonFreeway": "24x18",
         "sizeFreeway": "36x30",
         "signLibraryKey": "W07-03aP",
-        "note": "Note 6 — supplemental plaque on W20-1 when work span > 2 miles."
+        "note": "Note 6 \u2014 supplemental plaque on W20-1 when work span > 2 miles."
       },
       {
         "signCode": "G20-1",
@@ -739,7 +740,7 @@
         "sizeNonFreeway": "36x18",
         "sizeFreeway": "48x24",
         "signLibraryKey": "G20-01",
-        "note": "Note 7 — every 2 miles when multiple work locations."
+        "note": "Note 7 \u2014 every 2 miles when multiple work locations."
       },
       {
         "signCode": "WARNING FLAG",
@@ -757,7 +758,7 @@
         "sizeNonFreeway": "30x36",
         "sizeFreeway": "36x48",
         "signLibraryKey": "R2-1",
-        "note": "Note 9 — mid A/B regulatory speed."
+        "note": "Note 9 \u2014 mid A/B regulatory speed."
       },
       {
         "signCode": "NYR2-6",
@@ -808,7 +809,7 @@
         "required": true,
         "longitudinalSpacing": {
           "maxFt": 40,
-          "sheetText": "Note 5 — not to exceed 40'."
+          "sheetText": "Note 5 \u2014 not to exceed 40'."
         },
         "runs": [
           {
@@ -971,7 +972,7 @@
     {
       "id": "fixed-spacing-placement",
       "severity": "warning",
-      "assert": "Bridge still builds from payload spacings — OK if order table uses fixedFt gaps."
+      "assert": "Bridge still builds from payload spacings \u2014 OK if order table uses fixedFt gaps."
     },
     {
       "id": "w7-3a-g20-1-conditional",
@@ -981,7 +982,7 @@
     {
       "id": "nonfreeway-sizes-inferred",
       "severity": "warning",
-      "assert": "301-04 NON-FREEWAY sizes filled from typical values — rotated PDF omitted that column."
+      "assert": "301-04 NON-FREEWAY sizes filled from typical values \u2014 rotated PDF omitted that column."
     }
   ],
   "knownExcerpts": {

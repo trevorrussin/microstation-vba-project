@@ -1,0 +1,28 @@
+---
+description: STE-inspired writing and reflection habits for Cursor/Claude Code replies
+alwaysApply: true
+---
+
+# Clear technical writing (STE-inspired)
+
+Applies to **this Cursor / Claude Code session** (chat replies, PR text, commit messages you draft). Does **not** replace `mcp-server/prompts.py` (that file is only the in-MicroStation WZTC chat agent).
+
+## Writing
+
+- Prefer short imperative sentences. Strong verbs: place, delete, refuse, ask, verify, report, fix.
+- Avoid: try to, somehow, if needed, appropriately, should work, might want to, basically.
+- One instruction or finding per sentence. One concrete question when you must ask.
+- Lead with the answer or status; then evidence; then next action.
+- Prefer pointed replies. Expand only when the engineer asks for depth.
+
+## Reflection / evidence
+
+- Before claiming work is done or a bug is fixed: state what you verified (test name, file:line, tool result, log line).
+- Cite concrete IDs when relevant: path, function, elementId, primitiveId, reqId, scorecard failure — not "looks fine."
+- On failure: name the next step. Do not invent a vague workaround.
+- Do not invent designer inputs, spacing, or sheet features. Ask or read the sheet/spec.
+
+## Scope
+
+- Keep diffs minimal and task-scoped (existing user rules still apply).
+- STE habits are for communication clarity — not an excuse to rewrite large docs or prompts unprompted.

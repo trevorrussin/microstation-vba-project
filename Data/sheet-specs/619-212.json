@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 4 short-duration)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Short-duration parkway lane closure. Plan: SHOULDER TAPER only (no MERGING/DOWNSTREAM). Table 212-03 still has full lane+shoulder columns (identical to 302-02 overlap). Fixed gaps 500'/1500'/2640'(printed as 1/2 MILE). NYW8-33 on PV. Operator stays in vehicle. Roll-ahead speeds 45-65 only — no <=40 row despite earlier recon guess."
+    "provenanceNote": "Short-duration parkway lane closure. Plan: SHOULDER TAPER only (no MERGING/DOWNSTREAM). Table 212-03 still has full lane+shoulder columns (identical to 302-02 overlap). Fixed gaps 500'/1500'/2640'(printed as 1/2 MILE). NYW8-33 on PV. Operator stays in vehicle. Roll-ahead speeds 45-65 only \u2014 no <=40 row despite earlier recon guess.",
+    "buildGuide": "619-212.build.md"
   },
   "applicability": {
     "roadType": "Parkway",
@@ -418,7 +419,7 @@
   },
   "corridor": {
     "confidence": "drawing",
-    "description": "extract_plan_geometry: ROLL AHEAD → PV → SHOULDER TAPER → 500' → 1500' → 1/2 MILE(=2640'). No MERGING/DOWNSTREAM/BUFFER dimensions.",
+    "description": "extract_plan_geometry: ROLL AHEAD \u2192 PV \u2192 SHOULDER TAPER \u2192 500' \u2192 1500' \u2192 1/2 MILE(=2640'). No MERGING/DOWNSTREAM/BUFFER dimensions.",
     "zones": [
       {
         "id": "signC",
@@ -471,7 +472,7 @@
           "fixedFt": 500
         },
         "dimensioned": true,
-        "note": "500' (1 REFERENCE MARKER) — shorter than freeway A=1000."
+        "note": "500' (1 REFERENCE MARKER) \u2014 shorter than freeway A=1000."
       },
       {
         "id": "shoulderTaper",
@@ -489,7 +490,7 @@
         },
         "dimensioned": true,
         "consumesStation": true,
-        "note": "Plan label TAPER LENGTH → shoulder L/3; no merging taper."
+        "note": "Plan label TAPER LENGTH \u2192 shoulder L/3; no merging taper."
       },
       {
         "id": "protectiveVehicle",
@@ -734,7 +735,7 @@
       "id": "fixed-gaps-500-1500-2640",
       "severity": "error",
       "source": "Plan",
-      "assert": "Gaps are fixed 500/1500/2640 — no AW table.",
+      "assert": "Gaps are fixed 500/1500/2640 \u2014 no AW table.",
       "commonFailure": "Ignoring this sheet-specific rule and using a generic default from another family."
     }
   ],

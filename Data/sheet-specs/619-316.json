@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 5 ramp-adjacent)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Family 5 short-term partial exit ramp. Rotation=270. W21-5/W20-1/G20-2; gaps 1000/1500. Taper cells from 302-02 overlap (verified where text layer readable)."
+    "provenanceNote": "Family 5 short-term partial exit ramp. Rotation=270. W21-5/W20-1/G20-2; gaps 1000/1500. Taper cells from 302-02 overlap (verified where text layer readable).",
+    "buildGuide": "619-316.build.md"
   },
   "applicability": {
     "roadType": "Freeway",
@@ -597,7 +598,7 @@
         "excludedRows": [
           {
             "label": "MERGING TAPER",
-            "reason": "Partial exit ramp — shoulder taper only."
+            "reason": "Partial exit ramp \u2014 shoulder taper only."
           },
           {
             "label": "Vehicle Space",

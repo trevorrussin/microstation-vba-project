@@ -58,6 +58,33 @@ Do NOT change the level/color/weight of other element types.
 - Do not add error handling for scenarios that cannot happen in the workflow
 - Status messages go in `lblStatus.Caption` on the active form
 
+### Communication (STE-inspired)
+Applies to Claude Code replies in this repo (Cursor also loads `.cursor/rules/ste-writing.mdc`).
+This is separate from `mcp-server/prompts.py` (in-MicroStation WZTC chat agent only).
+- Short imperative sentences. Prefer: place, delete, refuse, ask, verify, report, fix.
+- Avoid: try to, somehow, if needed, appropriately, should work, might want to.
+- Lead with the answer; then evidence; then next action.
+- Before claiming done/fixed: cite what you verified (test, path, log, tool result).
+- On failure: name the next step. Do not invent designer inputs or sheet features.
+
+### Implement-all (no short-win batching)
+When the engineer says **implement all**, **fix all**, **do everything**,
+**wire it all**, or equivalent (including “the should-fixes” / a list of gaps
+you just proposed):
+
+1. Treat the **full list** as one job. Finish every item before stopping.
+2. Do **not** stop at a partial win or “phase 1 / rest later” unless they
+   explicitly defer an item. Prefer one larger complete improvement over
+   several thin batches.
+3. **Wire end-to-end** — chat_driver tools, prompts, MCP server, hot-reload,
+   driver restart, tests as required. A helper nobody calls is not done.
+4. **Verify** before claiming done; cite evidence.
+5. If blocked, name the block, then finish every unblocked item in the same
+   effort — do not abandon the rest of the list.
+
+Mirror of `.cursor/rules/implement-all.mdc` (Cursor alwaysApply). Same bar
+in both tools.
+
 ---
 
 ## File Sync Protocol

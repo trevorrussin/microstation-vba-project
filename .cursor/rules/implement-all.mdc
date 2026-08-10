@@ -1,0 +1,41 @@
+---
+description: When the engineer says implement all / fix all, finish every item fully before stopping
+alwaysApply: true
+---
+
+# Implement-all — no short-win batching
+
+When the engineer asks to **implement all**, **fix all**, **do everything**,
+**wire it all**, or equivalent (including “the should-fixes” / a numbered
+list of gaps you just proposed):
+
+## Required behavior
+
+1. **Treat the full list as one job.** Every item you named (or they named)
+   must be completed, wired end-to-end, and verified before you stop.
+2. **Do not stop at a partial win.** No “phase 1 done, rest later” unless
+   they explicitly defer an item. Prefer one larger improvement that takes
+   longer over several thin batches.
+3. **Wire completely.** Code that exists but is not reachable from the
+   live path (chat_driver tools, prompts, MCP server, VBA hot-reload,
+   driver restart, tests) is **not** done. Ship the connection, not only
+   the module.
+4. **Verify before claiming done.** Run tests / live smoke / restart as
+   required by project sync rules. Cite evidence (test name, log line,
+   tool result).
+5. **If blocked**, say which remaining item is blocked and why — then
+   finish every unblocked item in the same turn sequence. Do not abandon
+   the rest of the list.
+
+## Anti-patterns (forbidden under implement-all)
+
+- Shipping only the easiest item and offering to “do the rest next”
+- Leaving prompt/tool mismatches (“docs say X, agent has Y”)
+- Implementing a helper that nothing calls
+- Marking todos complete when wiring or verification is still pending
+
+## Scope note
+
+Normal single-bug / single-feature requests still stay minimal. This rule
+applies when they explicitly ask for the **full set** of suggested fixes
+or “implement all.”

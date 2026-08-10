@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 9 mowing/mulching/marking)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Work beyond shoulder mowing. AW spacing table + W21-8 sizes. No PV/roll. Plan places W21-8 at 500' min / 2 mile max. live-build n/a (sign-only, no roll row)."
+    "provenanceNote": "Work beyond shoulder mowing. AW spacing table + W21-8 sizes. No PV/roll. Plan places W21-8 at 500' min / 2 mile max. live-build n/a (sign-only, no roll row).",
+    "buildGuide": "619-021.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -214,7 +215,7 @@
   },
   "orderTable": {
     "confidence": "drawing",
-    "description": "W21-8 only — no roll/taper. live-build n/a (sign-only payload).",
+    "description": "W21-8 only \u2014 no roll/taper. live-build n/a (sign-only payload).",
     "alignments": [
       {
         "alignIdx": 1,

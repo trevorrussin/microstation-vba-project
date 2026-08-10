@@ -72,5 +72,17 @@ Bridge/keyin-false-ok-audit.json
 Bridge/chat-session-mode.txt
 Bridge/debug-ref-scan*.txt
 
+# Sheet-build session/runtime state and ad-hoc debug/watch output -- not
+# source, same category as the Bridge/* rules above.
+Bridge/.monitor-baseline-bytes.txt
+Bridge/.monitor-last-ts.txt
+Bridge/_agent_watch.txt
+Bridge/_all_levels.txt
+Bridge/chat-history.pre*.bak.json
+Bridge/chat-history.prev.json
+Bridge/last-build-conversation.md
+Bridge/placement-registry.jsonl
+Bridge/sheet-plan.json
+
 # Python bytecode cache, any location
 __pycache__/

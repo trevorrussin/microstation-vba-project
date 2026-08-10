@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 9 mowing/mulching/marking)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Freeway shoulder closure mulching/herbicide. FREEWAY-only PVH+TMIA; GVW×speed roll-ahead with >=60 and 45-55 bands; W20-1 + W8-23. Plan typo SEE TABLE 034-02 → 033-02."
+    "provenanceNote": "Freeway shoulder closure mulching/herbicide. FREEWAY-only PVH+TMIA; GVW\u00d7speed roll-ahead with >=60 and 45-55 bands; W20-1 + W8-23. Plan typo SEE TABLE 034-02 \u2192 033-02.",
+    "buildGuide": "619-033.build.md"
   },
   "applicability": {
     "roadType": "Freeway",
@@ -144,7 +145,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "note": "GVW×speed matrix with >=60 and 45-55 bands. Encoded speed-keyed min=heavy/max=light.",
+      "note": "GVW\u00d7speed matrix with >=60 and 45-55 bands. Encoded speed-keyed min=heavy/max=light.",
       "rows": [
         {
           "speedBand": ">= 60 MPH",

@@ -2,8 +2,11 @@
 roles, corridor zones and inputs from the spec itself rather than assuming
 619-311's specific table numbers, so this is the same script for every sheet.
 
-Three passes:
+Four passes:
 
+0. Pydantic schema — typed required sections via mcp-server/sheet_schema.py
+   (plan vs referenceLibrary). Fails fast on a mistyped/missing top-level
+   section before the hand-written structural checks.
 1. Structural — every zone / table / sign cross-reference resolves.
 2. Transcription invariants — relationships that hold on any 619 WZTC lane/
    shoulder-taper sheet (skip line = 40 ft, devices = skips + 1, taper length
@@ -363,7 +366,16 @@ def main() -> int:
     ap.add_argument("--exposure", default=None)
     args = ap.parse_args()
 
-    spec = json.loads(args.spec.read_text(encoding="utf-8"))
+    # Pass 0 — Pydantic structural schema (typed required sections).
+    try:
+        spec = sheet_spec.load_raw_path(args.spec)
+    except sheet_spec.SpecError as e:
+        print(f"FAILED Pydantic schema — {e}")
+        return 1
+    except json.JSONDecodeError as e:
+        print(f"FAILED JSON parse — {e}")
+        return 1
+
     p = Problems()
     is_ref_library = spec.get("sheet", {}).get("kind") == "referenceLibrary"
 

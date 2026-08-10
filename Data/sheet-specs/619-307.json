@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 6 two-lane two-way / flagger)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Family 6 flagger. Buffer-only taperAndBuffer (no lane/shoulder cols). AW/buffer/PV/roll identity with 311 where overlapping. Family 6 reference sheet."
+    "provenanceNote": "Family 6 flagger. Buffer-only taperAndBuffer (no lane/shoulder cols). AW/buffer/PV/roll identity with 311 where overlapping. Family 6 reference sheet.",
+    "buildGuide": "619-307.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -33,7 +34,7 @@
       "note": "Buffer table rows for listed speeds only."
     },
     "laneWidthFt": null,
-    "laneWidthNote": "No merging/lane taper on flagger sheets — lane width is not a lookup input.",
+    "laneWidthNote": "No merging/lane taper on flagger sheets \u2014 lane width is not a lookup input.",
     "shoulderWidthBands": [
       "<= 4 ft",
       "5 - 7 ft",
@@ -203,7 +204,7 @@
       "columnMeaning": {
         "longitudinalBufferSpace": "LONGITUDINAL BUFFER SPACE DISTANCE (FT.)/ # OF SKIP LINES"
       },
-      "note": "Buffer-only table — NO laneTaper / shoulderTaper columns (flagger operation, not merging).",
+      "note": "Buffer-only table \u2014 NO laneTaper / shoulderTaper columns (flagger operation, not merging).",
       "rows": [
         {
           "speedMph": 25,
@@ -372,7 +373,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN/MAX",
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES \u2014 STATIONARY OPERATION MIN/MAX",
       "rows": [
         {
           "speedBand": ">= 55 MPH",
@@ -493,7 +494,7 @@
         },
         "dimensioned": true,
         "spans": "W20-7 to flagger station / buffer",
-        "note": "Centerline cones optional per Note 3 — place 100 ft min from flagger."
+        "note": "Centerline cones optional per Note 3 \u2014 place 100 ft min from flagger."
       },
       {
         "id": "bufferSpace",
@@ -519,7 +520,7 @@
         "sheetLabel": "PV",
         "lengthSource": null,
         "required": false,
-        "note": "Optional — if conditions warrant (plan note)."
+        "note": "Optional \u2014 if conditions warrant (plan note)."
       },
       {
         "id": "rollAheadDistance",
@@ -586,7 +587,7 @@
   },
   "orderTable": {
     "confidence": "drawing",
-    "description": "Flagger approach walk: optional roll+buffer, then W20-7 / W20-4 / W20-1. Downstream: taper + G20-2. W3-4 is conditional (Note 5) — not a default row.",
+    "description": "Flagger approach walk: optional roll+buffer, then W20-7 / W20-4 / W20-1. Downstream: taper + G20-2. W3-4 is conditional (Note 5) \u2014 not a default row.",
     "alignments": [
       {
         "alignIdx": 1,
@@ -741,7 +742,7 @@
         "sizeNonFreeway": "36x36",
         "sizeFreeway": "48x48",
         "signLibraryKey": "W03-04",
-        "note": "Conditional — add if queue expected past W20-4 (Note 5). Not a default order-table row."
+        "note": "Conditional \u2014 add if queue expected past W20-4 (Note 5). Not a default order-table row."
       },
       {
         "signCode": "G20-2",
@@ -800,7 +801,7 @@
         "id": "centerlineCones",
         "sheetLabel": "CENTERLINE CONES",
         "required": false,
-        "note": "Optional — enhance flagger visibility; 100 ft min from flagger."
+        "note": "Optional \u2014 enhance flagger visibility; 100 ft min from flagger."
       },
       {
         "id": "channelizingDevices",
@@ -870,7 +871,7 @@
       "id": "no-merging-taper",
       "severity": "error",
       "source": "Sheet structure / flagger operation",
-      "assert": "Do not place MERGING TAPER or LANE TAPER — flagger operation uses stop/slow control, not a merge.",
+      "assert": "Do not place MERGING TAPER or LANE TAPER \u2014 flagger operation uses stop/slow control, not a merge.",
       "commonFailure": "Cloning 302/311 merging taper corridor onto a flagger sheet."
     },
     {

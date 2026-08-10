@@ -110,6 +110,265 @@ def _strip_old_thinking(messages: list) -> None:
         ]
 
 
+def _block_get(block, key: str, default=None):
+    """Read a field from a content block whether it is a plain dict (loaded
+    history) or an SDK model object (fresh tool_runner append). Repair used
+    to only see dicts — unanswered tool_use SDK blocks survived save_history
+    and 400'd the next turn (live 2026-08-05)."""
+    if isinstance(block, dict):
+        return block.get(key, default)
+    return getattr(block, key, default)
+
+
+def _block_type(block) -> str | None:
+    t = _block_get(block, "type")
+    return str(t) if t is not None else None
+
+
+def _msg_tool_use_ids(msg: dict) -> set[str]:
+    content = msg.get("content")
+    if not isinstance(content, list):
+        return set()
+    ids: set[str] = set()
+    for block in content:
+        if _block_type(block) == "tool_use":
+            tid = _block_get(block, "id")
+            if tid:
+                ids.add(str(tid))
+    return ids
+
+
+def _msg_tool_result_ids(msg: dict) -> set[str]:
+    content = msg.get("content")
+    if not isinstance(content, list):
+        return set()
+    ids: set[str] = set()
+    for block in content:
+        if _block_type(block) == "tool_result":
+            tid = _block_get(block, "tool_use_id")
+            if tid:
+                ids.add(str(tid))
+    return ids
+
+
+def _is_tool_result_only_user(msg: dict) -> bool:
+    """True when a user message is only tool_result blocks (no text).
+    A front-trim that lands here leaves an orphan tool_use_id with no
+    preceding tool_use — API 400 on the next turn (live 2026-08-04)."""
+    if not isinstance(msg, dict) or msg.get("role") != "user":
+        return False
+    content = msg.get("content")
+    if isinstance(content, str):
+        return False
+    if not isinstance(content, list) or not content:
+        return False
+    saw_result = False
+    for block in content:
+        t = _block_type(block)
+        if t is None and not isinstance(block, dict):
+            # Unknown SDK object — not a pure tool_result message.
+            return False
+        if t == "tool_result":
+            saw_result = True
+        elif t == "text" and str(_block_get(block, "text") or "").strip():
+            return False
+        else:
+            return False
+    return saw_result
+
+
+def _safe_trim_start_index(messages: list, want_keep: int) -> int:
+    """Index to slice from so messages[start:] keeps ~want_keep msgs and
+    does not begin mid tool-call chain. Walks earlier if needed to find a
+    user text message (or any non-tool_result-only user)."""
+    if want_keep <= 0 or want_keep >= len(messages):
+        return 0
+    start = len(messages) - want_keep
+    while start > 0 and _is_tool_result_only_user(messages[start]):
+        start -= 1
+    # Prefer starting on a real user turn (text), not an assistant mid-chain.
+    while start > 0:
+        m = messages[start]
+        if isinstance(m, dict) and m.get("role") == "user" and not _is_tool_result_only_user(m):
+            break
+        if isinstance(m, dict) and m.get("role") == "user":
+            break
+        start -= 1
+    return start
+
+
+def _repair_tool_pairing(messages: list) -> None:
+    """Drop orphan tool_result user messages / broken tool_use chains so
+    reloaded history is valid for the Messages API.
+
+    Live 2026-08-04: front-trim left messages[0] as a lone tool_result
+    (toolu_0142…); the next user turn failed with
+    'unexpected tool_use_id found in tool_result blocks'."""
+    # 1) Drop leading tool_result-only user messages (no prior tool_use).
+    while messages and _is_tool_result_only_user(messages[0]):
+        messages.pop(0)
+        print("[history] dropped leading orphan tool_result user message", flush=True)
+
+    # 2) Walk pairs: each user tool_result must reference ids from the
+    #    immediately preceding assistant tool_use. Drop the user message
+    #    (and optionally a dangling assistant tool_use with no result) when
+    #    the pairing is broken.
+    i = 0
+    while i < len(messages):
+        msg = messages[i]
+        if not isinstance(msg, dict):
+            i += 1
+            continue
+        if msg.get("role") == "user" and _msg_tool_result_ids(msg):
+            prev = messages[i - 1] if i > 0 else None
+            prev_ids = _msg_tool_use_ids(prev) if isinstance(prev, dict) and prev.get("role") == "assistant" else set()
+            need = _msg_tool_result_ids(msg)
+            if not need.issubset(prev_ids):
+                print(
+                    f"[history] dropped unpaired tool_result user message "
+                    f"(need={sorted(need - prev_ids)[:3]})",
+                    flush=True,
+                )
+                messages.pop(i)
+                continue
+        i += 1
+
+    # 2b) Drop assistant messages that issued tool_use without an immediate
+    #     following user tool_result (live 2026-08-05: FINAL turn saved
+    #     assistant(tool_use) then assistant(text) with no tool_result in
+    #     between → next turn 400 'tool_use ids without tool_result').
+    i = 0
+    while i < len(messages):
+        msg = messages[i]
+        if not isinstance(msg, dict) or msg.get("role") != "assistant":
+            i += 1
+            continue
+        uses = _msg_tool_use_ids(msg)
+        if not uses:
+            i += 1
+            continue
+        nxt = messages[i + 1] if i + 1 < len(messages) else None
+        ok = (
+            isinstance(nxt, dict)
+            and nxt.get("role") == "user"
+            and uses.issubset(_msg_tool_result_ids(nxt))
+        )
+        if ok:
+            i += 1
+            continue
+        print(
+            f"[history] dropped assistant with unanswered tool_use "
+            f"(ids={sorted(uses)[:3]})",
+            flush=True,
+        )
+        messages.pop(i)
+
+    # 3) Drop a trailing assistant that still has unanswered tool_use
+    #    (interrupted turn) — next user text would also 400.
+    while messages:
+        last = messages[-1]
+        if not isinstance(last, dict) or last.get("role") != "assistant":
+            break
+        uses = _msg_tool_use_ids(last)
+        if not uses:
+            break
+        print("[history] dropped trailing assistant with unanswered tool_use",
+              flush=True)
+        messages.pop()
+
+    # 4) Messages API requires the first message to be role=user. After a
+    #    front-trim that landed mid tool-chain we often start on assistant.
+    #    Drop leading assistant + matching tool_result pairs until a real
+    #    user text message remains; if none exists, clear (fresh session is
+    #    safer than a synthetic stub that confuses the model).
+    while messages:
+        first = messages[0]
+        if isinstance(first, dict) and first.get("role") == "user" and not _is_tool_result_only_user(first):
+            break
+        if isinstance(first, dict) and first.get("role") == "assistant":
+            messages.pop(0)
+            if messages and _is_tool_result_only_user(messages[0]):
+                messages.pop(0)
+            print("[history] dropped leading assistant(+tool_result) so history "
+                  "starts on a user message", flush=True)
+            continue
+        if _is_tool_result_only_user(first):
+            messages.pop(0)
+            print("[history] dropped leading orphan tool_result user message", flush=True)
+            continue
+        break
+    has_user_text = any(
+        isinstance(m, dict) and m.get("role") == "user" and not _is_tool_result_only_user(m)
+        for m in messages
+    )
+    if messages and not has_user_text:
+        print("[history] no user-text message left after repair — clearing history",
+              flush=True)
+        messages.clear()
+
+
+def harness_history_issues(messages: list) -> list[str]:
+    """Detect remaining Messages-API breakers after _repair_tool_pairing.
+
+    Empty list = safe to send. Non-empty = harness P0 — clear rather than
+    nudging the model through a 400 loop.
+    """
+    issues: list[str] = []
+    if not messages:
+        return issues
+    first = messages[0]
+    if not (isinstance(first, dict) and first.get("role") == "user"
+            and not _is_tool_result_only_user(first)):
+        issues.append("history does not start with a real user text message")
+    for i, msg in enumerate(messages):
+        if not isinstance(msg, dict):
+            issues.append(f"messages[{i}] is not a dict")
+            continue
+        if msg.get("role") == "assistant":
+            uses = _msg_tool_use_ids(msg)
+            if uses:
+                nxt = messages[i + 1] if i + 1 < len(messages) else None
+                if not (
+                    isinstance(nxt, dict)
+                    and nxt.get("role") == "user"
+                    and uses.issubset(_msg_tool_result_ids(nxt))
+                ):
+                    issues.append(
+                        f"messages[{i}] assistant has unanswered tool_use "
+                        f"{sorted(uses)[:3]}"
+                    )
+        if msg.get("role") == "user" and _msg_tool_result_ids(msg):
+            prev = messages[i - 1] if i > 0 else None
+            prev_ids = (
+                _msg_tool_use_ids(prev)
+                if isinstance(prev, dict) and prev.get("role") == "assistant"
+                else set()
+            )
+            need = _msg_tool_result_ids(msg)
+            if not need.issubset(prev_ids):
+                issues.append(
+                    f"messages[{i}] tool_result without matching prior tool_use "
+                    f"{sorted(need - prev_ids)[:3]}"
+                )
+    return issues
+
+
+def harness_preflight_or_clear(messages: list) -> list[str]:
+    """Repair, re-check, CLEAR history if still broken (HARNESS_P0).
+
+    Returns issue strings that triggered a clear (empty if healthy).
+    """
+    _repair_tool_pairing(messages)
+    issues = harness_history_issues(messages)
+    if issues:
+        messages.clear()
+        print(
+            f"[history] HARNESS_P0 cleared broken history: {issues[:4]}",
+            flush=True,
+        )
+    return issues
+
+
 def _trim_history_window(messages: list) -> list:
     """Keep only the newest MAX_HISTORY_MESSAGES, then trim oldest further
     if the remaining text still exceeds MAX_HISTORY_CHARS. Always leaves at
@@ -119,15 +378,20 @@ def _trim_history_window(messages: list) -> list:
     rather than to the cap itself. See the cache-prefix comment on those
     constants: trimming to the exact cap busts the prompt cache on nearly
     every turn once history fills up; trimming further below leaves several
-    turns of headroom before the next (expensive) rewrite is needed."""
+    turns of headroom before the next (expensive) rewrite is needed.
+
+    Cuts only at safe boundaries (not mid tool_use/tool_result chain) and
+    repairs any residual orphans afterward."""
     if not messages:
         return messages
     if len(messages) > MAX_HISTORY_MESSAGES:
         target = min(HISTORY_TRIM_TARGET_MESSAGES, MAX_HISTORY_MESSAGES)
-        dropped = len(messages) - target
-        messages[:] = messages[-target:]
+        start = _safe_trim_start_index(messages, target)
+        dropped = start
+        messages[:] = messages[start:]
         print(f"[history] trimmed {dropped} older messages "
-              f"(cap={MAX_HISTORY_MESSAGES}, target={target})", flush=True)
+              f"(cap={MAX_HISTORY_MESSAGES}, target={target}, "
+              f"kept={len(messages)})", flush=True)
     total = sum(_content_char_len(m.get("content")) for m in messages
                 if isinstance(m, dict))
     if total > MAX_HISTORY_CHARS:
@@ -137,9 +401,17 @@ def _trim_history_window(messages: list) -> list:
                         if isinstance(m, dict))
             if total <= target_chars:
                 break
-            messages.pop(0)
+            # Prefer dropping a whole safe prefix unit, not a lone tool_result.
+            if len(messages) > 2 and _is_tool_result_only_user(messages[1]):
+                # Drop assistant+results together when possible.
+                messages.pop(0)
+                if messages and _is_tool_result_only_user(messages[0]):
+                    messages.pop(0)
+            else:
+                messages.pop(0)
             print(f"[history] trimmed oldest message (chars target={target_chars})",
                   flush=True)
+    _repair_tool_pairing(messages)
     return messages
 
 
@@ -192,9 +464,17 @@ def load_history(history_file: Path) -> list[dict]:
     raw = history_file.read_text(encoding="utf-8-sig")
     messages = json.loads(raw)
     before = len(messages)
+    before_fingerprint = (
+        messages[0].get("role") if messages and isinstance(messages[0], dict) else None,
+        _msg_tool_result_ids(messages[0]) if messages and isinstance(messages[0], dict) else set(),
+    )
     _strip_bulky_history(messages)
-    if len(messages) < before:
-        # Persist the trim so the next restart doesn't re-load the fat file.
+    after_fingerprint = (
+        messages[0].get("role") if messages and isinstance(messages[0], dict) else None,
+        _msg_tool_result_ids(messages[0]) if messages and isinstance(messages[0], dict) else set(),
+    )
+    if len(messages) < before or before_fingerprint != after_fingerprint:
+        # Persist trim/repair so the next restart doesn't re-load orphans.
         save_history(history_file, messages)
     return messages
 

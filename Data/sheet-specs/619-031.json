@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 9 mowing/mulching/marking)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Two-lane mulching/herbicide. Classic P,TMIA NON-FREEWAY PV (like 041); speed-keyed moving roll-ahead 3-band; W20-1 + W8-23. Registry title 'Freeway Mowing' is wrong — PDF is two-lane mulching."
+    "provenanceNote": "Two-lane mulching/herbicide. Classic P,TMIA NON-FREEWAY PV (like 041); speed-keyed moving roll-ahead 3-band; W20-1 + W8-23. Registry title 'Freeway Mowing' is wrong \u2014 PDF is two-lane mulching.",
+    "buildGuide": "619-031.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",

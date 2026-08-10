@@ -15,7 +15,9 @@ reference sheet per family, 9 families") is real, substantial follow-up
 work, not something this pass claims to have done. What IS delivered:
 the gate mechanism itself, covering every geometric rule practical to
 check today, run against two different sheet families (619-311, 619-302)
-to prove it isn't 619-311-specific.
+to prove it isn't 619-311-specific. Shapely planar QA (hatch validity,
+symbol-in-hatch, AP/PV separation) lives in sheet_geometry_qa.py and is
+invoked at the end of run_rules_gate.
 
 Part of the sheet_spec split (2026-08-04): sheet_resolve.py owns "what does
 this sheet need", sheet_compile.py turns that into coordinates, this module
@@ -27,6 +29,56 @@ from __future__ import annotations
 
 from sheet_resolve import station_walk
 from sheet_compile import check_taper_continuity, _zone_station_ranges
+
+
+def compare_station_tables(vba_rows: list[dict], walk_rows: list[dict],
+                            tol_ft: float = 0.5) -> list[str]:
+    """Cross-check VBA order-table cumulative stations (from
+    get_alignment_stationing) against Python station_walk for one
+    alignment. Returns failure strings (empty = match within tol).
+
+    Compares the multiset of cumulative stations (sorted), not row index
+    order — VBA WriteAlignmentRows always appends Non-Sign then Sign,
+    while station_walk follows orderTable.rows which may interleave.
+    Live miss 2026-08-04: corridor geometry / station-0 orientation can
+    look 'committed' while the drawn path is shorter than the walk (or
+    VBA spacings drift from the sheet spec). Catch that before ticks
+    land at clamped path ends."""
+    fails: list[str] = []
+    walk_main = [w for w in walk_rows if w.get("rowNum") is not None]
+    if not vba_rows:
+        fails.append("cross-validate: VBA order table has 0 rows for this align")
+        return fails
+    if not walk_main:
+        fails.append("cross-validate: station_walk has 0 main rows for this align")
+        return fails
+    if len(vba_rows) != len(walk_main):
+        fails.append(
+            f"cross-validate: VBA row count {len(vba_rows)} != "
+            f"station_walk main-row count {len(walk_main)}"
+        )
+    try:
+        vba_cum = sorted(float(r.get("cumulativeStationFt", 0)) for r in vba_rows)
+    except (TypeError, ValueError):
+        fails.append("cross-validate: bad VBA cumulativeStationFt value")
+        return fails
+    walk_cum = sorted(float(w.get("stationFt", 0)) for w in walk_main)
+    for i, (a, b) in enumerate(zip(vba_cum, walk_cum)):
+        if abs(a - b) > tol_ft:
+            fails.append(
+                f"cross-validate: cum-station multiset mismatch at rank {i + 1}: "
+                f"VBA={a:.1f} ft, walk={b:.1f} ft "
+                f"(delta {abs(a - b):.1f} > tol {tol_ft})"
+            )
+    if vba_cum and walk_cum and abs(vba_cum[-1] - walk_cum[-1]) > tol_ft:
+        # Already covered by the loop when lengths match; when lengths
+        # differ, still flag the farthest-station drift explicitly.
+        if len(vba_cum) != len(walk_cum):
+            fails.append(
+                f"cross-validate: farthest station VBA={vba_cum[-1]:.1f} vs "
+                f"walk={walk_cum[-1]:.1f}"
+            )
+    return fails
 
 
 def check_corridor_topology(spec: dict, resolved: dict, align1_segments, align2_segments,
@@ -167,5 +219,15 @@ def run_rules_gate(spec: dict, resolved: dict, align_idx: int,
                 f"corridor, not a geometrically distinct work-area edge. Recommit "
                 f"align2 at the actual downstream edge of the work area."
             )
+
+    # Shapely planar QA (hatch validity, PV/AP not inside hatch, AP↔PV
+    # separation, channelizing self-intersection). Short failure strings
+    # only — see sheet_geometry_qa.py.
+    from sheet_geometry_qa import check_compiled_geometry
+    fails += check_compiled_geometry(
+        symbol_primitives=symbol_primitives,
+        hatch_primitives=hatch_primitives,
+        channelizing_primitives=channelizing_primitives,
+    )
 
     return fails

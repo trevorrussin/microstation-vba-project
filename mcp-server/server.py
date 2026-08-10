@@ -47,14 +47,13 @@ mcp = MCPServer("wztc-designer")
 # ================================================================ Query
 
 @mcp.tool()
-def find_elements_near(x: float, y: float, radius: float, type_filter: str = "") -> list[dict]:
+def find_elements_near(x: float, y: float, radius: float, type_filter: str = "",
+                       force: bool = False) -> list[dict]:
     """Find drawn elements within radius (ft) of (x, y) in the active model.
     type_filter narrows by kind (e.g. 'CELL'); empty string matches all
-    types. Returns EVERY candidate with its distance and range, not just
-    the nearest — matching is by bounding-box center, so a point near the
-    end of a long line matches its midpoint, and multiple close candidates
-    are a real ambiguity signal, not noise to collapse to one answer."""
-    return wztc_ops.find_elements_near(x, y, radius, type_filter)
+    types. Mid sheet-plan: wide radius / repeated calls are refused unless
+    force=True — prefer view_drawing then FINAL after place_sheet_geometry."""
+    return wztc_ops.find_elements_near(x, y, radius, type_filter, force=force)
 
 
 @mcp.tool()
@@ -99,6 +98,47 @@ def get_locked_designer_inputs() -> dict:
     same build — including after a turn that hit MAX_TOOL_ITERATIONS and
     had to continue in a fresh turn."""
     return wztc_ops.get_locked_designer_inputs()
+
+
+@mcp.tool()
+def get_plan_status() -> dict:
+    """Named 619 sheet-build checklist only. Outside a sheet plan returns
+    sheetPlanActive=False — general CAD is not gated. When active, includes
+    persistedPath/updatedAt from Bridge/sheet-plan.json."""
+    return wztc_ops.get_plan_status()
+
+
+@mcp.tool()
+def get_placements(sheet_num: str = "", kind: str = "", zone: str = "",
+                   run: str = "", align_idx: int = 0) -> list[dict]:
+    """List agent-placed primitives from the placement registry (kind/zone/run).
+    Prefer this over fishing get_journal for delete/edit by feature."""
+    return wztc_ops.get_placements(
+        sheet_num=sheet_num, kind=kind, zone=zone, run=run, align_idx=align_idx)
+
+
+@mcp.tool()
+def delete_placements(kind: str = "", zone: str = "", run: str = "",
+                      align_idx: int = 0, sheet_num: str = "",
+                      reason: str = "") -> dict:
+    """Delete DGN elements for matching placement-registry records
+    (e.g. kind='cone', run='laneTaperRun')."""
+    return wztc_ops.delete_placements(
+        kind=kind, zone=zone, run=run, align_idx=align_idx,
+        sheet_num=sheet_num, reason=reason)
+
+
+@mcp.tool()
+def get_geometry_scorecard(sheet_num: str = "") -> dict:
+    """Post-placement scorecard: compile expectations vs placement registry."""
+    return wztc_ops.get_geometry_scorecard(sheet_num=sheet_num)
+
+
+@mcp.tool()
+def reflect_sheet_build(max_iterations: int = 1) -> dict:
+    """Deterministic reflection for the active sheet build — cites registry
+    primitiveIds / reqIds and scorecard failures. Call before FINAL."""
+    return wztc_ops.reflect_sheet_build(max_iterations=max_iterations)
 
 
 @mcp.tool()
@@ -204,11 +244,13 @@ def classify_site_features(x: float, y: float, radius: float) -> list[dict]:
 @mcp.tool()
 def capture_view() -> Image:
     """Screenshot the live MicroStation window and return the actual
-    image — lets the caller visually verify spacing/layout/sign placement
-    instead of only reasoning from coordinates returned by the query
-    tools. OS-level capture, not a WZTCBridge op — works regardless of
-    what's on top of the MicroStation window, but MicroStation must be
-    open. See wztc_ops.capture_view / view_capture.py."""
+    image — MCP / Claude Code clients only.
+
+    The in-MicroStation chat_driver does NOT expose this tool; that agent
+    uses view_drawing (ad-hoc) or run_visual_qa_captures / run_sheet_build
+    (scripted frames attached as vision + panel SCREENSHOT). OS-level
+    capture, not a WZTCBridge op — MicroStation must be open. See
+    wztc_ops.capture_view / view_capture.py."""
     result = wztc_ops.capture_view()
     return Image(path=result["path"])
 
@@ -227,15 +269,14 @@ def capture_window(title_substring: str) -> Image:
 def adjust_view(zoom_out_percent: float = 0, pan_x: float = 0, pan_y: float = 0,
                  view_num: int = 1,
                  center_x: float | None = None, center_y: float | None = None,
-                 width: float | None = None, height: float | None = None) -> dict:
-    """Zoom/pan the MicroStation view via COM. pan_x/pan_y are RELATIVE
-    deltas — never pass absolute model coords there. For absolute framing
-    pass center_x/center_y (and optional width/height). Prefer
-    focus_view_on_elements when you have elementIds. See
-    wztc_ops.adjust_view for full semantics."""
+                 width: float | None = None, height: float | None = None,
+                 force: bool = False) -> dict:
+    """Zoom/pan the MicroStation view via COM. After place_sheet_geometry
+    during a sheet build, prefer run_visual_qa_captures (force=True to
+    override). General CAD is unaffected."""
     return wztc_ops.adjust_view(zoom_out_percent=zoom_out_percent, pan_x=pan_x, pan_y=pan_y,
                                  view_num=view_num, center_x=center_x, center_y=center_y,
-                                 width=width, height=height)
+                                 width=width, height=height, force=force)
 
 
 @mcp.tool()
@@ -281,8 +322,20 @@ def get_sheet_requirements(sheet_num: str) -> dict:
     sheet number is unknown to the registry — ask the engineer rather
     than guessing. Sign codes in the `signs` field are as printed on the
     sheet (e.g. 'W20-1') — pass each through resolve_sign_code before
-    calling place_sign, don't assume it's already a valid library key."""
+    calling place_sign, don't assume it's already a valid library key.
+    When Data/sheet-specs/<sheet>.build.md exists, response includes
+    buildGuidePath + buildGuide (durable tips) — follow those on builds."""
     return wztc_ops.get_sheet_requirements(sheet_num)
+
+
+@mcp.tool()
+def get_sheet_build_guide(sheet_num: str) -> dict:
+    """Load the durable live-build playbook for a named 619 sheet
+    (Data/sheet-specs/<sheet>.build.md). Machine prefs stay in the JSON;
+    this markdown holds tips, QA checklist, and gotchas. Call when
+    get_sheet_requirements attached a buildGuide, or mid-build via
+    get_plan_status.buildGuidePath."""
+    return wztc_ops.get_sheet_build_guide(sheet_num)
 
 
 @mcp.tool()
@@ -389,22 +442,22 @@ def build_wztc_order_table(speed: int, road_type: str, lane_width: int, shoulder
 
 @mcp.tool()
 def find_reference_linework(level_name_contains: str, include_references: bool = False,
-                            ref_name_contains: str = "") -> list[dict]:
-    """Locate connected line/line-string chains on a level, for auto-
-    tracing an alignment or work-space boundary without clicks. Ask the
-    engineer which level holds the roadway centerline first. Scans the
-    active model only by default; include_references=True also scans
-    attached reference files. Returns candidate chains, longest is usually
-    the roadway but confirm with the engineer rather than assuming."""
-    return wztc_ops.find_reference_linework(level_name_contains, include_references, ref_name_contains)
+                            ref_name_contains: str = "", force: bool = False) -> list[dict]:
+    """Locate connected line/line-string chains on a level. After an order
+    table is built, vague Default/RDEFAULT fishing is refused — prefer
+    assemble_corridor. force=True only if the engineer named that level."""
+    return wztc_ops.find_reference_linework(
+        level_name_contains, include_references, ref_name_contains, force=force)
 
 
 @mcp.tool()
-def define_alignment_segment(align_idx: int, vertices: list[list[float]], reason: str = "") -> dict:
+def define_alignment_segment(align_idx: int, vertices: list[list[float]],
+                             reason: str = "", force: bool = False) -> dict:
     """Create straight alignment line segments from vertices and record
     them as a drawing session for align_idx (1=Upstream, 2=Downstream).
-    Call one or more times per alignment, then commit_alignment once."""
-    return wztc_ops.define_alignment_segment(align_idx, vertices, reason)
+    Mid sheet-plan prefer assemble_corridor; freestyle define is refused
+    unless force=True."""
+    return wztc_ops.define_alignment_segment(align_idx, vertices, reason, force=force)
 
 
 @mcp.tool()
@@ -427,6 +480,27 @@ def adopt_alignment(align_idx: int, element_id: str, force: bool = False) -> dic
     corridor-topology check immediately and raises if it fails. force=True
     to proceed anyway."""
     return wztc_ops.adopt_alignment(align_idx, element_id, force)
+
+
+@mcp.tool()
+def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
+                      approach_length_ft: float = 0.0,
+                      force: bool = False) -> dict:
+    """Build Upstream+Downstream alignments from the two work-area edge
+    points. Prefer over freestyle define_alignment_segment pairs.
+    Requires build_wztc_order_table first. approach_length_ft=0 auto-sizes
+    from station_walk + slack. force=True wipes an existing corridor."""
+    return wztc_ops.assemble_corridor(
+        upstream_edge, downstream_edge, approach_length_ft, force)
+
+
+@mcp.tool()
+def cross_validate_stations(align_idx: int = 0, tol_ft: float = 0.5,
+                            force: bool = False) -> dict:
+    """Compare VBA order-table stations vs Python station_walk and check
+    path length covers the walk. align_idx=0 checks all. Auto-run by
+    place_order_table_stations / place_sheet_geometry."""
+    return wztc_ops.cross_validate_stations(align_idx, tol_ft, force)
 
 
 @mcp.tool()
@@ -515,10 +589,11 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
                         outward_sign: float = -1.0,
                         sheet_elements: str = "",
                         arrow_panel_choice: str = "trailer",
-                        include_primitives: bool = False) -> dict:
+                        include_primitives: bool = False,
+                        force: bool = False) -> dict:
     """Compile sheet-faithful dims/labels/channelizing/symbols/hatch
-    (no drawing). Requires Data/sheet-specs/<sheet>.json and committed
-    or adopted alignments. Prefer place_sheet_geometry(dry_run=True)."""
+    (no drawing). Blank designer kwargs fill from locked order-table
+    inputs. Prefer place_sheet_geometry(dry_run=True)."""
     return wztc_ops.compile_sheet_plan(
         sheet_num, speed, lane_width, shoulder_width,
         area_type=area_type, closure_type=closure_type,
@@ -527,7 +602,7 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
         align_idxs=align_idxs, outward_sign=outward_sign,
         sheet_elements=sheet_elements,
         arrow_panel_choice=arrow_panel_choice,
-        include_primitives=include_primitives)
+        include_primitives=include_primitives, force=force)
 
 
 @mcp.tool()
@@ -557,6 +632,72 @@ def place_sheet_geometry(sheet_num: str, speed: int, lane_width: int, shoulder_w
         sheet_elements=sheet_elements,
         arrow_panel_choice=arrow_panel_choice,
         dry_run=dry_run, force=force, layers=layers)
+
+
+@mcp.tool()
+def run_sheet_build(upstream_edge: list[float] | None = None,
+                    downstream_edge: list[float] | None = None,
+                    outward_sign: float = -1.0,
+                    half_len: float = 40.0,
+                    arrow_panel_choice: str = "trailer",
+                    include_visual_qa: bool = True,
+                    clear_prior_stations: bool = False,
+                    force: bool = False,
+                    approach_length_ft: float = 0.0) -> dict:
+    """Sheet-build only executor: assemble→stations→signs→compiler→QA.
+    Outside a sheet plan returns sheetPlanActive=False."""
+    return wztc_ops.run_sheet_build(
+        upstream_edge=upstream_edge, downstream_edge=downstream_edge,
+        outward_sign=outward_sign, half_len=half_len,
+        arrow_panel_choice=arrow_panel_choice,
+        include_visual_qa=include_visual_qa,
+        clear_prior_stations=clear_prior_stations, force=force,
+        approach_length_ft=approach_length_ft)
+
+
+@mcp.tool()
+def run_visual_qa_captures(view_num: int = 1) -> dict:
+    """Sheet-build only: scripted corridor/upstream/work-area/downstream
+    captures after place_sheet_geometry. No-op outside a sheet plan."""
+    return wztc_ops.run_visual_qa_captures(view_num=view_num)
+
+
+@mcp.tool()
+def begin_sheet_sandbox(upstream_edge: list[float] | None = None,
+                        downstream_edge: list[float] | None = None,
+                        offset_y_ft: float = 2000.0) -> dict:
+    """Offset-Y KEEP/REVERT sandbox — does not wipe the kept corridor."""
+    return wztc_ops.begin_sheet_sandbox(
+        upstream_edge=upstream_edge, downstream_edge=downstream_edge,
+        offset_y_ft=offset_y_ft)
+
+
+@mcp.tool()
+def get_sheet_sandbox() -> dict:
+    """Active sandbox band state."""
+    return wztc_ops.get_sheet_sandbox()
+
+
+@mcp.tool()
+def run_sheet_build_sandbox(offset_y_ft: float = 2000.0,
+                            include_visual_qa: bool = True,
+                            force: bool = False) -> dict:
+    """Try a full sheet build on the sandbox band; then keep or revert."""
+    return wztc_ops.run_sheet_build_sandbox(
+        offset_y_ft=offset_y_ft, include_visual_qa=include_visual_qa,
+        force=force)
+
+
+@mcp.tool()
+def keep_sheet_sandbox() -> dict:
+    """KEEP the sandbox try (reference band untouched)."""
+    return wztc_ops.keep_sheet_sandbox()
+
+
+@mcp.tool()
+def revert_sheet_sandbox() -> dict:
+    """REVERT the sandbox try — clear sandbox placements only."""
+    return wztc_ops.revert_sheet_sandbox()
 
 
 @mcp.tool()

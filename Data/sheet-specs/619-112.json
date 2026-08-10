@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 7 mobile)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "2-sheet freeway mobile right TWO-lane closure. Sheet 1 (shoulder <8'): W20-5AR+NYW8-33, gaps 1000'/750'. Sheet 2 (shoulder >=8'): adds W4-2R, advance gap 1500' min / 1/2 mile max. Primary corridor models Sheet 2. PV = PVH+TMIA; roll-ahead GVW-keyed MOVING (same cells as 110-02). Fallback 619-207 / 619-209 per notes. Errata 1 Eff. 09/01/23."
+    "provenanceNote": "2-sheet freeway mobile right TWO-lane closure. Sheet 1 (shoulder <8'): W20-5AR+NYW8-33, gaps 1000'/750'. Sheet 2 (shoulder >=8'): adds W4-2R, advance gap 1500' min / 1/2 mile max. Primary corridor models Sheet 2. PV = PVH+TMIA; roll-ahead GVW-keyed MOVING (same cells as 110-02). Fallback 619-207 / 619-209 per notes. Errata 1 Eff. 09/01/23.",
+    "buildGuide": "619-112.build.md"
   },
   "applicability": {
     "roadType": "Freeway",

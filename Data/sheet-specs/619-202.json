@@ -18,8 +18,9 @@
     "pdfPages": 1,
     "transcribedBy": "Cursor (Family 1 short-duration left sibling of 619-311)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Short duration left lane closure — mirror of 619-203 with W4-2L. NO taper/buffer. A/B spacing. Operator in PV. Fresh PDF 2026-08-03.",
-    "pageRotation": 0
+    "provenanceNote": "Short duration left lane closure \u2014 mirror of 619-203 with W4-2L. NO taper/buffer. A/B spacing. Operator in PV. Fresh PDF 2026-08-03.",
+    "pageRotation": 0,
+    "buildGuide": "619-202.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -40,7 +41,7 @@
       "5 - 7 ft",
       ">= 8 ft"
     ],
-    "shoulderWidthBandNote": "Table 311-02 has exactly three shoulder columns. Any shoulder width of 8 ft or more maps to the '>= 8 ft' band. Do not interpolate per-foot values between 8 and 12 ft — the sheet does not provide them.",
+    "shoulderWidthBandNote": "Table 311-02 has exactly three shoulder columns. Any shoulder width of 8 ft or more maps to the '>= 8 ft' band. Do not interpolate per-foot values between 8 and 12 ft \u2014 the sheet does not provide them.",
     "areaTypes": [
       "URBAN",
       "RURAL"
@@ -307,7 +308,7 @@
           "YY": "1000 FT."
         }
       ],
-      "note": "Sheet prints A/B only (no C column) — two advance warning signs."
+      "note": "Sheet prints A/B only (no C column) \u2014 two advance warning signs."
     },
     "202-04": {
       "title": "REQUIRED SIGN SIZES",
@@ -384,7 +385,7 @@
   },
   "corridor": {
     "confidence": "drawing",
-    "description": "Short duration: W20-1 —B— W4-2L —A— ROLL AHEAD — work area. No taper/buffer/downstream/G20-2.",
+    "description": "Short duration: W20-1 \u2014B\u2014 W4-2L \u2014A\u2014 ROLL AHEAD \u2014 work area. No taper/buffer/downstream/G20-2.",
     "zones": [
       {
         "id": "signB",
@@ -469,7 +470,7 @@
   },
   "orderTable": {
     "confidence": "drawing",
-    "description": "Upstream only — short duration has no downstream taper/G20-2.",
+    "description": "Upstream only \u2014 short duration has no downstream taper/G20-2.",
     "alignments": [
       {
         "alignIdx": 1,

@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 5 ramp-adjacent)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Family 5 intermediate partial exit ramp. 7-band shoulder; gaps 1000/500; W21-5aR (not W20-5)."
+    "provenanceNote": "Family 5 intermediate partial exit ramp. 7-band shoulder; gaps 1000/500; W21-5aR (not W20-5).",
+    "buildGuide": "619-416.build.md"
   },
   "applicability": {
     "roadType": "Freeway",
@@ -680,7 +681,7 @@
         "excludedRows": [
           {
             "label": "MERGING TAPER",
-            "reason": "Partial exit ramp — shoulder taper only."
+            "reason": "Partial exit ramp \u2014 shoulder taper only."
           },
           {
             "label": "Vehicle Space",

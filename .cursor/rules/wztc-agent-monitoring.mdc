@@ -10,6 +10,33 @@ MicroStation, but it is watching a plain file — you can drive and observe a
 full turn without touching the panel at all. Useful for testing a fix,
 running a sheet build unattended, or verifying a change actually stuck.
 
+## When monitoring: fix errors and off-track behavior (do not only report)
+
+Standing engineer preference (2026-08-04): while watching a live agent turn,
+**intervene and fix** — do not wait for the engineer to ask, and do not stop
+at a status ping when you can clear the blockage yourself.
+
+Fix immediately when you see:
+- `ERROR` in `chat-log.tsv` (API/history/tool failures) — diagnose root
+  cause, patch code or repair state (`chat-history.json`, SharedState,
+  restart driver), then re-queue the engineer message if the turn died
+- repeated `TOOL_RESULT` `status=ERROR` the agent is looping on or
+  misinterpreting
+- agent off the sheet-first / call-order path (e.g. freestyle corridor
+  instead of `assemble_corridor`, heuristic `place_order_table_*` when
+  sheet JSON exists, re-asking locked designer inputs, Downstream sta0 on
+  Upstream's line, declaring complete without visual QA)
+- `MAX_TOOL_ITERATIONS` / stale mid-turn with no progress — nudge via
+  `chat-input.tsv` with a concrete continue instruction, or fix the
+  underlying tool/prompt bug if that is why it burned iterations
+- gate refusals (`cross_validate_stations`, corridor-topology,
+  `ALIGNMENT_NOT_READY`) where the right recovery is known
+  (`assemble_corridor`, `adopt_alignment`, clear+rebuild)
+
+Still stay quiet on routine healthy progress. Tell the engineer briefly
+what you fixed and why; ask only when a real designer choice is required
+(speed/area_type/work-area edge picks) that you must not invent.
+
 ## Sending a message (same as clicking Send in the panel)
 
 Append one line to `Bridge/chat-input.tsv`, format `<timestamp>\t<message>`
@@ -39,10 +66,10 @@ you" are:
 
 - `FINAL` — turn complete (or hit `MAX_TOOL_ITERATIONS` without finishing —
   check the text, it says so explicitly rather than returning blank)
-- `ASK_USER` / `ASK_USER_CHOICE` — blocked on a reply
-- a `TOOL_RESULT` with `status=ERROR` worth reacting to (the agent will
-  usually self-correct on its own within the same turn; only intervene if
-  it asks or clearly can't proceed)
+- `ASK_USER` / `ASK_USER_CHOICE` — blocked on a reply (engineer decision;
+  do not invent designer inputs)
+- a `TOOL_RESULT` with `status=ERROR` — **fix or unblock** per the
+  monitoring rule above; only escalate if you cannot resolve it
 
 Poll/tail that file (`tail -f` or equivalent) rather than guessing how long
 a turn will take — turns vary from seconds to several minutes depending on

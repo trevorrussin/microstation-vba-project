@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 5 ramp-adjacent)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Family 5 reference. Corridor like 302 (MERGING+DOWNSTREAM+shoulder overlay) with fixed plan gaps 1000/1500/1320/1320 (two W20-1) — NO advance-warning spacing table. Speeds 45/50/55/65. Table 318-01 == 302-02 overlap. PVH+TMIA freeway-only. Ramp signs W4-1R/R1-2/W3-2. Advance-placement table 318-03 (NY2C-4) is advisory, not A/B/C."
+    "provenanceNote": "Family 5 reference. Corridor like 302 (MERGING+DOWNSTREAM+shoulder overlay) with fixed plan gaps 1000/1500/1320/1320 (two W20-1) \u2014 NO advance-warning spacing table. Speeds 45/50/55/65. Table 318-01 == 302-02 overlap. PVH+TMIA freeway-only. Ramp signs W4-1R/R1-2/W3-2. Advance-placement table 318-03 (NY2C-4) is advisory, not A/B/C.",
+    "buildGuide": "619-318.build.md"
   },
   "applicability": {
     "roadType": "Freeway",
@@ -350,7 +351,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "note": "NY2C-4 advisory distances — NOT the A/B/C plan gaps.",
+      "note": "NY2C-4 advisory distances \u2014 NOT the A/B/C plan gaps.",
       "rows": [
         {
           "speedMph": 45,
@@ -490,15 +491,15 @@
           "fixedFt": 1320
         },
         "dimensioned": true,
-        "spans": "W20-1 (1 MILE) to W20-1 (½ MILE)"
+        "spans": "W20-1 (1 MILE) to W20-1 (\u00bd MILE)"
       },
       {
         "id": "signC",
         "order": 3,
         "kind": "sign",
         "signCode": "W20-1",
-        "sheetLegend": "ROAD WORK ½ MILE",
-        "note": "Second W20-1; SignLibrary key W20-01RPM preferred — order table reuses W20-1."
+        "sheetLegend": "ROAD WORK \u00bd MILE",
+        "note": "Second W20-1; SignLibrary key W20-01RPM preferred \u2014 order table reuses W20-1."
       },
       {
         "id": "gapC",
@@ -509,14 +510,14 @@
           "fixedFt": 1320
         },
         "dimensioned": true,
-        "spans": "W20-1 (½ MILE) to W20-5"
+        "spans": "W20-1 (\u00bd MILE) to W20-5"
       },
       {
         "id": "signB",
         "order": 5,
         "kind": "sign",
         "signCode": "W20-5",
-        "sheetLegend": "RIGHT LANE CLOSED ½ MILE"
+        "sheetLegend": "RIGHT LANE CLOSED \u00bd MILE"
       },
       {
         "id": "gapB",
@@ -547,7 +548,7 @@
         "dimensioned": true,
         "spans": "W4-2R to upstream end of MERGING TAPER",
         "containsOverlay": "shoulderTaper",
-        "note": "Fixed plan callout — no advance-warning spacing table."
+        "note": "Fixed plan callout \u2014 no advance-warning spacing table."
       },
       {
         "id": "shoulderTaper",
@@ -777,7 +778,7 @@
     "items": [
       {
         "signCode": "W20-1",
-        "sheetLegend": "ROAD WORK 1 MILE / ½ MILE",
+        "sheetLegend": "ROAD WORK 1 MILE / \u00bd MILE",
         "legendSubstitution": null,
         "shape": "diamond",
         "warningFlags": true,
@@ -790,7 +791,7 @@
       },
       {
         "signCode": "W20-5",
-        "sheetLegend": "RIGHT LANE CLOSED ½ MILE",
+        "sheetLegend": "RIGHT LANE CLOSED \u00bd MILE",
         "legendSubstitution": null,
         "shape": "diamond",
         "warningFlags": false,
@@ -836,7 +837,7 @@
         "sizeFreeway": "48x24",
         "signLibraryKey": null,
         "mountedOn": "protectiveVehicle",
-        "signLibraryNote": "Vehicle-mounted — not a post-mounted SignLibrary placement."
+        "signLibraryNote": "Vehicle-mounted \u2014 not a post-mounted SignLibrary placement."
       },
       {
         "signCode": "W4-1R",
@@ -849,7 +850,7 @@
         "sizeNonFreeway": "48x48",
         "sizeFreeway": "48x48",
         "signLibraryKey": "W04-01R",
-        "note": "Entrance ramp merge — not in upstream walk."
+        "note": "Entrance ramp merge \u2014 not in upstream walk."
       },
       {
         "signCode": "R1-2",
@@ -901,7 +902,7 @@
         "sizeNonFreeway": "36x48",
         "sizeFreeway": "36x48",
         "signLibraryKey": "R02-01",
-        "note": "Note 9 — halfway between 1st and 2nd advance warning signs."
+        "note": "Note 9 \u2014 halfway between 1st and 2nd advance warning signs."
       }
     ]
   },

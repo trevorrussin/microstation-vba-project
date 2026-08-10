@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 9 mowing/mulching/marking)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "2-sheet pavement marking train. Sheet 1 = plan + notes; Sheet 2 = tables 060-01..04. PVH/PVL + GVW×speed roll like 023; signs W23-1/NYW8-*/W3-4. Primary order = ROLL + W23-1."
+    "provenanceNote": "2-sheet pavement marking train. Sheet 1 = plan + notes; Sheet 2 = tables 060-01..04. PVH/PVL + GVW\u00d7speed roll like 023; signs W23-1/NYW8-*/W3-4. Primary order = ROLL + W23-1.",
+    "buildGuide": "619-060.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -167,7 +168,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "note": "Same GVW×speed matrix as 023-02.",
+      "note": "Same GVW\u00d7speed matrix as 023-02.",
       "rows": [
         {
           "speedBand": "45 - 55 MPH",
@@ -506,7 +507,7 @@
       "6. PORTABLE VARIABLE MESSAGE SIGNS (PVMS) MAY BE USED TO SUPPLEMENT REQUIRED WARNING SIGNS USING APPROVED MESSAGES (SEE TABLE 060-04).",
       "7. VEH #3 SHALL BE PLACED TO OPTIMIZE AND ENHANCE VISIBILITY FROM THE REAR OF THE OPERATION AND SHALL REMAIN WITHIN THE ALLOWABLE ROLL-AHEAD DISTANCE LIMITS."
     ],
-    "note": "Full Notes 1-10 + Special Notes S1-S9 + Use of Cones C1-C3 on sheet 1 — see PDF for complete verbatim set."
+    "note": "Full Notes 1-10 + Special Notes S1-S9 + Use of Cones C1-C3 on sheet 1 \u2014 see PDF for complete verbatim set."
   },
   "rules": [
     {

@@ -17,7 +17,8 @@
     "pageRotation": 0,
     "transcribedBy": "Cursor (Family 6 two-lane two-way / flagger)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "TWLT single-lane shift. Buffer+shoulderTaper; AW like 311; no merging L row."
+    "provenanceNote": "TWLT single-lane shift. Buffer+shoulderTaper; AW like 311; no merging L row.",
+    "buildGuide": "619-422.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -379,7 +380,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES — STATIONARY OPERATION MIN/MAX",
+      "columnMeaning": "ROLL AHEAD DISTANCE (FT.)/# OF SKIP LINES \u2014 STATIONARY OPERATION MIN/MAX",
       "rows": [
         {
           "speedBand": ">= 55 MPH",
@@ -620,7 +621,7 @@
         },
         "dimensioned": true,
         "spans": "W20-7 to flagger station / buffer",
-        "note": "Centerline cones optional per Note 3 — place 100 ft min from flagger."
+        "note": "Centerline cones optional per Note 3 \u2014 place 100 ft min from flagger."
       },
       {
         "id": "shoulderTaper",
@@ -669,7 +670,7 @@
         "sheetLabel": "PV",
         "lengthSource": null,
         "required": false,
-        "note": "Optional — if conditions warrant (plan note)."
+        "note": "Optional \u2014 if conditions warrant (plan note)."
       },
       {
         "id": "rollAheadDistance",
@@ -868,7 +869,7 @@
         "sizeNonFreeway": "36x36",
         "sizeFreeway": "48x48",
         "signLibraryKey": "W20-05",
-        "note": "Lane closed / shift — confirm L/R variant on plan."
+        "note": "Lane closed / shift \u2014 confirm L/R variant on plan."
       },
       {
         "signCode": "G20-2",
@@ -894,7 +895,7 @@
         "sizeNonFreeway": "24x30",
         "sizeFreeway": "30x36",
         "signLibraryKey": "R04-07",
-        "note": "Keep Right — TWLT related."
+        "note": "Keep Right \u2014 TWLT related."
       },
       {
         "signCode": "WARNING FLAG",
@@ -943,7 +944,7 @@
         "id": "centerlineCones",
         "sheetLabel": "CENTERLINE CONES",
         "required": false,
-        "note": "Optional — enhance flagger visibility; 100 ft min from flagger."
+        "note": "Optional \u2014 enhance flagger visibility; 100 ft min from flagger."
       },
       {
         "id": "channelizingDevices",
@@ -1026,7 +1027,7 @@
       "id": "no-merging-taper",
       "severity": "error",
       "source": "Sheet structure / flagger operation",
-      "assert": "Do not place MERGING TAPER or LANE TAPER — flagger operation uses stop/slow control, not a merge.",
+      "assert": "Do not place MERGING TAPER or LANE TAPER \u2014 flagger operation uses stop/slow control, not a merge.",
       "commonFailure": "Cloning 302/311 merging taper corridor onto a flagger sheet."
     },
     {

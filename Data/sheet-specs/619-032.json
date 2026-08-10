@@ -17,7 +17,8 @@
     "pageRotation": 270,
     "transcribedBy": "Cursor (Family 9 mowing/mulching/marking)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Herbicide lane encroachment, shoulder <8'. Sibling of 023 with herbicide notes; same PVH/PVL + GVW×speed roll shape. Fallback to 619-031 when work stays on shoulder."
+    "provenanceNote": "Herbicide lane encroachment, shoulder <8'. Sibling of 023 with herbicide notes; same PVH/PVL + GVW\u00d7speed roll shape. Fallback to 619-031 when work stays on shoulder.",
+    "buildGuide": "619-032.build.md"
   },
   "applicability": {
     "roadType": "Non-Freeway",
@@ -166,7 +167,7 @@
       "keyedBy": [
         "preconstructionPostedSpeedMph"
       ],
-      "note": "Same GVW×speed matrix as 023-02.",
+      "note": "Same GVW\u00d7speed matrix as 023-02.",
       "rows": [
         {
           "speedBand": "45 - 55 MPH",

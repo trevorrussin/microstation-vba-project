@@ -207,6 +207,76 @@ def _show_view_update(tool_name: str, result) -> None:
         LOG.error(f"post-adjust_view screenshot failed (non-fatal, view was still adjusted): {e}")
 
 
+def _qa_capture_rows(result) -> list[dict]:
+    """Pull scripted visual-QA frame dicts (with path) from a tool result."""
+    if not isinstance(result, dict):
+        return []
+    caps = result.get("captures")
+    if isinstance(caps, list) and caps:
+        return [c for c in caps if isinstance(c, dict) and c.get("path")]
+    return []
+
+
+def _vision_blocks_for_qa_captures(result: dict) -> list[dict] | None:
+    """Log each QA frame to the panel SCREENSHOT stream and build Anthropic
+    vision content blocks so the model actually sees the scripted frames.
+
+    Previously run_visual_qa_captures only returned file paths — the agent
+    marked visualQaPassed without receiving images. Caps at 4 frames (the
+    scripted set). Best-effort per frame: a missing file skips that image
+    but keeps the text payload."""
+    rows = _qa_capture_rows(result)
+    if not rows:
+        return None
+
+    blocks: list[dict] = [
+        {
+            "type": "text",
+            "text": json.dumps(
+                {k: v for k, v in result.items() if k != "captures"},
+                ensure_ascii=False, default=str,
+            ),
+        },
+        {
+            "type": "text",
+            "text": (
+                f"Scripted visual QA: {len(rows)} frame(s) attached below. "
+                "Review each against the checklist before FINAL. "
+                "Do not call capture_view (not a chat tool) — these frames "
+                "replace an extra view_drawing for sheet QA."
+            ),
+        },
+    ]
+    for row in rows[:4]:
+        frame = str(row.get("frame") or "frame")
+        path = Path(str(row["path"]))
+        try:
+            if not path.is_file():
+                blocks.append({
+                    "type": "text",
+                    "text": f"[QA frame {frame}: file missing at {path}]",
+                })
+                continue
+            _log_screenshot(path)
+            data = base64.standard_b64encode(path.read_bytes()).decode("utf-8")
+            blocks.append({"type": "text", "text": f"QA frame: {frame} ({path.name})"})
+            blocks.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": data,
+                },
+            })
+        except Exception as e:
+            LOG.error(f"QA frame {frame} vision attach failed (non-fatal): {e}")
+            blocks.append({
+                "type": "text",
+                "text": f"[QA frame {frame}: attach failed: {e}]",
+            })
+    return blocks
+
+
 def _summarize(result) -> str:
     """Short one-line summary of a tool result for the TOOL_RESULT log
     line -- the full result already went to the model; this is just for
@@ -246,7 +316,12 @@ def _wrap_op(tool_name: str, fn):
     {"status": "OK", "elementId": 7} doesn't satisfy that shape and the
     API rejects it with "content.0.tool_result.content.0.type: Field
     required" on the *next* turn (confirmed live). A JSON string is
-    valid content and Claude parses embedded JSON fine."""
+    valid content and Claude parses embedded JSON fine.
+
+    Exception: run_visual_qa_captures / run_sheet_build results that carry
+    scripted QA capture paths return multimodal content (text + images)
+    so the model can see the frames; paths are also logged as SCREENSHOT
+    for the panel."""
     import functools
 
     @functools.wraps(fn)
@@ -258,6 +333,10 @@ def _wrap_op(tool_name: str, fn):
             _collect_element_ids(result)
             _show_reference_image(tool_name, result)
             _show_view_update(tool_name, result)
+            if tool_name in ("run_visual_qa_captures", "run_sheet_build"):
+                vision = _vision_blocks_for_qa_captures(result) if isinstance(result, dict) else None
+                if vision is not None:
+                    return vision
             return json.dumps(result, ensure_ascii=False, default=str)
         except Exception as e:
             LOG.tool_result(tool_name, "ERROR", str(e))
@@ -296,7 +375,9 @@ def _validate_op_names(names: list[str], source_module, label: str) -> None:
 _BASE_OP_NAMES = [
     "find_elements_near", "get_elements_range", "focus_view_on_elements",
     "station_to_point", "get_alignment_stationing",
-    "get_alignment_vertices", "get_locked_designer_inputs",
+    "get_alignment_vertices", "get_locked_designer_inputs", "get_plan_status",
+    "get_placements", "delete_placements",
+    "get_geometry_scorecard", "reflect_sheet_build",
     "list_levels", "list_colors", "resolve_color",
     "list_line_styles", "resolve_line_style",
     "cell_library_status", "attach_cell_library", "list_cells",
@@ -332,7 +413,8 @@ _BASE_OP_NAMES = [
 # session never carries these schemas or the strict rules that go with
 # them.
 _WZTC_OP_NAMES = [
-    "compute_spacing", "get_sheet_requirements", "resolve_sign_code",
+    "compute_spacing", "get_sheet_requirements", "get_sheet_build_guide",
+    "resolve_sign_code",
     "place_perp_line", "place_sign", "place_workspace", "place_element_run",
     "place_cell", "set_sign_attributes",
     # Added 2026-08-02 -- agent-driven-8-step-wizard plan (Components 1-3):
@@ -341,6 +423,7 @@ _WZTC_OP_NAMES = [
     # full-plan-flow section for call order.
     "build_wztc_order_table", "find_reference_linework",
     "define_alignment_segment", "commit_alignment", "adopt_alignment",
+    "assemble_corridor", "cross_validate_stations",
     "place_order_table_stations",
     "place_order_table_labels", "place_order_table_dimensions",
     "place_sheet_symbol_cells", "place_order_table_workspace",
@@ -349,6 +432,9 @@ _WZTC_OP_NAMES = [
     # over place_order_table_labels/dimensions/channelizing/workspace/symbol_cells
     # when Data/sheet-specs/<sheet>.json exists.
     "compile_sheet_plan", "place_sheet_geometry",
+    "run_sheet_build", "run_visual_qa_captures",
+    "begin_sheet_sandbox", "get_sheet_sandbox", "run_sheet_build_sandbox",
+    "keep_sheet_sandbox", "revert_sheet_sandbox",
     "clear_plan_elements",
 ]
 
@@ -635,15 +721,20 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
     ourselves via generate_tool_call_response() is the documented way to
     persist history across separate tool_runner() calls, one per turn."""
     _SESSION.touched_element_ids.clear()
-    # cache_control on the last block of this turn's user message: the API
-    # walks backward (up to 20 content blocks) from here to find the
-    # previous turn's breakpoint and reuses it, so a multi-turn session
-    # only pays full price for the newest user text, not the whole
-    # accumulated history every time (prompt-caching.md "Multi-turn
-    # conversations" placement pattern). chat_history.trim_cache_control
-    # first keeps only a bounded window of older breakpoints -- see that
-    # function's docstring for why (both the original bug and an
-    # over-aggressive first fix are documented there).
+    # Normalize SDK content blocks → dicts, then drop unanswered tool_use
+    # chains before the API call (live 2026-08-05: repair missed SDK objects
+    # and ERROR path left broken in-memory history stuck across "hi" retries).
+    for m in messages:
+        if isinstance(m, dict) and "content" in m:
+            m["content"] = chat_history._to_jsonable(m["content"])
+    # HARNESS_P0: repair then clear if still API-400-shaped — do not nudge
+    # the model through a broken history loop.
+    cleared = chat_history.harness_preflight_or_clear(messages)
+    if cleared:
+        LOG.error(
+            "HARNESS_P0: cleared broken chat history before turn: "
+            + "; ".join(cleared[:4])
+        )
     chat_history.trim_cache_control(messages)
     messages.append({
         "role": "user",
@@ -690,7 +781,7 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
 
     final_text = ""
     for message in runner:
-        messages.append({"role": "assistant", "content": message.content})
+        messages.append({"role": "assistant", "content": chat_history._to_jsonable(message.content)})
         if message.usage is not None:
             USAGE.record(message.usage, MODEL)
 
@@ -711,7 +802,8 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
 
         tool_response = runner.generate_tool_call_response()
         if tool_response is not None:
-            messages.append(tool_response)
+            # Persist as plain dicts so later repair/trim always sees tool ids.
+            messages.append(chat_history._to_jsonable(tool_response))
 
         if message.stop_reason == "end_turn":
             final_text = "\n".join(b.text for b in message.content if getattr(b, "type", None) == "text")
@@ -724,8 +816,12 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
         final_text = (
             f"[Stopped after {MAX_TOOL_ITERATIONS} tool-call round-trips without "
             "reaching a final answer -- this is the MAX_TOOL_ITERATIONS safety "
-            "cap, not a normal completion. Check the activity pane above for "
-            "what was investigated so far; ask a narrower follow-up to continue.]"
+            "cap, not a normal completion. On your NEXT turn: do NOT resume "
+            "fishing (find_elements_near / Default linework / schema theories). "
+            "Call get_locked_designer_inputs if needed, finish the next concrete "
+            "step (assemble_corridor / place_* / ONE view_drawing), then FINAL "
+            "with what is done vs remaining. Check the activity pane above for "
+            "what was investigated so far.]"
         )
 
     return final_text
@@ -743,6 +839,12 @@ def main() -> None:
           f"(caps {chat_history.MAX_HISTORY_MESSAGES}/{chat_history.MAX_HISTORY_CHARS}), "
           f"watching {CHAT_INPUT_FILE}, logging to {CHAT_LOG_FILE}", flush=True)
 
+    restored = wztc_ops.try_restore_sheet_plan()
+    if restored.get("loaded"):
+        print(f"Restored sheet plan from {restored.get('persistedPath')} "
+              f"(sheet={restored.get('sheetNum')}, updated={restored.get('updatedAt')})",
+              flush=True)
+
     while True:
         user_text = INPUT.wait_for_next()
         try:
@@ -753,6 +855,17 @@ def main() -> None:
             print(f"[usage] session running total: ${USAGE.total_cost_usd:.4f} "
                   f"(see {USAGE_FILE} for the per-call breakdown)")
         except Exception as e:
+            # Always repair+persist — otherwise a 400 from unpaired tool_use
+            # leaves broken history in memory and every later "hi" 400s too
+            # (live 2026-08-05).
+            try:
+                for m in messages:
+                    if isinstance(m, dict) and "content" in m:
+                        m["content"] = chat_history._to_jsonable(m["content"])
+                chat_history._repair_tool_pairing(messages)
+                chat_history.save_history(HISTORY_FILE, messages)
+            except Exception as repair_err:
+                LOG.error(f"history repair after turn failure also failed: {repair_err}")
             LOG.error(str(e))
 
 

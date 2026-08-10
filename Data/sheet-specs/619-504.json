@@ -14,9 +14,10 @@
     "localPdf": "Bridge/captures/619-504.pdf",
     "localRender": null,
     "pdfPages": 2,
-    "transcribedBy": "Cursor (long-term barrier sibling; tables from _draft_619504_tables.json; corridor from extract_plan_geometry — no roll ahead / no PV)",
+    "transcribedBy": "Cursor (long-term barrier sibling; tables from _draft_619504_tables.json; corridor from extract_plan_geometry \u2014 no roll ahead / no PV)",
     "transcribedOn": "2026-08-03",
-    "provenanceNote": "Long-term Family 2 sibling. 504-01/02 identical to 402-04/03. No PV or roll-ahead tables — temporary positive barrier (504-03 flare rates, Notes 4-7). Plan dimensions A/B/C + shoulder taper L/3 + merging taper L; buffer column exists in 504-02 but is NOT labeled on the plan. Sign mid-advance is W20-5 (table), Note 2 uses W20-5L for left."
+    "provenanceNote": "Long-term Family 2 sibling. 504-01/02 identical to 402-04/03. No PV or roll-ahead tables \u2014 temporary positive barrier (504-03 flare rates, Notes 4-7). Plan dimensions A/B/C + shoulder taper L/3 + merging taper L; buffer column exists in 504-02 but is NOT labeled on the plan. Sign mid-advance is W20-5 (table), Note 2 uses W20-5L for left.",
+    "buildGuide": "619-504.build.md"
   },
   "applicability": {
     "roadType": "Freeway/Multilane Divided",
@@ -50,7 +51,7 @@
     "shoulderWidthBandNote": "Same three-band structure as 619-311 -- do not interpolate per-foot values above 8 ft.",
     "areaTypes": null,
     "areaTypeNote": "This sheet's Table 302-03 is keyed by ROAD TYPE (URBAN <=30/35-40/>=45, RURAL, FREEWAY), not by a separate AREA TYPE dimension like 619-311's Table 311-03 -- FREEWAY is a road-type row here, not a modifier on URBAN/RURAL. Matches 619-011.json's tables['011-06'] shape exactly.",
-    "closureNote": "Note 2: left lane closures — substitute W20-5L, W4-2L, and OM3-L."
+    "closureNote": "Note 2: left lane closures \u2014 substitute W20-5L, W4-2L, and OM3-L."
   },
   "inputs": [
     {
@@ -131,7 +132,7 @@
     }
   ],
   "tableRoles": {
-    "note": "5 tables (504-01..504-05). No PV or roll-ahead tables — long-term positive-barrier sheet.",
+    "note": "5 tables (504-01..504-05). No PV or roll-ahead tables \u2014 long-term positive-barrier sheet.",
     "advanceWarningSpacing": "504-01",
     "taperAndBuffer": "504-02",
     "positiveBarrierFlareRates": "504-03",
@@ -207,7 +208,7 @@
           "B": 1500,
           "C": 2640,
           "XX": "1 MILE",
-          "YY": "½ MILE"
+          "YY": "\u00bd MILE"
         }
       ]
     },
@@ -767,7 +768,7 @@
   },
   "corridor": {
     "confidence": "drawing",
-    "description": "Long-term right lane closure with temporary positive barrier. Upstream: advance signs C/B/A, shoulder taper overlay on A, merging taper L (channelizing — barrier must NOT sit on the merging taper per Note 4), then barrier along the closed lane with tapered end / impact attenuator (flare from Table 504-03). No roll-ahead or protective-vehicle zones on this sheet.",
+    "description": "Long-term right lane closure with temporary positive barrier. Upstream: advance signs C/B/A, shoulder taper overlay on A, merging taper L (channelizing \u2014 barrier must NOT sit on the merging taper per Note 4), then barrier along the closed lane with tapered end / impact attenuator (flare from Table 504-03). No roll-ahead or protective-vehicle zones on this sheet.",
     "zones": [
       {
         "id": "signC",
@@ -937,7 +938,7 @@
   },
   "orderTable": {
     "confidence": "drawing",
-    "description": "No ROLL AHEAD / BUFFER / Vehicle Space rows — long-term barrier sheet.",
+    "description": "No ROLL AHEAD / BUFFER / Vehicle Space rows \u2014 long-term barrier sheet.",
     "alignments": [
       {
         "alignIdx": 1,
@@ -1172,7 +1173,7 @@
         "required": true,
         "longitudinalSpacing": {
           "maxFt": 40,
-          "sheetText": "Table 504-04 spacing rows include 20 FT and 40 FT — confirm provision."
+          "sheetText": "Table 504-04 spacing rows include 20 FT and 40 FT \u2014 confirm provision."
         },
         "runs": [
           {
@@ -1321,7 +1322,7 @@
     {
       "id": "buffer-table-but-not-on-plan",
       "severity": "warning",
-      "assert": "504-02 still has a buffer column identical to 402, but the plan does not dimension BUFFER SPACE — do not invent a buffer station."
+      "assert": "504-02 still has a buffer column identical to 402, but the plan does not dimension BUFFER SPACE \u2014 do not invent a buffer station."
     }
   ],
   "knownExcerpts": {
