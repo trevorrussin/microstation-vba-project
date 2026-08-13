@@ -4,6 +4,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "mcp-server"))
 
 import wztc_ops  # noqa: E402
@@ -54,6 +56,23 @@ def test_abstract_ticks_when_not_real_road():
     )
     assert r["half_len"] == 40.0
     assert r["real_road_edge"] is False
+
+
+def test_curved_path_vertices_travel_at_mid_bay():
+    # L-bend: travel at mid of second leg is +Y → Align1 tan = −Y;
+    # closed right → outward +X.
+    path = [[0.0, 0.0], [100.0, 0.0], [100.0, 100.0]]
+    r = wztc_ops.resolve_sheet_lateral(
+        [100.0, 0.0, 0.0], [100.0, 100.0, 0.0],
+        closed_side="right", lane_width_ft=12, shoulder_width_ft=8,
+        real_road_edge=True, path_vertices=path,
+    )
+    assert r["curved"] is True
+    assert r["workAreaLengthFt"] == pytest.approx(100.0, abs=0.1)
+    assert abs(r["travelUnit"][0]) < 0.01
+    assert r["travelUnit"][1] > 0.9
+    assert r["outward_sign"] == 1.0
+    assert r["outwardUnit"][0] > 0.9
 
 
 def test_apply_locked_lateral_prefers_session():

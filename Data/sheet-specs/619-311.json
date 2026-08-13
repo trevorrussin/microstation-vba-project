@@ -32,7 +32,7 @@
       "labelExtra": 20,
       "symbolLabel": 25
     },
-    "notes": "Live prefs: length on dim only; name labels below sheet features; SHOULDER TAPER overlay on opposite side; ARROW PANEL label from compile_symbols. See sheet.buildGuide."
+    "notes": "CURVED DIM RULES (engineer 2026-08-13 — keep, repeated after tip/leftover QA): (1) bend dim line = ARC following roadside; (2) must match straight ny_Plan SizeArrow look INCLUDING arrowhead TIPS (always-visible triangles — not FillMode shapes that vanish when view Fill is off); (3) REMOVE leftover bad chord/tip-chain/old-arc dims before rebuild (wipe DimensionElements + color-2 arc/line/shape). Straight spans = one ny_Plan SizeArrow. Bowed spans = PLACE_CURVED_PLAN_DIMENSION. Live prefs: length on dim only; name labels below; SHOULDER TAPER overlay opposite; AP label from compile_symbols. Sign faces view-horizontal. Real-road undivided right-lane align = 2·lane+yellow_gap+lane from first-travel outer. Urban 55 / 12 ft / ≥8 ft: Buffer 495', Roll Ahead 120–200' (min 120), Downstream Taper 50–100' (min 50), Lane Taper 680', Shoulder Taper 160'. See sheet.buildGuide."
   },
 
   "applicability": {

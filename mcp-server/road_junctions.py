@@ -23,12 +23,16 @@ from __future__ import annotations
 import math
 from typing import Literal
 
+from alignment_geometry import station_to_xy
 from lane_highway import (
     _corridor_frame,
+    _side_normal,
     asymmetric_two_way_highway_lines,
     asymmetric_two_way_width_ft,
     build_strip_lines,
     lane_highway_lines,
+    path_length,
+    resolve_edge_path,
     travel_width_ft,
 )
 
@@ -819,10 +823,10 @@ def orthogonal_intersection_lines(
 
 
 def ramp_gore_lines(
-    x1: float,
-    y1: float,
-    x2: float,
-    y2: float,
+    x1: float = 0.0,
+    y1: float = 0.0,
+    x2: float = 0.0,
+    y2: float = 0.0,
     *,
     mainline_lanes: int,
     ramp_angle_deg: float,
@@ -835,12 +839,14 @@ def ramp_gore_lines(
     shoulder_width_ft: float = 0.0,
     dash_ft: float = 10.0,
     gap_ft: float = 30.0,
+    vertices: list | None = None,
 ) -> list[dict]:
     """Mainline one-way + diverging ramp one-way meeting at a gore nose.
 
-    (x1,y1)->(x2,y2) is the mainline first travel outer edge (full length).
-    Gore nose sits on the ramp-side travel outer edge at gore_station_ft
-    from the start. Ramp diverges by ramp_angle_deg toward `side`.
+    (x1,y1)->(x2,y2) or vertices=[[x,y],…] is the mainline first travel
+    outer edge (full length). Gore nose sits on the ramp-side travel outer
+    edge at gore_station_ft from the start. Ramp diverges by ramp_angle_deg
+    toward `side` (straight ramp from the local mainline tangent).
     """
     if mainline_lanes < 1 or ramp_lanes < 1:
         raise ValueError("mainline_lanes and ramp_lanes must be >= 1")
@@ -853,11 +859,15 @@ def ramp_gore_lines(
     if gore_mark_ft < 0:
         raise ValueError("gore_mark_ft must be >= 0")
 
-    length, tx, ty, nx, ny = _corridor_frame(x1, y1, x2, y2, side)
+    path = resolve_edge_path(x1, y1, x2, y2, vertices)
+    length = path_length(path)
     if gore_station_ft > length + 1e-6:
         raise ValueError(
             f"gore_station_ft ({gore_station_ft}) exceeds mainline length ({length})"
         )
+
+    mx, my, tx, ty = station_to_xy(path, gore_station_ft)
+    nx, ny = _side_normal(tx, ty, side)
 
     mainline = _tag(
         lane_highway_lines(
@@ -865,14 +875,15 @@ def ramp_gore_lines(
             lane_width_ft=lane_width_ft,
             shoulder_width_ft=shoulder_width_ft,
             dash_ft=dash_ft, gap_ft=gap_ft, side=side,
+            vertices=vertices,
         ),
         "mainline",
     )
 
     travel_w = float(mainline_lanes) * float(lane_width_ft)
     ramp_edge_off = travel_w if side == "right" else 0.0
-    nose_x = x1 + nx * ramp_edge_off + tx * gore_station_ft
-    nose_y = y1 + ny * ramp_edge_off + ty * gore_station_ft
+    nose_x = mx + nx * ramp_edge_off
+    nose_y = my + ny * ramp_edge_off
 
     ang = -float(ramp_angle_deg) if side == "right" else float(ramp_angle_deg)
     rtx, rty = _rotate(tx, ty, ang)

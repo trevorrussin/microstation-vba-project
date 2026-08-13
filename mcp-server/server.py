@@ -501,13 +501,18 @@ def adopt_alignment(align_idx: int, element_id: str, force: bool = False) -> dic
 @mcp.tool()
 def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
                       approach_length_ft: float = 0.0,
-                      force: bool = False) -> dict:
+                      force: bool = False,
+                      path_vertices: list | None = None) -> dict:
     """Build Upstream+Downstream alignments from the two work-area edge
     points. Prefer over freestyle define_alignment_segment pairs.
     Requires build_wztc_order_table first. approach_length_ft=0 auto-sizes
-    from station_walk + slack. force=True wipes an existing corridor."""
+    from station_walk + slack. force=True wipes an existing corridor.
+    path_vertices: optional closed-lane / first-travel outer polyline for
+    curved corridors (Align1/2 + hatch follow the path; signs stay
+    view-horizontal)."""
     return wztc_ops.assemble_corridor(
-        upstream_edge, downstream_edge, approach_length_ft, force)
+        upstream_edge, downstream_edge, approach_length_ft, force,
+        path_vertices=path_vertices)
 
 
 @mcp.tool()
@@ -665,17 +670,19 @@ def resolve_sheet_lateral(upstream_edge: list[float],
                           shoulder_width_ft: float = 0.0,
                           real_road_edge: bool = True,
                           yellow_gap_ft: float = 2.0,
-                          opposing_lanes: int = 2) -> dict:
+                          opposing_lanes: int = 2,
+                          path_vertices: list | None = None) -> dict:
     """Lock outward_sign + half_len from travel (up→dn) and closed_side
     (right|left). Call before run_sheet_build on real-road / right-lane
     sheets. real_road_edge uses lane+shoulder for tip-at-EOP half_len.
     Also locks closed_outward so Align2 G20-2 tips on the same closed
-    shoulder as Align1 advance signs."""
+    shoulder as Align1 advance signs. path_vertices: same curved polyline
+    as assemble_corridor / run_sheet_build when the road bends."""
     return wztc_ops.resolve_sheet_lateral(
         upstream_edge, downstream_edge, closed_side,
         lane_width_ft=lane_width_ft, shoulder_width_ft=shoulder_width_ft,
         real_road_edge=real_road_edge, yellow_gap_ft=yellow_gap_ft,
-        opposing_lanes=opposing_lanes)
+        opposing_lanes=opposing_lanes, path_vertices=path_vertices)
 
 
 @mcp.tool()
@@ -688,11 +695,13 @@ def run_sheet_build(upstream_edge: list[float] | None = None,
                     clear_prior_stations: bool = False,
                     force: bool = False,
                     approach_length_ft: float = 0.0,
-                    use_locked_lateral: bool = True) -> dict:
+                    use_locked_lateral: bool = True,
+                    path_vertices: list | None = None) -> dict:
     """Sheet-build only executor: assemble→stations→signs→compiler→QA.
     Outside a sheet plan returns sheetPlanActive=False.
     Prefer resolve_sheet_lateral first; locked outward_sign/half_len apply
-    when use_locked_lateral=True."""
+    when use_locked_lateral=True. path_vertices: curved closed-lane /
+    first-travel outer polyline (passed through to assemble_corridor)."""
     return wztc_ops.run_sheet_build(
         upstream_edge=upstream_edge, downstream_edge=downstream_edge,
         outward_sign=outward_sign, half_len=half_len,
@@ -700,7 +709,8 @@ def run_sheet_build(upstream_edge: list[float] | None = None,
         include_visual_qa=include_visual_qa,
         clear_prior_stations=clear_prior_stations, force=force,
         approach_length_ft=approach_length_ft,
-        use_locked_lateral=use_locked_lateral)
+        use_locked_lateral=use_locked_lateral,
+        path_vertices=path_vertices)
 
 
 @mcp.tool()
@@ -803,60 +813,74 @@ def place_polyline(vertices: list[list[float]], reason: str = "") -> dict:
 
 
 @mcp.tool()
-def place_lane_highway(lanes: int, x1: float, y1: float, x2: float, y2: float,
+def place_lane_highway(lanes: int, x1: float = 0.0, y1: float = 0.0,
+                       x2: float = 0.0, y2: float = 0.0,
                        lane_width_ft: float = 12.0, shoulder_width_ft: float = 0.0,
                        dash_ft: float = 10.0, gap_ft: float = 30.0,
-                       side: str = "right", reason: str = "") -> dict:
+                       side: str = "right", reason: str = "",
+                       vertices: list | None = None) -> dict:
     """Draw an N-lane one-way highway strip (general CAD). Two solid outer
     travel edges + (lanes-1) dashed separators. Optional shoulder_width_ft
     adds solid white EOP outside both outers. Dashes 10/30 real gaps.
-    Ask for missing lanes/width/endpoints/side."""
+    Pass vertices=[[x,y],…] for curved/S first-travel-outer path (overrides
+    x1..y2). Ask for missing lanes/width/endpoints/side/path."""
     return wztc_ops.place_lane_highway(
         lanes, x1, y1, x2, y2, lane_width_ft, shoulder_width_ft,
-        dash_ft, gap_ft, side, reason)
+        dash_ft, gap_ft, side, reason, vertices)
 
 
 @mcp.tool()
-def place_two_way_highway(lanes: int, x1: float, y1: float, x2: float, y2: float,
+def place_two_way_highway(lanes: int, x1: float = 0.0, y1: float = 0.0,
+                          x2: float = 0.0, y2: float = 0.0,
                           lane_width_ft: float = 12.0, yellow_gap_ft: float = 2.0,
                           shoulder_width_ft: float = 0.0,
                           dash_ft: float = 10.0, gap_ft: float = 30.0,
-                          side: str = "right", reason: str = "") -> dict:
+                          side: str = "right", reason: str = "",
+                          vertices: list | None = None) -> dict:
     """Draw even-N undivided two-way (double solid yellow center). Optional
-    shoulder_width_ft. Yellow via resolve_color. Ask for missing inputs."""
+    shoulder_width_ft. Yellow via resolve_color. Pass vertices=[[x,y],…] for
+    curved/S first-travel-outer path. Ask for missing inputs."""
     return wztc_ops.place_two_way_highway(
         lanes, x1, y1, x2, y2, lane_width_ft, yellow_gap_ft,
-        shoulder_width_ft, dash_ft, gap_ft, side, reason)
+        shoulder_width_ft, dash_ft, gap_ft, side, reason, vertices)
 
 
 @mcp.tool()
-def place_divided_highway(lanes_per_direction: int, x1: float, y1: float,
-                          x2: float, y2: float, median_width_ft: float,
+def place_divided_highway(lanes_per_direction: int, x1: float = 0.0,
+                          y1: float = 0.0, x2: float = 0.0, y2: float = 0.0,
+                          median_width_ft: float = 0.0,
                           lane_width_ft: float = 12.0,
                           shoulder_width_ft: float = 0.0,
                           dash_ft: float = 10.0, gap_ft: float = 30.0,
-                          side: str = "right", reason: str = "") -> dict:
+                          side: str = "right", reason: str = "",
+                          vertices: list | None = None) -> dict:
     """Draw divided multilane/freeway dual carriageway (619-302-style).
     Each dir: white outer, (N-1) dashed, yellow median edge; median_width_ft
-    empty gap between yellows (required — ask). Optional shoulders."""
+    empty gap between yellows (required — ask). Optional shoulders.
+    Pass vertices=[[x,y],…] for curved/S first-travel-outer path."""
     return wztc_ops.place_divided_highway(
         lanes_per_direction, x1, y1, x2, y2, median_width_ft,
-        lane_width_ft, shoulder_width_ft, dash_ft, gap_ft, side, reason)
+        lane_width_ft, shoulder_width_ft, dash_ft, gap_ft, side, reason,
+        vertices)
 
 
 @mcp.tool()
-def place_twlt_highway(lanes_per_direction: int, x1: float, y1: float,
-                       x2: float, y2: float, twlt_width_ft: float = 12.0,
+def place_twlt_highway(lanes_per_direction: int, x1: float = 0.0,
+                       y1: float = 0.0, x2: float = 0.0, y2: float = 0.0,
+                       twlt_width_ft: float = 12.0,
                        lane_width_ft: float = 12.0,
                        shoulder_width_ft: float = 0.0,
                        dash_ft: float = 10.0, gap_ft: float = 30.0,
-                       side: str = "right", reason: str = "") -> dict:
+                       side: str = "right", reason: str = "",
+                       vertices: list | None = None) -> dict:
     """Draw multilane undivided with center TWLT (619-312-style).
     lanes_per_direction = travel lanes each way (TWLT not counted).
-    TWLT bounded by two dashed yellow lines. Do not use two_way for TWLT."""
+    TWLT bounded by two dashed yellow lines. Pass vertices=[[x,y],…] for
+    curved/S path. Do not use two_way for TWLT."""
     return wztc_ops.place_twlt_highway(
         lanes_per_direction, x1, y1, x2, y2, twlt_width_ft,
-        lane_width_ft, shoulder_width_ft, dash_ft, gap_ft, side, reason)
+        lane_width_ft, shoulder_width_ft, dash_ft, gap_ft, side, reason,
+        vertices)
 
 
 @mcp.tool()
@@ -907,24 +931,26 @@ def place_orthogonal_intersection(
 
 @mcp.tool()
 def place_ramp_gore(
-    x1: float, y1: float, x2: float, y2: float,
-    mainline_lanes: int, ramp_angle_deg: float,
-    gore_station_ft: float, ramp_length_ft: float,
+    x1: float = 0.0, y1: float = 0.0, x2: float = 0.0, y2: float = 0.0,
+    mainline_lanes: int = 2, ramp_angle_deg: float = 15.0,
+    gore_station_ft: float = 0.0, ramp_length_ft: float = 200.0,
     ramp_lanes: int = 1, side: str = "right",
     gore_mark_ft: float = 40.0,
     lane_width_ft: float = 12.0, shoulder_width_ft: float = 0.0,
     dash_ft: float = 10.0, gap_ft: float = 30.0,
     reason: str = "",
+    vertices: list | None = None,
 ) -> dict:
     """Draw mainline one-way + diverging ramp at a gore nose (Family 5
-    sketch, general CAD). Mainline first edge (x1,y1)->(x2,y2); nose at
-    gore_station_ft on ramp-side edge; ramp_angle_deg toward side.
-    Ask for missing angle/station/lengths."""
+    sketch, general CAD). Mainline first edge (x1,y1)->(x2,y2) or
+    vertices=[[x,y],…] for a curved mainline; nose at gore_station_ft on
+    ramp-side edge; ramp_angle_deg toward side. Ask for missing
+    angle/station/lengths."""
     return wztc_ops.place_ramp_gore(
         x1, y1, x2, y2, mainline_lanes, ramp_angle_deg,
         gore_station_ft, ramp_length_ft, ramp_lanes, side,
         gore_mark_ft, lane_width_ft, shoulder_width_ft,
-        dash_ft, gap_ft, reason)
+        dash_ft, gap_ft, reason, vertices)
 
 
 @mcp.tool()

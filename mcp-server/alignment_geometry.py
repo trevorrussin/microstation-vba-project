@@ -123,6 +123,126 @@ def station_to_xy(segments: list[PathSegment], station: float) -> tuple[float, f
     return (last.ex, last.ey, 0.0, 0.0)
 
 
+def segments_from_polyline(vertices: list) -> list[PathSegment]:
+    """Build straight PathSegments from [[x,y],…] or [[x,y,z],…] vertices.
+
+    Used for curved assemble_corridor / work-bay hatch when the engineer
+    (or striping tool) supplies a multi-point first-travel / closed-lane
+    edge rather than a 2-point chord."""
+    if not isinstance(vertices, (list, tuple)) or len(vertices) < 2:
+        raise AlignmentGeometryError(
+            "segments_from_polyline needs >= 2 vertices")
+    segs: list[PathSegment] = []
+    for i in range(len(vertices) - 1):
+        a, b = vertices[i], vertices[i + 1]
+        if not isinstance(a, (list, tuple)) or len(a) < 2:
+            raise AlignmentGeometryError(f"bad vertex[{i}]: {a!r}")
+        if not isinstance(b, (list, tuple)) or len(b) < 2:
+            raise AlignmentGeometryError(f"bad vertex[{i + 1}]: {b!r}")
+        sx, sy = float(a[0]), float(a[1])
+        sz = float(a[2]) if len(a) > 2 else 0.0
+        ex, ey = float(b[0]), float(b[1])
+        ez = float(b[2]) if len(b) > 2 else 0.0
+        seg_len = math.hypot(ex - sx, ey - sy)
+        if seg_len < 1e-9:
+            continue
+        segs.append(PathSegment(
+            False, sx, sy, sz, ex, ey, ez, seg_len))
+    if not segs:
+        raise AlignmentGeometryError(
+            "segments_from_polyline: all consecutive vertices coincide")
+    return segs
+
+
+def nearest_station(segments: list[PathSegment], x: float, y: float
+                    ) -> tuple[float, float]:
+    """Closest point on the polyline path to (x, y).
+
+    Returns (station_ft, distance_ft). Straight segments only (polyline
+    corridors); arcs use chord projection of their endpoints range via
+    the same walk (adequate for densified fillets)."""
+    if not segments:
+        raise AlignmentGeometryError("nearest_station: no segments")
+    best_sta = 0.0
+    best_dist = float("inf")
+    cum = 0.0
+    for seg in segments:
+        if seg.is_arc:
+            # Sample densified arc; keep nearest.
+            n = max(4, int(math.ceil(seg.seg_len / 10.0)))
+            for i in range(n + 1):
+                t = i / n
+                sta = cum + t * seg.seg_len
+                px, py, _, _ = station_to_xy(segments, sta)
+                d = math.hypot(px - x, py - y)
+                if d < best_dist:
+                    best_dist = d
+                    best_sta = sta
+        else:
+            dx, dy = seg.ex - seg.sx, seg.ey - seg.sy
+            denom = dx * dx + dy * dy
+            if denom < 1e-18:
+                cum += seg.seg_len
+                continue
+            t = ((x - seg.sx) * dx + (y - seg.sy) * dy) / denom
+            if t < 0.0:
+                t = 0.0
+            elif t > 1.0:
+                t = 1.0
+            px = seg.sx + t * dx
+            py = seg.sy + t * dy
+            d = math.hypot(px - x, py - y)
+            if d < best_dist:
+                best_dist = d
+                best_sta = cum + t * seg.seg_len
+        cum += seg.seg_len
+    return (best_sta, best_dist)
+
+
+def point_at_extended(segments: list[PathSegment], station: float
+                      ) -> tuple[float, float, float, float]:
+    """Like station_to_xy but linearly extends past either path end.
+
+    station < 0: past start along −tangent@0.
+    station > total_length: past end along +tangent@L."""
+    if not segments:
+        raise AlignmentGeometryError("point_at_extended: no segments")
+    total = total_length(segments)
+    if station < 0.0:
+        x, y, tx, ty = station_to_xy(segments, 0.0)
+        return (x + tx * station, y + ty * station, tx, ty)
+    if station > total:
+        x, y, tx, ty = station_to_xy(segments, total)
+        over = station - total
+        return (x + tx * over, y + ty * over, tx, ty)
+    return station_to_xy(segments, station)
+
+
+def sample_path_vertices(segments: list[PathSegment], sta0: float, sta1: float,
+                         step_ft: float = 25.0) -> list[list[float]]:
+    """Densified [[x,y,z],…] from sta0 to sta1 (inclusive), either direction.
+
+    Extends past path ends when stations lie outside [0, L]."""
+    if step_ft <= 0:
+        raise AlignmentGeometryError("step_ft must be > 0")
+    span = abs(sta1 - sta0)
+    if span < 1e-9:
+        x, y, _, _ = point_at_extended(segments, sta0)
+        return [[x, y, 0.0]]
+    n = max(1, int(math.ceil(span / step_ft)))
+    out: list[list[float]] = []
+    for i in range(n + 1):
+        t = i / n
+        sta = sta0 + (sta1 - sta0) * t
+        x, y, _, _ = point_at_extended(segments, sta)
+        if out:
+            px, py = out[-1][0], out[-1][1]
+            if math.hypot(x - px, y - py) < 1e-6:
+                continue
+        out.append([x, y, 0.0])
+    return out
+
+
 if __name__ == "__main__":
     # Synthetic self-test, no MicroStation required.
     def approx(a: float, b: float, tol: float = 1e-6) -> bool:

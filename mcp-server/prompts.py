@@ -422,17 +422,23 @@ from tool results. Preferred path after inputs + order table:
   1. ask_user_choice: closed_side relative to travel through the work bay
      (right|left — 619-311 right-lane = right) AND point-pick upstream +
      downstream WORK AREA edges (alignment on the left edge of the closed
-     lane). Do not invent travel/side.
+     lane). Do not invent travel/side. On a curved/S road also obtain the
+     closed-lane or first-travel-outer polyline (engineer vertices, prior
+     place_two_way_highway vertices=, or densified edge picks) — you will
+     pass it as path_vertices.
   2. resolve_sheet_lateral(upstream_edge, downstream_edge, closed_side,
-     real_road_edge=True when posts must sit on real outer EOP). Locks
-     outward_sign + half_len (lane+shoulder on real road; else 40) and
-     closed_outward so Align2 one-side signs (G20-2) stay on the SAME
-     closed shoulder as Align1 advance signs.
-  3. run_sheet_build(upstream_edge, downstream_edge) — uses locked
-     lateral; runs corridor, stations, signs+attrs, place_sheet_geometry,
-     and scripted visual QA. For a cheap try without wiping the kept
-     corridor: begin_sheet_sandbox / run_sheet_build_sandbox (offset Y),
-     then keep_sheet_sandbox or revert_sheet_sandbox.
+     real_road_edge=True when posts must sit on real outer EOP,
+     path_vertices=… when curved). Locks outward_sign + half_len
+     (lane+shoulder on real road; else 40) and closed_outward so Align2
+     one-side signs (G20-2) stay on the SAME closed shoulder as Align1
+     advance signs.
+  3. run_sheet_build(upstream_edge, downstream_edge, path_vertices=… when
+     curved) — uses locked lateral; runs corridor, stations, signs+attrs,
+     place_sheet_geometry, and scripted visual QA. Signs stay view-
+     horizontal; ticks/cones/hatch/PV/AP follow the path. For a cheap try
+     without wiping the kept corridor: begin_sheet_sandbox /
+     run_sheet_build_sandbox (offset Y), then keep_sheet_sandbox or
+     revert_sheet_sandbox.
   4. If status=ERROR, follow phases[].replan / reflect_sheet_build — do not
      restart the whole build from scratch
   5. BUILD–VERIFY–FIX (same method as the Cursor live session):
@@ -445,7 +451,9 @@ from tool results. Preferred path after inputs + order table:
        stop re-asserting your side; report IDs/coords and ask them.
      - Journal-owned place_polyline striping is wiped by
        assemble_corridor(force=True) / clear_plan_elements — re-place the
-       road AFTER the sheet build when combining real striping + WZTC.
+       road AFTER the sheet build when combining real striping + WZTC
+       (place_two_way_highway / place_* with vertices= on curved roads).
+       Do not skip striping when the engineer asked for a real multilane.
      - After a real-road combo: delete_construction_guides() removes ONLY
        white alignment lines + perp ticks (not signs/cones/hatch/dims).
      - One arrow panel only; G20-2 on the closed-shoulder roadside with
@@ -476,24 +484,31 @@ white color 0, yellow via resolve_color inside the tool, dash=10 ft /
 gap=30 ft real gaps (not a MicroStation linestyle). Pass lane_width_ft
 when named (default 12 only if unstated). Optional shoulder_width_ft > 0
 adds solid white EOP lines outside both travel outers (sheet “paved
-shoulder”). Ask for missing lanes/widths/endpoints/side/median — never
+shoulder”). Ask for missing lanes/widths/endpoints/side/median/path — never
 invent site coordinates. (x1,y1)->(x2,y2) = first travel outer edge;
-side='right' for below a +X run.
+side='right' for below a +X run. Curved / S-shaped / polyline roads:
+pass vertices=[[x,y],…] (≥3 points) on the same tools — that path IS the
+first travel outer edge and overrides x1..y2. Corners are auto-filleted
+(default fillet_radius_ft=150) so striping is continuous through bends
+with no gaps; do NOT freestyle offset striping with place_polyline.
+Orthogonal intersections stay straight-arm sketches; place curved
+approaches as separate highway strips when the engineer wants a curved
+corridor.
 
   - One-way / single carriageway (freeway travel lanes without opposing
-    strip): place_lane_highway(lanes=…).
+    strip): place_lane_highway(lanes=…, vertices=… optional).
   - Undivided two-way with double solid yellow (2/4/6… even total lanes;
-    311-style): place_two_way_highway(lanes=…).
+    311-style): place_two_way_highway(lanes=…, vertices=… optional).
   - Divided / multilane with physical median (302-style — “4-lane with
     median”, freeway dual carriageway): place_divided_highway(
-    lanes_per_direction=…, median_width_ft=… REQUIRED). Each direction
-    gets white outer + dashed separators + yellow median edge; empty
-    median gap between yellows. Do NOT fake a median with two separate
-    place_lane_highway calls unless the engineer wants that.
+    lanes_per_direction=…, median_width_ft=… REQUIRED, vertices=… optional).
+    Each direction gets white outer + dashed separators + yellow median
+    edge; empty median gap between yellows. Do NOT fake a median with two
+    separate place_lane_highway calls unless the engineer wants that.
   - Multilane undivided with center two-way left-turn lane (312/412 TWLT):
-    place_twlt_highway(lanes_per_direction=…, twlt_width_ft=…). TWLT is
-    bounded by two dashed yellow lines. Do NOT use place_two_way_highway
-    for TWLT roads.
+    place_twlt_highway(lanes_per_direction=…, twlt_width_ft=…,
+    vertices=… optional). TWLT is bounded by two dashed yellow lines.
+    Do NOT use place_two_way_highway for TWLT roads.
   - Orthogonal + or T intersection (cross-street sketch, MUTCD 3B.11):
     place_orthogonal_intersection(...). Edge lines meet the intersection
     box (arms connect). Yellow center + dashed lane lines STOP at the stop
@@ -513,9 +528,11 @@ side='right' for below a +X run.
     TWLT, or dedicated > 0. Ask for junction point, arm types/lanes,
     lengths, tee_side if tee, and lanes_out when a lane drops (e.g. 3→2).
   - Freeway ramp gore / diverge (Family 5 sketch): place_ramp_gore(
-    mainline first edge, mainline_lanes, ramp_angle_deg, gore_station_ft,
-    ramp_length_ft, …). Nose on ramp-side outer edge; optional gore_mark_ft
-    solid white V. Ask for angle/station/lengths — do not invent.
+    mainline first edge or vertices=…, mainline_lanes, ramp_angle_deg,
+    gore_station_ft, ramp_length_ft, …). Nose on ramp-side outer edge;
+    optional gore_mark_ft solid white V. Curved mainline OK via vertices;
+    ramp is straight from the local tangent at the gore. Ask for
+    angle/station/lengths — do not invent.
 
 Do NOT freestyle intersections or gores with raw place_polyline when these
 tools exist. Curb radii, crosswalks, and painted chevrons inside the gore
@@ -615,9 +632,17 @@ Call order:
      station_walk so ticks never clamp. This is the work-bay primitive;
      freestyle define_alignment_segment pairs caused the live 2026-08-04
      miss (Downstream committed further along Upstream's own line).
-     FALLBACK when assemble_corridor cannot apply (curved corridor, adopt
-     recovery): per alignment find_reference_linework-or-click →
-     define_alignment_segment → commit_alignment.
+     CURVED / S-shaped real road: pass the same closed-lane or
+     first-travel-outer polyline as path_vertices=[[x,y],…] to
+     assemble_corridor / resolve_sheet_lateral / run_sheet_build so
+     Align1/2, hatch, cones, PV/AP follow the path. Sign faces stay
+     view-horizontal (ACTIVE ANGLE = view rotation) — do NOT rotate
+     lettering to the corridor tangent. Straight corridors omit
+     path_vertices (chord between the two edges).
+     FALLBACK when assemble_corridor cannot apply (adopt recovery, or
+     engineer-directed redefine): per alignment
+     find_reference_linework-or-click → define_alignment_segment(force=True)
+     → commit_alignment.
      If SharedState was wiped (VBA hot-reload / IDE Reset) but the
      centerline LINE is still on screen, call adopt_alignment(align_idx,
      element_id) instead of redrawing — then station_to_point /

@@ -156,15 +156,84 @@ def _outward_unit(tan_x: float, tan_y: float, outward_sign: float) -> tuple[floa
     return (tan_y, -tan_x)
 
 
+def _dim_tip_path(segments, sta0: float, sta1: float, outward_sign: float,
+                  tip_off: float, step_ft: float = 20.0,
+                  align_idx: int = 1) -> list[tuple[float, float]]:
+    """Sample tip points (align + local outward * tip_off) along a station span.
+
+    This is the polyline a curved plan dimension should hug — parallel to the
+    alignment at tick-tip offset, not the straight chord between ends.
+    Align2 flips tan so tips stay on the closed shoulder.
+    """
+    import alignment_geometry as ag
+
+    def _closed(tx: float, ty: float) -> tuple[float, float]:
+        if int(align_idx) == 2:
+            tx, ty = -tx, -ty
+        return _outward_unit(tx, ty, outward_sign)
+
+    span = abs(sta1 - sta0)
+    if span < 1e-9:
+        x, y, tx, ty = ag.station_to_xy(segments, sta0)
+        ox, oy = _closed(tx, ty)
+        return [(x + ox * tip_off, y + oy * tip_off)]
+    n = max(1, int(math.ceil(span / max(step_ft, 1.0))))
+    out: list[tuple[float, float]] = []
+    for i in range(n + 1):
+        t = i / n
+        sta = sta0 + (sta1 - sta0) * t
+        x, y, tx, ty = ag.station_to_xy(segments, sta)
+        ox, oy = _closed(tx, ty)
+        pt = (x + ox * tip_off, y + oy * tip_off)
+        if out and math.hypot(pt[0] - out[-1][0], pt[1] - out[-1][1]) < 1e-6:
+            continue
+        out.append(pt)
+    return out
+
+
+def _path_sagitta(path: list[tuple[float, float]], tip1, tip2) -> float:
+    """Max distance from path mid-samples to the tip1→tip2 chord."""
+    if len(path) < 3:
+        return 0.0
+    x1, y1 = float(tip1[0]), float(tip1[1])
+    x2, y2 = float(tip2[0]), float(tip2[1])
+    dx, dy = x2 - x1, y2 - y1
+    L = math.hypot(dx, dy)
+    if L < 1e-9:
+        return 0.0
+    ux, uy = dx / L, dy / L
+    best = 0.0
+    for x, y in path[1:-1]:
+        # perpendicular distance to infinite line through tips
+        sx, sy = x - x1, y - y1
+        along = sx * ux + sy * uy
+        px, py = x1 + ux * along, y1 + uy * along
+        best = max(best, math.hypot(x - px, y - py))
+    return best
+
+
+def _path_length(path: list[tuple[float, float]]) -> float:
+    total = 0.0
+    for i in range(1, len(path)):
+        total += math.hypot(path[i][0] - path[i - 1][0],
+                            path[i][1] - path[i - 1][1])
+    return total
+
+
 def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
                   outward_sign: float = -1.0, offset_dist: float | None = None,
                   text_extra_along: float | None = None, sheet_elements: str = "",
-                  range_pick: str = "min") -> list[dict]:
+                  range_pick: str = "min",
+                  tip_half_len_ft: float | None = None) -> list[dict]:
     """Compile one alignment's stations/dimensions/labels into an explicit
     list of placement primitives in absolute model coordinates.
 
     segments: alignment_geometry.PathSegment list for this align_idx, from
     alignment_geometry.parse_vertices(wztc_ops.get_alignment_vertices(align_idx)).
+
+    tip_half_len_ft: real-road locked half_len (lane+shoulder) so dim/label
+    tips sit on the same EOP as signs/ticks. Default PERP_HALF_LEN_FT=40
+    for abstract order-table ticks.
 
     Each primitive is one of:
       {"kind": "station", "rowNum", "item", "stationFt", "x", "y", "tanX", "tanY"}
@@ -185,6 +254,11 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
         offset_dist = float(offs["dimOutward"])
     if text_extra_along is None:
         text_extra_along = float(offs["labelExtra"])
+    tip_hl = (
+        float(tip_half_len_ft)
+        if tip_half_len_ft is not None and float(tip_half_len_ft) > 0
+        else PERP_HALF_LEN_FT
+    )
 
     walk = [w for w in station_walk(spec, resolved, range_pick) if w["alignIdx"] == align_idx]
     primitives: list[dict] = []
@@ -195,7 +269,15 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
         # don't specify it (e.g. taper/buffer/roll-ahead all say True anyway).
         return bool(zone_defs.get(zone_id, {}).get("dimensioned", True))
 
-    prev_x, prev_y, _, _ = ag.station_to_xy(segments, 0.0)
+    def _closed_out(tx: float, ty: float, o_sign: float) -> tuple[float, float]:
+        # Align2 tan points +travel; flip to Align1-equivalent basis so
+        # dim/label tips stay on the closed shoulder (same as signs).
+        if int(align_idx) == 2:
+            tx, ty = -tx, -ty
+        return _outward_unit(tx, ty, o_sign)
+
+    prev_x, prev_y, prev_tx, prev_ty = ag.station_to_xy(segments, 0.0)
+    prev_sta = 0.0
     for row in walk:
         if row["rowNum"] is None:
             continue  # overlay zones don't consume a station in this walk
@@ -208,7 +290,19 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
             "specRef": {"zone": zone, "run": None, "alignIdx": align_idx},
         })
 
-        out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
+        # Per-station outward so dim tips stay local-normal on curved
+        # corridors (reusing the far tick's normal at both ends skewed
+        # tip-to-tip dims across bends).
+        out_prev_x, out_prev_y = _closed_out(prev_tx, prev_ty, outward_sign)
+        out_x, out_y = _closed_out(tan_x, tan_y, outward_sign)
+        mid_ox = 0.5 * (out_prev_x + out_x)
+        mid_oy = 0.5 * (out_prev_y + out_y)
+        mid_mag = math.hypot(mid_ox, mid_oy)
+        if mid_mag > 1e-9:
+            mid_ox /= mid_mag
+            mid_oy /= mid_mag
+        else:
+            mid_ox, mid_oy = out_x, out_y
 
         # Dimension every consecutive tick pair (tip-to-tip), Sign and
         # Non-Sign rows alike, same gate as PlaceOrderTableDimensions
@@ -216,19 +310,54 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
         # unless the zone that actually determines this row's length is
         # marked dimensioned=False on the sheet (e.g. gapEndRoadWork, which
         # the real sheet expresses as a text callout, not a dimension line).
+        #
+        # On curved corridors: path-hugging dim along the tip-offset roadside
+        # (sheet length text). Linear Size chords cut through the pavement and
+        # measure the wrong length (live QA 2026-08-13).
         if row["lengthFt"] > 0 and _zone_dimensioned(row.get("lengthZone", zone)):
-            t1x = prev_x + out_x * PERP_HALF_LEN_FT
-            t1y = prev_y + out_y * PERP_HALF_LEN_FT
-            t2x = x + out_x * PERP_HALF_LEN_FT
-            t2y = y + out_y * PERP_HALF_LEN_FT
-            ox = 0.5 * (t1x + t2x) + out_x * offset_dist
-            oy = 0.5 * (t1y + t2y) + out_y * offset_dist
-            primitives.append({
+            t1x = prev_x + out_prev_x * tip_hl
+            t1y = prev_y + out_prev_y * tip_hl
+            t2x = x + out_x * tip_hl
+            t2y = y + out_y * tip_hl
+            tip_path = _dim_tip_path(
+                segments, prev_sta, float(row["stationFt"]),
+                outward_sign, tip_hl, step_ft=10.0, align_idx=align_idx)
+            chord = math.hypot(t2x - t1x, t2y - t1y)
+            path_len = _path_length(tip_path)
+            sag = _path_sagitta(tip_path, (t1x, t1y), (t2x, t2y))
+            sheet_len = float(row["lengthFt"])
+            # Hug when the tip path bows OR when a Linear Size chord would
+            # disagree with the sheet/table length (e.g. downstream taper
+            # showing ~45' instead of 50').
+            curved = (
+                len(tip_path) >= 2
+                and (
+                    sag > 0.5
+                    or path_len > chord * 1.005 + 0.25
+                    or abs(chord - sheet_len) > 1.0
+                )
+            )
+            if curved and tip_path:
+                mid_i = len(tip_path) // 2
+                mx, my = tip_path[mid_i]
+                mid_sta = 0.5 * (prev_sta + float(row["stationFt"]))
+                _, _, mtx, mty = ag.station_to_xy(segments, mid_sta)
+                mox, moy = _closed_out(mtx, mty, outward_sign)
+                ox = mx + mox * offset_dist
+                oy = my + moy * offset_dist
+            else:
+                ox = 0.5 * (t1x + t2x) + mid_ox * offset_dist
+                oy = 0.5 * (t1y + t2y) + mid_oy * offset_dist
+            dim_prim: dict = {
                 "kind": "dimension", "tip1": (t1x, t1y), "tip2": (t2x, t2y),
                 "offset": (ox, oy), "text": _dim_text(row["lengthFt"], style),
+                "curved": curved,
                 "primitiveId": _primitive_id(align_idx, zone, "dimension"),
                 "specRef": {"zone": zone, "run": None, "alignIdx": align_idx},
-            })
+            }
+            if curved:
+                dim_prim["path"] = tip_path
+            primitives.append(dim_prim)
 
         # Name labels below the dim line: Non-Sign rows only, gated on
         # whether this sheet's elements list actually has this feature
@@ -236,11 +365,14 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
         # do not duplicate it in the label text (engineer reference style).
         if (row["type"] == "Non-Sign" and row["lengthFt"] > 0
                 and _should_annotate_non_sign_label(row["item"], sheet_elements)):
-            mid_x = 0.5 * (prev_x + x) + out_x * PERP_HALF_LEN_FT
-            mid_y = 0.5 * (prev_y + y) + out_y * PERP_HALF_LEN_FT
+            mid_sta = 0.5 * (prev_sta + float(row["stationFt"]))
+            mx, my, mtx, mty = ag.station_to_xy(segments, mid_sta)
+            mox, moy = _closed_out(mtx, mty, outward_sign)
+            mid_x = mx + mox * tip_hl
+            mid_y = my + moy * tip_hl
             label_out = offset_dist + text_extra_along
-            tx = mid_x + out_x * label_out
-            ty = mid_y + out_y * label_out
+            tx = mid_x + mox * label_out
+            ty = mid_y + moy * label_out
             primitives.append({
                 "kind": "label", "x": tx, "y": ty,
                 "text": _label_text(row["item"], row["lengthFt"], style),
@@ -248,7 +380,8 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
                 "specRef": {"zone": zone, "run": None, "alignIdx": align_idx},
             })
 
-        prev_x, prev_y = x, y
+        prev_x, prev_y, prev_tx, prev_ty = x, y, tan_x, tan_y
+        prev_sta = float(row["stationFt"])
 
     # Overlay zones (e.g. SHOULDER TAPER inside gap A): dimension + label on
     # the opposite side of the main sign/dim column by default
@@ -265,28 +398,55 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
             continue
         zone = str(row.get("zone") or label)
         anchor, far = _overlay_span(row)
-        ax, ay, _, _ = ag.station_to_xy(segments, anchor)
-        fx, fy, _, _ = ag.station_to_xy(segments, far)
+        ax, ay, atx, aty = ag.station_to_xy(segments, anchor)
+        fx, fy, ftx, fty = ag.station_to_xy(segments, far)
         mx, my, mtx, mty = ag.station_to_xy(segments, 0.5 * (anchor + far))
-        out_x, out_y = _outward_unit(mtx, mty, overlay_sign)
-        t1x = ax + out_x * PERP_HALF_LEN_FT
-        t1y = ay + out_y * PERP_HALF_LEN_FT
-        t2x = fx + out_x * PERP_HALF_LEN_FT
-        t2y = fy + out_y * PERP_HALF_LEN_FT
-        ox = 0.5 * (t1x + t2x) + out_x * offset_dist
-        oy = 0.5 * (t1y + t2y) + out_y * offset_dist
-        primitives.append({
+        out_a_x, out_a_y = _closed_out(atx, aty, overlay_sign)
+        out_f_x, out_f_y = _closed_out(ftx, fty, overlay_sign)
+        out_x, out_y = _closed_out(mtx, mty, overlay_sign)
+        t1x = ax + out_a_x * tip_hl
+        t1y = ay + out_a_y * tip_hl
+        t2x = fx + out_f_x * tip_hl
+        t2y = fy + out_f_y * tip_hl
+        tip_path = _dim_tip_path(
+            segments, float(anchor), float(far),
+            overlay_sign, tip_hl, step_ft=10.0, align_idx=align_idx)
+        chord = math.hypot(t2x - t1x, t2y - t1y)
+        path_len = _path_length(tip_path)
+        sag = _path_sagitta(tip_path, (t1x, t1y), (t2x, t2y))
+        sheet_len = float(row["lengthFt"])
+        curved = (
+            len(tip_path) >= 2
+            and (
+                sag > 0.5
+                or path_len > chord * 1.005 + 0.25
+                or abs(chord - sheet_len) > 1.0
+            )
+        )
+        if curved and tip_path:
+            mid_i = len(tip_path) // 2
+            px, py = tip_path[mid_i]
+            ox = px + out_x * offset_dist
+            oy = py + out_y * offset_dist
+        else:
+            ox = 0.5 * (t1x + t2x) + out_x * offset_dist
+            oy = 0.5 * (t1y + t2y) + out_y * offset_dist
+        dim_prim: dict = {
             "kind": "dimension", "tip1": (t1x, t1y), "tip2": (t2x, t2y),
             "offset": (ox, oy), "text": _dim_text(row["lengthFt"], style),
+            "curved": curved,
             "primitiveId": _primitive_id(align_idx, zone, "dimension"),
             "specRef": {"zone": zone, "run": None, "alignIdx": align_idx,
                         "overlay": True},
-        })
+        }
+        if curved:
+            dim_prim["path"] = tip_path
+        primitives.append(dim_prim)
         label_out = offset_dist + text_extra_along
         primitives.append({
             "kind": "label",
-            "x": mx + out_x * (PERP_HALF_LEN_FT + label_out),
-            "y": my + out_y * (PERP_HALF_LEN_FT + label_out),
+            "x": mx + out_x * (tip_hl + label_out),
+            "y": my + out_y * (tip_hl + label_out),
             "text": _label_text(row["item"], row["lengthFt"], style),
             "primitiveId": _primitive_id(align_idx, zone, "label"),
             "specRef": {"zone": zone, "run": None, "alignIdx": align_idx,
@@ -768,7 +928,8 @@ def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
 
 def compile_hatch(spec: dict, resolved: dict, align1_segments, align2_segments,
                    lane_width_ft: float, shoulder_width_ft: float | None = None,
-                   outward_sign: float = -1.0) -> list[dict]:
+                   outward_sign: float = -1.0,
+                   work_bay_vertices: list | None = None) -> list[dict]:
     """Work-area hatch boundary (kind='hatch') plus conditional transverse
     device rows (kind='transverseRun') when the sheet's
     channelizingDevices.transverse condition is met.
@@ -781,7 +942,13 @@ def compile_hatch(spec: dict, resolved: dict, align1_segments, align2_segments,
     materially different tangents at station 0, that's a real drawing
     problem this function surfaces (workAreaLengthFt would reflect the
     straight-line distance between two points that should coincide with
-    the roadway edge, not something this function silently papers over)."""
+    the roadway edge, not something this function silently papers over).
+
+    work_bay_vertices: optional polyline from Align1 sta0 → Align2 sta0
+    along the closed-lane / roadway edge. When provided (curved corridor),
+    the hatch follows that path with local outward normals. When omitted,
+    the hatch is the historical straight parallelogram between the two
+    sta0 points (chord)."""
     import alignment_geometry as ag
 
     zones = {z["id"]: z for z in spec["corridor"]["zones"]}
@@ -791,17 +958,47 @@ def compile_hatch(spec: dict, resolved: dict, align1_segments, align2_segments,
 
     p1x, p1y, tan1x, tan1y = ag.station_to_xy(align1_segments, 0.0)
     p2x, p2y, _, _ = ag.station_to_xy(align2_segments, 0.0)
-    length = math.hypot(p2x - p1x, p2y - p1y)
 
     spans_shoulder = "shoulder" in (wa.get("note") or "").lower()
     width = lane_width_ft + (shoulder_width_ft or 0.0) if spans_shoulder else lane_width_ft
-    out_x, out_y = _outward_unit(tan1x, tan1y, outward_sign)
 
-    def offset_pt(x: float, y: float, off: float) -> tuple[float, float]:
-        return (x + out_x * off, y + out_y * off)
+    bay_segs = None
+    if work_bay_vertices and len(work_bay_vertices) >= 2:
+        try:
+            bay_segs = ag.segments_from_polyline(work_bay_vertices)
+        except ag.AlignmentGeometryError:
+            bay_segs = None
 
-    boundary = [offset_pt(p1x, p1y, 0.0), offset_pt(p2x, p2y, 0.0),
-                offset_pt(p2x, p2y, width), offset_pt(p1x, p1y, width)]
+    if bay_segs is not None and ag.total_length(bay_segs) >= 1.0:
+        length = ag.total_length(bay_segs)
+        # Densify enough that CreateShapeElement1 follows the lane curve
+        # (6 pts on a 100 ft bay looked like a parallelogram).
+        step = min(5.0, max(2.0, length / 40.0))
+        n = max(4, int(math.ceil(length / step)))
+        inner: list[tuple[float, float]] = []
+        outer: list[tuple[float, float]] = []
+        for i in range(n + 1):
+            sta = length * (i / n)
+            bx, by, btx, bty = ag.station_to_xy(bay_segs, sta)
+            # Match Align1 outward: use −bay_travel as the tan basis.
+            ox, oy = _outward_unit(-btx, -bty, outward_sign)
+            inner.append((bx, by))
+            outer.append((bx + ox * width, by + oy * width))
+        boundary = list(inner) + list(reversed(outer))
+        # Topology diagnostic still uses Align1 tan + chord to Align2 sta0.
+        out_x, out_y = _outward_unit(tan1x, tan1y, outward_sign)
+
+        def offset_pt(x: float, y: float, off: float) -> tuple[float, float]:
+            return (x + out_x * off, y + out_y * off)
+    else:
+        length = math.hypot(p2x - p1x, p2y - p1y)
+        out_x, out_y = _outward_unit(tan1x, tan1y, outward_sign)
+
+        def offset_pt(x: float, y: float, off: float) -> tuple[float, float]:
+            return (x + out_x * off, y + out_y * off)
+
+        boundary = [offset_pt(p1x, p1y, 0.0), offset_pt(p2x, p2y, 0.0),
+                    offset_pt(p2x, p2y, width), offset_pt(p1x, p1y, width)]
 
     # Diagnostic for sheet_rules.run_rules_gate's corridor-topology check
     # (see its own comment): where does align2's station-0 point (p2)
@@ -823,6 +1020,7 @@ def compile_hatch(spec: dict, resolved: dict, align1_segments, align2_segments,
         "workAreaLengthFt": length, "widthFt": width,
         "align2ProjectedStationOnAlign1Ft": p2_projected_station,
         "align2PerpDistFromAlign1Ft": p2_perp_dist_ft,
+        "curvedWorkBay": bay_segs is not None and ag.total_length(bay_segs) >= 1.0,
         "primitiveId": "0:workArea:hatch",
         "specRef": {"zone": "workArea", "run": None, "alignIdx": 0},
     }]
@@ -848,11 +1046,19 @@ def compile_hatch(spec: dict, resolved: dict, align1_segments, align2_segments,
                 t = (k * max_spacing) / length
                 if t >= 1.0:
                     break
-                sx, sy = p1x + (p2x - p1x) * t, p1y + (p2y - p1y) * t
+                if bay_segs is not None and ag.total_length(bay_segs) >= 1.0:
+                    sx, sy, stx, sty = ag.station_to_xy(bay_segs, k * max_spacing)
+                    ox, oy = _outward_unit(-stx, -sty, outward_sign)
+                    tip1 = (sx, sy)
+                    tip2 = (sx + ox * width, sy + oy * width)
+                else:
+                    sx, sy = p1x + (p2x - p1x) * t, p1y + (p2y - p1y) * t
+                    tip1 = offset_pt(sx, sy, 0.0)
+                    tip2 = offset_pt(sx, sy, width)
                 primitives.append({
                     "kind": "transverseRun", "run": "transverse",
                     "stationFromP1Ft": k * max_spacing,
-                    "tip1": offset_pt(sx, sy, 0.0), "tip2": offset_pt(sx, sy, width),
+                    "tip1": tip1, "tip2": tip2,
                     "note": transverse.get("sheetText"),
                     "primitiveId": _primitive_id(0, f"transverse{k}", "transverseRun"),
                     "specRef": {"zone": "workArea", "run": "transverse", "alignIdx": 0},

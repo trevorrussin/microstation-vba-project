@@ -10,8 +10,10 @@ sys.path.insert(0, str(ROOT / "mcp-server"))
 from lane_highway import (  # noqa: E402
     divided_highway_lines,
     lane_highway_lines,
+    path_length,
     twlt_highway_lines,
     two_way_highway_lines,
+    vertices_to_path_segments,
 )
 
 
@@ -185,3 +187,187 @@ def test_twlt_one_per_dir_no_white_dash():
     assert white_dash == []
     yellow_rows = sorted({s["row"] for s in segs if s["kind"] == "yellow"})
     assert yellow_rows == [1, 2]
+
+
+def _s_curve_vertices():
+    """Simple S polyline: right turn then left turn along +X."""
+    return [
+        [0.0, 100.0],
+        [100.0, 100.0],
+        [200.0, 140.0],
+        [300.0, 140.0],
+        [400.0, 100.0],
+    ]
+
+
+def test_two_point_vertices_matches_xy_api():
+    a = two_way_highway_lines(2, 0.0, 50.0, 200.0, 50.0, side="right")
+    b = two_way_highway_lines(
+        2, vertices=[[0.0, 50.0], [200.0, 50.0]], side="right",
+    )
+    assert [(s["kind"], s["style"], s["x1"], s["y1"], s["x2"], s["y2"]) for s in a] == [
+        (s["kind"], s["style"], s["x1"], s["y1"], s["x2"], s["y2"]) for s in b
+    ]
+
+
+def test_curve_matrix_fillets_and_offsets():
+    """L / C / gentle-S / reverse-S / hairpin all produce continuous non-crossing rows."""
+    import math
+    from lane_highway import (
+        _continuous_offset_polyline,
+        _prepare_path_segments,
+        resolve_edge_path,
+        two_way_highway_lines,
+    )
+
+    def _seg_intersect(a1, a2, b1, b2):
+        def cross(o, p, q):
+            return (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0])
+        d1 = cross(a1, a2, b1)
+        d2 = cross(a1, a2, b2)
+        d3 = cross(b1, b2, a1)
+        d4 = cross(b1, b2, a2)
+        if d1 * d2 > 0 or d3 * d4 > 0:
+            return False
+        for p in (a1, a2):
+            for q in (b1, b2):
+                if math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-4:
+                    return False
+        return abs(d1) > 1e-9 or abs(d2) > 1e-9
+
+    curves = {
+        "L": [[0, 0], [250, 0], [400, 120]],
+        "C": [[0.0, 0.0]] + [
+            [200.0 * math.sin(math.pi * i / 8), 200.0 * (1.0 - math.cos(math.pi * i / 8))]
+            for i in range(1, 9)
+        ],
+        "gentle_S": [[0, 0], [150, 0], [280, 25], [400, 25], [530, 0]],
+        "reverse_S": [[0, 100], [120, 100], [220, 160], [320, 160], [420, 100]],
+        "hairpin": [[0, 0], [200, 0], [280, 40], [280, 160], [200, 200], [0, 200]],
+    }
+    for name, verts in curves.items():
+        segs = two_way_highway_lines(2, vertices=verts, fillet_radius_ft=150.0)
+        solids = [s for s in segs if s["style"] == "solid"]
+        assert len(solids) == 4, name
+        assert all(s.get("vertices") and len(s["vertices"]) >= 2 for s in solids), name
+        path = _prepare_path_segments(
+            resolve_edge_path(0, 0, 0, 0, verts), fillet_radius_ft=150.0,
+        )
+        p0 = _continuous_offset_polyline(path, 0.0, "right")
+        p1 = _continuous_offset_polyline(path, 12.0, "right")
+        for ai in range(len(p0) - 1):
+            for bi in range(len(p1) - 1):
+                assert not _seg_intersect(
+                    tuple(p0[ai]), tuple(p0[ai + 1]),
+                    tuple(p1[bi]), tuple(p1[bi + 1]),
+                ), (name, ai, bi)
+
+
+def test_s_curve_continuous_solids():
+    verts = _s_curve_vertices()
+    segs = two_way_highway_lines(2, vertices=verts, side="right", fillet_radius_ft=150.0)
+    solids = [s for s in segs if s["style"] == "solid"]
+    assert len(solids) == 4
+    for s in solids:
+        assert s.get("vertices") and len(s["vertices"]) > len(verts)
+    edge0 = [s for s in solids if s["row"] == 0][0]
+    assert abs(edge0["vertices"][0][0] - 0.0) < 1e-6
+    assert abs(edge0["vertices"][0][1] - 100.0) < 1e-6
+    assert abs(edge0["vertices"][-1][0] - 400.0) < 1e-6
+    assert abs(edge0["vertices"][-1][1] - 100.0) < 1e-6
+
+
+def test_s_curve_corners_connected_no_gap():
+    verts = _s_curve_vertices()
+    segs = two_way_highway_lines(4, vertices=verts, side="right", fillet_radius_ft=150.0)
+    for s in segs:
+        if s["style"] != "solid":
+            continue
+        vs = s["vertices"]
+        for i in range(len(vs) - 1):
+            d = ((vs[i + 1][0] - vs[i][0]) ** 2 + (vs[i + 1][1] - vs[i][1]) ** 2) ** 0.5
+            assert d > 1e-9
+        assert len(vs) > len(verts)
+
+
+def test_s_curve_offset_rows_do_not_cross():
+    """Distinct offset rows should not intersect (parallel curve)."""
+    import math
+    from lane_highway import (
+        _continuous_offset_polyline,
+        _prepare_path_segments,
+        resolve_edge_path,
+    )
+
+    def _seg_intersect(a1, a2, b1, b2):
+        def cross(o, p, q):
+            return (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0])
+        d1 = cross(a1, a2, b1)
+        d2 = cross(a1, a2, b2)
+        d3 = cross(b1, b2, a1)
+        d4 = cross(b1, b2, a2)
+        if d1 * d2 > 0 or d3 * d4 > 0:
+            return False
+        for p in (a1, a2):
+            for q in (b1, b2):
+                if math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-4:
+                    return False
+        return abs(d1) > 1e-9 or abs(d2) > 1e-9
+
+    path = _prepare_path_segments(
+        resolve_edge_path(0, 0, 0, 0, _s_curve_vertices()),
+        fillet_radius_ft=150.0,
+    )
+    polys = [
+        _continuous_offset_polyline(path, off, "right")
+        for off in (0.0, 12.0, 24.0, 26.0, 38.0)
+    ]
+    for i, a in enumerate(polys):
+        for b in polys[i + 1:]:
+            for ai in range(len(a) - 1):
+                a1, a2 = tuple(a[ai]), tuple(a[ai + 1])
+                for bi in range(len(b) - 1):
+                    b1, b2 = tuple(b[bi]), tuple(b[bi + 1])
+                    assert not _seg_intersect(a1, a2, b1, b2), (i, ai, bi)
+
+
+def test_s_curve_offset_distance_on_first_leg():
+    verts = _s_curve_vertices()
+    segs = lane_highway_lines(1, vertices=verts, side="right")
+    edges = [s for s in segs if s["kind"] == "edge"]
+    assert len(edges) == 2
+    # Start of both continuous edges: 12 ft apart on first leg normal
+    v0 = edges[0]["vertices"][0]
+    v1 = edges[1]["vertices"][0]
+    d = ((v0[0] - v1[0]) ** 2 + (v0[1] - v1[1]) ** 2) ** 0.5
+    assert abs(d - 12.0) < 1e-6
+
+
+def test_s_curve_divided_and_twlt_row_kinds():
+    verts = _s_curve_vertices()
+    div = divided_highway_lines(
+        2, vertices=verts, median_width_ft=16.0, side="right",
+    )
+    solids = [s for s in div if s["style"] == "solid"]
+    assert [s["kind"] for s in solids] == ["edge", "yellow", "yellow", "edge"]
+    assert all(s.get("vertices") for s in solids)
+    tw = twlt_highway_lines(1, vertices=verts, twlt_width_ft=12.0)
+    yellows = [s for s in tw if s["kind"] == "yellow"]
+    assert yellows and all(s["style"] == "dashed" for s in yellows)
+    assert len(yellows) > 2
+
+
+def test_path_length_of_s_curve():
+    verts = _s_curve_vertices()
+    segs = vertices_to_path_segments(verts)
+    # 100 + hypot(100,40) + 100 + hypot(100,40)
+    expected = 200.0 + 2.0 * (100.0 ** 2 + 40.0 ** 2) ** 0.5
+    assert abs(path_length(segs) - expected) < 1e-6
+
+
+def test_rejects_degenerate_vertices():
+    try:
+        lane_highway_lines(1, vertices=[[0.0, 0.0], [0.0, 0.0]])
+        assert False, "expected ValueError"
+    except ValueError:
+        pass

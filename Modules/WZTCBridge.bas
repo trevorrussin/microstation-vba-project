@@ -197,6 +197,12 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = BridgePlaceOrderTableChannelizing(reqId, params)
         Case "PLACE_DIMENSION"
             ExecuteOpInner = BridgePlaceDimension(reqId, params)
+        Case "PLACE_ARC_SIZE_DIMENSION"
+            ExecuteOpInner = BridgePlaceArcSizeDimension(reqId, params)
+        Case "PLACE_CURVED_PLAN_DIMENSION"
+            ExecuteOpInner = BridgePlaceCurvedPlanDimension(reqId, params)
+        Case "DELETE_DIMENSION_ELEMENTS_IN_RANGE"
+            ExecuteOpInner = BridgeDeleteDimensionElementsInRange(reqId, params)
         Case "PLACE_PERP_LINE"
             ExecuteOpInner = BridgePlacePerpLine(reqId, params)
         Case "PLACE_SIGN"
@@ -1262,7 +1268,8 @@ WErr:
     BridgePlaceOrderTableChannelizing = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
-' Required: x1,y1,x2,y2,ox,oy. Optional: z, styleName (default ny_Plan).
+' Required: x1,y1,x2,y2,ox,oy. Optional: z, styleName (default ny_Plan),
+' overrideText (sheet length for curved tip-path chains; " " hides segment text).
 Private Function BridgePlaceDimension(reqId As String, params As Object) As String
     On Error GoTo WErr
     If Not (params.Exists("x1") And params.Exists("y1") And _
@@ -1285,17 +1292,127 @@ Private Function BridgePlaceDimension(reqId As String, params As Object) As Stri
     If params.Exists("styleName") Then
         If Len(Trim(CStr(params("styleName")))) > 0 Then styleName = CStr(params("styleName"))
     End If
+    Dim overrideText As String: overrideText = ""
+    If params.Exists("overrideText") Then
+        overrideText = CStr(params("overrideText"))
+    End If
 
     Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
     Dim result As String
     result = WZTCExec.ExecPlaceDimension(CDbl(params("x1")), CDbl(params("y1")), _
                                          CDbl(params("x2")), CDbl(params("y2")), _
-                                         CDbl(params("ox")), CDbl(params("oy")), z, styleName)
+                                         CDbl(params("ox")), CDbl(params("oy")), z, styleName, overrideText)
     If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
     BridgePlaceDimension = reqId & vbTab & result
     Exit Function
 WErr:
     BridgePlaceDimension = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: cx,cy,x1,y1,x2,y2,ox,oy. Optional: z, styleName, overrideText.
+' One continuous ny_Plan Arc Size DimensionElement (curved dim line).
+Private Function BridgePlaceArcSizeDimension(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("cx") And params.Exists("cy") And _
+            params.Exists("x1") And params.Exists("y1") And _
+            params.Exists("x2") And params.Exists("y2") And _
+            params.Exists("ox") And params.Exists("oy")) Then
+        BridgePlaceArcSizeDimension = reqId & vbTab & "ERROR" & vbTab & "note=missing cx/cy/x1/y1/x2/y2/ox/oy"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("PLACE_DIMENSION")
+    If gateMsg <> "" Then
+        BridgePlaceArcSizeDimension = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim z As Double: z = 0
+    If params.Exists("z") Then z = CDbl(params("z"))
+    Dim styleName As String: styleName = "ny_Plan"
+    If params.Exists("styleName") Then
+        If Len(Trim(CStr(params("styleName")))) > 0 Then styleName = CStr(params("styleName"))
+    End If
+    Dim overrideText As String: overrideText = ""
+    If params.Exists("overrideText") Then
+        overrideText = CStr(params("overrideText"))
+    End If
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlaceArcSizeDimension(CDbl(params("cx")), CDbl(params("cy")), _
+                                         CDbl(params("x1")), CDbl(params("y1")), _
+                                         CDbl(params("x2")), CDbl(params("y2")), _
+                                         CDbl(params("ox")), CDbl(params("oy")), _
+                                         z, styleName, overrideText)
+    If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+    BridgePlaceArcSizeDimension = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgePlaceArcSizeDimension = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: cx,cy,x1,y1,x2,y2,ox,oy. Optional: z, overrideText.
+' ArcElement dim-line concentric with bend (follows the curve).
+Private Function BridgePlaceCurvedPlanDimension(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("cx") And params.Exists("cy") And _
+            params.Exists("x1") And params.Exists("y1") And _
+            params.Exists("x2") And params.Exists("y2") And _
+            params.Exists("ox") And params.Exists("oy")) Then
+        BridgePlaceCurvedPlanDimension = reqId & vbTab & "ERROR" & vbTab & "note=missing cx/cy/x1/y1/x2/y2/ox/oy"
+        Exit Function
+    End If
+
+    Dim gateMsg As String
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate("PLACE_DIMENSION")
+    If gateMsg <> "" Then
+        BridgePlaceCurvedPlanDimension = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
+        Exit Function
+    End If
+
+    Dim z As Double: z = 0
+    If params.Exists("z") Then z = CDbl(params("z"))
+    Dim overrideText As String: overrideText = ""
+    If params.Exists("overrideText") Then
+        overrideText = CStr(params("overrideText"))
+    End If
+
+    Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
+    Dim result As String
+    result = WZTCExec.ExecPlaceCurvedPlanDimension(CDbl(params("cx")), CDbl(params("cy")), _
+                                         CDbl(params("x1")), CDbl(params("y1")), _
+                                         CDbl(params("x2")), CDbl(params("y2")), _
+                                         CDbl(params("ox")), CDbl(params("oy")), _
+                                         z, overrideText)
+    If Left(result, 2) = "OK" Then
+        If InStr(result, "createdElementIds=") = 0 Then
+            result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
+        End If
+    End If
+    BridgePlaceCurvedPlanDimension = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgePlaceCurvedPlanDimension = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Required: lowX,lowY,highX,highY — wipe DimensionElements in bbox.
+Private Function BridgeDeleteDimensionElementsInRange(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not (params.Exists("lowX") And params.Exists("lowY") And _
+            params.Exists("highX") And params.Exists("highY")) Then
+        BridgeDeleteDimensionElementsInRange = reqId & vbTab & "ERROR" & vbTab & "note=missing lowX/lowY/highX/highY"
+        Exit Function
+    End If
+    Dim result As String
+    result = WZTCExec.ExecDeleteDimensionElementsInRange( _
+        CDbl(params("lowX")), CDbl(params("lowY")), _
+        CDbl(params("highX")), CDbl(params("highY")))
+    BridgeDeleteDimensionElementsInRange = reqId & vbTab & result
+    Exit Function
+WErr:
+    BridgeDeleteDimensionElementsInRange = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 ' Required params: elementIds (comma-separated element IDs)
@@ -2770,7 +2887,13 @@ Private Function ParseParams(parts() As String) As Object
         Dim eqPos As Integer
         eqPos = InStr(parts(i), "=")
         If eqPos > 0 Then
-            d(Trim(Left(parts(i), eqPos - 1))) = Trim(Mid(parts(i), eqPos + 1))
+            ' Do not Trim overrideText — a single space means "hide measured
+            ' chord text" on curved SizeArrow chain segments (2026-08-13).
+            Dim pKey As String, pVal As String
+            pKey = Trim(Left(parts(i), eqPos - 1))
+            pVal = Mid(parts(i), eqPos + 1)
+            If UCase$(pKey) <> "OVERRIDETEXT" Then pVal = Trim(pVal)
+            d(pKey) = pVal
         End If
     Next i
     Set ParseParams = d

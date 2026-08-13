@@ -1610,6 +1610,9 @@ class PlanSession:
     _qa_capture_active: bool = False
     # Durable plan extras (Bridge/sheet-plan.json).
     work_area_edges: Optional[dict] = None
+    # Closed-lane / roadway edge polyline through the work bay (up→dn).
+    # Used by compile_hatch on curved corridors; None = straight chord.
+    work_bay_vertices: Optional[list] = None
     plan_updated_at: str = ""
     # Post-placement scorecard + phase-boundary replan / reflection.
     last_scorecard: Optional[dict] = None
@@ -1649,6 +1652,7 @@ class PlanSession:
         self.last_station_rows = {}
         self._qa_capture_active = False
         self.work_area_edges = None
+        self.work_bay_vertices = None
         self.plan_updated_at = ""
         self.last_scorecard = None
         self.last_compiled = None
@@ -1742,6 +1746,7 @@ def _save_sheet_plan() -> Optional[Path]:
             "visual_qa_passed": s.visual_qa_passed,
         },
         "workAreaEdges": s.work_area_edges,
+        "workBayVertices": s.work_bay_vertices,
         "lateral": {
             "outward_sign": s.lateral_outward_sign,
             "half_len": s.lateral_half_len,
@@ -1831,6 +1836,8 @@ def _load_sheet_plan(path: Optional[Path] = None) -> dict:
         data.get("visual_qa_passed", cl.get("visual_qa_passed", False)))
     s.placed_workspace = bool(data.get("placedWorkspace", False))
     s.work_area_edges = data.get("workAreaEdges")
+    wb = data.get("workBayVertices")
+    s.work_bay_vertices = list(wb) if isinstance(wb, list) and len(wb) >= 2 else None
     lat = data.get("lateral") or {}
     if lat.get("outward_sign") is not None:
         s.lateral_outward_sign = float(lat["outward_sign"])
@@ -2480,8 +2487,10 @@ def define_alignment_segment(align_idx: int, vertices: list[list[float]],
 
     When a sheet order table is locked and alignments are not both ready,
     prefer assemble_corridor over freestyle define+commit pairs (live
-    2026-08-04 Downstream-on-Upstream miss). Pass force=True for curved
-    corridors or engineer-directed redefine."""
+    2026-08-04 Downstream-on-Upstream miss). For curved corridors pass
+    path_vertices to assemble_corridor / run_sheet_build instead of
+    freestyle define. Pass force=True only for engineer-directed redefine
+    or adopt-recovery edge cases."""
     if (_PLAN_SESSION.order_table_built
             and _PLAN_SESSION.designer_inputs is not None
             and sheet_spec.has_spec(_PLAN_SESSION.designer_inputs.sheet_num)
@@ -2489,11 +2498,11 @@ def define_alignment_segment(align_idx: int, vertices: list[list[float]],
             and not force):
         raise ValueError(
             "define_alignment_segment refused during a sheet-spec plan — "
-            "call assemble_corridor(upstream_edge, downstream_edge) after "
-            "point-picking the two work-area edges (prevents Downstream "
-            "committed along Upstream's line). Pass force=True only for a "
-            "curved corridor or when the engineer explicitly asked to "
-            "define segments by hand."
+            "call assemble_corridor(upstream_edge, downstream_edge, "
+            "path_vertices=… if curved) after point-picking the two "
+            "work-area edges (prevents Downstream committed along "
+            "Upstream's line). Pass force=True only when the engineer "
+            "explicitly asked to define segments by hand."
         )
     verts_tsv = "|".join(f"{p[0]},{p[1]},{p[2] if len(p) > 2 else 0}" for p in vertices)
     return _ok_or_raise(
@@ -2567,13 +2576,18 @@ def resolve_sheet_lateral(
         shoulder_width_ft: float = 0.0,
         real_road_edge: bool = True,
         yellow_gap_ft: float = 2.0,
-        opposing_lanes: int = 2) -> dict:
+        opposing_lanes: int = 2,
+        path_vertices: list | None = None) -> dict:
     """Lock outward_sign + half_len for a named-sheet build from travel
     and closed-lane side (Cursor real-road method, 2026-08-10).
 
     Contract matches assemble_corridor: travel = unit(up→dn). Align1
     stations increase UPSTREAM (−travel). closed_side is relative to
     travel ('right' | 'left'). Right-lane sheets (619-311) use 'right'.
+
+    path_vertices: optional curved closed-lane / first-travel outer
+    polyline. When set, travel is the path tangent at mid work-bay
+    (same orientation rules as assemble_corridor), not the chord.
 
     outward_sign: +1 for closed right of travel, −1 for closed left —
     so Align1's OutwardUnit points into the closed lane / toward the
@@ -2593,6 +2607,7 @@ def resolve_sheet_lateral(
     if unknown — do not invent.
     """
     import math
+    import alignment_geometry as ag
 
     side = (closed_side or "").strip().lower()
     if side in ("r", "right-lane", "right_lane", "outer-right"):
@@ -2606,12 +2621,32 @@ def resolve_sheet_lateral(
 
     up = _pt3(upstream_edge)
     dn = _pt3(downstream_edge)
-    dx, dy = dn[0] - up[0], dn[1] - up[1]
-    work_len = math.hypot(dx, dy)
-    if work_len < 1.0:
-        raise ValueError(
-            f"resolve_sheet_lateral: edges only {work_len:.3f} ft apart")
-    tx, ty = dx / work_len, dy / work_len
+    curved = False
+    if path_vertices is not None and len(path_vertices) >= 2:
+        path_pts = [_pt3(p) for p in path_vertices]
+        segs = ag.segments_from_polyline(path_pts)
+        sta_up, _ = ag.nearest_station(segs, up[0], up[1])
+        sta_dn, _ = ag.nearest_station(segs, dn[0], dn[1])
+        if sta_dn < sta_up:
+            path_pts = list(reversed(path_pts))
+            segs = ag.segments_from_polyline(path_pts)
+            sta_up, _ = ag.nearest_station(segs, up[0], up[1])
+            sta_dn, _ = ag.nearest_station(segs, dn[0], dn[1])
+        work_len = abs(sta_dn - sta_up)
+        if work_len < 1.0:
+            raise ValueError(
+                f"resolve_sheet_lateral: edges only {work_len:.3f} ft apart "
+                "along path_vertices")
+        mid = 0.5 * (sta_up + sta_dn)
+        _, _, tx, ty = ag.point_at_extended(segs, mid)
+        curved = True
+    else:
+        dx, dy = dn[0] - up[0], dn[1] - up[1]
+        work_len = math.hypot(dx, dy)
+        if work_len < 1.0:
+            raise ValueError(
+                f"resolve_sheet_lateral: edges only {work_len:.3f} ft apart")
+        tx, ty = dx / work_len, dy / work_len
     # Align1 tan at sta0 points upstream (opposite travel).
     a1_tx, a1_ty = -tx, -ty
     outward_sign = 1.0 if side == "right" else -1.0
@@ -2650,6 +2685,8 @@ def resolve_sheet_lateral(
         "outward_sign": outward_sign,
         "half_len": half_len,
         "real_road_edge": use_real,
+        "curved": curved,
+        "workAreaLengthFt": round(work_len, 3),
         "travelUnit": [round(tx, 6), round(ty, 6)],
         "align1TanUpstream": [round(a1_tx, 6), round(a1_ty, 6)],
         "outwardUnit": [round(out_x, 6), round(out_y, 6)],
@@ -2659,10 +2696,12 @@ def resolve_sheet_lateral(
         "note": (
             f"Locked lateral for run_sheet_build: outward_sign={outward_sign:g}, "
             f"half_len={half_len:g} "
-            f"({('real EOP' if use_real else 'abstract 40')}). "
+            f"({('real EOP' if use_real else 'abstract 40')}"
+            f"{', curved path' if curved else ''}). "
             "closed_outward keeps Align1+Align2 one-side signs (incl. G20-2) "
-            "on the closed shoulder. Pass the same edges to run_sheet_build; "
-            "locked values apply unless use_locked_lateral=False."
+            "on the closed shoulder. Pass the same edges (+ path_vertices) "
+            "to run_sheet_build; locked values apply unless "
+            "use_locked_lateral=False."
         ),
     })
 
@@ -2705,7 +2744,8 @@ def _apply_locked_lateral(outward_sign: float, half_len: float,
 
 def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
                       approach_length_ft: float = 0.0,
-                      force: bool = False) -> dict:
+                      force: bool = False,
+                      path_vertices: list | None = None) -> dict:
     """Build both plan alignments from the two work-area edge points.
 
     Contract (sheet orderTable.alignments[].station0):
@@ -2719,6 +2759,12 @@ def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
     where T is the unit travel direction through the work bay
     (upstream_edge → downstream_edge).
 
+    path_vertices: optional polyline (>=2 points) along the closed-lane /
+    first-travel outer edge spanning the work bay (and preferably beyond).
+    When set, Align1/Align2 follow that path (extended by approach past the
+    projected edges) instead of a straight chord — required for curved /
+    S-shaped real-road corridors. Work-bay hatch also follows this path.
+
     approach_length_ft=0 (default) auto-sizes from the locked sheet's
     station_walk max + 50 ft slack so ticks never clamp. Requires
     build_wztc_order_table first (locked DesignerInputs).
@@ -2731,6 +2777,8 @@ def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
     clear_plan_elements(keep_alignments=False) first (wipes corridor +
     plan geometry and resets VBA alignment bookkeeping)."""
     import math
+    import alignment_geometry as ag
+
     inputs = _PLAN_SESSION.designer_inputs
     if inputs is None:
         raise ValueError(
@@ -2738,13 +2786,6 @@ def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
             "(locked designer inputs + sheet spec drive approach length).")
     up = _pt3(upstream_edge)
     dn = _pt3(downstream_edge)
-    dx, dy = dn[0] - up[0], dn[1] - up[1]
-    work_len = math.hypot(dx, dy)
-    if work_len < 1.0:
-        raise ValueError(
-            f"assemble_corridor: upstream and downstream edges are only "
-            f"{work_len:.3f} ft apart — need two distinct work-area edges.")
-    tx, ty = dx / work_len, dy / work_len
 
     spec = sheet_spec.load(inputs.sheet_num)
     if spec is None:
@@ -2774,26 +2815,107 @@ def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
                 "or adopt_alignment if recovering SharedState only.")
         clear_plan_elements(keep_alignments=False)
 
-    up_out = [up[0] - tx * approach, up[1] - ty * approach, up[2]]
-    dn_out = [dn[0] + tx * approach, dn[1] + ty * approach, dn[2]]
+    curved = False
+    work_bay: list[list[float]]
+    path_meta: dict = {}
+
+    if path_vertices is not None:
+        if not isinstance(path_vertices, (list, tuple)) or len(path_vertices) < 2:
+            raise ValueError(
+                "assemble_corridor: path_vertices needs >= 2 points "
+                f"(got {path_vertices!r})")
+        path_pts = [_pt3(p) for p in path_vertices]
+        segs = ag.segments_from_polyline(path_pts)
+        sta_up, d_up = ag.nearest_station(segs, up[0], up[1])
+        sta_dn, d_dn = ag.nearest_station(segs, dn[0], dn[1])
+        max_off = max(d_up, d_dn)
+        if max_off > 80.0:
+            raise ValueError(
+                f"assemble_corridor: work-area edge is {max_off:.1f} ft from "
+                "path_vertices (max 80). Pass the closed-lane / first-travel "
+                "outer polyline that the upstream/downstream picks sit on.")
+        if abs(sta_dn - sta_up) < 1.0:
+            raise ValueError(
+                "assemble_corridor: upstream and downstream edges project to "
+                f"nearly the same path station ({sta_up:.1f} / {sta_dn:.1f}).")
+        if sta_dn < sta_up:
+            path_pts = list(reversed(path_pts))
+            segs = ag.segments_from_polyline(path_pts)
+            sta_up, d_up = ag.nearest_station(segs, up[0], up[1])
+            sta_dn, d_dn = ag.nearest_station(segs, dn[0], dn[1])
+            if sta_dn < sta_up:
+                raise ValueError(
+                    "assemble_corridor: could not orient path_vertices so "
+                    "downstream is downstream of upstream along the path.")
+        work_len = sta_dn - sta_up
+        # Snap sta0 to the path so Align1/2 + hatch share one geometry.
+        up_s = list(ag.point_at_extended(segs, sta_up)[:2]) + [up[2]]
+        dn_s = list(ag.point_at_extended(segs, sta_dn)[:2]) + [dn[2]]
+        # Align1: sta0 at up, stations increase AWAY upstream (= −path).
+        up_verts = ag.sample_path_vertices(
+            segs, sta_up, sta_up - approach, step_ft=50.0)
+        # Align2: sta0 at dn, stations increase AWAY downstream (= +path).
+        dn_verts = ag.sample_path_vertices(
+            segs, sta_dn, sta_dn + approach, step_ft=50.0)
+        # Ensure first vertex is the snapped edge (sample may duplicate).
+        up_verts[0] = up_s
+        dn_verts[0] = dn_s
+        work_bay = ag.sample_path_vertices(
+            segs, sta_up, sta_dn, step_ft=5.0)
+        mid_sta = 0.5 * (sta_up + sta_dn)
+        _, _, tx, ty = ag.point_at_extended(segs, mid_sta)
+        curved = True
+        path_meta = {
+            "pathVertexCount": len(path_pts),
+            "staUpstreamFt": round(sta_up, 3),
+            "staDownstreamFt": round(sta_dn, 3),
+            "edgeOffsetFt": {
+                "upstream": round(d_up, 3),
+                "downstream": round(d_dn, 3),
+            },
+            "snappedSta0": True,
+        }
+    else:
+        dx, dy = dn[0] - up[0], dn[1] - up[1]
+        work_len = math.hypot(dx, dy)
+        if work_len < 1.0:
+            raise ValueError(
+                f"assemble_corridor: upstream and downstream edges are only "
+                f"{work_len:.3f} ft apart — need two distinct work-area edges.")
+        tx, ty = dx / work_len, dy / work_len
+        up_out = [up[0] - tx * approach, up[1] - ty * approach, up[2]]
+        dn_out = [dn[0] + tx * approach, dn[1] + ty * approach, dn[2]]
+        up_verts = [up, up_out]
+        dn_verts = [dn, dn_out]
+        work_bay = [list(up), list(dn)]
+        up_s, dn_s = up, dn
 
     # force=True on define: freestyle define is refused mid-plan; this
     # primitive is the allowed path and must not trip its own gate.
     d1 = define_alignment_segment(
-        1, [up, up_out],
-        reason=f"assemble_corridor Upstream edge→away ({approach:.0f} ft approach)",
+        1, up_verts,
+        reason=(
+            f"assemble_corridor Upstream edge→away ({approach:.0f} ft"
+            f"{', curved' if curved else ''})"
+        ),
         force=True)
     c1 = commit_alignment(1, force=force)
     d2 = define_alignment_segment(
-        2, [dn, dn_out],
-        reason=f"assemble_corridor Downstream edge→away ({approach:.0f} ft approach)",
+        2, dn_verts,
+        reason=(
+            f"assemble_corridor Downstream edge→away ({approach:.0f} ft"
+            f"{', curved' if curved else ''})"
+        ),
         force=True)
     c2 = commit_alignment(2, force=force)
 
     _PLAN_SESSION.work_area_edges = {
         "upstream": list(up),
         "downstream": list(dn),
+        "upstreamSta0": list(up_s),
+        "downstreamSta0": list(dn_s),
     }
+    _PLAN_SESSION.work_bay_vertices = work_bay
     _save_sheet_plan()
 
     return {
@@ -2802,8 +2924,17 @@ def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
         "approachLengthFt": round(approach, 3),
         "stationWalkMaxFt": round(max_need, 3),
         "travelUnit": [round(tx, 6), round(ty, 6)],
-        "upstream": {"sta0": up, "outward": up_out, "define": d1, "commit": c1},
-        "downstream": {"sta0": dn, "outward": dn_out, "define": d2, "commit": c2},
+        "curved": curved,
+        "pathMeta": path_meta or None,
+        "workBayVertexCount": len(work_bay),
+        "upstream": {
+            "sta0": up_s, "vertexCount": len(up_verts),
+            "define": d1, "commit": c1,
+        },
+        "downstream": {
+            "sta0": dn_s, "vertexCount": len(dn_verts),
+            "define": d2, "commit": c2,
+        },
         "nextStep": (
             "place_order_table_stations per alignment (runs cross_validate), "
             "then place_sign / place_sheet_geometry"
@@ -3070,15 +3201,268 @@ def place_order_table_channelizing(align_idx: int, outward_sign: float = -1.0,
 
 def place_dimension(x1: float, y1: float, x2: float, y2: float,
                     ox: float, oy: float, z: float = 0.0,
-                    style_name: str = "ny_Plan", reason: str = "") -> dict:
+                    style_name: str = "ny_Plan", reason: str = "",
+                    override_text: str = "") -> dict:
     """Place a real Linear Size DimensionElement (msdDimTypeSizeArrow)
     between (x1,y1)-(x2,y2); dim-line offset toward (ox,oy). Uses DGN
     DimensionStyles (default ny_Plan). Prefer place_order_table_dimensions
-    for full-plan spacing annotation."""
+    for full-plan spacing annotation.
+
+    override_text: optional PrimaryText (sheet/table length). Empty =
+    measured length (straight-sheet default).
+    """
+    kwargs = dict(x1=x1, y1=y1, x2=x2, y2=y2, ox=ox, oy=oy, z=z,
+                  styleName=style_name, reason=reason)
+    if override_text != "":
+        kwargs["overrideText"] = override_text
+    return _ok_or_raise(_bridge.call("PLACE_DIMENSION", **kwargs), "place_dimension")
+
+
+def place_arc_size_dimension(cx: float, cy: float,
+                             x1: float, y1: float, x2: float, y2: float,
+                             ox: float, oy: float, z: float = 0.0,
+                             style_name: str = "ny_Plan", reason: str = "",
+                             override_text: str = "") -> dict:
+    """One continuous curved DimensionElement (msdDimTypeArcSize) + ny_Plan.
+
+    Prefer place_curved_plan_dimension for roadside-hugging bend dims —
+    Arc Size often sweeps the wrong way on this install.
+    """
+    kwargs = dict(cx=cx, cy=cy, x1=x1, y1=y1, x2=x2, y2=y2, ox=ox, oy=oy, z=z,
+                  styleName=style_name, reason=reason)
+    if override_text != "":
+        kwargs["overrideText"] = override_text
     return _ok_or_raise(
-        _bridge.call("PLACE_DIMENSION", x1=x1, y1=y1, x2=x2, y2=y2,
-                     ox=ox, oy=oy, z=z, styleName=style_name, reason=reason),
-        "place_dimension")
+        _bridge.call("PLACE_ARC_SIZE_DIMENSION", **kwargs),
+        "place_arc_size_dimension")
+
+
+def place_curved_plan_dimension(cx: float, cy: float,
+                                x1: float, y1: float, x2: float, y2: float,
+                                ox: float, oy: float, z: float = 0.0,
+                                reason: str = "",
+                                override_text: str = "") -> dict:
+    """Dim line = true ArcElement concentric with the bend (FOLLOWS THE CURVE).
+
+    Radial extension lines + SizeArrow-style filled tips + sheet-length text.
+    """
+    kwargs = dict(cx=cx, cy=cy, x1=x1, y1=y1, x2=x2, y2=y2, ox=ox, oy=oy, z=z,
+                  reason=reason)
+    if override_text != "":
+        kwargs["overrideText"] = override_text
+    r = _ok_or_raise(
+        _bridge.call("PLACE_CURVED_PLAN_DIMENSION", **kwargs),
+        "place_curved_plan_dimension")
+    tx = r.get("textX")
+    ty = r.get("textY")
+    txt = override_text or r.get("overrideText") or ""
+    if tx is not None and ty is not None and str(txt).strip():
+        try:
+            tr = place_text_label(
+                str(txt), float(tx), float(ty),
+                reason=reason or "curved plan dim text")
+            ids = placement_registry.parse_created_ids(r)
+            ids.extend(placement_registry.parse_created_ids(tr))
+            r = dict(r)
+            r["createdElementIds"] = ids
+            r["textElementIds"] = placement_registry.parse_created_ids(tr)
+        except Exception as e:
+            r = dict(r)
+            r["textError"] = str(e)
+    return r
+
+
+def delete_dimension_elements_in_range(low_x: float, low_y: float,
+                                       high_x: float, high_y: float,
+                                       reason: str = "") -> dict:
+    """Delete DimensionElements + color-2 arc/line/shape in bbox (leftover wipe).
+
+    Engineer QA: remove bad chord/tip-chain dims AND prior curved-plan graphics
+    before rebuild — DimensionElement-only wipe left arcs/chords visible.
+    """
+    return _ok_or_raise(
+        _bridge.call(
+            "DELETE_DIMENSION_ELEMENTS_IN_RANGE",
+            lowX=low_x, lowY=low_y, highX=high_x, highY=high_y,
+            reason=reason or "wipe leftover dims"),
+        "delete_dimension_elements_in_range")
+
+
+def _format_ny_plan_dim_text(text: str) -> str:
+    """Match straight-sheet ny_Plan look (e.g. 495'-0\") from lengthOnly '495'."""
+    s = str(text or "").strip()
+    if not s:
+        return s
+    if "'" in s or '"' in s:
+        return s
+    try:
+        v = float(s)
+        if abs(v - round(v)) < 1e-6:
+            return f"{int(round(v))}'-0\""
+        return f"{v:g}'"
+    except ValueError:
+        return s
+
+
+def _fit_circle_2d(pts: list[tuple[float, float]],
+                   min_sag: float = 1.0) -> tuple[float, float, float] | None:
+    """Algebraic circle fit. Returns (cx, cy, r) or None if degenerate.
+
+    Reject near-straight spans (tiny sagitta / huge R). Those must stay
+    one SizeArrow — Arc Size with R>>chord draws a giant construction arc
+    (live QA 2026-08-13 Buffer ~495' got center ~112k ft away).
+    """
+    import math
+    if len(pts) < 3:
+        return None
+    # Prefer endpoints + mid for a stable roadside arc; fall back to all pts.
+    sample = [pts[0], pts[len(pts) // 2], pts[-1]]
+    (x1, y1), (x2, y2), (x3, y3) = sample
+    d = 2.0 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+    if abs(d) < 1e-9:
+        return None
+    ux = ((x1 * x1 + y1 * y1) * (y2 - y3)
+          + (x2 * x2 + y2 * y2) * (y3 - y1)
+          + (x3 * x3 + y3 * y3) * (y1 - y2)) / d
+    uy = ((x1 * x1 + y1 * y1) * (x3 - x2)
+          + (x2 * x2 + y2 * y2) * (x1 - x3)
+          + (x3 * x3 + y3 * y3) * (x2 - x1)) / d
+    r = math.hypot(x1 - ux, y1 - uy)
+    if r < 1.0 or r > 1.0e7:
+        return None
+    chord = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
+    if chord < 1.0:
+        return None
+    half = min(chord * 0.5, r)
+    sag = r - math.sqrt(max(0.0, r * r - half * half))
+    if sag < min_sag:
+        return None
+    # Cap radius: allow large fillet radii for short chords (50' on R~300).
+    if r > max(2500.0, 50.0 * chord):
+        return None
+    return (ux, uy, r)
+
+
+def place_path_hugging_dimension(path: list, text: str,
+                                 offset: list | tuple,
+                                 reason: str = "",
+                                 force_arc: bool = False) -> dict:
+    """Curved-corridor dimension: ArcElement dim-line that FOLLOWS THE CURVE.
+
+    Concentric with the tip-path bend + radial extensions + sheet length text.
+    Falls back to one SizeArrow only when the tip path is essentially straight
+    and force_arc is False.
+    """
+    import math
+    if not path or len(path) < 2:
+        raise ValueError("place_path_hugging_dimension needs >= 2 path points")
+    verts: list[tuple[float, float]] = []
+    for p in path:
+        if isinstance(p, (list, tuple)) and len(p) >= 2:
+            verts.append((float(p[0]), float(p[1])))
+    cleaned: list[tuple[float, float]] = [verts[0]]
+    for x, y in verts[1:]:
+        if math.hypot(x - cleaned[-1][0], y - cleaned[-1][1]) >= 0.5:
+            cleaned.append((x, y))
+    if len(cleaned) < 2:
+        raise ValueError("place_path_hugging_dimension: tip path too short after cleanup")
+
+    ox = float(offset[0])
+    oy = float(offset[1])
+    sheet_txt = _format_ny_plan_dim_text(text)
+    x1, y1 = cleaned[0]
+    x2, y2 = cleaned[-1]
+
+    # Ensure 3 non-collinear samples for circle fit on short spans.
+    if len(cleaned) == 2:
+        mx = 0.5 * (x1 + x2)
+        my = 0.5 * (y1 + y2)
+        dx, dy = x2 - x1, y2 - y1
+        L = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / L, dx / L
+        if (ox - mx) * nx + (oy - my) * ny < 0:
+            nx, ny = -nx, -ny
+        bulge = max(2.0, 0.05 * L)
+        cleaned = [cleaned[0], (mx + nx * bulge, my + ny * bulge), cleaned[1]]
+
+    min_sag = 0.01 if force_arc else 0.25
+    fit = _fit_circle_2d(cleaned, min_sag=min_sag)
+    if fit is None and force_arc and len(cleaned) >= 3:
+        # Last resort: circumcircle of start/mid/end, but still reject
+        # near-straight huge-R fits (Buffer on approach).
+        sample = [cleaned[0], cleaned[len(cleaned) // 2], cleaned[-1]]
+        (x1a, y1a), (x2a, y2a), (x3a, y3a) = sample
+        d = 2.0 * (x1a * (y2a - y3a) + x2a * (y3a - y1a) + x3a * (y1a - y2a))
+        if abs(d) >= 1e-9:
+            ux = ((x1a * x1a + y1a * y1a) * (y2a - y3a)
+                  + (x2a * x2a + y2a * y2a) * (y3a - y1a)
+                  + (x3a * x3a + y3a * y3a) * (y1a - y2a)) / d
+            uy = ((x1a * x1a + y1a * y1a) * (x3a - x2a)
+                  + (x2a * x2a + y2a * y2a) * (x1a - x3a)
+                  + (x3a * x3a + y3a * y3a) * (x2a - x1a)) / d
+            rr = math.hypot(x1a - ux, y1a - uy)
+            chord = math.hypot(x2 - x1, y2 - y1)
+            half = min(chord * 0.5, rr) if rr > 0 else 0.0
+            sag = rr - math.sqrt(max(0.0, rr * rr - half * half)) if rr > 0 else 0.0
+            if 1.0 < rr <= max(1200.0, 25.0 * chord) and sag >= 0.35:
+                fit = (ux, uy, rr)
+    if fit is not None:
+        cx, cy, r = fit
+        chord = math.hypot(x2 - x1, y2 - y1)
+        # Even with force_arc, do not place ArcElement for near-straight spans
+        # (huge R) — those stay SizeArrow like the straight sheet.
+        half = min(chord * 0.5, r)
+        sag = r - math.sqrt(max(0.0, r * r - half * half))
+        # force_arc: keep mild bows on the bend (50' Downstream) as arcs;
+        # only reject near-straight / giant-R (Buffer approach).
+        min_keep = 0.05 if force_arc else 0.35
+        r_cap = max(2500.0, 50.0 * chord) if force_arc else max(1200.0, 25.0 * chord)
+        if sag < min_keep or r > r_cap:
+            fit = None
+    if fit is not None:
+        cx, cy, r = fit
+        a1 = math.atan2(y1 - cy, x1 - cx)
+        a2 = math.atan2(y2 - cy, x2 - cx)
+        da = (a2 - a1 + math.pi) % (2.0 * math.pi) - math.pi
+        amid = a1 + 0.5 * da
+        r_off = math.hypot(ox - cx, oy - cy)
+        if r_off < r + 1.0:
+            r_off = r + 15.0
+        hx = cx + r_off * math.cos(amid)
+        hy = cy + r_off * math.sin(amid)
+        resp = place_curved_plan_dimension(
+            cx, cy, x1, y1, x2, y2, hx, hy,
+            reason=reason or f"curve arc dim {text}",
+            override_text=sheet_txt)
+        ids = placement_registry.parse_created_ids(
+            resp if isinstance(resp, dict) else {})
+        return {
+            "status": "OK",
+            "curved": True,
+            "dimType": "CurvedPlanArc",
+            "text": sheet_txt,
+            "center": [cx, cy],
+            "createdElementIds": ids,
+            "note": (
+                "curved dim = ArcElement dim-line concentric with bend "
+                "(follows the curve) + radial extensions + sheet length text"
+            ),
+        }
+
+    # Essentially straight tip path — one SizeArrow (matches straight sheet).
+    r = place_dimension(
+        x1, y1, x2, y2, ox, oy,
+        reason=reason or f"curve fallback size-arrow {text}",
+        override_text=sheet_txt)
+    ids = placement_registry.parse_created_ids(r if isinstance(r, dict) else {})
+    return {
+        "status": "OK",
+        "curved": False,
+        "dimType": "SizeArrow",
+        "text": sheet_txt,
+        "createdElementIds": ids,
+        "note": "tip path nearly straight; one ny_Plan SizeArrow",
+    }
 
 
 def hatch_element(element_id: str, spacing: float = 10.0, angle_deg: float = 45.0,
@@ -3135,7 +3519,11 @@ def place_polyline(vertices: list[list[float]], reason: str = "") -> dict:
 def _place_road_line_segments(
     segs: list[dict], *, reason_prefix: str, need_yellow: bool = True,
 ) -> tuple[list[dict], list[str], int | None]:
-    """Place striping segments with Default/weight0; yellow kinds use resolve_color."""
+    """Place striping segments with Default/weight0; yellow kinds use resolve_color.
+
+    Each seg may be a 2-point line (x1,y1,x2,y2) or a curved/S polyline via
+    ``vertices=[[x,y],…]`` (from path-offset highway builders).
+    """
     yellow_idx: int | None = None
     if need_yellow and any((s.get("kind") or "") == "yellow" for s in segs):
         yc = resolve_color(name="yellow")
@@ -3146,10 +3534,20 @@ def _place_road_line_segments(
     placed: list[dict] = []
     errors: list[str] = []
     for seg in segs:
+        if (seg.get("style") or "") == "meta":
+            continue
         kind = seg.get("kind") or "lane"
         try:
+            verts = seg.get("vertices")
+            if verts and len(verts) >= 2:
+                poly = [[float(p[0]), float(p[1]), 0.0] for p in verts]
+            else:
+                poly = [
+                    [float(seg["x1"]), float(seg["y1"]), 0.0],
+                    [float(seg["x2"]), float(seg["y2"]), 0.0],
+                ]
             r = place_polyline(
-                [[seg["x1"], seg["y1"], 0.0], [seg["x2"], seg["y2"], 0.0]],
+                poly,
                 reason=f"{reason_prefix} {kind} {seg['style']} row={seg['row']}",
             )
             eid = str(r.get("elementId") or "")
@@ -3163,7 +3561,9 @@ def _place_road_line_segments(
                 "elementId": eid, "style": seg["style"], "kind": kind,
                 "row": seg["row"],
                 "arm": seg.get("arm") or "",
-                "x1": seg["x1"], "y1": seg["y1"], "x2": seg["x2"], "y2": seg["y2"],
+                "x1": float(poly[0][0]), "y1": float(poly[0][1]),
+                "x2": float(poly[-1][0]), "y2": float(poly[-1][1]),
+                "vertexCount": len(poly),
                 "color": color,
             })
         except Exception as e:
@@ -3192,27 +3592,55 @@ def _road_strip_counts(placed: list[dict]) -> dict:
     }
 
 
-def place_lane_highway(lanes: int, x1: float, y1: float, x2: float, y2: float,
+def _resolve_road_edge_args(
+    x1: float, y1: float, x2: float, y2: float,
+    vertices: list | None,
+) -> tuple[float, float, float, float, list | None, float]:
+    """Return (x1,y1,x2,y2,vertices,lengthFt). vertices wins when len>=2."""
+    import lane_highway as lh
+
+    if vertices is not None and len(vertices) >= 2:
+        segs = lh.vertices_to_path_segments(vertices)
+        length = lh.path_length(segs)
+        first, last = vertices[0], vertices[-1]
+        return (
+            float(first[0]), float(first[1]),
+            float(last[0]), float(last[1]),
+            [[float(p[0]), float(p[1])] for p in vertices],
+            length,
+        )
+    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
+    return float(x1), float(y1), float(x2), float(y2), None, length
+
+
+def place_lane_highway(lanes: int, x1: float = 0.0, y1: float = 0.0,
+                       x2: float = 0.0, y2: float = 0.0,
                        lane_width_ft: float = 12.0, shoulder_width_ft: float = 0.0,
                        dash_ft: float = 10.0, gap_ft: float = 30.0,
-                       side: str = "right", reason: str = "") -> dict:
+                       side: str = "right", reason: str = "",
+                       vertices: list | None = None) -> dict:
     """Draw an N-lane one-way highway strip (general CAD).
 
     Two solid white outer travel edges + (lanes-1) dashed separators.
     Optional shoulder_width_ft > 0 adds solid white EOP lines outside both
-    travel outers (sheet 'paved shoulder'). Ask for missing inputs — do
-    not invent site coordinates. Not a 619 sheet-plan tool.
+    travel outers (sheet 'paved shoulder'). Pass vertices=[[x,y],…] for a
+    curved/S first-travel-outer polyline (overrides x1..y2). Ask for missing
+    inputs — do not invent site coordinates. Not a 619 sheet-plan tool.
     """
     import lane_highway as lh
 
     side_n = (side or "right").strip().lower()
     try:
+        x1, y1, x2, y2, verts, length = _resolve_road_edge_args(
+            x1, y1, x2, y2, vertices,
+        )
         segs = lh.lane_highway_lines(
             int(lanes), float(x1), float(y1), float(x2), float(y2),
             lane_width_ft=float(lane_width_ft),
             shoulder_width_ft=float(shoulder_width_ft),
             dash_ft=float(dash_ft), gap_ft=float(gap_ft),
             side=side_n,  # type: ignore[arg-type]
+            vertices=verts,
         )
     except ValueError as e:
         return {"status": "ERROR", "note": str(e)}
@@ -3220,13 +3648,14 @@ def place_lane_highway(lanes: int, x1: float, y1: float, x2: float, y2: float,
     placed, errors, _ = _place_road_line_segments(
         segs, reason_prefix=reason or f"one-way {lanes}-lane", need_yellow=False,
     )
-    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
     counts = _road_strip_counts(placed)
+    path_note = f"; pathVerts={len(verts)}" if verts else ""
     return {
         "status": "OK" if not errors else "ERROR",
         "roadType": "one_way",
         "lanes": int(lanes),
         "lengthFt": round(length, 3),
+        "pathVertexCount": len(verts) if verts else 2,
         "laneWidthFt": float(lane_width_ft),
         "shoulderWidthFt": float(shoulder_width_ft),
         "dashFt": float(dash_ft),
@@ -3238,23 +3667,31 @@ def place_lane_highway(lanes: int, x1: float, y1: float, x2: float, y2: float,
         "note": (
             f"{lanes}-lane one-way: 2 travel edges + {max(lanes - 1, 0)} dashed "
             f"row(s); shoulder={shoulder_width_ft}ft; dash={dash_ft}/{gap_ft}ft"
+            f"{path_note}"
         ),
     }
 
 
-def place_two_way_highway(lanes: int, x1: float, y1: float, x2: float, y2: float,
+def place_two_way_highway(lanes: int, x1: float = 0.0, y1: float = 0.0,
+                          x2: float = 0.0, y2: float = 0.0,
                           lane_width_ft: float = 12.0, yellow_gap_ft: float = 2.0,
                           shoulder_width_ft: float = 0.0,
                           dash_ft: float = 10.0, gap_ft: float = 30.0,
-                          side: str = "right", reason: str = "") -> dict:
+                          side: str = "right", reason: str = "",
+                          vertices: list | None = None) -> dict:
     """Draw an even-N undivided two-way road (double solid yellow center).
 
-    Optional shoulder_width_ft. Ask for missing lanes/width/endpoints/side.
+    Optional shoulder_width_ft. Pass vertices=[[x,y],…] for a curved/S
+    first-travel-outer polyline (overrides x1..y2). Ask for missing
+    lanes/width/endpoints/side/path.
     """
     import lane_highway as lh
 
     side_n = (side or "right").strip().lower()
     try:
+        x1, y1, x2, y2, verts, length = _resolve_road_edge_args(
+            x1, y1, x2, y2, vertices,
+        )
         segs = lh.two_way_highway_lines(
             int(lanes), float(x1), float(y1), float(x2), float(y2),
             lane_width_ft=float(lane_width_ft),
@@ -3262,6 +3699,7 @@ def place_two_way_highway(lanes: int, x1: float, y1: float, x2: float, y2: float
             shoulder_width_ft=float(shoulder_width_ft),
             dash_ft=float(dash_ft), gap_ft=float(gap_ft),
             side=side_n,  # type: ignore[arg-type]
+            vertices=verts,
         )
     except ValueError as e:
         return {"status": "ERROR", "note": str(e)}
@@ -3272,15 +3710,16 @@ def place_two_way_highway(lanes: int, x1: float, y1: float, x2: float, y2: float
     if errors and yellow_idx is None and not placed:
         return {"status": "ERROR", "note": errors[0], "errors": errors}
 
-    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
     per_dir = int(lanes) // 2
     counts = _road_strip_counts(placed)
+    path_note = f"; pathVerts={len(verts)}" if verts else ""
     return {
         "status": "OK" if not errors else "ERROR",
         "roadType": "two_way_undivided",
         "lanes": int(lanes),
         "lanesPerDirection": per_dir,
         "lengthFt": round(length, 3),
+        "pathVertexCount": len(verts) if verts else 2,
         "laneWidthFt": float(lane_width_ft),
         "yellowGapFt": float(yellow_gap_ft),
         "shoulderWidthFt": float(shoulder_width_ft),
@@ -3293,28 +3732,33 @@ def place_two_way_highway(lanes: int, x1: float, y1: float, x2: float, y2: float
         "errors": errors,
         "note": (
             f"{lanes}-lane two-way undivided: double yellow gap={yellow_gap_ft}ft; "
-            f"shoulder={shoulder_width_ft}ft; yellow idx={yellow_idx}"
+            f"shoulder={shoulder_width_ft}ft; yellow idx={yellow_idx}{path_note}"
         ),
     }
 
 
-def place_divided_highway(lanes_per_direction: int, x1: float, y1: float,
-                          x2: float, y2: float, median_width_ft: float,
+def place_divided_highway(lanes_per_direction: int, x1: float = 0.0,
+                          y1: float = 0.0, x2: float = 0.0, y2: float = 0.0,
+                          median_width_ft: float = 0.0,
                           lane_width_ft: float = 12.0,
                           shoulder_width_ft: float = 0.0,
                           dash_ft: float = 10.0, gap_ft: float = 30.0,
-                          side: str = "right", reason: str = "") -> dict:
+                          side: str = "right", reason: str = "",
+                          vertices: list | None = None) -> dict:
     """Draw a divided multilane / freeway dual carriageway (619-302-style).
 
     Each direction: white outer, (N-1) dashed white, yellow median edge.
     median_width_ft is the empty gap between the two yellows (required —
-    ask; do not invent). Optional outer shoulders. Matches sheet
-    'physical median/divider separating opposing traffic'.
+    ask; do not invent). Optional outer shoulders. Pass vertices=[[x,y],…]
+    for a curved/S first-travel-outer polyline (overrides x1..y2).
     """
     import lane_highway as lh
 
     side_n = (side or "right").strip().lower()
     try:
+        x1, y1, x2, y2, verts, length = _resolve_road_edge_args(
+            x1, y1, x2, y2, vertices,
+        )
         segs = lh.divided_highway_lines(
             int(lanes_per_direction), float(x1), float(y1), float(x2), float(y2),
             median_width_ft=float(median_width_ft),
@@ -3322,6 +3766,7 @@ def place_divided_highway(lanes_per_direction: int, x1: float, y1: float,
             shoulder_width_ft=float(shoulder_width_ft),
             dash_ft=float(dash_ft), gap_ft=float(gap_ft),
             side=side_n,  # type: ignore[arg-type]
+            vertices=verts,
         )
     except ValueError as e:
         return {"status": "ERROR", "note": str(e)}
@@ -3333,13 +3778,14 @@ def place_divided_highway(lanes_per_direction: int, x1: float, y1: float,
     if errors and yellow_idx is None and not placed:
         return {"status": "ERROR", "note": errors[0], "errors": errors}
 
-    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
     counts = _road_strip_counts(placed)
+    path_note = f"; pathVerts={len(verts)}" if verts else ""
     return {
         "status": "OK" if not errors else "ERROR",
         "roadType": "divided",
         "lanesPerDirection": int(lanes_per_direction),
         "lengthFt": round(length, 3),
+        "pathVertexCount": len(verts) if verts else 2,
         "medianWidthFt": float(median_width_ft),
         "laneWidthFt": float(lane_width_ft),
         "shoulderWidthFt": float(shoulder_width_ft),
@@ -3352,27 +3798,33 @@ def place_divided_highway(lanes_per_direction: int, x1: float, y1: float,
         "errors": errors,
         "note": (
             f"divided {lanes_per_direction}/dir + median {median_width_ft}ft; "
-            f"shoulder={shoulder_width_ft}ft; yellow idx={yellow_idx}"
+            f"shoulder={shoulder_width_ft}ft; yellow idx={yellow_idx}{path_note}"
         ),
     }
 
 
-def place_twlt_highway(lanes_per_direction: int, x1: float, y1: float,
-                       x2: float, y2: float, twlt_width_ft: float = 12.0,
+def place_twlt_highway(lanes_per_direction: int, x1: float = 0.0,
+                       y1: float = 0.0, x2: float = 0.0, y2: float = 0.0,
+                       twlt_width_ft: float = 12.0,
                        lane_width_ft: float = 12.0,
                        shoulder_width_ft: float = 0.0,
                        dash_ft: float = 10.0, gap_ft: float = 30.0,
-                       side: str = "right", reason: str = "") -> dict:
+                       side: str = "right", reason: str = "",
+                       vertices: list | None = None) -> dict:
     """Draw multilane undivided with center TWLT (619-312-style).
 
     lanes_per_direction = travel lanes each way (TWLT not counted).
     Center turn lane bounded by two dashed yellow lines twlt_width_ft
-    apart. Do NOT use place_two_way_highway for TWLT roads.
+    apart. Pass vertices=[[x,y],…] for a curved/S first-travel-outer
+    polyline (overrides x1..y2). Do NOT use place_two_way_highway for TWLT.
     """
     import lane_highway as lh
 
     side_n = (side or "right").strip().lower()
     try:
+        x1, y1, x2, y2, verts, length = _resolve_road_edge_args(
+            x1, y1, x2, y2, vertices,
+        )
         segs = lh.twlt_highway_lines(
             int(lanes_per_direction), float(x1), float(y1), float(x2), float(y2),
             twlt_width_ft=float(twlt_width_ft),
@@ -3380,6 +3832,7 @@ def place_twlt_highway(lanes_per_direction: int, x1: float, y1: float,
             shoulder_width_ft=float(shoulder_width_ft),
             dash_ft=float(dash_ft), gap_ft=float(gap_ft),
             side=side_n,  # type: ignore[arg-type]
+            vertices=verts,
         )
     except ValueError as e:
         return {"status": "ERROR", "note": str(e)}
@@ -3391,13 +3844,14 @@ def place_twlt_highway(lanes_per_direction: int, x1: float, y1: float,
     if errors and yellow_idx is None and not placed:
         return {"status": "ERROR", "note": errors[0], "errors": errors}
 
-    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
     counts = _road_strip_counts(placed)
+    path_note = f"; pathVerts={len(verts)}" if verts else ""
     return {
         "status": "OK" if not errors else "ERROR",
         "roadType": "twlt",
         "lanesPerDirection": int(lanes_per_direction),
         "lengthFt": round(length, 3),
+        "pathVertexCount": len(verts) if verts else 2,
         "twltWidthFt": float(twlt_width_ft),
         "laneWidthFt": float(lane_width_ft),
         "shoulderWidthFt": float(shoulder_width_ft),
@@ -3410,7 +3864,7 @@ def place_twlt_highway(lanes_per_direction: int, x1: float, y1: float,
         "errors": errors,
         "note": (
             f"TWLT: {lanes_per_direction}/dir + center {twlt_width_ft}ft "
-            f"(dashed yellow bounds); shoulder={shoulder_width_ft}ft"
+            f"(dashed yellow bounds); shoulder={shoulder_width_ft}ft{path_note}"
         ),
     }
 
@@ -3554,26 +4008,31 @@ def place_orthogonal_intersection(
 
 
 def place_ramp_gore(
-    x1: float, y1: float, x2: float, y2: float,
-    mainline_lanes: int, ramp_angle_deg: float,
-    gore_station_ft: float, ramp_length_ft: float,
+    x1: float = 0.0, y1: float = 0.0, x2: float = 0.0, y2: float = 0.0,
+    mainline_lanes: int = 2, ramp_angle_deg: float = 15.0,
+    gore_station_ft: float = 0.0, ramp_length_ft: float = 200.0,
     ramp_lanes: int = 1, side: str = "right",
     gore_mark_ft: float = 40.0,
     lane_width_ft: float = 12.0, shoulder_width_ft: float = 0.0,
     dash_ft: float = 10.0, gap_ft: float = 30.0,
     reason: str = "",
+    vertices: list | None = None,
 ) -> dict:
     """Draw mainline one-way + diverging ramp meeting at a gore nose.
 
-    (x1,y1)->(x2,y2) = mainline first travel outer edge. Gore nose on the
-    ramp-side outer edge at gore_station_ft from start; ramp diverges by
-    ramp_angle_deg toward side. Optional solid white gore V marks
-    (gore_mark_ft). Ask for missing angle/station/lengths — do not invent.
+    (x1,y1)->(x2,y2) or vertices=[[x,y],…] = mainline first travel outer
+    edge. Gore nose on the ramp-side outer edge at gore_station_ft from
+    start; ramp diverges by ramp_angle_deg toward side. Optional solid
+    white gore V marks (gore_mark_ft). Ask for missing angle/station/
+    lengths — do not invent.
     """
     import road_junctions as rj
 
     side_n = (side or "right").strip().lower()
     try:
+        x1, y1, x2, y2, verts, length = _resolve_road_edge_args(
+            x1, y1, x2, y2, vertices,
+        )
         segs = rj.ramp_gore_lines(
             float(x1), float(y1), float(x2), float(y2),
             mainline_lanes=int(mainline_lanes),
@@ -3586,6 +4045,7 @@ def place_ramp_gore(
             lane_width_ft=float(lane_width_ft),
             shoulder_width_ft=float(shoulder_width_ft),
             dash_ft=float(dash_ft), gap_ft=float(gap_ft),
+            vertices=verts,
         )
     except ValueError as e:
         return {"status": "ERROR", "note": str(e)}
@@ -3600,14 +4060,15 @@ def place_ramp_gore(
     if errors and not placed:
         return {"status": "ERROR", "note": errors[0], "errors": errors}
 
-    length = ((float(x2) - float(x1)) ** 2 + (float(y2) - float(y1)) ** 2) ** 0.5
     counts = _road_strip_counts(placed)
+    path_note = f"; pathVerts={len(verts)}" if verts else ""
     return {
         "status": "OK" if not errors else "ERROR",
         "roadType": "ramp_gore",
         "mainlineLanes": int(mainline_lanes),
         "rampLanes": int(ramp_lanes),
         "mainlineLengthFt": round(length, 3),
+        "pathVertexCount": len(verts) if verts else 2,
         "rampLengthFt": float(ramp_length_ft),
         "rampAngleDeg": float(ramp_angle_deg),
         "goreStationFt": float(gore_station_ft),
@@ -3624,7 +4085,7 @@ def place_ramp_gore(
         "errors": errors,
         "note": (
             f"ramp gore: mainline {mainline_lanes}-lane + ramp {ramp_lanes}-lane "
-            f"@ {ramp_angle_deg}deg station {gore_station_ft}ft"
+            f"@ {ramp_angle_deg}deg station {gore_station_ft}ft{path_note}"
         ),
     }
 
@@ -4017,17 +4478,17 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
     sym_by_align: dict[str, list] = {}
     all_plan, all_chan, all_sym = [], [], []
 
+    tip_hl = (
+        float(_PLAN_SESSION.lateral_half_len)
+        if _PLAN_SESSION.lateral_half_len is not None else None)
     for a in idxs:
         segs = segs_by_align[a]
         plan = sheet_spec.compile_plan(
             spec, resolved, a, segs, outward_sign=outward_sign,
-            sheet_elements=sheet_elements)
+            sheet_elements=sheet_elements, tip_half_len_ft=tip_hl)
         chan = sheet_spec.compile_channelizing(
             spec, resolved, a, segs, lane_width_ft=float(lane_width),
             shoulder_width_ft=sh_ft, outward_sign=outward_sign)
-        tip_hl = (
-            float(_PLAN_SESSION.lateral_half_len)
-            if _PLAN_SESSION.lateral_half_len is not None else None)
         sym = _filter_symbol_alts(
             sheet_spec.compile_symbols(
                 spec, resolved, a, segs, outward_sign=outward_sign,
@@ -4046,7 +4507,8 @@ def compile_sheet_plan(sheet_num: str, speed: int, lane_width: int, shoulder_wid
         hatch = sheet_spec.compile_hatch(
             spec, resolved, segs_by_align[1], segs_by_align[2],
             lane_width_ft=float(lane_width), shoulder_width_ft=sh_ft,
-            outward_sign=outward_sign)
+            outward_sign=outward_sign,
+            work_bay_vertices=_PLAN_SESSION.work_bay_vertices)
     elif 1 in idxs and 2 not in idxs:
         hatch = [{"kind": "note",
                   "text": "hatch skipped — need both align 1 and 2 committed/adopted"}]
@@ -4157,23 +4619,38 @@ def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
                 try:
                     if p["kind"] == "dimension" and "dimensions" in want:
                         t1, t2, off = p["tip1"], p["tip2"], p["offset"]
-                        r = place_dimension(t1[0], t1[1], t2[0], t2[1], off[0], off[1],
-                                            reason=f"compiled dim {p.get('text','')}")
+                        if p.get("curved") and p.get("path") and len(p["path"]) >= 2:
+                            r = place_path_hugging_dimension(
+                                p["path"], p.get("text") or "", off,
+                                reason=f"compiled curve dim {p.get('text','')}",
+                                force_arc=True)
+                            bridge_op = (
+                                "PLACE_CURVED_PLAN_DIMENSION"
+                                if r.get("dimType") == "CurvedPlanArc"
+                                else "PLACE_DIMENSION"
+                            )
+                        else:
+                            r = place_dimension(
+                                t1[0], t1[1], t2[0], t2[1], off[0], off[1],
+                                reason=f"compiled dim {p.get('text','')}")
+                            bridge_op = "PLACE_DIMENSION"
                         mid = (0.5 * (float(t1[0]) + float(t2[0])),
                                0.5 * (float(t1[1]) + float(t2[1])))
                         _register(
                             r, kind="dimension",
                             primitive_id=p.get("primitiveId") or "",
-                            bridge_op="PLACE_DIMENSION",
+                            bridge_op=bridge_op,
                             align_idx=align_i,
                             spec_ref=p.get("specRef"),
                             layer="dimension",
-                            detail={"text": p.get("text")},
+                            detail={"text": p.get("text"),
+                                    "curved": bool(p.get("curved"))},
                             geom_extra={
                                 "tip1": list(t1)[:3], "tip2": list(t2)[:3],
                                 "offset": list(off)[:3],
                                 "midX": mid[0], "midY": mid[1],
                                 "text": p.get("text"),
+                                "curved": bool(p.get("curved")),
                             },
                         )
                     elif p["kind"] == "label" and "labels" in want:
@@ -4581,25 +5058,20 @@ def _place_locked_signs_from_stations(outward_sign: float = -1.0,
                 continue
             detail = _sign_detail_for(align_idx, sign_num)
             side = str(detail.get("side") or "One Side")
-            out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
+            # Align2 tan points away downstream (= +travel); Align1 tan points
+            # away upstream (= −travel). _outward_unit(Align2_tan, outward_sign)
+            # flips across the road — use Align1-equivalent basis (−Align2 tan)
+            # so one-side tips stay on the closed shoulder locally. Do NOT use
+            # a single world-locked closed_outward: on curved corridors that
+            # freezes the WA-mid normal and disconnects assemblies around bends
+            # (engineer QA 2026-08-13).
+            if int(align_idx) == 2:
+                basis_tx, basis_ty = -tan_x, -tan_y
+            else:
+                basis_tx, basis_ty = tan_x, tan_y
+            out_x, out_y = _outward_unit(basis_tx, basis_ty, outward_sign)
             tip_x = pt_x + out_x * half_len
             tip_y = pt_y + out_y * half_len
-            # World-locked closed-lane outward (from resolve_sheet_lateral):
-            # Align2 tan flips _outward_unit and can put G20-2 / downstream
-            # one-side signs on the wrong roadside. Keep EVERY one-side tip
-            # on the closed shoulder with the same half_len as advance signs
-            # (engineer QA 2026-08-10: G20-2 south closed EOP with W20s).
-            if (
-                side.strip().lower() != "both sides"
-                and (
-                    abs(_PLAN_SESSION.closed_outward_x) > 1e-9
-                    or abs(_PLAN_SESSION.closed_outward_y) > 1e-9
-                )
-            ):
-                out_x = float(_PLAN_SESSION.closed_outward_x)
-                out_y = float(_PLAN_SESSION.closed_outward_y)
-                tip_x = pt_x + out_x * half_len
-                tip_y = pt_y + out_y * half_len
             kwargs = dict(
                 sign_num=sign_num, road_type=road_type, side=side,
                 pt1x=tip_x, pt1y=tip_y, pt1z=pt_z, dir1x=out_x, dir1y=out_y,
@@ -4655,15 +5127,22 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
                     clear_prior_stations: bool = False,
                     force: bool = False,
                     approach_length_ft: float = 0.0,
-                    use_locked_lateral: bool = True) -> dict:
+                    use_locked_lateral: bool = True,
+                    path_vertices: Optional[list] = None) -> dict:
     """SHEET-PLAN ONLY executor: advance the locked checklist without the
     LLM choosing step order.
 
     After build_wztc_order_table, the agent only needs to collect the two
     WORK AREA edge points (ask_user_choice point-pick) and call this once:
 
-      resolve_sheet_lateral(up, dn, closed_side=..., real_road_edge=...)
-      run_sheet_build(upstream_edge=[...], downstream_edge=[...])
+      resolve_sheet_lateral(up, dn, closed_side=..., real_road_edge=...,
+                            path_vertices=… optional)
+      run_sheet_build(upstream_edge=[...], downstream_edge=[...],
+                      path_vertices=… same polyline for curved roads)
+
+    path_vertices: pass the closed-lane / first-travel outer polyline when
+    the corridor is curved (same arg as assemble_corridor). Omit for
+    straight chord corridors.
 
     It then runs (skipping stages already done):
       assemble_corridor → stations → signs+attrs → place_sheet_geometry
@@ -4735,16 +5214,18 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
                 next_step=(
                     "ask_user_choice(allow_point_pick=True) for upstream then "
                     "downstream WORK AREA edges, then re-call "
-                    "run_sheet_build(upstream_edge=..., downstream_edge=...)"
+                    "run_sheet_build(upstream_edge=..., downstream_edge=..., "
+                    "path_vertices=… if curved)"
                 ),
             )
         corr = assemble_corridor(
             upstream_edge, downstream_edge,
-            approach_length_ft=approach_length_ft, force=force)
+            approach_length_ft=approach_length_ft, force=force,
+            path_vertices=path_vertices)
         phases.append({"phase": "assemble_corridor", "result": {
             k: corr.get(k) for k in (
                 "status", "workAreaLengthFt", "approachLengthFt",
-                "stationWalkMaxFt", "nextStep") if k in corr
+                "stationWalkMaxFt", "curved", "nextStep") if k in corr
         }})
         done = plan_workflow.stage_done(_PLAN_SESSION)
     else:
@@ -5516,6 +5997,7 @@ def clear_plan_elements(keep_alignments: bool = True, align_idx: int = 0) -> dic
         if not keep_alignments:
             _PLAN_SESSION.aligns_ready = set()
             _PLAN_SESSION.work_area_edges = None
+            _PLAN_SESSION.work_bay_vertices = None
     # order_table_built stays True — SharedState still holds the table;
     # rebuild does not need to rebuild the table unless inputs change.
     if not (align_idx and align_idx > 0):

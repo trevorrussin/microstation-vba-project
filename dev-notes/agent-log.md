@@ -1212,91 +1212,91 @@ Authored `Bridge/_extract_619315_tables.py` and `_extract_619415_tables.py` ? `_
 
 Authored `Bridge/_extract_619205_tables.py`, `_extract_619401_tables.py`, `_extract_619501_tables.py` ? `_draft_619205/401/501_tables.json`. **205** (short duration, 1p rot=0): 3 tables only ? P+TMIA (not 301 PVH), speed-keyed roll-ahead, generic W21-5, **no taper/buffer table**. **401** (intermediate, 2p): 5 tables like 402 shoulder variant ? 401-03 shoulder+buffer **matches 301-03** on 45?65 with extra laneTaper 10/11/12 cols; 20' channelizing (Note 5); W21-5bU/W21-5c signs; 10+N notes. **501** (long-term E3): 4 tables ? **no PV/roll-ahead**; 501-01 identical to 401-03; 501-03 barrier flare 50/55/65 only; positive barrier on plan (Note 5); OM3-L/R object markers.
 
-## 2026-08-03 ï¿½ Cursor ï¿½ Family 3 siblings 205/315/401/415/501 all four gates
+## 2026-08-03 ? Cursor ? Family 3 siblings 205/315/401/415/501 all four gates
 
 Authored and cleared gates for all five Family 3 siblings vs reference 619-301 via `Bridge/_build_family3_siblings.py` + sign/size sync. Round-trips: `Bridge/roundtrip/619-{205,315,401,415,501}.py`. Live BUILD_WZTC_ORDER_TABLE all PASS.
 
-Surprises worth keeping: **401 size table uses W20-5aR** (not W21-5aR) ï¿½ PDF confirms; library key `W20-05aRM`. **315 gapC = 2640'** (freeway mile) vs 301's 1320'; shoulderWidthBands must be in **physical ascending order** (not alpha-sorted) or validator false-fails monotonicity ï¿½ 315 has 7 bands including 9ï¿½12 ft. **315/415** carry `lateralShiftTaper` (lane 10/11/12) separate from shoulderTaper; need `laneWidthFt` input even though corridor still walks SHOULDER TAPER. **501** like 504: no PV/roll roles; drop `bufferSpace` from corridor but do not leave `channelizingDevices` runs pointing at it (use `positiveBarrier..workArea`). **205** has no taperAndBuffer role ï¿½ order is roll + W21-5 + W20-1 only.
+Surprises worth keeping: **401 size table uses W20-5aR** (not W21-5aR) ? PDF confirms; library key `W20-05aRM`. **315 gapC = 2640'** (freeway mile) vs 301's 1320'; shoulderWidthBands must be in **physical ascending order** (not alpha-sorted) or validator false-fails monotonicity ? 315 has 7 bands including 9?12 ft. **315/415** carry `lateralShiftTaper` (lane 10/11/12) separate from shoulderTaper; need `laneWidthFt` input even though corridor still walks SHOULDER TAPER. **501** like 504: no PV/roll roles; drop `bufferSpace` from corridor but do not leave `channelizingDevices` runs pointing at it (use `positiveBarrier..workArea`). **205** has no taperAndBuffer role ? order is roll + W21-5 + W20-1 only.
 
-## 2026-08-03 â€” Cursor â€” Family 4 Parkway sheets 306/212/114/041 all four gates
+## 2026-08-03 ??? Cursor ??? Family 4 Parkway sheets 306/212/114/041 all four gates
 
 Authored complete specs for Family 4 from per-sheet PDFs (Bridge/captures/619-{306,212,114,041}.pdf): drafts via Bridge/_extract_family4_tables.py, specs via Bridge/_build_family4_specs.py, round-trips under Bridge/roundtrip/619-{306,212,114,041}.py. All four gates PASS (validate + round-trip 0 fails + live BUILD_WZTC_ORDER_TABLE).
 
-**619-306** (family reference): MERGING+DOWNSTREAM like 302 but fixed gaps 1000/1500/2640 and **no AW table** (like 301). Table 306-03 cells == 302-02 on 45-65. **Plan has no shoulder-taper dimension** (L/3 cols exist in table only) â€” do not emit SHOULDER TAPER row. **No NYW8-33**; only 3 notes. **619-212**: short duration; plan SHOULDER TAPER only; gaps 500/1500/2640(Â½ mi); NYW8-33 on PV; roll-ahead has no â‰¤40 row (recon guess corrected). **619-114**: mobile; 3 tables; moving roll-ahead; W20-5R @500â€² min; >15 min â†’ 212. **619-041**: mowing/moving non-freeway; W8-23 only; NON-FREEWAY PV speed bands; roll-ahead includes â‰¤40; work area â‰¤40â€²; >5 min â†’ 201.
+**619-306** (family reference): MERGING+DOWNSTREAM like 302 but fixed gaps 1000/1500/2640 and **no AW table** (like 301). Table 306-03 cells == 302-02 on 45-65. **Plan has no shoulder-taper dimension** (L/3 cols exist in table only) ??? do not emit SHOULDER TAPER row. **No NYW8-33**; only 3 notes. **619-212**: short duration; plan SHOULDER TAPER only; gaps 500/1500/2640(� mi); NYW8-33 on PV; roll-ahead has no ???40 row (recon guess corrected). **619-114**: mobile; 3 tables; moving roll-ahead; W20-5R @500??? min; >15 min ??? 212. **619-041**: mowing/moving non-freeway; W8-23 only; NON-FREEWAY PV speed bands; roll-ahead includes ???40; work area ???40???; >5 min ??? 201.
 
-## 2026-08-03 â€” Cursor â€” Family 1 siblings (202/203/312/317/325/412/414/423/523) all four gates
+## 2026-08-03 ??? Cursor ??? Family 1 siblings (202/203/312/317/325/412/414/423/523) all four gates
 
-Authored complete specs for all nine remaining Family 1 non-freeway multilane lane-closure sheets as diffs vs `619-311` (builders `Bridge/_build_family1_part1.py` + `_build_family1_part2.py`; round-trips via `Bridge/_gen_family1_roundtrips.py` â†’ `Bridge/roundtrip/619-{n}.py`). STATUS.md Family 1 rows all `done`.
+Authored complete specs for all nine remaining Family 1 non-freeway multilane lane-closure sheets as diffs vs `619-311` (builders `Bridge/_build_family1_part1.py` + `_build_family1_part2.py`; round-trips via `Bridge/_gen_family1_roundtrips.py` ??? `Bridge/roundtrip/619-{n}.py`). STATUS.md Family 1 rows all `done`.
 
-**Surprises:** (1) Prior `619-202.pdf` / `203.pdf` captures were path-only text (2 words) â€” re-fetched from NYSDOT; short-duration sheets have **no taper/buffer/G20-2**, A/B only, operator stays in PV. (2) **312/412** taper tables have **no shoulder columns**; L/2 is an overlay like 311's shoulder taper; AW is A/B only. (3) **tableRoles by content**: 325 is 01=PV/02=roll/03=taper/04=AW vs 317's 01=AW/02=taper/03=roll/04=PV. (4) Intermediate/Long-Term PV cells match `619-011` INTERMEDIATE_TERM / LONG_TERM NON-FREEWAY slices. (5) `sheet_spec.resolve` now tolerates missing AW `C` and missing `shoulderTaper`; `live_build_check` null-safe on absent taper overrides.
+**Surprises:** (1) Prior `619-202.pdf` / `203.pdf` captures were path-only text (2 words) ??? re-fetched from NYSDOT; short-duration sheets have **no taper/buffer/G20-2**, A/B only, operator stays in PV. (2) **312/412** taper tables have **no shoulder columns**; L/2 is an overlay like 311's shoulder taper; AW is A/B only. (3) **tableRoles by content**: 325 is 01=PV/02=roll/03=taper/04=AW vs 317's 01=AW/02=taper/03=roll/04=PV. (4) Intermediate/Long-Term PV cells match `619-011` INTERMEDIATE_TERM / LONG_TERM NON-FREEWAY slices. (5) `sheet_spec.resolve` now tolerates missing AW `C` and missing `shoulderTaper`; `live_build_check` null-safe on absent taper overrides.
 
-## 2026-08-03 â€” Cursor â€” Family 5 ramp-adjacent sheets (10/10) all four gates
+## 2026-08-03 ??? Cursor ??? Family 5 ramp-adjacent sheets (10/10) all four gates
 
-Authored complete specs for Family 5 (ref 619-318): 318, 316, 319, 113, 211, 416, 417, 418, 517, 518. Extract `Bridge/_extract_family5_tables.py` â†’ drafts; build `Bridge/_build_family5_specs.py`; round-trip `Bridge/roundtrip/619-family5.py` (+ per-sheet wrappers). All four gates PASS live 2026-08-03.
+Authored complete specs for Family 5 (ref 619-318): 318, 316, 319, 113, 211, 416, 417, 418, 517, 518. Extract `Bridge/_extract_family5_tables.py` ??? drafts; build `Bridge/_build_family5_specs.py`; round-trip `Bridge/roundtrip/619-family5.py` (+ per-sheet wrappers). All four gates PASS live 2026-08-03.
 
-**Surprises:** (1) **No AW spacing table** on any F5 sheet â€” fixed plan gaps (318/319/417/418 use 1000/1500/1320/1320 with **two W20-1**; long-term 517/518 use 1000/1500/2640). Table 318-03 is NY2C-4 advance-*placement*, not A/B/C. (2) Two taper shapes: **lane+3band** identical to 302-02@45-65 (318/319/418/518/316) vs **7-band shoulder-only** (416/417/517) where plan MERGING L aliases the 10/11/12 ft columns (L/3-scale values, not full 302 L). (3) Partial-exit 316/416 walk **SHOULDER TAPER** + W21-5 (not MERGING/W4-2R). (4) 113/211 are mobile/short-duration minimal â€” note-derived roll 80/160, no taper table. (5) Dual W20-1 order rows both resolve to `W20-01RM` today; nearer should prefer `W20-01RPM`.
+**Surprises:** (1) **No AW spacing table** on any F5 sheet ??? fixed plan gaps (318/319/417/418 use 1000/1500/1320/1320 with **two W20-1**; long-term 517/518 use 1000/1500/2640). Table 318-03 is NY2C-4 advance-*placement*, not A/B/C. (2) Two taper shapes: **lane+3band** identical to 302-02@45-65 (318/319/418/518/316) vs **7-band shoulder-only** (416/417/517) where plan MERGING L aliases the 10/11/12 ft columns (L/3-scale values, not full 302 L). (3) Partial-exit 316/416 walk **SHOULDER TAPER** + W21-5 (not MERGING/W4-2R). (4) 113/211 are mobile/short-duration minimal ??? note-derived roll 80/160, no taper table. (5) Dual W20-1 order rows both resolve to `W20-01RM` today; nearer should prefer `W20-01RPM`.
 
-## 2026-08-03 â€” Cursor â€” Family 7 mobile (111/110/112) done; Family 8 (101-104) blocked
+## 2026-08-03 ??? Cursor ??? Family 7 mobile (111/110/112) done; Family 8 (101-104) blocked
 
 Authored complete specs for Family 7 from Bridge/captures/619-{111,110,112}.pdf via Bridge/_extract_family7_tables.py + _build_family7_specs.py; round-trip Bridge/roundtrip/619-family7.py. All four gates PASS live 2026-08-03. 619-113 stays Family 5 cross-ref.
 
-**Surprises:** (1) **Two roll-ahead shapes in one family**: 111 is speed-keyed moving (same cells as 114-02: 200/5-280/7 / 160/4-240/6) with P,TMIA PV; 110/112 are **GVW-keyed moving** (200/5-240/6 light, 160/4-200/5 heavy) with **PVH+TMIA** â€” header `45-60 / w 55` is context like 301, not speed columns (vision/image reads keep misreading this as a speedÃ—GVW matrix). (2) **2-page 111/112**: Sheet 1 = shoulder <8' (fewer signs / shorter gaps); Sheet 2 = >=8' with 1500'-Â½ mi advance; specs primary-model Sheet 2. (3) 111 Sheet 1 has **no W20-5R** (only NYW8-33+W4-2R vehicle-mounted); Sheet 2 adds it. 112 Sheet 1 already has W20-5AR; Sheet 2 adds W4-2R.
+**Surprises:** (1) **Two roll-ahead shapes in one family**: 111 is speed-keyed moving (same cells as 114-02: 200/5-280/7 / 160/4-240/6) with P,TMIA PV; 110/112 are **GVW-keyed moving** (200/5-240/6 light, 160/4-200/5 heavy) with **PVH+TMIA** ??? header `45-60 / w 55` is context like 301, not speed columns (vision/image reads keep misreading this as a speed??GVW matrix). (2) **2-page 111/112**: Sheet 1 = shoulder <8' (fewer signs / shorter gaps); Sheet 2 = >=8' with 1500'-� mi advance; specs primary-model Sheet 2. (3) 111 Sheet 1 has **no W20-5R** (only NYW8-33+W4-2R vehicle-mounted); Sheet 2 adds it. 112 Sheet 1 already has W20-5AR; Sheet 2 adds W4-2R.
 
-**Family 8 blocked:** 619-101..104 have no real PDFs â€” every candidate URL on standard-sheets-us-repository, transportation-systems/repository, and metric repo returns ~10 KB HTML error pages (HEAD 200). DesignerRef-only; registry already warned not in 2026 Book 3. Historical master list numbered stop-and-go as 101-104; current NYSDOT special-ops index shows 045/046 instead (also undownloadable from the same public repos). Cannot clear gates without a vector PDF.
+**Family 8 blocked:** 619-101..104 have no real PDFs ??? every candidate URL on standard-sheets-us-repository, transportation-systems/repository, and metric repo returns ~10 KB HTML error pages (HEAD 200). DesignerRef-only; registry already warned not in 2026 Book 3. Historical master list numbered stop-and-go as 101-104; current NYSDOT special-ops index shows 045/046 instead (also undownloadable from the same public repos). Cannot clear gates without a vector PDF.
 
-## 2026-08-03 ï¿½ Cursor ï¿½ Family 6 two-lane/flagger sheets (15/18) gates cleared
+## 2026-08-03 ? Cursor ? Family 6 two-lane/flagger sheets (15/18) gates cleared
 
-Authored complete specs for Family 6 (ref 619-307): 307, 308, 309, 314, 321, 322, 323, 324, 407, 421, 422, 519, 524, 090, 091. Extract `Bridge/_extract_family6_tables.py` ? drafts; build `Bridge/_build_family6_specs.py`; round-trip `Bridge/roundtrip/619-family6.py` (+ per-sheet wrappers). No sheet_spec/validate tooling changes needed ï¿½ buffer-only `taperAndBuffer` (optional laneTaper/shoulderTaper) already worked from 205/114 patterns.
+Authored complete specs for Family 6 (ref 619-307): 307, 308, 309, 314, 321, 322, 323, 324, 407, 421, 422, 519, 524, 090, 091. Extract `Bridge/_extract_family6_tables.py` ? drafts; build `Bridge/_build_family6_specs.py`; round-trip `Bridge/roundtrip/619-family6.py` (+ per-sheet wrappers). No sheet_spec/validate tooling changes needed ? buffer-only `taperAndBuffer` (optional laneTaper/shoulderTaper) already worked from 205/114 patterns.
 
-**Surprises:** (1) **307 has no merging taper** ï¿½ `taperAndBuffer` is buffer-only; AW/buffer/PV/roll cells == 311 on 25ï¿½55. Signs are W20-7/W20-4 (+ conditional W3-4) not W4-2R/W20-5R. (2) **407 buffer trap**: intermediate drops 25ï¿½40; only 45/50/55/65 (incl. 645/16) ï¿½ do not clone 307's 7-row buffer. (3) **314**: no AW table, fixed 500' gaps; roll is 2-band only (no =40). (4) **Pedestrian 321/322/519**: live-build n/a ï¿½ `BUILD_WZTC_ORDER_TABLE` errors on sign-only payloads (same class as 011). (5) **419/420 blocked** (NYSDOT returns HTML); **520 blocked** (image-only, no text layer).
+**Surprises:** (1) **307 has no merging taper** ? `taperAndBuffer` is buffer-only; AW/buffer/PV/roll cells == 311 on 25?55. Signs are W20-7/W20-4 (+ conditional W3-4) not W4-2R/W20-5R. (2) **407 buffer trap**: intermediate drops 25?40; only 45/50/55/65 (incl. 645/16) ? do not clone 307's 7-row buffer. (3) **314**: no AW table, fixed 500' gaps; roll is 2-band only (no =40). (4) **Pedestrian 321/322/519**: live-build n/a ? `BUILD_WZTC_ORDER_TABLE` errors on sign-only payloads (same class as 011). (5) **419/420 blocked** (NYSDOT returns HTML); **520 blocked** (image-only, no text layer).
 
-## 2026-08-03 â€” Cursor â€” Family 9 + Misc sheet specs (gates cleared / blocked)
+## 2026-08-03 ??? Cursor ??? Family 9 + Misc sheet specs (gates cleared / blocked)
 
-Authored Family 9 (ref 619-023: 023/021/022/031/032/033/060) and Misc (001/004/005/006/010/012/080) via `Bridge/_build_family9_specs.py` + `Bridge/_build_misc_specs.py`; round-trip `Bridge/roundtrip/619-family9.py`. Corridor sheets with roll+sign cleared all 4 gates live 2026-08-03. 021/080 live-build n/a (sign-only). Reference libraries use `kind=referenceLibrary` (live-build n/a). **050/051/002 blocked** â€” NYSDOT repos return HTML stubs (same as Family 8).
+Authored Family 9 (ref 619-023: 023/021/022/031/032/033/060) and Misc (001/004/005/006/010/012/080) via `Bridge/_build_family9_specs.py` + `Bridge/_build_misc_specs.py`; round-trip `Bridge/roundtrip/619-family9.py`. Corridor sheets with roll+sign cleared all 4 gates live 2026-08-03. 021/080 live-build n/a (sign-only). Reference libraries use `kind=referenceLibrary` (live-build n/a). **050/051/002 blocked** ??? NYSDOT repos return HTML stubs (same as Family 8).
 
-**Surprises:** (1) **GVWÃ—speed roll matrix** on 022/023/032/060/033 (not pure GVW like 110, not pure speed like 041) â€” encoded speed-keyed with min=heavy/max=light plus verbatim lightGvw/heavyGvw; â‰¤40 band has min==max=120 so `validate_sheet_spec` now allows minâ‰¤max. (2) **031 registry title wrong** ("Freeway Mowing") â€” PDF is two-lane mulching/herbicide with P,TMIA like 041. (3) **033 plan typo** SEE TABLE 034-02 â†’ 033-02. (4) **012 size cells** largely path-only; catalog harvests sign-code tokens + color legend from text.
+**Surprises:** (1) **GVW??speed roll matrix** on 022/023/032/060/033 (not pure GVW like 110, not pure speed like 041) ??? encoded speed-keyed with min=heavy/max=light plus verbatim lightGvw/heavyGvw; ???40 band has min==max=120 so `validate_sheet_spec` now allows min???max. (2) **031 registry title wrong** ("Freeway Mowing") ??? PDF is two-lane mulching/herbicide with P,TMIA like 041. (3) **033 plan typo** SEE TABLE 034-02 ??? 033-02. (4) **012 size cells** largely path-only; catalog harvests sign-code tokens + color legend from text.
 
-## 2026-08-03 ï¿½ Cursor ï¿½ Sheet-spec batch complete (68 done / 10 blocked)
+## 2026-08-03 ? Cursor ? Sheet-spec batch complete (68 done / 10 blocked)
 
-Finished continuous pass through remaining STATUS queue after Family 3. Final inventory: **68 specs done**, **10 blocked** (all PDF availability ï¿½ no not-started left).
+Finished continuous pass through remaining STATUS queue after Family 3. Final inventory: **68 specs done**, **10 blocked** (all PDF availability ? no not-started left).
 
-**Blocked (need real vector PDFs):** Family 8 stop-and-go **101ï¿½104**; F6 sidewalk/crosswalk intermediates **419/420**; F6 **520** (image-only, OCR); F9 **050/051**; Misc **002**. Public NYSDOT repos return HTML stubs for these.
+**Blocked (need real vector PDFs):** Family 8 stop-and-go **101?104**; F6 sidewalk/crosswalk intermediates **419/420**; F6 **520** (image-only, OCR); F9 **050/051**; Misc **002**. Public NYSDOT repos return HTML stubs for these.
 
 **Families cleared this session:** F1 leftovers (9), F4 Parkway (4), F5 ramp (10), F6 flagger/ped/closures (15/18), F7 mobile (3), F9 mowing (7/9), Misc ref-libs (7/8). Prior session already had F2+F3+011+311.
 
-## 2026-08-03 ï¿½ Cursor ï¿½ Family 6 verbatim notes backfill (Claude follow-up)
+## 2026-08-03 ? Cursor ? Family 6 verbatim notes backfill (Claude follow-up)
 
-Implemented Claude's bounded follow-up: restore `notes.printed` on all 15 available Family 6 specs (were empty `items[]`). Placement `rules[]` were already populated ï¿½ this is engineer-facing prose, not a CAD correctness gap. Helper `Bridge/_backfill_family6_notes.py`.
+Implemented Claude's bounded follow-up: restore `notes.printed` on all 15 available Family 6 specs (were empty `items[]`). Placement `rules[]` were already populated ? this is engineer-facing prose, not a CAD correctness gap. Helper `Bridge/_backfill_family6_notes.py`.
 
-**Result:** upright sheets (307/308/309/323/407/421/422/519/524, plus 322) ? `confidence: verbatim`. Rotated-page sheets (090/091/314/321/324) ? `confidence: drawing` with disclaimer ï¿½ PDF text layer stores note columns side-by-side so linearization interleaves words; still better than empty, but edge-case wording should be confirmed against the PDF. Skipped D-tier PDF chase and 311-level cell round-trips on siblings per Claude's scope.
-
-
-## 2026-08-03 â€” Cursor â€” Live agent WZTC QA: 619-311 + 619-301
-
-Drove full agent WZTC mode builds after the sheet-spec catalog. **619-311** completed earlier in-session (specDriven URBAN path; QA on disk as Bridge/captures/qa_agent_311_*.png). **619-301** initially blocked because wztc_ops.build_wztc_order_table required area_type whenever any sheet spec existed â€” wrong for sheets with no advanceWarningSpacing role. Fixed gate to require area_type only when that role is present; null-safe overrides when laneTaper is absent. Restarted chat_driver and cleared poisoned Bridge/chat-history.json (agent refused retries based on prior errors). Fresh 301 run: order table without area_type (SHOULDER TAPER 160 / buffer 495 / roll 120, signs W21-05aR / W21-05bRM / W20-01RM / G20-02), 6000 ft corridor at Y=216840, stations + 4 place_sign + dims. Labels/workspace/channelizing tools returned empty or agent handed off (shoulder sheets lack Vehicle Space bay the batch tools assume). Gotcha: test-driver auto-replies invented 311 blurbs / Y=217040 â€” patched scripts/agent_test_drive.py with --align-y and area_type-aware ASK replies.
+**Result:** upright sheets (307/308/309/323/407/421/422/519/524, plus 322) ? `confidence: verbatim`. Rotated-page sheets (090/091/314/321/324) ? `confidence: drawing` with disclaimer ? PDF text layer stores note columns side-by-side so linearization interleaves words; still better than empty, but edge-case wording should be confirmed against the PDF. Skipped D-tier PDF chase and 311-level cell round-trips on siblings per Claude's scope.
 
 
-## 2026-08-03 â€” Cursor â€” Fix live-test bugs (labels / shoulder tools / area_type / registry)
+## 2026-08-03 ??? Cursor ??? Live agent WZTC QA: 619-311 + 619-301
 
-Root causes from the 311/301 agent QA: (1) sheet-spec Non-Sign labels were ALL CAPS while PerpPlacement Select Case was case-sensitive â†’ place_order_table_labels returned 0 rows; LANE TAPER also did not match Merging/Shifting Taper for channelizing. Fixed by sheet_spec.canonical_order_label at emit time + OrderLabelKind() in PerpPlacement.bas. (2) Workspace/PV required Vehicle Space; channelizing required Merging â€” shoulder sheets like 619-301 have neither. Fallbacks: Buffer Space bay for WS/PV; Shoulder Taper as primary channelizing diagonal. (3) build_wztc_order_table now only requires area_type when advanceWarningSpacing exists, accepts protective_vehicle_gvw, null-safe taper overrides. (4) sheet-registry 619-301 was missing ShoulderTaper (same class of bug as 311 earlier). chat_driver prompt updated. Hot-reload of PerpPlacement.bas needs MicroStation with the Test VBA project loaded.
-
-
-## 2026-08-03 â€” Cursor â€” Cost controls for chat_driver / agent_test_drive
-
-Did not ship with the CAD bugfix earlier â€” added now after engineer call-out. chat_driver: MAX_TOOL_ITERATIONS 30â†’18 (env WZTC_MAX_TOOL_ITERATIONS); persist history capped to 40 msgs / ~350k chars (WZTC_MAX_HISTORY_MESSAGES / WZTC_MAX_HISTORY_CHARS); strip prior-turn thinking blocks on save/load; load_history rewrites trimmed file so a fat 600+ msg history cannot silently return. agent_test_drive: default --max-continues 16â†’8; new --fresh-history clears Bridge/chat-history.json before a live drive. view_drawing docstring: prefer â‰¤1â€“2 captures/turn. Restart chat_driver to pick up.
+Drove full agent WZTC mode builds after the sheet-spec catalog. **619-311** completed earlier in-session (specDriven URBAN path; QA on disk as Bridge/captures/qa_agent_311_*.png). **619-301** initially blocked because wztc_ops.build_wztc_order_table required area_type whenever any sheet spec existed ??? wrong for sheets with no advanceWarningSpacing role. Fixed gate to require area_type only when that role is present; null-safe overrides when laneTaper is absent. Restarted chat_driver and cleared poisoned Bridge/chat-history.json (agent refused retries based on prior errors). Fresh 301 run: order table without area_type (SHOULDER TAPER 160 / buffer 495 / roll 120, signs W21-05aR / W21-05bRM / W20-01RM / G20-02), 6000 ft corridor at Y=216840, stations + 4 place_sign + dims. Labels/workspace/channelizing tools returned empty or agent handed off (shoulder sheets lack Vehicle Space bay the batch tools assume). Gotcha: test-driver auto-replies invented 311 blurbs / Y=217040 ??? patched scripts/agent_test_drive.py with --align-y and area_type-aware ASK replies.
 
 
-## 2026-08-03 â€” Cursor â€” Scoped clear_prior + live reload
+## 2026-08-03 ??? Cursor ??? Fix live-test bugs (labels / shoulder tools / area_type / registry)
+
+Root causes from the 311/301 agent QA: (1) sheet-spec Non-Sign labels were ALL CAPS while PerpPlacement Select Case was case-sensitive ??? place_order_table_labels returned 0 rows; LANE TAPER also did not match Merging/Shifting Taper for channelizing. Fixed by sheet_spec.canonical_order_label at emit time + OrderLabelKind() in PerpPlacement.bas. (2) Workspace/PV required Vehicle Space; channelizing required Merging ??? shoulder sheets like 619-301 have neither. Fallbacks: Buffer Space bay for WS/PV; Shoulder Taper as primary channelizing diagonal. (3) build_wztc_order_table now only requires area_type when advanceWarningSpacing exists, accepts protective_vehicle_gvw, null-safe taper overrides. (4) sheet-registry 619-301 was missing ShoulderTaper (same class of bug as 311 earlier). chat_driver prompt updated. Hot-reload of PerpPlacement.bas needs MicroStation with the Test VBA project loaded.
+
+
+## 2026-08-03 ??? Cursor ??? Cost controls for chat_driver / agent_test_drive
+
+Did not ship with the CAD bugfix earlier ??? added now after engineer call-out. chat_driver: MAX_TOOL_ITERATIONS 30???18 (env WZTC_MAX_TOOL_ITERATIONS); persist history capped to 40 msgs / ~350k chars (WZTC_MAX_HISTORY_MESSAGES / WZTC_MAX_HISTORY_CHARS); strip prior-turn thinking blocks on save/load; load_history rewrites trimmed file so a fat 600+ msg history cannot silently return. agent_test_drive: default --max-continues 16???8; new --fresh-history clears Bridge/chat-history.json before a live drive. view_drawing docstring: prefer ???1???2 captures/turn. Restart chat_driver to pick up.
+
+
+## 2026-08-03 ??? Cursor ??? Scoped clear_prior + live reload
 
 Hot-reloaded PerpPlacement.bas + WZTCBridge.bas with Test project loaded; restarted chat_driver (wztc, empty history, cost caps active).
 
 **clear_prior wipe bug:** place_order_table_stations(align_idx=2, clear_prior=True) used to call clear_plan_elements() with no scope and deleted Upstream too. CLEAR_PLAN_ELEMENTS now accepts optional alignIdx; scoped clear only deletes journal create-ops tagged with that alignIdx=. place_order_table_stations(clear_prior=True) passes its align_idx. place_sign gains optional align_idx (journaled) so future scoped clears include signs. Untagged legacy PLACE_SIGN rows are left alone under scoped clear (full clear_plan_elements() still wipes everything). Held off on work-area lengthSource=null (#3).
 
-## 2026-08-03 ï¿½ Cursor ï¿½ View-capture flakiness (blank QA frames)
+## 2026-08-03 ? Cursor ? View-capture flakiness (blank QA frames)
 
-Root cause of many 'blank' QA screenshots was not Extents.Z (~0.02 after write is fine). Two real issues: (1) **over-wide framing** ï¿½ a 2000-ft overview makes each sign a few pixels so vision models read 'empty'; use ~150ï¿½400 ft width for sign closeups. (2) **async repaint** ï¿½ capture too soon after Center/Extents write yields uniform dark grey. Fixed in `mcp-server/view_capture.py`: settle default 2.5s; expand requested extents to the View child window's pixel aspect (`_fit_extents_to_aspect`); Center-then-Extents + redraw helpers; empty-frame detect (`_drawing_looks_empty`) with one retry; `navigate_and_capture` helper. `adjust_view` returns applied width/height after aspect-fit. Smoke: Bridge/captures/qa_capture_fix_{close,overview}.png on 619-301 corridor Yï¿½216840 ï¿½ non-empty. Restart chat_driver to pick up (imports view_capture at load).
+Root cause of many 'blank' QA screenshots was not Extents.Z (~0.02 after write is fine). Two real issues: (1) **over-wide framing** ? a 2000-ft overview makes each sign a few pixels so vision models read 'empty'; use ~150?400 ft width for sign closeups. (2) **async repaint** ? capture too soon after Center/Extents write yields uniform dark grey. Fixed in `mcp-server/view_capture.py`: settle default 2.5s; expand requested extents to the View child window's pixel aspect (`_fit_extents_to_aspect`); Center-then-Extents + redraw helpers; empty-frame detect (`_drawing_looks_empty`) with one retry; `navigate_and_capture` helper. `adjust_view` returns applied width/height after aspect-fit. Smoke: Bridge/captures/qa_capture_fix_{close,overview}.png on 619-301 corridor Y?216840 ? non-empty. Restart chat_driver to pick up (imports view_capture at load).
 
-## 2026-08-03 ï¿½ Cursor ï¿½ Agent must restart chat_driver (not ask engineer)
+## 2026-08-03 ? Cursor ? Agent must restart chat_driver (not ask engineer)
 
 Engineer call-out: agents kept saying 'restart chat_driver' instead of doing it. Updated `.cursor/rules/hot-reload-sync.mdc` so Python edits require running `python mcp-server/restart_chat_driver.py` (same alwaysApply rule that already covers VBA hot-reload). Prior wording told the agent to ask the engineer -- that was the bug.
 
@@ -1468,69 +1468,69 @@ to more sheet families to prove `compile_channelizing`/`compile_symbols`/
 `compile_hatch` generalize as well as `compile_plan` already has been shown
 to (only checked against 619-311 and 619-302 so far).
 
-## 2026-08-04 ï¿½ Cursor ï¿½ Expose get_elements_range / absolute adjust_view (copy-turn miss)
+## 2026-08-04 ? Cursor ? Expose get_elements_range / absolute adjust_view (copy-turn miss)
 
-Live agent turn copying a white line 100 ft above an orange arc burned all 18 iterations and never called `copy_element`. Root causes: (1) engineer already gave `elementId=61956` / `24763` but `GET_ELEMENTS_RANGE` existed only as an internal screenshot autofocus helper ï¿½ not an agent tool ï¿½ so the model fished with `find_elements_near` (bbox-center match + row cap misses long lines); (2) `adjust_view` `pan_x`/`pan_y` are relative deltas and the agent passed absolute model coords, flinging the view; (3) even a successful copy needed `own_element_only=False` for pre-existing site geometry. Fixed in `wztc_ops.py`: `get_elements_range`, `focus_view_on_elements`, `adjust_view` absolute `center_x`/`center_y`/`width`/`height`; exposed on chat_driver `_BASE_OP_NAMES` + `server.py`; prompt warns against absolute-as-pan and teaches ID?range?copy. Smoke: line Y=216840, arc top Y=217672.3 ? delta_yï¿½932.3 for '100 above arc'. Restarted chat_driver.
+Live agent turn copying a white line 100 ft above an orange arc burned all 18 iterations and never called `copy_element`. Root causes: (1) engineer already gave `elementId=61956` / `24763` but `GET_ELEMENTS_RANGE` existed only as an internal screenshot autofocus helper ? not an agent tool ? so the model fished with `find_elements_near` (bbox-center match + row cap misses long lines); (2) `adjust_view` `pan_x`/`pan_y` are relative deltas and the agent passed absolute model coords, flinging the view; (3) even a successful copy needed `own_element_only=False` for pre-existing site geometry. Fixed in `wztc_ops.py`: `get_elements_range`, `focus_view_on_elements`, `adjust_view` absolute `center_x`/`center_y`/`width`/`height`; exposed on chat_driver `_BASE_OP_NAMES` + `server.py`; prompt warns against absolute-as-pan and teaches ID?range?copy. Smoke: line Y=216840, arc top Y=217672.3 ? delta_y?932.3 for '100 above arc'. Restarted chat_driver.
 
-## 2026-08-04 ï¿½ Cursor ï¿½ Wire adopt_alignment + place_sheet_geometry for agent
+## 2026-08-04 ? Cursor ? Wire adopt_alignment + place_sheet_geometry for agent
 
-Compiler Stages 1ï¿½5 already lived in `sheet_spec.py` / `alignment_geometry.py` but the chat agent still only had heuristic `place_order_table_*`. `ADOPT_ALIGNMENT_ELEMENT` existed in VBA (`AlignmentTool.AdoptExistingAlignmentElement` / `WZTCBridge`) with no Python/agent wrapper ï¿½ live miss after hot-reload wiped SharedState while corridor lines remained. Wired `wztc_ops.adopt_alignment`, `compile_sheet_plan` (slim by default), `place_sheet_geometry` (compile + `run_rules_gate` + execute dims/labels/channelizing polylines/PV-AP/hatch), exposed on `chat_driver._WZTC_OP_NAMES` + `server.py`. Prompt now prefers compiler path when sheet JSON exists; `adopt_alignment` for Reset/hot-reload recovery. `execute_compiled_plan` stays internal (no huge coord round-trip through the LLM). Channelizing places one `place_element_run` per cone run (not per-cone circles). Restarted chat_driver PID 47336. Offline 619-311 compile+gate smoke: 0 gate failures.
+Compiler Stages 1?5 already lived in `sheet_spec.py` / `alignment_geometry.py` but the chat agent still only had heuristic `place_order_table_*`. `ADOPT_ALIGNMENT_ELEMENT` existed in VBA (`AlignmentTool.AdoptExistingAlignmentElement` / `WZTCBridge`) with no Python/agent wrapper ? live miss after hot-reload wiped SharedState while corridor lines remained. Wired `wztc_ops.adopt_alignment`, `compile_sheet_plan` (slim by default), `place_sheet_geometry` (compile + `run_rules_gate` + execute dims/labels/channelizing polylines/PV-AP/hatch), exposed on `chat_driver._WZTC_OP_NAMES` + `server.py`. Prompt now prefers compiler path when sheet JSON exists; `adopt_alignment` for Reset/hot-reload recovery. `execute_compiled_plan` stays internal (no huge coord round-trip through the LLM). Channelizing places one `place_element_run` per cone run (not per-cone circles). Restarted chat_driver PID 47336. Offline 619-311 compile+gate smoke: 0 gate failures.
 
-## 2026-08-04 â€” Claude Code â€” QA-diagnosis fixes, agent-control-loop enforcement, and a two-part refactor
+## 2026-08-04 ??? Claude Code ??? QA-diagnosis fixes, agent-control-loop enforcement, and a two-part refactor
 
-Long session across three rounds. **Round 1 (7 fixes from a live 619-311 QA diagnosis):** corridor-topology precondition added to `run_rules_gate` (catches Downstream committed further along Upstream's own line instead of a distinct work-area edge); `NYW8-33` added to `SignLibrary.bas` (W4-2R turned out to already exist â€” that "gap" was actually a lookup bug); `compile_hatch`'s transverse-channelizing condition now checks shoulder width â‰¥ 8ft, not length alone; `SignLibrary.PadNumericStem` now zero-pads the route-family number too (`W4-2R`â†’`W04-02R`, skipped for `NY`-prefixed codes per the `NYW8-4` precedent) â€” this was the real root cause behind a live legend-resolution miss, not the legend-suffix logic itself (which was already correct); AP/PV lateral offsets in `compile_symbols` now derive from the sheet's own `lateralAnchor` text + real lane/shoulder widths instead of the unrelated 40ft reference-tick constant (backfilled `lateralAnchor` across 17 other sheet specs during verification â€” batch-tested all 61 "done" specs, zero crashes); `MAX_TOOL_ITERATIONS` raised 18â†’26 now that the cache-busting bug is fixed; added `get_locked_designer_inputs()` as real persisted session state instead of relying on the model rereading chat history; visual-QA-gate requirement added to the completion checklist.
+Long session across three rounds. **Round 1 (7 fixes from a live 619-311 QA diagnosis):** corridor-topology precondition added to `run_rules_gate` (catches Downstream committed further along Upstream's own line instead of a distinct work-area edge); `NYW8-33` added to `SignLibrary.bas` (W4-2R turned out to already exist ??? that "gap" was actually a lookup bug); `compile_hatch`'s transverse-channelizing condition now checks shoulder width ??? 8ft, not length alone; `SignLibrary.PadNumericStem` now zero-pads the route-family number too (`W4-2R`???`W04-02R`, skipped for `NY`-prefixed codes per the `NYW8-4` precedent) ??? this was the real root cause behind a live legend-resolution miss, not the legend-suffix logic itself (which was already correct); AP/PV lateral offsets in `compile_symbols` now derive from the sheet's own `lateralAnchor` text + real lane/shoulder widths instead of the unrelated 40ft reference-tick constant (backfilled `lateralAnchor` across 17 other sheet specs during verification ??? batch-tested all 61 "done" specs, zero crashes); `MAX_TOOL_ITERATIONS` raised 18???26 now that the cache-busting bug is fixed; added `get_locked_designer_inputs()` as real persisted session state instead of relying on the model rereading chat history; visual-QA-gate requirement added to the completion checklist.
 
-**Round 2 (4 agent-control-loop enforcement gaps, from a self-critique of round 1):** `place_sign` now refuses a hand-picked sign code that doesn't match the locked order table's `sign_rows` (`one_off=True` to override) â€” this is the actual mechanism behind the legend-resolution miss above, not a content gap; the heuristic `PlaceOrderTable*`/`place_sheet_symbol_cells` tools now refuse when a sheet spec exists for the build and redirect to `place_sheet_geometry` (`force=True` to override) â€” previously they were a fully unvalidated escape hatch around `run_rules_gate`; `check_corridor_topology` factored into a standalone function and wired into `commit_alignment`/`adopt_alignment` so a bad corridor is caught the moment both alignments are ready, not only deep in `compile_hatch`; `AlignmentIsReady`/`InitAlignmentPlacementHeadless` VBA error messages now carry an `ALIGNMENT_NOT_READY:` prefix naming `adopt_alignment` directly instead of unconditionally pointing at `COMMIT_ALIGNMENT` (which would draw a duplicate).
+**Round 2 (4 agent-control-loop enforcement gaps, from a self-critique of round 1):** `place_sign` now refuses a hand-picked sign code that doesn't match the locked order table's `sign_rows` (`one_off=True` to override) ??? this is the actual mechanism behind the legend-resolution miss above, not a content gap; the heuristic `PlaceOrderTable*`/`place_sheet_symbol_cells` tools now refuse when a sheet spec exists for the build and redirect to `place_sheet_geometry` (`force=True` to override) ??? previously they were a fully unvalidated escape hatch around `run_rules_gate`; `check_corridor_topology` factored into a standalone function and wired into `commit_alignment`/`adopt_alignment` so a bad corridor is caught the moment both alignments are ready, not only deep in `compile_hatch`; `AlignmentIsReady`/`InitAlignmentPlacementHeadless` VBA error messages now carry an `ALIGNMENT_NOT_READY:` prefix naming `adopt_alignment` directly instead of unconditionally pointing at `COMMIT_ALIGNMENT` (which would draw a duplicate).
 
-**Round 3 (refactor, on request):** `wztc_ops.py`'s `_PLAN_SESSION` dict â†’ `PlanSession`/`DesignerInputs` dataclasses. `sheet_spec.py` (1145 lines) split into `sheet_resolve.py` (load/resolve/legend/order-table), `sheet_compile.py` (the placement-plan compiler), `sheet_rules.py` (rules gate) â€” `sheet_spec.py` is now a ~65-line facade re-exporting every name, so no call site changed. `chat_driver.py` (1673â†’760 lines) split into `prompts.py`, `usage.py`, `chat_log.py`, `input_watcher.py`, `chat_history.py`; added `_validate_op_names` (startup `ImportError` if `_BASE_OP_NAMES`/`_WZTC_OP_NAMES` drift from `wztc_ops.py`'s real exports â€” this list had already silently drifted once before); bundled `_TOUCHED_ELEMENT_IDS`/`_SESSION_MODE` into a `SessionState` dataclass; deduped the 4x-repeated screenshot PNGâ†’BMP conversion. Also fixed two real `server.py`/`wztc_ops.py` signature-drift bugs found during an audit: `list_registry_commands` was missing `opname_contains` (unreachable cost-saving filter, ~$0.75/unfiltered call) and `focus_view_on_elements` was missing `min_width`/`min_height`. One regression caught during the split's own regression pass: `ChatLog`'s new `archive_dir` param had no default, which would have broken `eval_harness.py`'s single-arg construction â€” fixed with a `path.parent / "archive"` default before it shipped. All 61 "done" sheet specs re-verified against the final state (0 crashes); `chat_driver.py`/`server.py`/`wztc_ops.py` all import cleanly; process restarted and confirmed alive (PID 38888).
+**Round 3 (refactor, on request):** `wztc_ops.py`'s `_PLAN_SESSION` dict ??? `PlanSession`/`DesignerInputs` dataclasses. `sheet_spec.py` (1145 lines) split into `sheet_resolve.py` (load/resolve/legend/order-table), `sheet_compile.py` (the placement-plan compiler), `sheet_rules.py` (rules gate) ??? `sheet_spec.py` is now a ~65-line facade re-exporting every name, so no call site changed. `chat_driver.py` (1673???760 lines) split into `prompts.py`, `usage.py`, `chat_log.py`, `input_watcher.py`, `chat_history.py`; added `_validate_op_names` (startup `ImportError` if `_BASE_OP_NAMES`/`_WZTC_OP_NAMES` drift from `wztc_ops.py`'s real exports ??? this list had already silently drifted once before); bundled `_TOUCHED_ELEMENT_IDS`/`_SESSION_MODE` into a `SessionState` dataclass; deduped the 4x-repeated screenshot PNG???BMP conversion. Also fixed two real `server.py`/`wztc_ops.py` signature-drift bugs found during an audit: `list_registry_commands` was missing `opname_contains` (unreachable cost-saving filter, ~$0.75/unfiltered call) and `focus_view_on_elements` was missing `min_width`/`min_height`. One regression caught during the split's own regression pass: `ChatLog`'s new `archive_dir` param had no default, which would have broken `eval_harness.py`'s single-arg construction ??? fixed with a `path.parent / "archive"` default before it shipped. All 61 "done" sheet specs re-verified against the final state (0 crashes); `chat_driver.py`/`server.py`/`wztc_ops.py` all import cleanly; process restarted and confirmed alive (PID 38888).
 
-## 2026-08-04 — Cursor — assemble_corridor + cross_validate_stations
+## 2026-08-04 ? Cursor ? assemble_corridor + cross_validate_stations
 
 Closed the two remaining Layer-2 gaps from the 619-311 corridor miss. (1) `assemble_corridor(upstream_edge, downstream_edge)` in `wztc_ops.py` builds Align1/Align2 from work-area edges with station-0 = edge and walk away along travel T; approach auto-sized from `station_walk` max + 50 ft. Prefer over freestyle define+commit pairs. (2) `cross_validate_stations` compares VBA `get_alignment_stationing` cum stations (sorted multiset) to Python `station_walk` and requires path length >= walk max; auto-runs from `place_order_table_stations` / `place_sheet_geometry` unless force=True. VBA: headless `CommitCurrentAlignmentHeadless` always sets first point from earliest GG line StartPoint; `AdoptExistingAlignmentElement` uses StartPoint (not west-prefer); `CLEAR_PLAN_ELEMENTS keepAlignments=N` calls `ResetAllAlignmentBookkeeping`. Wired on `_WZTC_OP_NAMES` / `server.py`; prompts step 3 prefers assemble. Hot-reloaded AlignmentTool+WZTCBridge; restarted chat_driver.
 
-## 2026-08-04 — Cursor — Fix orphan tool_result history trim (API 400)
+## 2026-08-04 ? Cursor ? Fix orphan tool_result history trim (API 400)
 
 Live: new 619-311 turn failed immediately with Anthropic `unexpected tool_use_id in tool_result` because `_trim_history_window` sliced `messages[-N:]` mid tool-chain, leaving `chat-history.json[0]` as a lone `tool_result`. Fixed in `chat_history.py`: safe trim start index, `_repair_tool_pairing` (drop orphans, require first message is real user text, clear if none left), persist repair on load. Backed up bad file to `Bridge/chat-history.pre-orphan-repair.bak.json`, cleared empty-repaired history, restarted driver, re-queued engineer request.
 
-## 2026-08-04 — Cursor — Add Pydantic schema gate for sheet specs
+## 2026-08-04 ? Cursor ? Add Pydantic schema gate for sheet specs
 
 Added `mcp-server/sheet_schema.py` (Pydantic v2) as pass 0 for sheet-spec shape: plan sheets must have applicability/corridor/orderTable/signs/symbols/annotations/rules; referenceLibrary sheets only need tables+tableRoles. `sheet_resolve.load` / `load_raw_path` validate before returning; `scripts/validate_sheet_spec.py` uses that gate first. `extra=''allow''` keeps nested table rows flexible. Dep: `pydantic>=2.0.0` in `mcp-server/requirements.txt`. Smoke: all 68 `619-*.json` specs pass.
 
-## 2026-08-04 — Cursor — Add Shapely geometry QA to rules gate
+## 2026-08-04 ? Cursor ? Add Shapely geometry QA to rules gate
 
-Added `shapely>=2.0.0` and `mcp-server/sheet_geometry_qa.py`, wired into `sheet_rules.run_rules_gate`. Checks: hatch polygon validity/area, protectiveVehicle/arrowPanel not inside work-area hatch (live miss class), AP?PV center separation (skips altGroup / same-station OR alternatives), channelizing run self-intersection. Failure strings only — no WKT in tool results. Soft no-op if shapely missing.
+Added `shapely>=2.0.0` and `mcp-server/sheet_geometry_qa.py`, wired into `sheet_rules.run_rules_gate`. Checks: hatch polygon validity/area, protectiveVehicle/arrowPanel not inside work-area hatch (live miss class), AP?PV center separation (skips altGroup / same-station OR alternatives), channelizing run self-intersection. Failure strings only ? no WKT in tool results. Soft no-op if shapely missing.
 
-## 2026-08-04 — Cursor — Add pytest offline suite
+## 2026-08-04 ? Cursor ? Add pytest offline suite
 
 Added `pytest>=8.0.0` and `tests/`: `test_sheet_schema` (all 619 specs + plan/library shape), `test_geometry_qa` (Shapely hatch/PV checks), `test_station_walk` (619-311 walk + compare_station_tables). `tests/conftest.py` puts `mcp-server` on `sys.path`. Run: `python -m pytest tests/ -q`.
 
-## 2026-08-05 — Cursor — Harden agent control-loop (anti-fish + locked inputs)
+## 2026-08-05 ? Cursor ? Harden agent control-loop (anti-fish + locked inputs)
 
 After Layer-2 geometry gates, live 619-311 failures were mostly control-loop: blank `area_type` after lock, Default `find_reference_linework`, endless `find_elements_near`, burning `MAX_TOOL_ITERATIONS` on QA. Hardened in `wztc_ops.py`: `_merge_locked_designer_inputs` auto-fills blank compile/place kwargs and refuses conflicts; mid-plan refuses vague Default linework, freestyle `define_alignment_segment` (`assemble_corridor` passes `force=True` internally), and wide/repeated `find_elements_near` (tighter after `place_sheet_geometry`). `place_sheet_geometry` success sets `sheet_geometry_placed` + `nextStep` nudge toward one screenshot then FINAL. `prompts.py` CONTROL-LOOP DISCIPLINE block; `chat_driver` MAX_TOOL stop text demands resume-with-FINAL not more fishing. Tests: `tests/test_control_loop_gates.py` (5 passed). Restarted chat_driver PID 19720.
 
-## 2026-08-05 — Cursor — Sheet-build checklist (scoped; general CAD stays free)
+## 2026-08-05 ? Cursor ? Sheet-build checklist (scoped; general CAD stays free)
 
 Deterministic plan state machine applies ONLY while a named 619 sheet build is active (`build_wztc_order_table` locked). General CAD / one-offs / questions remain unconstrained. Added `mcp-server/plan_workflow.py` + `get_plan_status()` checklist (corridor?stations?signs?attrs?compiler?visual QA). Out-of-order `place_sign` / `place_order_table_stations` / `place_sheet_geometry` raise structured `PLAN_GATE` (missing/accepted/nextTool). After compiler, free `adjust_view` refused ? `run_visual_qa_captures()` (4 scripted frames). Tools stamped with `nextStep` via `_attach_plan_next`. Prompt CONTROL-LOOP section scopes sheet-only. Tests: `tests/test_plan_workflow.py`. Wired on chat_driver + server; restarted driver.
 
-## 2026-08-05 — Cursor — run_sheet_build executor (sheet-scoped)
+## 2026-08-05 ? Cursor ? run_sheet_build executor (sheet-scoped)
 
 Thin deterministic executor for named 619 builds only: after `build_wztc_order_table`, agent point-picks two work-area edges and calls `run_sheet_build(upstream_edge, downstream_edge)`. Runs assemble_corridor ? place_order_table_stations ? place_sign+set_sign_attributes (tips from cached station rows) ? place_sheet_geometry ? run_visual_qa_captures. Skips stages already done; returns `sheetPlanActive=False` outside a sheet plan (general CAD unchanged). `get_plan_status` nextTool prefers `run_sheet_build`. Wired chat_driver/server/prompts; tests in `test_plan_workflow.py`. Restarted chat_driver.
 
-## 2026-08-05 — Cursor — Live 619-311 via run_sheet_build (+ history tool_use repair)
+## 2026-08-05 ? Cursor ? Live 619-311 via run_sheet_build (+ history tool_use repair)
 
-First kickoff hit API 400: history had assistant(tool_use) then assistant(FINAL text) with no tool_result (from prior forced FINAL). Extended `chat_history._repair_tool_pairing` step 2b to drop unanswered tool_use assistants. Fresh continue: build_wztc_order_table + `run_sheet_build` with prior work-area edges — phases assemble (144.9 ft bay / 2550 approach), stations 6+2, signs+attrs, place_sheet_geometry, visual QA; FINAL complete. Auto-reply script briefly swapped edge order on an earlier attempt (fixed in `scripts/run_619311_live.py`).
+First kickoff hit API 400: history had assistant(tool_use) then assistant(FINAL text) with no tool_result (from prior forced FINAL). Extended `chat_history._repair_tool_pairing` step 2b to drop unanswered tool_use assistants. Fresh continue: build_wztc_order_table + `run_sheet_build` with prior work-area edges ? phases assemble (144.9 ft bay / 2550 approach), stations 6+2, signs+attrs, place_sheet_geometry, visual QA; FINAL complete. Auto-reply script briefly swapped edge order on an earlier attempt (fixed in `scripts/run_619311_live.py`).
 
-## 2026-08-05 — Cursor — Match engineer hand-drawn 619-311 annotation style
+## 2026-08-05 ? Cursor ? Match engineer hand-drawn 619-311 annotation style
 
-Engineer drew a reference strip (~Y 214k) showing preferred styles. Root cause of the orange wash: compiled channelizing was one PLACE_ELEMENT_RUN polyline per run on TWZCD_P, which picks up a ByLevel custom linestyle that stamps giant orange cones. Fixes: `PLACE_CHANNELIZING_MARKERS` / `ExecPlaceChannelizingMarkers` places discrete 3×3 ft solid squares (color 6); `compile_plan` labels are name-only (length stays on the dim) and now emit SHOULDER TAPER overlay dim+label on the opposite side; `ARROW PANEL` label from `compile_symbols`; G20-* assemblies skip redundant code text (face already says END ROAD WORK). Live styled rebuild at Y=232000 via `scripts/rebuild_619311_styled.py`.
+Engineer drew a reference strip (~Y 214k) showing preferred styles. Root cause of the orange wash: compiled channelizing was one PLACE_ELEMENT_RUN polyline per run on TWZCD_P, which picks up a ByLevel custom linestyle that stamps giant orange cones. Fixes: `PLACE_CHANNELIZING_MARKERS` / `ExecPlaceChannelizingMarkers` places discrete 3?3 ft solid squares (color 6); `compile_plan` labels are name-only (length stays on the dim) and now emit SHOULDER TAPER overlay dim+label on the opposite side; `ARROW PANEL` label from `compile_symbols`; G20-* assemblies skip redundant code text (face already says END ROAD WORK). Live styled rebuild at Y=232000 via `scripts/rebuild_619311_styled.py`.
 
-## 2026-08-05 — Cursor — Fix recurring tool_use/tool_result API 400
+## 2026-08-05 ? Cursor ? Fix recurring tool_use/tool_result API 400
 
 Root cause of repeated `messages.N: tool_use ids without tool_result`: (1) `_msg_tool_use_ids` only inspected dict blocks, so freshly appended Anthropic SDK content objects were invisible to `_repair_tool_pairing` and survived `save_history` as unpaired tool_use; (2) `main()` ERROR path logged but did not repair/persist, so in-memory broken history made every later `hi` 400. Fix: SDK-aware `_block_get`/`_block_type`; normalize+repair at start of `run_turn`; jsonable-append assistant/tool_response; repair+save on exception. Tests: `tests/test_chat_history_repair.py`. Cleaned `Bridge/chat-history.json` (9?4 msgs); restarted chat_driver; `hi` returned FINAL.
 
-## 2026-08-05 — Cursor — list_levels English aliases (drainage?DCB)
+## 2026-08-05 ? Cursor ? list_levels English aliases (drainage?DCB)
 
-`list_levels` was literal substring-only, so engineer `drainage` never hit project levels `DCB_*`. Added `Data/level-aliases.tsv` + expansion in `wztc_ops.list_levels` (OR needles, `matchedVia` / `aliasExpanded` notes). Prompt: ask for prefix only after alias-expanded empty result. Live: `list_levels('drainage')` returns DCB/DCP/DSSD/…. Dropped greedy `DS_` needle (false hits). Tests: `tests/test_level_aliases.py`.
+`list_levels` was literal substring-only, so engineer `drainage` never hit project levels `DCB_*`. Added `Data/level-aliases.tsv` + expansion in `wztc_ops.list_levels` (OR needles, `matchedVia` / `aliasExpanded` notes). Prompt: ask for prefix only after alias-expanded empty result. Live: `list_levels('drainage')` returns DCB/DCP/DSSD/?. Dropped greedy `DS_` needle (false hits). Tests: `tests/test_level_aliases.py`.
 
 ## 2026-08-05 -- Cursor -- list_levels covers every HDM category, not just drainage
 
@@ -1558,33 +1558,33 @@ Finished wiring beyond the initial file: AUTHORING.md documents companion `.buil
 
 ## 2026-08-10 -- Claude Code -- live 619-311 run found + fixed 3 real compiler bugs
 
-Drove a full 619-311 build directly via the `wztc-designer` MCP tools (55 mph / RURAL / 12 ft lane / >=8 ft shoulder / lane closure / workers exposed). Order table, corridor, stations, signs+attrs all placed clean. Three real bugs surfaced and fixed in `mcp-server/sheet_compile.py` / `sheet_resolve.py` / `wztc_ops.py` (each required an MCP server restart — this session's tool connection is a subprocess per `.mcp.json`, so edits to `mcp-server/*.py` don't affect already-loaded modules until reconnect):
+Drove a full 619-311 build directly via the `wztc-designer` MCP tools (55 mph / RURAL / 12 ft lane / >=8 ft shoulder / lane closure / workers exposed). Order table, corridor, stations, signs+attrs all placed clean. Three real bugs surfaced and fixed in `mcp-server/sheet_compile.py` / `sheet_resolve.py` / `wztc_ops.py` (each required an MCP server restart ? this session's tool connection is a subprocess per `.mcp.json`, so edits to `mcp-server/*.py` don't affect already-loaded modules until reconnect):
 
 1. **Cone-spacing off-by-one** (`sheet_compile.compile_channelizing`): device-count used `round(length / maxSpacing)`, which can round down and produce a spacing over the sheet's cap (hit a real 41 ft gap vs the 40 ft max). Changed to `math.ceil` so spacing is guaranteed <= max.
 2. **`dimensioned: false` ignored** (`sheet_compile.compile_plan`): every row with `lengthFt > 0` got a dimension regardless of the corridor zone's own `dimensioned` flag. 619-311's `gapEndRoadWork` (G20-2, min 80/max 400 ft past the downstream taper) is a text callout on the real sheet, not a dimension line, but the compiler drew an "80'" dimension there anyway. Added `_zone_dimensioned()` lookup keyed off a new `lengthZone` field `station_walk` now carries (the actual zone that determines a row's length, since Sign rows' own `zone` id differs from their `spacingZone`).
-3. **Work-area hatch silently dropped by default** (`wztc_ops.compile_sheet_plan`): `align_idxs` defaulted to `[1]` when omitted, but `compile_hatch` requires both align 1 and align 2 present — so a bare `place_sheet_geometry(...)` call with no `align_idxs` compiled fine (gate passed) but never produced the required WORK AREA hatch, with no error or warning. `run_sheet_build` itself was unaffected (its internal `req` already falls back to `{1, 2}`), but `place_sheet_geometry` is explicitly documented as directly callable and doesn't mention this. Fixed the default to come from the sheet spec's own declared `orderTable.alignments`, not a hardcoded `[1]`.
+3. **Work-area hatch silently dropped by default** (`wztc_ops.compile_sheet_plan`): `align_idxs` defaulted to `[1]` when omitted, but `compile_hatch` requires both align 1 and align 2 present ? so a bare `place_sheet_geometry(...)` call with no `align_idxs` compiled fine (gate passed) but never produced the required WORK AREA hatch, with no error or warning. `run_sheet_build` itself was unaffected (its internal `req` already falls back to `{1, 2}`), but `place_sheet_geometry` is explicitly documented as directly callable and doesn't mention this. Fixed the default to come from the sheet spec's own declared `orderTable.alignments`, not a hardcoded `[1]`.
 
-Caught #3 by eye from a `capture_view` screenshot (no hatch visible), not from the gate — the scorecard only checks placed-vs-compiled, so a compile that silently omits a primitive at the align_idxs stage passes clean. Also noted `focus_view_on_elements` returned a wildly wrong bbox/center (off by ~4 orders of magnitude) for the same element IDs `get_elements_range` computed correctly — worked around with `adjust_view` using `get_elements_range`'s numbers instead; not yet root-caused, separate from the three fixes above.
+Caught #3 by eye from a `capture_view` screenshot (no hatch visible), not from the gate ? the scorecard only checks placed-vs-compiled, so a compile that silently omits a primitive at the align_idxs stage passes clean. Also noted `focus_view_on_elements` returned a wildly wrong bbox/center (off by ~4 orders of magnitude) for the same element IDs `get_elements_range` computed correctly ? worked around with `adjust_view` using `get_elements_range`'s numbers instead; not yet root-caused, separate from the three fixes above.
 
-Final state: `get_geometry_scorecard('619-311').passed == True`, 8 dimensions / 6 labels / 4 cone runs / 1 arrow panel / 1 protective vehicle / 1 hatch, all citing real placed element IDs, sign order upstream verified visually (W4-2R nearest taper, then W20-5R, then W20-1 furthest, matches sheet). NYW8-33 correctly deferred (vehicle-mounted, not a gap). `tests/` 55 passed after all three fixes. Test corridor at Y=300000 (empty area, chosen to avoid prior test geometry at Y~214k/217k/232k) — engineer may want it deleted before a real submission.
+Final state: `get_geometry_scorecard('619-311').passed == True`, 8 dimensions / 6 labels / 4 cone runs / 1 arrow panel / 1 protective vehicle / 1 hatch, all citing real placed element IDs, sign order upstream verified visually (W4-2R nearest taper, then W20-5R, then W20-1 furthest, matches sheet). NYW8-33 correctly deferred (vehicle-mounted, not a gap). `tests/` 55 passed after all three fixes. Test corridor at Y=300000 (empty area, chosen to avoid prior test geometry at Y~214k/217k/232k) ? engineer may want it deleted before a real submission.
 
 ## 2026-08-10 -- Claude Code -- root-caused and fixed dimensions rendering invisible when batch-placed (real, long-standing bug)
 
-Engineer flagged "dimensions and labels look completely wrong" on the 619-311 build above. Labels were fine; every DIMENSION was completely invisible (no line, no arrows, no text) despite `get_elements_range`/`find_elements_near` reporting valid, correctly-positioned elements with `styleApplied=Y` and no VBA error. Found an abandoned diagnostic trail in `Bridge/wztc-journal.tsv` from 2026-08-04 (`styleApplied`/`styleErrNum`/`styleErrDesc` fields added to `WZTCExec.ExecPlaceDimension` specifically to chase this) that stopped without a logged conclusion — this bug has likely affected every dimension this system has ever batch-placed, not just today's build.
+Engineer flagged "dimensions and labels look completely wrong" on the 619-311 build above. Labels were fine; every DIMENSION was completely invisible (no line, no arrows, no text) despite `get_elements_range`/`find_elements_near` reporting valid, correctly-positioned elements with `styleApplied=Y` and no VBA error. Found an abandoned diagnostic trail in `Bridge/wztc-journal.tsv` from 2026-08-04 (`styleApplied`/`styleErrNum`/`styleErrDesc` fields added to `WZTCExec.ExecPlaceDimension` specifically to chase this) that stopped without a logged conclusion ? this bug has likely affected every dimension this system has ever batch-placed, not just today's build.
 
-Root-caused live via isolation testing: a single `place_dimension` MCP call always rendered correctly; the exact same coordinates placed as part of a multi-dimension batch (`place_sheet_geometry`'s `execute_compiled_plan` loop) came out invisible. Narrowed further — placing two dimensions back-to-back reproducibly leaves the **first** invisible while the **second** renders fine, regardless of which zone/coordinates. Root cause: `ExecPlaceDimension` fetched the shared *named* `DimensionStyle` object (`ActiveDesignFile.DimensionStyles(styleName)`), mutated `ShowSecondaryText = False`, assigned it to the new `DimensionElement` (by reference, not a snapshot), then immediately restored `ShowSecondaryText` back to its original value on that same shared object. `oDim.Rewrite` does not synchronously bake in the dimension's arrow/text/witness-line sub-geometry — MicroStation defers that to redraw time — so a second dimension's own mutate-then-restore cycle on the identical shared style object, landing before the first dimension's real geometry got computed, left the first with an empty/degenerate cached geometry that no later view-level redraw (`UPDATE_VIEW_EXTENDED`, confirmed tested) could fix.
+Root-caused live via isolation testing: a single `place_dimension` MCP call always rendered correctly; the exact same coordinates placed as part of a multi-dimension batch (`place_sheet_geometry`'s `execute_compiled_plan` loop) came out invisible. Narrowed further ? placing two dimensions back-to-back reproducibly leaves the **first** invisible while the **second** renders fine, regardless of which zone/coordinates. Root cause: `ExecPlaceDimension` fetched the shared *named* `DimensionStyle` object (`ActiveDesignFile.DimensionStyles(styleName)`), mutated `ShowSecondaryText = False`, assigned it to the new `DimensionElement` (by reference, not a snapshot), then immediately restored `ShowSecondaryText` back to its original value on that same shared object. `oDim.Rewrite` does not synchronously bake in the dimension's arrow/text/witness-line sub-geometry ? MicroStation defers that to redraw time ? so a second dimension's own mutate-then-restore cycle on the identical shared style object, landing before the first dimension's real geometry got computed, left the first with an empty/degenerate cached geometry that no later view-level redraw (`UPDATE_VIEW_EXTENDED`, confirmed tested) could fix.
 
-Fix: stopped restoring `ShowSecondaryText` after assignment — leave the named style at `ShowSecondaryText = False` permanently, since every dimension this function places wants single-line text anyway. Verified live: 2 rapid-fire dimensions, then all 8 real 619-311 dimensions placed back-to-back via the real batch path, then a fresh pair after cleaning up the temporary comments — all render correctly every time. A `View.Redraw`-after-`Rewrite` fix attempt was tried first and did **not** work (kept as a ruled-out lead here, not in the code). Side effect: manually-placed `ny_Plan` dimensions elsewhere in this DGN (or others sharing the style table) will now also default to single-line text — consistent with what this codebase always wanted from `ny_Plan` dimensions, not a new behavior change to flag to the engineer as a regression.
+Fix: stopped restoring `ShowSecondaryText` after assignment ? leave the named style at `ShowSecondaryText = False` permanently, since every dimension this function places wants single-line text anyway. Verified live: 2 rapid-fire dimensions, then all 8 real 619-311 dimensions placed back-to-back via the real batch path, then a fresh pair after cleaning up the temporary comments ? all render correctly every time. A `View.Redraw`-after-`Rewrite` fix attempt was tried first and did **not** work (kept as a ruled-out lead here, not in the code). Side effect: manually-placed `ny_Plan` dimensions elsewhere in this DGN (or others sharing the style table) will now also default to single-line text ? consistent with what this codebase always wanted from `ny_Plan` dimensions, not a new behavior change to flag to the engineer as a regression.
 
-Also hit and resolved along the way: hot-reloading `WZTCExec.bas` (required twice for this fix) resets VBA project state including `AlignmentTool`'s in-memory alignment tracking, even though the drawn alignment LINE elements survive on disk/in the model — `place_sheet_geometry` then fails with `ALIGNMENT_NOT_READY`. Fix is `adopt_alignment(align_idx, element_id)` for each alignment (found the real element IDs via `Bridge/wztc-journal.tsv`'s `COMMIT_ALIGNMENT` request/response pairs for this session), not redrawing — matches the tool's own error message guidance.
+Also hit and resolved along the way: hot-reloading `WZTCExec.bas` (required twice for this fix) resets VBA project state including `AlignmentTool`'s in-memory alignment tracking, even though the drawn alignment LINE elements survive on disk/in the model ? `place_sheet_geometry` then fails with `ALIGNMENT_NOT_READY`. Fix is `adopt_alignment(align_idx, element_id)` for each alignment (found the real element IDs via `Bridge/wztc-journal.tsv`'s `COMMIT_ALIGNMENT` request/response pairs for this session), not redrawing ? matches the tool's own error message guidance.
 
 ## 2026-08-09 -- Cursor -- Visual QA vision+panel + implement-all rule
 
-Closed the two should-fix gaps fully: (1) `run_visual_qa_captures` / `run_sheet_build` now durable-copy frames to `Bridge/captures/qa_*.png`, lift `captures` to the tool result, and `chat_driver._wrap_op` attaches them as Anthropic vision blocks + panel `SCREENSHOT` via `_vision_blocks_for_qa_captures` (previously paths-only so visualQaPassed without eyes). (2) Chat prompts/rules/MAX_TOOL/wztc_ops notes no longer tell the agent to call `capture_view` (MCP-only); chat uses `view_drawing` / scripted QA. Added `.cursor/rules/implement-all.mdc` (alwaysApply) + matching `CLAUDE.md` section: when engineer says implement/fix all, finish every item wired+verified � no short-win batching. Tests: `tests/test_visual_qa_vision.py`. Driver restarted.
+Closed the two should-fix gaps fully: (1) `run_visual_qa_captures` / `run_sheet_build` now durable-copy frames to `Bridge/captures/qa_*.png`, lift `captures` to the tool result, and `chat_driver._wrap_op` attaches them as Anthropic vision blocks + panel `SCREENSHOT` via `_vision_blocks_for_qa_captures` (previously paths-only so visualQaPassed without eyes). (2) Chat prompts/rules/MAX_TOOL/wztc_ops notes no longer tell the agent to call `capture_view` (MCP-only); chat uses `view_drawing` / scripted QA. Added `.cursor/rules/implement-all.mdc` (alwaysApply) + matching `CLAUDE.md` section: when engineer says implement/fix all, finish every item wired+verified ? no short-win batching. Tests: `tests/test_visual_qa_vision.py`. Driver restarted.
 
 ## 2026-08-09 -- Cursor -- Harness soft gaps: geometry-faithful, sandbox, playbooks, P0 history
 
-Implemented the remaining harness list (implement-all rule): (1) `sheet_geometry_faithful.py` + scorecard wiring � tip/mid/xy drift, duplicate signs, kind flood; registry stores geom extras on place; `visual_qa_prechecks` runs `check_automated_visual_rules`. (2) Visual QA less model-only � automated rules gate `visual_qa_passed` before frames. (3) KEEP/REVERT sandbox � `sheet_sandbox.py` + `begin_sheet_sandbox` / `run_sheet_build_sandbox` / `keep_sheet_sandbox` / `revert_sheet_sandbox` (offset Y band; does not wipe kept corridor). (4) Playbooks for all plan sheets � `scripts/generate_sheet_build_guides.py` created 60 stubs + `buildGuide` pointers (61 total incl. hand-authored 311); referenceLibrary skipped. (5) General CAD left prompt-shaped on purpose. (6) HARNESS_P0 � `chat_history.harness_preflight_or_clear` at `run_turn` start clears still-broken history instead of 400-loop nudges. Tools on chat_driver + server; tests `test_harness_geometry_sandbox.py`; driver restarted.
+Implemented the remaining harness list (implement-all rule): (1) `sheet_geometry_faithful.py` + scorecard wiring ? tip/mid/xy drift, duplicate signs, kind flood; registry stores geom extras on place; `visual_qa_prechecks` runs `check_automated_visual_rules`. (2) Visual QA less model-only ? automated rules gate `visual_qa_passed` before frames. (3) KEEP/REVERT sandbox ? `sheet_sandbox.py` + `begin_sheet_sandbox` / `run_sheet_build_sandbox` / `keep_sheet_sandbox` / `revert_sheet_sandbox` (offset Y band; does not wipe kept corridor). (4) Playbooks for all plan sheets ? `scripts/generate_sheet_build_guides.py` created 60 stubs + `buildGuide` pointers (61 total incl. hand-authored 311); referenceLibrary skipped. (5) General CAD left prompt-shaped on purpose. (6) HARNESS_P0 ? `chat_history.harness_preflight_or_clear` at `run_turn` start clears still-broken history instead of 400-loop nudges. Tools on chat_driver + server; tests `test_harness_geometry_sandbox.py`; driver restarted.
 
 ## 2026-08-10 -- Claude Code -- engineer QA on the 619-311 build: 3 more real defects found + fixed (duplicate cones, silent G20 label loss, arrow panel not sign-styled)
 
@@ -1657,7 +1657,7 @@ Verified Y=296000: G20 hole color 240; downstream cones Y 296012/296000/295988; 
 
 ## 2026-08-10 -- Cursor -- documented 619-311 QA fixes in JSON/playbook + sheet-spec-sync rule
 
-Encoded the live 2026-08-10 engineer QA fixes into `Data/sheet-specs/619-311.json` (G20 `labelNote`/`faceSymbologyNote`, arrowPanel `mountingStyleNote` tip-base + no TWZSGN_P, channelizing `fillMode:0`, `downstreamRun` diagonal note) and `619-311.build.md` (signs/symbols section + Do-not rows). Added alwaysApply `.cursor/rules/sheet-spec-sync.mdc` and mirrored in `CLAUDE.md` / hardened `sheet-first-qa.mdc`: after every named-sheet fix, update JSON + build.md + agent-log in the same effort — the WZTC agent loads `buildGuide` and will miss chat-only tips.
+Encoded the live 2026-08-10 engineer QA fixes into `Data/sheet-specs/619-311.json` (G20 `labelNote`/`faceSymbologyNote`, arrowPanel `mountingStyleNote` tip-base + no TWZSGN_P, channelizing `fillMode:0`, `downstreamRun` diagonal note) and `619-311.build.md` (signs/symbols section + Do-not rows). Added alwaysApply `.cursor/rules/sheet-spec-sync.mdc` and mirrored in `CLAUDE.md` / hardened `sheet-first-qa.mdc`: after every named-sheet fix, update JSON + build.md + agent-log in the same effort ? the WZTC agent loads `buildGuide` and will miss chat-only tips.
 
 ## 2026-08-10 -- Cursor -- place_lane_highway wired for WZTC chat agent
 
@@ -1669,10 +1669,10 @@ Same general-CAD idea as `place_lane_highway`, for undivided two-way roads. Geom
 
 ## 2026-08-10 -- Cursor -- road strip catalog: divided + TWLT + shoulders
 
-Sheet inventory (`geometry.crossSection` / registry `roadType`) showed five recurring corridors beyond one-way/two-way: undivided�shoulders (311), divided+median (302), TWLT (312/412), ramps/gore, intersections. Built the next strip tools (general CAD, same Default/weight0 / 10-30 dash / yellow via `resolve_color`):
+Sheet inventory (`geometry.crossSection` / registry `roadType`) showed five recurring corridors beyond one-way/two-way: undivided?shoulders (311), divided+median (302), TWLT (312/412), ramps/gore, intersections. Built the next strip tools (general CAD, same Default/weight0 / 10-30 dash / yellow via `resolve_color`):
 
-- `place_divided_highway(lanes_per_direction, median_width_ft, �)` � dual carriageway, yellow median edges + empty median gap (302-style).
-- `place_twlt_highway(lanes_per_direction, twlt_width_ft, �)` � center turn lane bounded by dashed yellow (312-style); do not use two-way for TWLT.
+- `place_divided_highway(lanes_per_direction, median_width_ft, ?)` ? dual carriageway, yellow median edges + empty median gap (302-style).
+- `place_twlt_highway(lanes_per_direction, twlt_width_ft, ?)` ? center turn lane bounded by dashed yellow (312-style); do not use two-way for TWLT.
 - Optional `shoulder_width_ft` on all strip tools (solid white EOP outside travel outers).
 
 Geometry in `lane_highway.py`; shared placer `_place_road_line_segments` in `wztc_ops`; MCP + `chat_driver` + catalog prompt in `prompts.py`. Intersections/ramp-gore deferred (prompt says ask). Tests 18 pass; live smoke divided 3+3@Y=293600 and TWLT@Y=293400 OK; driver PID 50220.
@@ -1681,16 +1681,16 @@ Geometry in `lane_highway.py`; shared placer `_place_road_line_segments` in `wzt
 
 Second batch of general-CAD roadway topology (after strip catalog). New `mcp-server/road_junctions.py`:
 
-- `place_orthogonal_intersection` � + or T; primary strip through junction; secondary stubs start outside primary pavement (travel+shoulder); arm types reuse `one_way|two_way|divided|twlt` via `build_strip_lines` / `travel_width_ft` in `lane_highway.py`.
-- `place_ramp_gore` � mainline one-way + diverging ramp; nose on ramp-side outer edge at `gore_station_ft`; optional solid white gore V (`gore_mark_ft`).
+- `place_orthogonal_intersection` ? + or T; primary strip through junction; secondary stubs start outside primary pavement (travel+shoulder); arm types reuse `one_way|two_way|divided|twlt` via `build_strip_lines` / `travel_width_ft` in `lane_highway.py`.
+- `place_ramp_gore` ? mainline one-way + diverging ramp; nose on ramp-side outer edge at `gore_station_ft`; optional solid white gore V (`gore_mark_ft`).
 
-Wired MCP + `chat_driver` + prompt catalog (replaces �not in catalog yet�). Tests `tests/test_road_junctions.py` + prior strip tests = 25 pass. Live smoke: plus @ (23800,293200), tee @ (24100,293200), gore nose (23390,292964). Driver PID 9384. Out of scope still: curb radii, crosswalks, gore chevrons.
+Wired MCP + `chat_driver` + prompt catalog (replaces ?not in catalog yet?). Tests `tests/test_road_junctions.py` + prior strip tests = 25 pass. Live smoke: plus @ (23800,293200), tee @ (24100,293200), gore nose (23390,292964). Driver PID 9384. Out of scope still: curb radii, crosswalks, gore chevrons.
 
 ## 2026-08-10 -- Cursor -- intersection MUTCD box striping (gap + stop/crosswalk + dotted)
 
 Engineer flagged continuous corridor striping through junctions as wrong. Reworked `orthogonal_intersection_lines` / `place_orthogonal_intersection` to MUTCD 3B.11 / 685-style sketch rules:
 
-1. Approach arms **gap** at the intersection box (primary split into `primary_neg`/`primary_pos`; stubs leave mark depth clear) � no solid edge/center through intersecting approaches.
+1. Approach arms **gap** at the intersection box (primary split into `primary_neg`/`primary_pos`; stubs leave mark depth clear) ? no solid edge/center through intersecting approaches.
 2. Defaults **ON**: transverse white **crosswalk** (8 ft pair) + **stop bar** (4 ft beyond) on every approach (both primary sides + all stubs).
 3. **Dotted yellow center extensions** (2/4) through the box when `has_turning_lanes=True`, or auto when either arm is `twlt`.
 
@@ -1709,13 +1709,13 @@ Live smoke @ (23800,292500): yellow_inside_stop_zone=0; stub edges at box; 10 ar
 
 ## 2026-08-10 -- Cursor -- any-library cell find + place (general + WZTC)
 
-Gap: agent could `attach_cell_library`/`list_cells` but `place_cell` was WZTC-mode only, and there was no cross-library search � so ''place a gas meter'' was not a wired path.
+Gap: agent could `attach_cell_library`/`list_cells` but `place_cell` was WZTC-mode only, and there was no cross-library search ? so ''place a gas meter'' was not a wired path.
 
 Shipped:
-- `list_cell_libraries` � lists `c:\pwworking\usny\d0119091\*.cel`
-- `find_cell(query=�)` � scans name+description across those libs (restores prior attach); live: `gas meter` ? `UGM` in `ny_plan_utility.cel`
+- `list_cell_libraries` ? lists `c:\pwworking\usny\d0119091\*.cel`
+- `find_cell(query=?)` ? scans name+description across those libs (restores prior attach); live: `gas meter` ? `UGM` in `ny_plan_utility.cel`
 - `place_cell(..., library_path=)` already existed (VBA `libraryPath`); moved `place_cell` into `_BASE_OP_NAMES` so **general** mode can place too (`place_cell_on_post` stays WZTC)
-- Prompt: find_cell ? place_cell(library_path=�); MUTCD faces still `place_sign`
+- Prompt: find_cell ? place_cell(library_path=?); MUTCD faces still `place_sign`
 
 Tests `tests/test_cell_libraries.py`; smoke placed UGM; driver restarted.
 
@@ -1736,14 +1736,14 @@ Engineer clarified lane math: dedicated SAL/SAR+SLONLY only when lanes_in > lane
 Fix in `road_junctions`:
 - Approach centers from centerline toward **right** of travel (US), past yellow/median/TWLT clearance; one-way still full-width left-to-right.
 - `_shared_through_cells` + `_allowed_turns_for_arm` (plus = L/S/R; tee stub = L+R only; primary tee = straight + turn toward stub).
-- No triple-head cell in `ny_plan_striping.cel` � single-lane L/S/R emits stacked SALS+SARS.
+- No triple-head cell in `ny_plan_striping.cel` ? single-lane L/S/R emits stacked SALS+SARS.
 - SLONLY only on dedicated pockets; through lanes lose that turn once a pocket exists.
 
 Live smoke @ (27000,291200) 2+2 shared; (27500,291200) 3+3; (28000,291200) 3?2 dedicated. Tests 15 pass. Driver restarted.
 
 ## 2026-08-10 -- Cursor -- arrow facing confirmed via bbox (not vision)
 
-Capture-vision repeatedly claimed tips faced away; element bbox vs cell origin proves SAS tip follows ACTIVE ANGLE with **0 = +Y**, **-90/+270 = +X**. Formula stays `atan2(-travel_x, travel_y)` (no +180 � that made west tips face away). Real facing bug was RH-lane placement (arrows sat in opposing two-way half). Shared SALS/SAS/SARS math + dedicated ONLY kept. Engineer should QA fresh smokes at (30000 / 30450 / 30900, 291200), not older junctions.
+Capture-vision repeatedly claimed tips faced away; element bbox vs cell origin proves SAS tip follows ACTIVE ANGLE with **0 = +Y**, **-90/+270 = +X**. Formula stays `atan2(-travel_x, travel_y)` (no +180 ? that made west tips face away). Real facing bug was RH-lane placement (arrows sat in opposing two-way half). Shared SALS/SAS/SARS math + dedicated ONLY kept. Engineer should QA fresh smokes at (30000 / 30450 / 30900, 291200), not older junctions.
 
 ## 2026-08-10 -- Cursor -- LSR overlap, tip-at-origin angle, ONLY spacing, 3?2 asymmetric strip
 
@@ -1757,7 +1757,7 @@ Live smoke @ (32000,291200) shared; (32500,291200) 3?2. Tests 33 pass. Driver re
 
 ## 2026-08-10 -- Cursor -- restore tip angles; fix 3-into/2-after strip orientation
 
-Engineer: global 180 flip inverted every arrow (tips away from stop bar). Restored `atan2(-tx, ty)` on **all** arms (west -90 / east 90 / south 0 / north 180). South-only +180 also pointed tips away � removed.
+Engineer: global 180 flip inverted every arrow (tips away from stop bar). Restored `atan2(-tx, ty)` on **all** arms (west -90 / east 90 / south 0 / north 180). South-only +180 also pointed tips away ? removed.
 
 3?2 strip: `_first_edge_from_centerline` paints the left-of-corridor pack first (= away). Build `lanes_first=out + median_first`, `lanes_second=toward` so EB on west is 3 into the box and 2 after on the east (verified: south dash rows=2, north=1 on primary_neg).
 
@@ -1767,7 +1767,7 @@ Live smoke @ (35000 / 35500, 291200). Tests 16 pass.
 
 Demo only (not wired into permanent compile/agent path): full 619-311 on a striped 4-lane + 8 ft shoulder corridor at Yc=290200, X=32000..36000. Designer locks: eastbound right (south of yellow), Urban, 55 mph, WA 100 ft at X 34500?34600 on lane line Y=290187. `half_len=20` (12+8) so posts tip at outer EOP.
 
-Gotchas: Align1 stations increase upstream (west); `outward_sign=-1` hatches **north**/left lane; EB right needs `outward_sign=+1`. `clear_plan_elements` / `assemble_corridor(force=True)` deletes journal-owned `place_polyline` striping � place corridor **after** the sheet build. Scorecard passed; NYW8-33 still DEFERRED (vehicle-mounted). Helper: `scripts/build_619311_on_real_road.py`. Tips in `619-311.json` / `619-311.build.md`.
+Gotchas: Align1 stations increase upstream (west); `outward_sign=-1` hatches **north**/left lane; EB right needs `outward_sign=+1`. `clear_plan_elements` / `assemble_corridor(force=True)` deletes journal-owned `place_polyline` striping ? place corridor **after** the sheet build. Scorecard passed; NYW8-33 still DEFERRED (vehicle-mounted). Helper: `scripts/build_619311_on_real_road.py`. Tips in `619-311.json` / `619-311.build.md`.
 
 ## 2026-08-10 -- Cursor -- wire Cursor build-verify-fix into WZTC agent
 
@@ -1777,13 +1777,13 @@ Shipped `resolve_sheet_lateral` (locks `outward_sign` / `half_len` from travel u
 
 ## 2026-08-10 -- Cursor -- fix 619-311 channelizing lateral (real-road Y)
 
-Engineer QA: cones through middle of road, signs/PV/WA wrong in Y; X OK. Root cause: `assemble_corridor`/hatch put Align1 on the **left edge of the closed lane** (channelizing line), but `compile_channelizing` still used longitudinal offset=+lane_width (fog-line) and lane-taper tip at offset 0 � backwards for that align contract.
+Engineer QA: cones through middle of road, signs/PV/WA wrong in Y; X OK. Root cause: `assemble_corridor`/hatch put Align1 on the **left edge of the closed lane** (channelizing line), but `compile_channelizing` still used longitudinal offset=+lane_width (fog-line) and lane-taper tip at offset 0 ? backwards for that align contract.
 
 Fix in `sheet_compile.compile_channelizing`: longitudinal offset 0; lane taper tip=+lane (outer travel) toe=0; shoulder +lane ? +lane+shoulder (EOP); Align2 downstream 0 ? -lane. AP `tip_half_len_ft` from locked lateral. Rebuild script lane line Y=290188. Tests `test_channelizing_lateral`. Sheet JSON/playbook Do-not updated.
 
 ## 2026-08-10 -- Cursor -- real-road 619-311 wrong half (two_way first edge)
 
-Engineer: rebuild still looked like cones through the middle. Root cause: `place_two_way_highway(x1,y1,�)` is the **north travel outer**, not yellow center. Script used `Yc-12` as align ? north (WB) dash. EB right dash is `Y_north_outer - (2*lane + yellow_gap + lane)` (= -38). Clean rebuild at north-outer 289200 / lane line 289162 / hatch 289142�289162; posts ~289138. Captures `qa_311_v2_*.png`. Look at Y~289175, not old 290200 band.
+Engineer: rebuild still looked like cones through the middle. Root cause: `place_two_way_highway(x1,y1,?)` is the **north travel outer**, not yellow center. Script used `Yc-12` as align ? north (WB) dash. EB right dash is `Y_north_outer - (2*lane + yellow_gap + lane)` (= -38). Clean rebuild at north-outer 289200 / lane line 289162 / hatch 289142?289162; posts ~289138. Captures `qa_311_v2_*.png`. Look at Y~289175, not old 290200 band.
 
 ## 2026-08-10 -- Cursor -- 619-311 polish: one AP, G20 opposite, drop guides
 
@@ -1793,10 +1793,98 @@ Fixes in `wztc_ops`: `place_sheet_geometry` places arrowPanel once; G20 tip uses
 
 ## 2026-08-10 -- Cursor -- G20 closed shoulder + wire full real-road 619-311 path
 
-Engineer correction: G20-2 stays on the **same** closed-shoulder roadside as W20s (south EOP for EB right) � not opposite. Root cause of wrong tip was Align2 tan flipping `_outward_unit`; fix locks `closed_outward` from `resolve_sheet_lateral` and applies it to all one-side signs in `_place_locked_signs_from_stations`.
+Engineer correction: G20-2 stays on the **same** closed-shoulder roadside as W20s (south EOP for EB right) ? not opposite. Root cause of wrong tip was Align2 tan flipping `_outward_unit`; fix locks `closed_outward` from `resolve_sheet_lateral` and applies it to all one-side signs in `_place_locked_signs_from_stations`.
 
 Agent wiring: playbook Preferred path has real-road combo steps 10-12 (re-place striping, `delete_construction_guides`); `run_sheet_build` auto-runs guide cleanup when `real_road_edge`; plan complete `nextTool` = `delete_construction_guides`; prompts CONTROL-LOOP + sheet JSON `roadside: closed`. Tests resolve/plan_workflow updated.
 
 ## 2026-08-10 -- Cursor -- live WZTC agent full 619-311 run + lockedSignRows skip fix
 
-Ran real chat agent on full real-road 619-311 (Y north-outer 287200). Turn 1 followed playbook (resolve ? run_sheet_build ? striping) but `phases.signs skipped=True` because stale `sheet-plan.json` had `order_table_built` with empty `lockedSignRows` � vacuous checklist treated signs as done. Fixed: `stage_done` requires roadside signs for sheets with `signs.items`; `run_sheet_build` auto-rebuilds order table when lock empty; load clears bogus order_table_built; prompt warns against post-scorecard `find_elements_near` fishing. Continue turn placed all 4 signs (G20 tip Y=287142 south). Driver `--force` mid-`run_sheet_build` orphaned TOOL_RESULT � finished guides/corridor outside panel. Agent API cost ~$2.93 for the monitored turns.
+Ran real chat agent on full real-road 619-311 (Y north-outer 287200). Turn 1 followed playbook (resolve ? run_sheet_build ? striping) but `phases.signs skipped=True` because stale `sheet-plan.json` had `order_table_built` with empty `lockedSignRows` ? vacuous checklist treated signs as done. Fixed: `stage_done` requires roadside signs for sheets with `signs.items`; `run_sheet_build` auto-rebuilds order table when lock empty; load clears bogus order_table_built; prompt warns against post-scorecard `find_elements_near` fishing. Continue turn placed all 4 signs (G20 tip Y=287142 south). Driver `--force` mid-`run_sheet_build` orphaned TOOL_RESULT ? finished guides/corridor outside panel. Agent API cost ~$2.93 for the monitored turns.
+
+## 2026-08-13 -- Cursor -- curved/S polyline road striping for all highway types
+
+Catalog strip tools were straight-only `(x1,y1)->(x2,y2)`. Added optional `vertices=[[x,y],...]` on `lane_highway_*` / `two_way` / `divided` / `twlt` / `asymmetric` / `build_strip_lines` and `place_*` + `place_ramp_gore` (curved mainline, straight ramp from local tangent). Path offset uses `alignment_geometry.station_to_xy` local normals; solids densify to multi-point polylines; `_place_road_line_segments` honors `seg['vertices']`. Straight 2-pt path keeps the old exact geometry. Prompts updated. Tests: 41 pass in `test_lane_highway` + `test_road_junctions`. Live smoke `scripts/smoke_curved_highways.py` needs MicroStation (none running when tried). Orthogonal intersections stay straight-arm sketches ? place curved approaches as separate strips.
+
+## 2026-08-13 -- Cursor -- curved road corner bowties (overlapping lines)
+
+Live S-curve striping overlapped at bends. Root cause: densified offset samples used discontinuous per-segment normals across corners, so the solid polyline backtracked (dot~-1) and looked like double lines. Fix in `lane_highway._miter_offset_vertices`: miter joins for solids; dashes placed per straight leg. Cleared old smoke (fence delete 141) and re-placed. Tests include `test_s_curve_no_backtrack_bowties` (42 pass).
+
+## 2026-08-13 -- Cursor -- curved striping corner overlaps (final)
+
+Overlaps at S-bends had three failed approaches: densify-across-corners (backtrack), unlimited miter (spikes into lanes), bevel joins (Z artifacts), naive per-leg (concave legs cross). Final: `_offset_leg_specs` places each straight leg with constant normal and **clips only concave/inside joins** to the offset-line intersection; convex corners keep a small gap. Re-placed smoke band; `test_s_curve_no_crossing_solid_legs` + 42 tests pass.
+
+## 2026-08-13 -- Cursor -- filleted continuous curved striping
+
+Engineer: no gaps, no overlaps, continuous like a typical curve; space road types farther apart. Final approach: `fillet_polyline_segments` inserts arc fillets at polyline corners (default r=50), then `_continuous_offset_polyline` samples offsets via `station_to_xy` so normals stay continuous through bends. Solids are one multi-point polyline per row; dashes walk that poly. Smoke bands now 300 ft apart at ~(51210, 297900). 44 tests pass.
+
+## 2026-08-13 -- Cursor -- curve-type matrix smoke (all highway types)
+
+Live smoke `scripts/smoke_curve_matrix.py`: 5 path shapes (L-bend, C-curve, gentle-S, reverse-S, hairpin) ? 5 strip tools (one-way, two-way, divided, TWLT, ramp gore) = 25 placements, all OK. Unit test `test_curve_matrix_fillets_and_offsets`. View framed ~(53600, 296940); columns 700 ft apart, road types 280 ft apart within a column.
+
+## 2026-08-13 -- Cursor -- curved 619 sheet corridor (path_vertices)
+
+Sheet builds assumed a straight chord between work-area edge picks. On curved real roads that made Align1/2, hatch, and dim tips ignore the highway bend (signs were already view-horizontal via ACTIVE ANGLE = view rotation ? leave that alone).
+
+Fix: optional `path_vertices` on `assemble_corridor` / `resolve_sheet_lateral` / `run_sheet_build`; densified Align1/2 along the path with approach extension; `PlanSession.work_bay_vertices` ? `compile_hatch` curved boundary; `compile_plan` dim tips use per-station outward. Prompts + `619-311` JSON/playbook updated (pass path_vertices; re-place `place_two_way_highway(vertices=?)` after build; do not rotate signs to tangent). Tests: `tests/test_curved_corridor_compile.py`, curved case in `test_resolve_sheet_lateral`.
+
+## 2026-08-13 -- Cursor -- live 619-311 on curved reverse-S road
+
+Scripted `scripts/build_619311_on_curved_road.py`: Urban 55 / 100 ft WA on a ~5600 ft reverse-S (matrix paths are too short for ~2345 ft approach). `path_vertices` on closed-lane offset edge; `run_sheet_build` OK (curved=True), 4 signs, scorecard pass. Signs view-horizontal; hatch/cones follow bend. First `place_two_way_highway` returned ERROR on solid polylines ? root cause `_continuous_offset_polyline` step_ft=1 produced ~5k-vertex PLACE_POLYLINE TSVs VBA rejected; default step now 10 ft; solids re-placed OK. QA: `Bridge/captures/qa_311_curve_{overview,work,upstream,downstream}.png`. Look ~(64800, 294546).
+
+## 2026-08-13 -- Cursor -- curved dim hug + hatch clip (619-311)
+
+Engineer: dims don't hug curve; hatch is a box outside the lane. Fixes:
+1. `compile_plan` emits `curved` dims with tip-offset `path`; multi-segment alignments always use `place_path_hugging_dimension` (color-2 polyline + sheet length text) instead of Linear Size chords (which measured wrong lengths like 112' vs 120').
+2. `DrawDiagonalHatchLines` clips stripes to the shape polygon (point-in-poly), not the AABB ? bbox stripes made curved workspaces look rectangular.
+3. `compile_hatch` densifies work-bay (~5 ft); `assemble_corridor` stores denser `workBayVertices`.
+4. Live smoke moved to a sharp L-bend (reverse-S was too gentle through the WA). Closed-lane offset for striping demo set to 1?lane (not opposing dash). Look ~(74568, 290052). Script: `scripts/build_619311_on_curved_road.py`.
+
+## 2026-08-13 -- Cursor -- curved 619-311 lateral + dims + signs (QA reject)
+
+Engineer: curved build looked like center-lane closure; hatch bled opposite; dims/labels off; sign assemblies disconnected. Root causes vs known-good `scripts/build_619311_on_real_road.py`:
+1. Demo `CHAN_OFF=LANE` put align on near-yellow dash ? restored `2*L+gap+L` (38) like straight.
+2. Fixed world `closed_outward` from WA-mid broke tips on bends ? `_place_locked_signs_from_stations` now uses local Align1-equivalent outward (`-tan` on Align2).
+3. Path-hugging polyline dims rejected ? back to Linear Size tip-to-tip; `compile_plan` takes `tip_half_len_ft` so tips match real-road half_len=20; Align2 dim/label tips also flip tan.
+Rebuild: `scripts/build_619311_on_curved_road.py` origin ~(76000, 288000).
+
+## 2026-08-13 -- Cursor -- curved dims hug roadside + table lengths
+
+Engineer: dims along the curve cut into the highway and showed wrong lengths (chord measures like ~108'/~45'). Tables for Urban 55 / 12 ft / >=8 ft: Buffer **495'** (311-02), Roll Ahead **120?200'** (311-04, plan emits min 120), Downstream Taper **50?100'** (plan emits min 50), Lane Taper 680', Shoulder Taper 160'. Fix: restore path-hugging dims when tip-path sagitta bows (not for every multi-seg span); tip offset = locked half_len; text = sheet lengthFt. Straight approach spans stay Linear Size. `place_path_hugging_dimension` adds short end ticks. Docs/JSON/playbook updated.
+
+## 2026-08-13 -- Cursor -- curved dims = ny_Plan SizeArrow chain (not polyline)
+
+Engineer: fake polyline+text dims do not match straight 619-311; only the bowed spans on the curve should be curved, and they must still be real dimensions. Restored rule from 2026-08-03: always `ExecPlaceDimension` / `ny_Plan` SizeArrow. Curved spans: chain of those along the tip-offset roadside; mid segment `PrimaryText` OverrideText = sheet/table length (e.g. 495'-0\"); intermediate segments OverrideText=space to hide wrong chord numbers. `overrideText` wired through bridge. Straight spans unchanged (single SizeArrow).
+
+## 2026-08-13 -- Cursor -- curved dim OverrideText (HIDE + late-bind)
+
+After VBA Reset: PrimaryText only compiles late-bound (Object). Intermediate chain segs used OverrideText=space, but `ParseParams` Trim'd TSV values so the blank never arrived ? chord measures (~38') cluttered the curve. Fix: sentinel `HIDE` -> blank PrimaryText; ParseParams skips Trim for `overrideText`. Smoke `scripts/smoke_dim_hide.py` + full `scripts/build_619311_on_curved_road.py` OK (scorecard pass). Look work bay ~(78588, 288033). Early-bound `DimensionElement.PrimaryText` still fails compile on this CONNECT ? do not restore it.
+
+## 2026-08-13 -- Cursor -- curved dims = one Arc Size (not SizeArrow chain)
+
+Engineer: bend dims must be continuous curved (arc-like), same ny_Plan look as straight 619-311; SizeArrow tip-chains (dozens of tips on Buffer) are wrong. Missing piece: MicroStation `msdDimTypeArcSize` (not linear SizeArrow). `ExecPlaceArcSizeDimension` / `PLACE_ARC_SIZE_DIMENSION`: CreateDimensionElement1 ArcSize with refs start + height/offset point + end (2-point+DimHeight alone creates empty dims with no range). `place_path_hugging_dimension` now circle-fits the tip path and places **one** Arc Size + OverrideText; nearly-straight paths stay one SizeArrow. Smoke: element range real. Do not reintroduce multi-segment SizeArrow chains for curved spans.
+
+## 2026-08-13 -- Cursor -- bend dims = ArcElement following the curve
+
+Engineer: dimension must be an ARC that FOLLOWS THE CURVE (not chords, not tip chains, not giant far-side Arc Size). `msdDimTypeArcSize` on this install drew wrong/huge arcs away from the road. Fix: `ExecPlaceCurvedPlanDimension` / `PLACE_CURVED_PLAN_DIMENSION` builds a true `CreateArcElement1` dim-line concentric with the tip arc (signed sweep), plus radial extensions + sheet-length text. `place_path_hugging_dimension` uses that for bowed spans; straight spans stay SizeArrow. Tip path step 10 ft (was 40) so short zones circle-fit. Do not reintroduce SizeArrow tip chains or bare Arc Size for roadside hug.
+
+## 2026-08-13 -- Cursor -- curved dim REQUIREMENTS (do not forget)
+
+Engineer QA on curved 619-311 dims (repeat until all three hold):
+1. Dim line on the bend must be a true ARC that FOLLOWS the roadside (concentric) ? not a chord, not a tip-chain, not a far-side Arc Size sweep.
+2. Must LOOK like straight-sheet ny_Plan SizeArrow: arrowhead TIPS, extension lines, length text, color ? ArcElement-only without tips is NOT done.
+3. Remove leftover bad dims (old SizeArrow chords / tip-chains / failed Arc Size) before rebuild ? clear_plan alone can miss non-journal leftovers; wipe DimensionElements in the work band.
+Documented in Data/sheet-specs/619-311.build.md Do-not row + 619-311.json notes.
+
+## 2026-08-13 -- Cursor -- curved dim tips visible + wipe leftovers
+
+Engineer: arc followed the curve but (a) missing SizeArrow tips vs straight Buffer, (b) leftover bad chord dims still present. Root causes: filled `CreateShapeElement1(...,1)` tips vanish when view Fill is off; wipe only deleted DimensionElements so prior color-2 Arc/Line/Shape curved-plan leftovers stayed. Fix: `PlaceCurvedDimArrowTip` draws always-visible tip fans (dim color 2, ~5 ft ? match SizeArrow scale; oversized white fans looked like leftover bad dims at the Buffer/Roll Ahead junction); `ExecDeleteDimensionElementsInRange` also deletes color-2 arc/line/shape (+ short white tip leftovers); wipe AFTER clear_plan; force_arc keeps mild bows (50') as arcs. Notes reinforced in 619-311 JSON/playbook. Look work bay ~(78588, 288033).
+
+**Engineer ask (keep remembering):** bend dim = ARC that FOLLOWS the curve + must LOOK like straight ny_Plan SizeArrow (tips/extensions/text) + REMOVE leftover bad dims before rebuild ? do not leave chords/tip-chains next to the new arc.
+
+## 2026-08-13 -- Cursor -- why bend dims are graphics, not annotative
+
+Engineer (close, then asked): are we using lines instead of annotative dimensions like the straight ones because there is no annotative curved dimension?
+
+Answer for Claude: **annotative curved dims exist** ? MicroStation `msdDimTypeArcSize` (`PLACE_ARC_SIZE_DIMENSION` / `ExecPlaceArcSizeDimension`). Straight spans are real `DimensionElement` + `ny_Plan` `msdDimTypeSizeArrow`. Arc Size was tried first on this CONNECT install and failed for roadside hug: empty/broken geometry (2 pts) or giant far-side arc. Live bowed spans therefore use constructed `PLACE_CURVED_PLAN_DIMENSION` (`CreateArcElement1` + radial extensions + SizeArrow-scale tip fans + sheet text). That is a fallback, not a missing API. Do not reintroduce SizeArrow tip-chains. Optional next: another Arc Size smoke (point order / DimHeight) if we want a real annotative dim again; otherwise keep constructed arc and only steal SizeArrow terminators at the ends.
+
+Look: work bay ~(78588, 288033); rebuild `scripts/build_619311_on_curved_road.py`.

@@ -372,3 +372,38 @@ def test_ramp_diverges_toward_side():
     nose_y = 0.0 - 24.0
     end_ys = [s["y2"] for s in ramp_edges]
     assert min(end_ys) < nose_y + 1.0
+
+
+def test_ramp_gore_curved_mainline():
+    verts = [
+        [0.0, 100.0],
+        [100.0, 100.0],
+        [200.0, 140.0],
+        [300.0, 140.0],
+    ]
+    segs = ramp_gore_lines(
+        vertices=verts,
+        mainline_lanes=2,
+        ramp_angle_deg=15.0,
+        gore_station_ft=150.0,
+        ramp_length_ft=80.0,
+        ramp_lanes=1,
+        side="right",
+        gore_mark_ft=20.0,
+    )
+    placeable = strip_placeable_segments(segs)
+    arms = {s["arm"] for s in placeable}
+    assert "mainline" in arms and "ramp" in arms
+    main_edges = [
+        s for s in placeable
+        if s.get("arm") == "mainline" and s.get("kind") == "edge" and s.get("style") == "solid"
+    ]
+    assert any(s.get("vertices") for s in main_edges) or any(
+        abs(float(s["x2"]) - float(s["x1"])) > 1.0
+        or abs(float(s["y2"]) - float(s["y1"])) > 1.0
+        for s in main_edges
+    )
+    nose = next(s for s in segs if s["kind"] == "gore_nose")
+    # Nose is on ramp-side outer (off = 24 for 2*12) along the path
+    assert nose["x1"] != 0.0
+    assert 100.0 < nose["x1"] < 300.0

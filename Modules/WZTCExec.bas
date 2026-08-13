@@ -366,8 +366,10 @@ WsError:
     ExecPlaceWorkspace = "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
-' Draw visible 45-deg hatch stripes clipped to shape bbox (WYSIWYG even
-' when view Patterns attribute is off). spacing = perpendicular distance.
+' Draw visible 45-deg hatch stripes CLIPPED TO THE SHAPE POLYGON
+' (not just the axis-aligned bbox). Bbox-only lines spilled outside
+' curved work-area shapes (live 619-311 curved corridor 2026-08-13).
+' spacing = perpendicular distance between stripes.
 Private Function DrawDiagonalHatchLines(shapeEl As Element, spacing As Double, angleDeg As Double) As String
     On Error GoTo DrawErr
     Dim rng As Range3d
@@ -375,6 +377,19 @@ Private Function DrawDiagonalHatchLines(shapeEl As Element, spacing As Double, a
     Dim xmin As Double, xmax As Double, ymin As Double, ymax As Double
     xmin = rng.Low.X: xmax = rng.High.X
     ymin = rng.Low.Y: ymax = rng.High.Y
+
+    Dim vl As VertexList
+    Set vl = shapeEl.AsVertexList
+    If vl Is Nothing Then
+        DrawDiagonalHatchLines = "ERROR:shape has no VertexList"
+        Exit Function
+    End If
+    Dim poly() As Point3d
+    poly = vl.GetVertices()
+    If UBound(poly) < 2 Then
+        DrawDiagonalHatchLines = "ERROR:need >= 3 shape vertices"
+        Exit Function
+    End If
 
     Dim stepC As Double
     stepC = spacing * Sqr(2#)
@@ -426,9 +441,63 @@ Private Function DrawDiagonalHatchLines(shapeEl As Element, spacing As Double, a
                 End If
             Next i
             If keep >= 2 Then
+                nLines = nLines + DrawPolyClippedHatchSeg( _
+                    ux(0), uy(0), ux(1), uy(1), poly, shapeEl, lvl)
+            End If
+        End If
+        cVal = cVal + stepC
+    Loop
+
+    DrawDiagonalHatchLines = "drew " & nLines & " hatch lines clipped to shape (spacing=" & spacing & ")"
+    Exit Function
+DrawErr:
+    DrawDiagonalHatchLines = "ERROR:" & Err.Description
+End Function
+
+' Walk bbox chord in 1-ft steps; emit line segments only while inside poly.
+Private Function DrawPolyClippedHatchSeg(x0 As Double, y0 As Double, _
+                                         x1 As Double, y1 As Double, _
+                                         poly() As Point3d, _
+                                         shapeEl As Element, lvl As Level) As Integer
+    On Error GoTo ClipErr
+    Dim dx As Double, dy As Double, L As Double
+    dx = x1 - x0: dy = y1 - y0
+    L = Sqr(dx * dx + dy * dy)
+    If L < 0.01 Then
+        DrawPolyClippedHatchSeg = 0
+        Exit Function
+    End If
+    Dim stepFt As Double: stepFt = 1#
+    Dim n As Integer: n = Int(L / stepFt)
+    If n < 1 Then n = 1
+    Dim drawn As Integer: drawn = 0
+    Dim runOn As Boolean: runOn = False
+    Dim rx As Double, ry As Double
+    Dim k As Integer
+    For k = 0 To n
+        Dim t As Double: t = CDbl(k) / CDbl(n)
+        Dim px As Double, py As Double
+        px = x0 + dx * t: py = y0 + dy * t
+        Dim inside As Boolean
+        inside = PointInPolygon2D(px, py, poly)
+        If inside And Not runOn Then
+            runOn = True
+            rx = px: ry = py
+        ElseIf (Not inside Or k = n) And runOn Then
+            Dim ex As Double, ey As Double
+            If inside And k = n Then
+                ex = px: ey = py
+            Else
+                ' back one step to last inside sample
+                Dim tPrev As Double
+                tPrev = CDbl(k - 1) / CDbl(n)
+                If tPrev < 0 Then tPrev = 0
+                ex = x0 + dx * tPrev: ey = y0 + dy * tPrev
+            End If
+            If Sqr((ex - rx) * (ex - rx) + (ey - ry) * (ey - ry)) >= 0.5 Then
                 Dim p1 As Point3d, p2 As Point3d
-                p1.X = ux(0): p1.Y = uy(0): p1.Z = 0
-                p2.X = ux(1): p2.Y = uy(1): p2.Z = 0
+                p1.X = rx: p1.Y = ry: p1.Z = 0
+                p2.X = ex: p2.Y = ey: p2.Z = 0
                 Dim ln As LineElement
                 Set ln = CreateLineElement2(Nothing, p1, p2)
                 ln.Color = shapeEl.Color
@@ -436,16 +505,44 @@ Private Function DrawDiagonalHatchLines(shapeEl As Element, spacing As Double, a
                 If Not lvl Is Nothing Then ln.Level = lvl
                 ActiveModelReference.AddElement ln
                 ln.Rewrite
-                nLines = nLines + 1
+                drawn = drawn + 1
             End If
+            runOn = False
         End If
-        cVal = cVal + stepC
-    Loop
-
-    DrawDiagonalHatchLines = "drew " & nLines & " hatch lines (spacing=" & spacing & ")"
+    Next k
+    DrawPolyClippedHatchSeg = drawn
     Exit Function
-DrawErr:
-    DrawDiagonalHatchLines = "ERROR:" & Err.Description
+ClipErr:
+    DrawPolyClippedHatchSeg = 0
+End Function
+
+' Ray-cast point-in-polygon (even-odd). poly may repeat the close vertex.
+Private Function PointInPolygon2D(x As Double, y As Double, poly() As Point3d) As Boolean
+    Dim i As Long, j As Long
+    Dim inside As Boolean: inside = False
+    Dim lo As Long, hi As Long
+    lo = LBound(poly): hi = UBound(poly)
+    If hi - lo < 2 Then
+        PointInPolygon2D = False
+        Exit Function
+    End If
+    ' Drop duplicate closing vertex if present
+    If Abs(poly(lo).X - poly(hi).X) < 0.000001 And Abs(poly(lo).Y - poly(hi).Y) < 0.000001 Then
+        hi = hi - 1
+    End If
+    j = hi
+    For i = lo To hi
+        Dim xi As Double, yi As Double, xj As Double, yj As Double
+        xi = poly(i).X: yi = poly(i).Y
+        xj = poly(j).X: yj = poly(j).Y
+        If ((yi > y) <> (yj > y)) Then
+            Dim xInt As Double
+            xInt = (xj - xi) * (y - yi) / (yj - yi + 0.0000000001) + xi
+            If x < xInt Then inside = Not inside
+        End If
+        j = i
+    Next i
+    PointInPolygon2D = inside
 End Function
 
 ' ============================================================
@@ -579,7 +676,8 @@ Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
                                    x2 As Double, y2 As Double, _
                                    ox As Double, oy As Double, _
                                    Optional z As Double = 0, _
-                                   Optional styleName As String = "ny_Plan") As String
+                                   Optional styleName As String = "ny_Plan", _
+                                   Optional overrideText As String = "") As String
     On Error GoTo DimErr
 
     Dim dx As Double, dy As Double, L As Double
@@ -653,6 +751,22 @@ Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
     End If
     On Error GoTo DimErr
 
+    ' Sheet-length / hide override for curved tip-path chains. Late-bind via
+    ' Object so CONNECT compile does not require DimensionElement.PrimaryText
+    ' (early-bound member failed compile on this install). Sentinel HIDE (and
+    ' a single space) blank the measured chord on intermediate segments.
+    If Len(overrideText) > 0 Then
+        On Error Resume Next
+        Dim oAsObj As Object
+        Set oAsObj = oDim
+        Dim ot As String
+        ot = overrideText
+        If UCase$(Trim$(ot)) = "HIDE" Or ot = " " Then ot = " "
+        oAsObj.PrimaryText = ot
+        Err.Clear
+        On Error GoTo DimErr
+    End If
+
     oDim.Color = 2
     oDim.LineWeight = 0
     ActiveModelReference.AddElement oDim
@@ -663,11 +777,6 @@ Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
         Exit Function
     End If
 
-    ' DIAGNOSTIC (temporary): styleApplied/styleErr* reveal whether the
-    ' named DimensionStyle actually resolved -- the On Error Resume Next
-    ' above previously swallowed a failed lookup silently, so a dimension
-    ' could render with no style (no arrow terminators/text) with no error
-    ' ever surfacing. Remove once root-caused.
     ExecPlaceDimension = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(oDim.ID)) & vbTab & _
                          "lengthFt=" & Format(L, "0.0") & vbTab & _
                          "style=" & styleName & vbTab & _
@@ -675,11 +784,369 @@ Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
                          "styleApplied=" & IIf(styleApplied, "Y", "N") & vbTab & _
                          "styleErrNum=" & styleErrNum & vbTab & _
                          "styleErrDesc=" & styleErrDesc & vbTab & _
+                         "overrideText=" & overrideText & vbTab & _
                          "note=real DimensionElement (ny_Plan Linear Size)"
     Exit Function
 
 DimErr:
     ExecPlaceDimension = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' PLACE ARC SIZE DIMENSION — one continuous curved DimensionElement
+' (msdDimTypeArcSize) with ny_Plan. Dim line must hug the roadside arc
+' (concentric), not sweep the long way around the circle.
+' (cx,cy)=arc center; (x1,y1)/(x2,y2)=tips; (ox,oy)=point ON the dim arc
+' (defines dim-arc radius). Ref order: center, start, end + DimHeight
+' = radial gap (dimR - tipR). Live 2026-08-13: start/height/end alone
+' drew a giant far-side arc instead of following the bend.
+' ============================================================
+Public Function ExecPlaceArcSizeDimension(cx As Double, cy As Double, _
+                                          x1 As Double, y1 As Double, _
+                                          x2 As Double, y2 As Double, _
+                                          ox As Double, oy As Double, _
+                                          Optional z As Double = 0, _
+                                          Optional styleName As String = "ny_Plan", _
+                                          Optional overrideText As String = "") As String
+    On Error GoTo ArcDimErr
+
+    Dim r1 As Double, r2 As Double, rOff As Double
+    r1 = Sqr((x1 - cx) * (x1 - cx) + (y1 - cy) * (y1 - cy))
+    r2 = Sqr((x2 - cx) * (x2 - cx) + (y2 - cy) * (y2 - cy))
+    rOff = Sqr((ox - cx) * (ox - cx) + (oy - cy) * (oy - cy))
+    If r1 < 0.01 Or r2 < 0.01 Then
+        ExecPlaceArcSizeDimension = "ERROR" & vbTab & "note=arc radius too small"
+        Exit Function
+    End If
+    If rOff < 0.01 Then rOff = r1 + 15#
+
+    Dim rot As Matrix3d
+    rot = Matrix3dIdentity
+
+    Dim oDim As DimensionElement
+    Set oDim = CreateDimensionElement1(Nothing, rot, msdDimTypeArcSize)
+
+    Dim pC As Point3d, p1 As Point3d, p2 As Point3d
+    pC.X = cx: pC.Y = cy: pC.Z = z
+    p1.X = x1: p1.Y = y1: p1.Z = z
+    p2.X = x2: p2.Y = y2: p2.Z = z
+    ' Center + tips. DimHeight = how far the dim arc sits outside the tip arc.
+    oDim.AddReferencePoint ActiveModelReference, pC
+    oDim.AddReferencePoint ActiveModelReference, p1
+    oDim.AddReferencePoint ActiveModelReference, p2
+    oDim.DimHeight = rOff - r1
+
+    On Error Resume Next
+    Dim oStyle As DimensionStyle
+    Dim styleErrNum As Long: styleErrNum = 0
+    Dim styleErrDesc As String: styleErrDesc = ""
+    Set oStyle = ActiveDesignFile.DimensionStyles(styleName)
+    If Err.Number <> 0 Then
+        styleErrNum = Err.Number
+        styleErrDesc = Err.Description
+        Err.Clear
+    End If
+    Dim styleApplied As Boolean: styleApplied = False
+    If Not oStyle Is Nothing Then
+        oStyle.ShowSecondaryText = False
+        Set oDim.DimensionStyle = oStyle
+        If Err.Number = 0 Then styleApplied = True Else styleErrNum = Err.Number: styleErrDesc = Err.Description
+    End If
+    On Error GoTo ArcDimErr
+
+    If Len(overrideText) > 0 Then
+        On Error Resume Next
+        Dim oAsObj As Object
+        Set oAsObj = oDim
+        Dim ot As String
+        ot = overrideText
+        If UCase$(Trim$(ot)) = "HIDE" Or ot = " " Then ot = " "
+        oAsObj.PrimaryText = ot
+        Err.Clear
+        On Error GoTo ArcDimErr
+    End If
+
+    oDim.Color = 2
+    oDim.LineWeight = 0
+    ActiveModelReference.AddElement oDim
+    oDim.Rewrite
+
+    If Not oDim.IsDimensionElement Then
+        ExecPlaceArcSizeDimension = "ERROR" & vbTab & "note=created element is not a DimensionElement"
+        Exit Function
+    End If
+
+    ExecPlaceArcSizeDimension = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(oDim.ID)) & vbTab & _
+                         "radiusFt=" & Format(r1, "0.0") & vbTab & _
+                         "dimRadiusFt=" & Format(rOff, "0.0") & vbTab & _
+                         "style=" & styleName & vbTab & _
+                         "dimType=ArcSize" & vbTab & _
+                         "styleApplied=" & IIf(styleApplied, "Y", "N") & vbTab & _
+                         "styleErrNum=" & styleErrNum & vbTab & _
+                         "styleErrDesc=" & styleErrDesc & vbTab & _
+                         "overrideText=" & overrideText & vbTab & _
+                         "note=real DimensionElement (ny_Plan Arc Size, center+tips)"
+    Exit Function
+
+ArcDimErr:
+    ExecPlaceArcSizeDimension = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' PLACE CURVED PLAN DIMENSION — ArcElement dim-line concentric with the
+' roadside bend + radial extension lines. Dim line FOLLOWS THE CURVE.
+' Returns textX/textY so Python can place sheet-length text.
+' ============================================================
+Public Function ExecPlaceCurvedPlanDimension(cx As Double, cy As Double, _
+                                             x1 As Double, y1 As Double, _
+                                             x2 As Double, y2 As Double, _
+                                             ox As Double, oy As Double, _
+                                             Optional z As Double = 0, _
+                                             Optional overrideText As String = "") As String
+    On Error GoTo CPDErr
+
+    Dim r1 As Double, rOff As Double
+    r1 = Sqr((x1 - cx) * (x1 - cx) + (y1 - cy) * (y1 - cy))
+    rOff = Sqr((ox - cx) * (ox - cx) + (oy - cy) * (oy - cy))
+    If r1 < 0.01 Then
+        ExecPlaceCurvedPlanDimension = "ERROR" & vbTab & "note=arc radius too small"
+        Exit Function
+    End If
+    If rOff < r1 + 1# Then rOff = r1 + 15#
+
+    Dim a1 As Double, a2 As Double, da As Double, amid As Double
+    a1 = Atn2Local(y1 - cy, x1 - cx)
+    a2 = Atn2Local(y2 - cy, x2 - cx)
+    da = a2 - a1
+    Do While da <= -3.14159265358979
+        da = da + 6.28318530717959
+    Loop
+    Do While da > 3.14159265358979
+        da = da - 6.28318530717959
+    Loop
+    If Abs(da) < 0.0001 Then
+        ExecPlaceCurvedPlanDimension = "ERROR" & vbTab & "note=arc sweep too small"
+        Exit Function
+    End If
+    amid = a1 + 0.5 * da
+
+    Dim pC As Point3d, pTip1 As Point3d, pTip2 As Point3d
+    Dim pDim1 As Point3d, pDim2 As Point3d
+    pC.X = cx: pC.Y = cy: pC.Z = z
+    pTip1.X = x1: pTip1.Y = y1: pTip1.Z = z
+    pTip2.X = x2: pTip2.Y = y2: pTip2.Z = z
+    pDim1.X = cx + rOff * Cos(a1): pDim1.Y = cy + rOff * Sin(a1): pDim1.Z = z
+    pDim2.X = cx + rOff * Cos(a2): pDim2.Y = cy + rOff * Sin(a2): pDim2.Z = z
+
+    Dim ids As String: ids = ""
+    Dim oArc As ArcElement
+    ' CreateArcElement1(start, center, end). Prefer the signed roadside sweep.
+    If da >= 0 Then
+        Set oArc = CreateArcElement1(Nothing, pDim1, pC, pDim2)
+    Else
+        Set oArc = CreateArcElement1(Nothing, pDim2, pC, pDim1)
+    End If
+    On Error Resume Next
+    Dim sw As Double: sw = oArc.SweepAngle
+    Err.Clear
+    On Error GoTo CPDErr
+    ' If API took the long way, rebuild with swapped ends.
+    If Abs(Abs(sw) - Abs(da)) > 0.2 And Abs(sw) > 3.14159265358979 Then
+        If da >= 0 Then
+            Set oArc = CreateArcElement1(Nothing, pDim2, pC, pDim1)
+        Else
+            Set oArc = CreateArcElement1(Nothing, pDim1, pC, pDim2)
+        End If
+    End If
+    oArc.Color = 2
+    oArc.LineWeight = 0
+    ActiveModelReference.AddElement oArc
+    oArc.Rewrite
+    ids = CStr(ElIDAsDouble(oArc.ID))
+
+    Dim oL1 As LineElement, oL2 As LineElement
+    Set oL1 = CreateLineElement2(Nothing, pTip1, pDim1)
+    oL1.Color = 2: oL1.LineWeight = 0
+    ActiveModelReference.AddElement oL1: oL1.Rewrite
+    ids = ids & "," & CStr(ElIDAsDouble(oL1.ID))
+
+    Set oL2 = CreateLineElement2(Nothing, pTip2, pDim2)
+    oL2.Color = 2: oL2.LineWeight = 0
+    ActiveModelReference.AddElement oL2: oL2.Rewrite
+    ids = ids & "," & CStr(ElIDAsDouble(oL2.ID))
+
+    ' SizeArrow-like tips (always-visible). Match straight ny_Plan terminator
+    ' scale (~5 ft) and dim color (2) — oversized white fans read as leftover
+    ' bad dims next to Buffer's real SizeArrow tip (engineer QA 2026-08-13).
+    ' Do NOT use FillMode shapes (vanish when view Fill is off).
+    Dim arrLen As Double: arrLen = 5#
+    Dim arrHalf As Double: arrHalf = 1.75
+    Dim sweepSign As Double: sweepSign = 1#
+    If da < 0 Then sweepSign = -1#
+    Dim t1x As Double, t1y As Double, n1x As Double, n1y As Double
+    Dim t2x As Double, t2y As Double, n2x As Double, n2y As Double
+    t1x = sweepSign * (-Sin(a1)): t1y = sweepSign * Cos(a1)
+    n1x = Cos(a1): n1y = Sin(a1)
+    t2x = -sweepSign * (-Sin(a2)): t2y = -sweepSign * Cos(a2)
+    n2x = Cos(a2): n2y = Sin(a2)
+
+    ids = ids & "," & PlaceCurvedDimArrowTip(pDim1.X, pDim1.Y, z, t1x, t1y, n1x, n1y, arrLen, arrHalf)
+    ids = ids & "," & PlaceCurvedDimArrowTip(pDim2.X, pDim2.Y, z, t2x, t2y, n2x, n2y, arrLen, arrHalf)
+
+    Dim txtX As Double, txtY As Double
+    txtX = cx + (rOff + 8#) * Cos(amid)
+    txtY = cy + (rOff + 8#) * Sin(amid)
+
+    ExecPlaceCurvedPlanDimension = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(oArc.ID)) & vbTab & _
+                         "radiusFt=" & Format(r1, "0.0") & vbTab & _
+                         "dimRadiusFt=" & Format(rOff, "0.0") & vbTab & _
+                         "sweepRad=" & Format(da, "0.000") & vbTab & _
+                         "textX=" & Format(txtX, "0.000") & vbTab & _
+                         "textY=" & Format(txtY, "0.000") & vbTab & _
+                         "overrideText=" & overrideText & vbTab & _
+                         "createdElementIds=" & ids & vbTab & _
+                         "note=curved plan dim = ArcElement + radial extensions + SizeArrow-style tips"
+    Exit Function
+
+CPDErr:
+    ExecPlaceCurvedPlanDimension = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Wipe leftover plan dims in bbox before curved rebuild (engineer QA 2026-08-13):
+' - DimensionElements (SizeArrow chords / tip-chains / Arc Size)
+' - Color-2 ArcElement / LineElement / ShapeElement (prior curved-plan arcs,
+'   extensions, tips) — clear_plan alone can miss non-journal leftovers.
+' ============================================================
+Public Function ExecDeleteDimensionElementsInRange(lowX As Double, lowY As Double, _
+                                                   highX As Double, highY As Double) As String
+    On Error GoTo DelDimErr
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+
+    Dim toKill As Collection
+    Set toKill = New Collection
+    Dim el As Element
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        On Error Resume Next
+        Dim isDim As Boolean: isDim = False
+        Dim isArc As Boolean: isArc = False
+        Dim isLn As Boolean: isLn = False
+        Dim isSh As Boolean: isSh = False
+        Dim col As Long: col = -1
+        isDim = el.IsDimensionElement
+        isArc = el.IsArcElement
+        isLn = el.IsLineElement
+        isSh = el.IsShapeElement
+        col = el.Color
+        Err.Clear
+        On Error GoTo DelDimErr
+        Dim hit As Boolean: hit = False
+        If isDim Then
+            hit = True
+        ElseIf col = 2 And (isArc Or isLn Or isSh) Then
+            hit = True
+        ElseIf col = 0 And isLn Then
+            ' Prior white SizeArrow-style tip fans (short 2D strokes).
+            Dim rng0 As Range3d
+            rng0 = el.Range
+            Dim dx0 As Double, dy0 As Double
+            dx0 = rng0.High.X - rng0.Low.X
+            dy0 = rng0.High.Y - rng0.Low.Y
+            If dx0 > 2# And dy0 > 2# And (dx0 * dx0 + dy0 * dy0) < 900# Then
+                hit = True
+            End If
+        End If
+        If hit Then
+            Dim rng As Range3d
+            rng = el.Range
+            If rng.High.X >= lowX And rng.Low.X <= highX And _
+               rng.High.Y >= lowY And rng.Low.Y <= highY Then
+                toKill.Add el
+            End If
+        End If
+    Loop
+
+    Dim i As Integer, n As Integer: n = 0
+    Dim ids As String: ids = ""
+    For i = 1 To toKill.Count
+        Set el = toKill(i)
+        If ids <> "" Then ids = ids & ","
+        ids = ids & CStr(ElIDAsDouble(el.ID))
+        ActiveModelReference.RemoveElement el
+        n = n + 1
+    Next i
+
+    ExecDeleteDimensionElementsInRange = "OK" & vbTab & "deleted=" & n & vbTab & _
+                                         "elementIds=" & ids & vbTab & _
+                                         "note=deleted DimensionElements + color-2 arc/line/shape in range"
+    Exit Function
+DelDimErr:
+    ExecDeleteDimensionElementsInRange = "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+' Always-visible SizeArrow-style tip: dim-color triangle + fan (no FillMode).
+' Returns comma-separated element IDs (no leading comma).
+Private Function PlaceCurvedDimArrowTip(px As Double, py As Double, z As Double, _
+                                        tx As Double, ty As Double, _
+                                        nx As Double, ny As Double, _
+                                        arrLen As Double, arrHalf As Double) As String
+    Dim b1x As Double, b1y As Double, b2x As Double, b2y As Double
+    b1x = px + tx * arrLen + nx * arrHalf
+    b1y = py + ty * arrLen + ny * arrHalf
+    b2x = px + tx * arrLen - nx * arrHalf
+    b2y = py + ty * arrLen - ny * arrHalf
+
+    Dim ids As String: ids = ""
+    Dim oL As LineElement
+    Dim pA As Point3d, pB As Point3d
+    pA.X = px: pA.Y = py: pA.Z = z
+
+    pB.X = b1x: pB.Y = b1y: pB.Z = z
+    Set oL = CreateLineElement2(Nothing, pA, pB)
+    oL.Color = 2: oL.LineWeight = 3
+    ActiveModelReference.AddElement oL: oL.Rewrite
+    ids = CStr(ElIDAsDouble(oL.ID))
+
+    pB.X = b2x: pB.Y = b2y: pB.Z = z
+    Set oL = CreateLineElement2(Nothing, pA, pB)
+    oL.Color = 2: oL.LineWeight = 3
+    ActiveModelReference.AddElement oL: oL.Rewrite
+    ids = ids & "," & CStr(ElIDAsDouble(oL.ID))
+
+    ' No base edge — SizeArrow terminators are pointed, not a flat white bar.
+    Dim k As Integer, t As Double
+    pA.X = px: pA.Y = py: pA.Z = z
+    For k = 1 To 8
+        t = CDbl(k) / 9#
+        pB.X = b1x + (b2x - b1x) * t
+        pB.Y = b1y + (b2y - b1y) * t
+        pB.Z = z
+        Set oL = CreateLineElement2(Nothing, pA, pB)
+        oL.Color = 2: oL.LineWeight = 2
+        ActiveModelReference.AddElement oL: oL.Rewrite
+        ids = ids & "," & CStr(ElIDAsDouble(oL.ID))
+    Next k
+
+    PlaceCurvedDimArrowTip = ids
+End Function
+
+' Atan2 helper (VBA has no Atn2).
+Private Function Atn2Local(y As Double, x As Double) As Double
+    If x > 0 Then
+        Atn2Local = Atn(y / x)
+    ElseIf x < 0 Then
+        If y >= 0 Then Atn2Local = Atn(y / x) + 3.14159265358979 Else Atn2Local = Atn(y / x) - 3.14159265358979
+    Else
+        If y > 0 Then
+            Atn2Local = 3.14159265358979 / 2#
+        ElseIf y < 0 Then
+            Atn2Local = -3.14159265358979 / 2#
+        Else
+            Atn2Local = 0#
+        End If
+    End If
 End Function
 
 Private Function FindNewestElementIdAbove(beforeMaxID As Double) As Double
