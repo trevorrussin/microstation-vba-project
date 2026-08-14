@@ -373,11 +373,15 @@ def _validate_op_names(names: list[str], source_module, label: str) -> None:
 # on top, so an unrelated session doesn't carry WZTC's tool schemas/rules
 # it'll never use).
 _BASE_OP_NAMES = [
-    "find_elements_near", "get_elements_range", "focus_view_on_elements",
+    "find_elements_near", "get_elements_range", "get_element_vertices",
+    "focus_view_on_elements",
     "station_to_point", "get_alignment_stationing",
     "get_alignment_vertices", "get_locked_designer_inputs", "get_plan_status",
+    "propose_corridor_source", "lock_corridor_path",
+    "propose_work_area_on_path", "snap_work_area_to_path",
     "get_placements", "delete_placements",
     "get_geometry_scorecard", "reflect_sheet_build",
+    "check_build_overlap", "get_elements_in_range_box",
     "list_levels", "list_colors", "resolve_color",
     "list_line_styles", "resolve_line_style",
     "cell_library_status", "attach_cell_library", "list_cells",
@@ -422,6 +426,7 @@ _BASE_OP_NAMES = [
 # them.
 _WZTC_OP_NAMES = [
     "compute_spacing", "get_sheet_requirements", "get_sheet_build_guide",
+    "get_required_designer_inputs",
     "resolve_sign_code",
     "place_perp_line", "place_sign", "place_workspace", "place_element_run",
     "place_cell_on_post", "set_sign_attributes",
@@ -689,6 +694,39 @@ _MODE_TOOLS = {
     "wztc": BASE_TOOLS + WZTC_TOOLS,
 }
 
+# Dropped from the prefix while a named 619 sheet plan is active (order
+# table locked). Cuts unused highway-catalog / cell-browse / registry
+# schemas. Keep place_two_way_highway — real-road finish still needs it.
+_PLAN_OMIT_TOOL_NAMES = frozenset({
+    "place_lane_highway",
+    "place_divided_highway",
+    "place_twlt_highway",
+    "place_orthogonal_intersection",
+    "place_ramp_gore",
+    "cell_library_status",
+    "attach_cell_library",
+    "list_cells",
+    "list_cell_libraries",
+    "find_cell",
+    "list_registry_commands",
+    "describe_registry_command",
+    "run_registry_command",
+})
+
+
+def _tool_registered_name(tool) -> str:
+    if isinstance(tool, dict):
+        return str(tool.get("name") or "")
+    return str(getattr(tool, "__name__", "") or getattr(tool, "name", "") or "")
+
+
+def tools_for_turn() -> list:
+    """Tools for this API round-trip. Omit unused catalogs when a sheet plan is active."""
+    tools = list(_MODE_TOOLS[_SESSION.mode])
+    if _SESSION.mode == "wztc" and wztc_ops._PLAN_SESSION.sheet_plan_active():
+        tools = [t for t in tools if _tool_registered_name(t) not in _PLAN_OMIT_TOOL_NAMES]
+    return tools
+
 
 def _auto_focus_and_capture() -> None:
     """After a turn touches any elements, pan/zoom the MicroStation view to
@@ -774,7 +812,7 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
         system=[{"type": "text", "text": MODE_SYSTEM_PROMPT[_SESSION.mode], "cache_control": {"type": "ephemeral", "ttl": "1h"}}],
         thinking={"type": "adaptive", "display": "summarized"},
         output_config={"effort": EFFORT},
-        tools=_MODE_TOOLS[_SESSION.mode],
+        tools=tools_for_turn(),
         messages=messages,
         # Clears stale tool_result content (search excerpts, journal dumps --
         # the actual bulky payloads, confirmed the dominant cost driver once

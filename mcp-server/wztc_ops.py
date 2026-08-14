@@ -183,6 +183,121 @@ def get_elements_range(element_ids) -> dict:
     }
 
 
+def get_elements_in_range_box(low_x: float, low_y: float,
+                              high_x: float, high_y: float,
+                              max_rows: int = 1500) -> dict:
+    """Graphical elements whose Range intersects the world AABB.
+
+    Not center-in-box (unlike find_elements_near). AABB is a prefilter.
+    Use check_build_overlap for a verdict."""
+    resp = _ok_or_raise(
+        _bridge.call(
+            "GET_ELEMENTS_IN_RANGE_BOX",
+            lowX=low_x, lowY=low_y, highX=high_x, highY=high_y,
+            maxRows=int(max_rows or 1500)),
+        "get_elements_in_range_box")
+    rows = []
+    truncated = False
+    for r in resp.get("rows") or []:
+        if str(r.get("elementId") or "") == "TRUNCATED":
+            truncated = True
+            continue
+        rows.append(r)
+    return {"status": "OK", "rows": rows, "truncated": truncated, "count": len(rows)}
+
+
+def _overlap_session_kwargs() -> dict:
+    di = _PLAN_SESSION.designer_inputs
+    sheet = di.sheet_num if di else ""
+    path = list(_PLAN_SESSION.corridor_path or [])
+    if not path:
+        path = list((_PLAN_SESSION.work_bay_vertices or []) or [])
+    origin = path[0] if path else [0.0, 0.0]
+    half = float(_PLAN_SESSION.lateral_half_len or 40.0)
+    return {
+        "sheet_num": sheet,
+        "origin": origin[:2],
+        "path_vertices": path,
+        "lateral_half_width": half,
+    }
+
+
+def _model_rows_for_path(path: list) -> list[dict]:
+    import build_overlap as ov
+    bbox = ov.corridor_bbox(path, pad=80.0)
+    if not bbox:
+        return []
+    try:
+        got = get_elements_in_range_box(
+            bbox["lowX"], bbox["lowY"], bbox["highX"], bbox["highY"])
+        return list(got.get("rows") or [])
+    except Exception:
+        return []
+
+
+def check_build_overlap(
+        sheet_num: str = "",
+        origin: list | None = None,
+        path_vertices: list | None = None,
+        lateral_half_width: float = 0.0,
+        sta0: float = 0.0,
+        sta1: float = 0.0,
+        scan_model: bool = True) -> dict:
+    """Caution-not-block overlap check. One tool — do not compose find_near.
+
+    Verdicts: ok | rebuild_same_origin | collision_same_sheet |
+    collision_other_sheet | stacked_duplicates. blocking is always False.
+    """
+    import build_overlap as ov
+    import placement_registry as preg
+    kw = _overlap_session_kwargs()
+    sn = (sheet_num or kw["sheet_num"] or "").strip()
+    path = list(path_vertices or kw["path_vertices"] or [])
+    orig = origin or kw["origin"]
+    half = float(lateral_half_width or kw["lateral_half_width"] or 40.0)
+    model_rows = _model_rows_for_path(path) if scan_model and path else []
+    ignore = set()
+    for r in preg.resolve_latest_placements(sheet_num=sn):
+        for eid in r.get("elementIds") or []:
+            ignore.add(str(eid))
+    caution = ov.classify(
+        sheet_num=sn, origin=orig, path_vertices=path,
+        lateral_half_width=half, sta0=sta0, sta1=sta1,
+        model_rows=model_rows, ignore_ids=ignore)
+    return {"status": "OK", "sheetNum": sn, "overlapCaution": caution}
+
+
+def get_element_vertices(element_id: str) -> dict:
+    """Densified vertices for a line, line-string, arc, or complex chain.
+
+    Use after ask_user_choice(allow_element_pick=True). Returns path_vertices
+    shape [[x,y,z],…] (capped at 80). Bounding-box get_elements_range is
+    not a substitute."""
+    import corridor_path as cp
+    eid = str(element_id or "").strip()
+    if not eid:
+        return {"status": "ERROR", "note": "element_id required"}
+    resp = _ok_or_raise(
+        _bridge.call("GET_ELEMENT_VERTICES", elementId=eid),
+        "get_element_vertices")
+    rows = resp.get("rows") or []
+    raw = []
+    for r in rows:
+        raw.append([float(r["x"]), float(r["y"]), float(r.get("z") or 0)])
+    verts = cp.downsample_polyline(raw)
+    length = cp.polyline_length(verts)
+    return {
+        "status": "OK",
+        "elementId": eid,
+        "vertexCount": len(verts),
+        "lengthFt": round(length, 3),
+        "path_vertices": verts,
+        "start": verts[0] if verts else None,
+        "end": verts[-1] if verts else None,
+        "note": "Pass path_vertices to lock_corridor_path (source=element).",
+    }
+
+
 def station_to_point(align_idx: int, sta: float) -> dict:
     """Resolve a station (ft) along a committed alignment to an (x, y, z)
     point and tangent direction (tanX, tanY). The alignment must already be
@@ -1470,7 +1585,52 @@ def get_sheet_requirements(sheet_num: str) -> dict:
             f"No Data/sheet-specs/{sheet_num}.build.md yet — follow the "
             "JSON spec + prompts; add a .build.md when live tips accumulate."
         )
+    if sheet_spec.has_spec(sheet_num):
+        caution = _highway_caution_for_sheet(sheet_num)
+        resp["highwayKinds"] = caution.get("highwayKinds")
+        resp["highwayRoadway"] = caution.get("roadway")
+        resp["highwayCaution"] = caution
     return resp
+
+
+def get_required_designer_inputs(sheet_num: str = "") -> dict:
+    """Table-driven designer-input ask list from Data/sheet-specs/<sheet>.json.
+
+    Call this BEFORE ask_user_choice for a named 619 sheet. Returns toAsk
+    (with ask_user_choice option payloads from allowed[]), derived fields
+    the spec already determines (cite them; do not re-ask), and locked
+    fields already in this session. Do not invent speed/area_type. Do not
+    offer values outside allowed[] (e.g. 60 mph is not on 619-311)."""
+    sn = (sheet_num or "").strip()
+    locked_raw = _PLAN_SESSION.get_locked_inputs_dict()
+    if not sn:
+        sn = str(locked_raw.get("sheet_num") or "").strip()
+    if not sn:
+        return {
+            "status": "ERROR",
+            "found": False,
+            "note": "sheet_num required (or lock a sheet first)",
+        }
+    spec = sheet_spec.load(sn)
+    if spec is None:
+        return {
+            "status": "ERROR",
+            "found": False,
+            "sheetNum": sn,
+            "note": f"No Data/sheet-specs/{sn}.json — ask from applicability or escalate.",
+        }
+    locked_fields = {}
+    if locked_raw.get("locked"):
+        for k in (
+            "speed", "lane_width", "shoulder_width", "area_type",
+            "exposure_condition", "closure_type", "road_type",
+        ):
+            if k in locked_raw:
+                locked_fields[k] = locked_raw[k]
+    out = sheet_spec.required_designer_inputs(spec, locked_fields)
+    out["found"] = True
+    out["highwayCaution"] = _highway_caution_for_sheet(sn)
+    return out
 
 
 def get_sheet_build_guide(sheet_num: str) -> dict:
@@ -1510,6 +1670,383 @@ def get_sheet_build_guide(sheet_num: str) -> dict:
             "prefs in the JSON; keep human tips here (not only agent-log)."
         ),
     }
+
+
+def _remember_placed_road(
+        *, road_type: str, lanes: int, lane_width_ft: float,
+        shoulder_width_ft: float, yellow_gap_ft: float, side: str,
+        verts, x1: float, y1: float, x2: float, y2: float, length: float,
+) -> None:
+    global _LAST_PLACED_ROAD
+    import corridor_path as cp
+    if verts is not None and len(verts) >= 2:
+        raw = verts
+    else:
+        raw = [[x1, y1], [x2, y2]]
+    path = cp.downsample_polyline(raw)
+    if len(path) < 2:
+        return
+    _LAST_PLACED_ROAD = {
+        "roadType": road_type,
+        "lanes": int(lanes),
+        "laneWidthFt": float(lane_width_ft),
+        "shoulderWidthFt": float(shoulder_width_ft),
+        "yellowGapFt": float(yellow_gap_ft),
+        "side": side,
+        "lengthFt": float(length),
+        "edgeRole": "first_travel_outer",
+        "path_vertices": path,
+    }
+
+
+def _placed_highway_kind() -> str:
+    last = _LAST_PLACED_ROAD or {}
+    return str(last.get("roadType") or last.get("road_type") or "")
+
+
+def _highway_caution_for_sheet(sheet_num: str) -> dict:
+    """Wrong-highway caution for any 619 spec (not 619-311 only)."""
+    spec = sheet_spec.load(sheet_num)
+    if spec is None:
+        return {"mismatch": False, "sheetNum": sheet_num, "note": "no spec"}
+    return sheet_spec.highway_kind_match(spec, _placed_highway_kind())
+
+
+def _record_sheet_build_ledger(path_vertices=None) -> dict:
+    """One ledger row after geometry is down (even if visual QA fails)."""
+    import build_ledger
+    import build_overlap as ov
+    import placement_registry as preg
+    di = _PLAN_SESSION.designer_inputs
+    if di is None:
+        return {}
+    path = list(path_vertices or _PLAN_SESSION.corridor_path or [])
+    origin = path[0][:2] if path else [0.0, 0.0]
+    ids = []
+    for r in preg.resolve_latest_placements(sheet_num=di.sheet_num):
+        ids.extend(str(x) for x in (r.get("elementIds") or []) if str(x).isdigit())
+    nums = [int(x) for x in ids] if ids else []
+    return build_ledger.append_build(
+        sheet_num=di.sheet_num,
+        origin=origin,
+        path_vertices=path,
+        lateral_half_width=float(_PLAN_SESSION.lateral_half_len or 40.0),
+        element_id_min=str(min(nums)) if nums else "",
+        element_id_max=str(max(nums)) if nums else "",
+        bbox=ov.corridor_bbox(path) if path else {},
+    )
+
+
+def _derived_closed_side(sheet_num: str) -> Optional[str]:
+    spec = sheet_spec.load(sheet_num) if sheet_num else None
+    if not spec:
+        return None
+    c = str((spec.get("applicability") or {}).get("closure") or "").lower()
+    if "right" in c:
+        return "right"
+    if "left" in c:
+        return "left"
+    return None
+
+
+def _approach_for_locked_sheet() -> Optional[dict]:
+    import corridor_path as cp
+    di = _PLAN_SESSION.designer_inputs
+    if di is None:
+        return None
+    spec = sheet_spec.load(di.sheet_num)
+    if spec is None:
+        return None
+    try:
+        resolved = sheet_spec.resolve(
+            spec, di.speed, di.lane_width, di.shoulder_width, di.area_type)
+        return cp.sheet_approach_ft(spec, resolved)
+    except Exception:
+        return None
+
+
+def _centerline_offset_ft() -> float:
+    last = _LAST_PLACED_ROAD or {}
+    di = _PLAN_SESSION.designer_inputs
+    lane = float(last.get("laneWidthFt") or (di.lane_width if di else 12) or 12)
+    sh = float(last.get("shoulderWidthFt") or 0)
+    if sh <= 0 and di is not None:
+        b = str(di.shoulder_width or "")
+        if ">=" in b or "8" in b:
+            sh = 8.0
+        elif "5" in b:
+            sh = 6.0
+        elif "4" in b:
+            sh = 4.0
+    yel = float(last.get("yellowGapFt") or 2.0)
+    lanes = int(last.get("lanes") or 4)
+    per_dir = max(1, lanes // 2)
+    return yel / 2.0 + per_dir * lane + sh
+
+
+def propose_corridor_source() -> dict:
+    """Phase B ladder: which roadway to build along. Call after designer inputs."""
+    import corridor_path as cp
+    last = _LAST_PLACED_ROAD
+    options = []
+    if last and last.get("path_vertices"):
+        ln = last.get("lengthFt") or cp.polyline_length(last["path_vertices"])
+        options.append({
+            "label": "The road I just placed (Recommended)",
+            "description": (
+                f"{last.get('lanes')}-lane {last.get('roadType')} "
+                f"{ln:.0f} ft, {len(last['path_vertices'])} vertices. "
+                "Reuse this session's striping (no click)."
+            ),
+            "value": "last_placed",
+            "recommended": True,
+        })
+    options.append({
+        "label": "I'll click the roadway",
+        "description": (
+            "One element pick. Agent calls get_element_vertices. "
+            "If you click yellow centerline, say so — agent offsets to the outer edge."
+        ),
+        "value": "element",
+    })
+    options.append({
+        "label": "Trace it from a level",
+        "description": "find_reference_linework; confirm the longest chain.",
+        "value": "level",
+    })
+    options.append({
+        "label": "I'll click points along it",
+        "description": "Last resort. Click ON the road, not 38 ft off centerline.",
+        "value": "points",
+    })
+    return {
+        "status": "OK",
+        "lastPlacedAvailable": bool(last and last.get("path_vertices")),
+        "askUserChoice": {
+            "question": "Which roadway should I build along?",
+            "options": options,
+        },
+        "note": (
+            "Call lock_corridor_path with source=last_placed|element|level|points. "
+            "Do not ask the engineer to eyeball the closed-lane left edge."
+        ),
+    }
+
+
+def lock_corridor_path(
+        source: str,
+        element_id: str = "",
+        vertices: list | None = None,
+        reverse: bool = False,
+        edge_role: str = "first_travel_outer",
+        level_name_contains: str = "",
+) -> dict:
+    """Lock first-travel-outer path_vertices from the Phase B answer."""
+    import corridor_path as cp
+    src = (source or "").strip().lower()
+    role = (edge_role or "first_travel_outer").strip().lower()
+    pts = None
+    if src == "last_placed":
+        if not _LAST_PLACED_ROAD or not _LAST_PLACED_ROAD.get("path_vertices"):
+            return {"status": "ERROR", "note": "No road placed this session. Pick click/level/points."}
+        pts = list(_LAST_PLACED_ROAD["path_vertices"])
+        role = str(_LAST_PLACED_ROAD.get("edgeRole") or "first_travel_outer")
+    elif src == "element":
+        got = get_element_vertices(element_id)
+        if got.get("status") != "OK":
+            return got
+        pts = got["path_vertices"]
+    elif src == "level":
+        chains = find_reference_linework(level_name_contains)
+        if isinstance(chains, dict) and chains.get("status") == "ERROR":
+            return chains
+        rows = chains if isinstance(chains, list) else []
+        if not rows:
+            return {"status": "ERROR", "note": "No chains on that level. Pick click or points."}
+        if len(rows) > 1:
+            ranked = sorted(rows, key=lambda r: float(r.get("totalLengthFt") or 0), reverse=True)
+            return {
+                "status": "OK",
+                "needsChoice": True,
+                "candidates": [
+                    {
+                        "chainIdx": r.get("chainIdx"),
+                        "lengthFt": r.get("totalLengthFt"),
+                        "vertexCount": r.get("vertexCount"),
+                    }
+                    for r in ranked[:4]
+                ],
+                "note": "Ask which chain. Then lock_corridor_path(source=points, vertices=that chain).",
+            }
+        tsv = rows[0].get("verticesTSV") or ""
+        pts = []
+        for part in tsv.split("|"):
+            nums = [float(x) for x in part.split(",") if x]
+            if len(nums) >= 2:
+                pts.append(nums[:3])
+    elif src == "points":
+        pts = list(vertices or [])
+    else:
+        return {"status": "ERROR", "note": f"unknown source {source!r}"}
+
+    pts = cp.downsample_polyline(pts or [])
+    if len(pts) < 2:
+        return {"status": "ERROR", "note": "Need >= 2 path vertices"}
+    if reverse:
+        pts = cp.reverse_polyline(pts)
+    if role in ("centerline", "center", "yellow"):
+        pts = cp.offset_polyline(pts, _centerline_offset_ft())
+        role = "first_travel_outer"
+
+    length = cp.polyline_length(pts)
+    approach = _approach_for_locked_sheet()
+    check = cp.length_check(length, approach, None) if approach else None
+    closed = None
+    di = _PLAN_SESSION.designer_inputs
+    if di:
+        closed = _derived_closed_side(di.sheet_num)
+    _PLAN_SESSION.corridor_path = pts
+    _PLAN_SESSION.corridor_meta = {
+        "source": src, "edgeRole": role, "lengthFt": length, "reversed": bool(reverse),
+        "closedSideDerived": closed,
+    }
+    _save_sheet_plan()
+    out = {
+        "status": "OK",
+        "source": src,
+        "edgeRole": role,
+        "vertexCount": len(pts),
+        "lengthFt": round(length, 3),
+        "start": pts[0],
+        "end": pts[-1],
+        "path_vertices": pts,
+        "closedSideDerived": closed,
+        "travelAskUserChoice": {
+            "question": "Travel direction through the work bay?",
+            "options": cp.travel_choice_options(pts),
+        },
+        "lengthCheck": check,
+        "note": (
+            "If travel is already known, skip the travel question. "
+            "Then propose_work_area_on_path. Do not ask closed_side when "
+            "closedSideDerived is set. If lengthCheck.ok is false, tell the "
+            "engineer the shortfall and offer to extend — do not build."
+        ),
+    }
+    if closed:
+        out["closed_side"] = closed
+    di = _PLAN_SESSION.designer_inputs
+    if di and di.sheet_num:
+        out["highwayCaution"] = _highway_caution_for_sheet(di.sheet_num)
+    return out
+
+
+def propose_work_area_on_path() -> dict:
+    """Phase C: work bay along the locked corridor (station only)."""
+    pts = _PLAN_SESSION.corridor_path
+    if not pts:
+        return {"status": "ERROR", "note": "lock_corridor_path first"}
+    return {
+        "status": "OK",
+        "askUserChoice": {
+            "question": "Where is the work area, along that road?",
+            "options": [
+                {
+                    "label": "Click the two ends (Recommended)",
+                    "description": "Picks snap to the path. You only choose station.",
+                    "value": "ends",
+                },
+                {
+                    "label": "Type start station + length",
+                    "description": "Exact, PE-auditable.",
+                    "value": "station_length",
+                },
+                {
+                    "label": "Click the middle + a length",
+                    "description": "One click plus a number.",
+                    "value": "mid_length",
+                },
+            ],
+        },
+        "note": "Then snap_work_area_to_path. Lateral comes from resolve_sheet_lateral.",
+    }
+
+
+def snap_work_area_to_path(
+        mode: str,
+        p1: list | None = None,
+        p2: list | None = None,
+        start_sta: float | None = None,
+        length_ft: float | None = None,
+        mid: list | None = None,
+) -> dict:
+    """Snap work-bay ends onto the locked corridor. Returns edges for resolve_sheet_lateral."""
+    import corridor_path as cp
+    pts = _PLAN_SESSION.corridor_path
+    if not pts:
+        return {"status": "ERROR", "note": "lock_corridor_path first"}
+    m = (mode or "ends").strip().lower()
+    path_len = cp.polyline_length(pts)
+    if m == "station_length":
+        if start_sta is None or length_ft is None:
+            return {"status": "ERROR", "note": "start_sta and length_ft required"}
+        sta_a = float(start_sta)
+        sta_b = sta_a + float(length_ft)
+    elif m == "mid_length":
+        if mid is None or length_ft is None or len(mid) < 2:
+            return {"status": "ERROR", "note": "mid [x,y] and length_ft required"}
+        n = cp.nearest_station(pts, float(mid[0]), float(mid[1]))
+        half = float(length_ft) / 2.0
+        sta_a = n["stationFt"] - half
+        sta_b = n["stationFt"] + half
+    else:
+        if p1 is None or p2 is None or len(p1) < 2 or len(p2) < 2:
+            return {"status": "ERROR", "note": "p1 and p2 [x,y] required"}
+        n1 = cp.nearest_station(pts, float(p1[0]), float(p1[1]))
+        n2 = cp.nearest_station(pts, float(p2[0]), float(p2[1]))
+        sta_a, sta_b = n1["stationFt"], n2["stationFt"]
+        snap_dist = max(n1["distFt"], n2["distFt"])
+    if sta_a > sta_b:
+        sta_a, sta_b = sta_b, sta_a
+    work_len = sta_b - sta_a
+    if work_len < 1.0:
+        return {"status": "ERROR", "note": f"work bay too short ({work_len:.2f} ft)"}
+    up = cp.point_at_station(pts, sta_a)
+    dn = cp.point_at_station(pts, sta_b)
+    bay = cp.sample_span(pts, sta_a, sta_b)
+    approach = _approach_for_locked_sheet()
+    check = cp.length_check(path_len, approach, work_len) if approach else None
+    _PLAN_SESSION.work_area_edges = {
+        "upstream": up, "downstream": dn, "sta0": sta_a, "sta1": sta_b,
+    }
+    _PLAN_SESSION.work_bay_vertices = bay
+    _save_sheet_plan()
+    closed = (_PLAN_SESSION.corridor_meta or {}).get("closedSideDerived")
+    out = {
+        "status": "OK",
+        "mode": m,
+        "upstream_edge": up,
+        "downstream_edge": dn,
+        "workLenFt": round(work_len, 3),
+        "upstreamStaFt": round(sta_a, 3),
+        "downstreamStaFt": round(sta_b, 3),
+        "path_vertices": pts,
+        "work_bay_vertices": bay,
+        "lengthCheck": check,
+        "closed_side": closed,
+        "note": (
+            "Call resolve_sheet_lateral(upstream_edge, downstream_edge, "
+            "closed_side=closed_side or ask, path_vertices=path_vertices, "
+            "real_road_edge=True). Then run_sheet_build with the same edges "
+            "and path_vertices."
+        ),
+    }
+    if m == "ends":
+        out["snapDistFt"] = round(snap_dist, 3)
+    if check and not check["ok"]:
+        out["status"] = "ERROR"
+        out["note"] = check["note"]
+    return out
 
 
 def _attach_build_guide_fields(sheet_num: str, resp: dict) -> Optional[dict]:
@@ -1631,6 +2168,9 @@ class PlanSession:
     closed_outward_x: float = 0.0
     closed_outward_y: float = 0.0
     opposite_half_len: Optional[float] = None
+    # Locked first-travel-outer polyline for this sheet build.
+    corridor_path: Optional[list] = None
+    corridor_meta: Optional[dict] = None
 
     def reset(self) -> None:
         """Drop plan-flow memory (call from exit_mode so a later general/
@@ -1668,6 +2208,8 @@ class PlanSession:
         self.closed_outward_x = 0.0
         self.closed_outward_y = 0.0
         self.opposite_half_len = None
+        self.corridor_path = None
+        self.corridor_meta = None
 
     def lock_designer_inputs(self, **kwargs) -> None:
         self.designer_inputs = DesignerInputs(**kwargs)
@@ -1704,6 +2246,7 @@ class PlanSession:
 
 
 _PLAN_SESSION = PlanSession()
+_LAST_PLACED_ROAD: Optional[dict] = None
 
 
 def _iso_now() -> str:
@@ -1766,6 +2309,13 @@ def _save_sheet_plan() -> Optional[Path]:
             else bool(s.last_scorecard.get("passed"))
         ),
         "visualQaFailures": list(s.visual_qa_failures or []),
+        "corridorPath": s.corridor_path,
+        "corridorMeta": s.corridor_meta,
+        "lastPlacedRoad": (
+            None if not _LAST_PLACED_ROAD else {
+                k: v for k, v in _LAST_PLACED_ROAD.items() if k != "path_vertices"
+            } | {"path_vertices": _LAST_PLACED_ROAD.get("path_vertices")}
+        ),
     }
     SHEET_PLAN_PATH.parent.mkdir(parents=True, exist_ok=True)
     SHEET_PLAN_PATH.write_text(
@@ -1838,6 +2388,13 @@ def _load_sheet_plan(path: Optional[Path] = None) -> dict:
     s.work_area_edges = data.get("workAreaEdges")
     wb = data.get("workBayVertices")
     s.work_bay_vertices = list(wb) if isinstance(wb, list) and len(wb) >= 2 else None
+    cp = data.get("corridorPath")
+    s.corridor_path = list(cp) if isinstance(cp, list) and len(cp) >= 2 else None
+    s.corridor_meta = data.get("corridorMeta") if isinstance(data.get("corridorMeta"), dict) else None
+    global _LAST_PLACED_ROAD
+    lp = data.get("lastPlacedRoad")
+    if isinstance(lp, dict) and isinstance(lp.get("path_vertices"), list) and len(lp["path_vertices"]) >= 2:
+        _LAST_PLACED_ROAD = lp
     lat = data.get("lateral") or {}
     if lat.get("outward_sign") is not None:
         s.lateral_outward_sign = float(lat["outward_sign"])
@@ -1892,7 +2449,9 @@ def try_restore_sheet_plan() -> dict:
 def reset_plan_session_flags() -> None:
     """Drop plan-flow memory (call from exit_mode so a later general/wztc
     task doesn't inherit a prior plan's gate state)."""
+    global _LAST_PLACED_ROAD
     _PLAN_SESSION.reset()
+    _LAST_PLACED_ROAD = None
     _clear_sheet_plan_file()
     placement_registry.clear_registry()
 
@@ -2157,7 +2716,8 @@ def place_sign(sign_num: str, road_type: str, side: str,
                pt1x: float, pt1y: float, pt1z: float, dir1x: float, dir1y: float,
                pt2x: Optional[float] = None, pt2y: Optional[float] = None, pt2z: Optional[float] = None,
                dir2x: Optional[float] = None, dir2y: Optional[float] = None,
-               reason: str = "", align_idx: int = 0, one_off: bool = False) -> dict:
+               reason: str = "", align_idx: int = 0, one_off: bool = False,
+               post_angle_deg: Optional[float] = None) -> dict:
     """Place a sign assembly (post + edge-connected stem + face + label).
 
     If build_wztc_order_table already ran this session, sign_num MUST match
@@ -2192,6 +2752,10 @@ def place_sign(sign_num: str, road_type: str, side: str,
     clear_plan_elements(align_idx=…) / place_order_table_stations(
     clear_prior=True) can wipe only that alignment's signs. Always pass
     it when placing from an order-table row.
+
+    post_angle_deg rotates TWZSGN_P with travel tangent (arm downstream,
+    stem upstream, T on the curve). Omit to leave the post at view angle
+    (MUTCD face/text still use view angle either way).
     """
     if side.strip().lower() == "both sides":
         missing = [n for n, v in
@@ -2237,6 +2801,8 @@ def place_sign(sign_num: str, road_type: str, side: str,
                   reason=reason)
     if align_idx and align_idx > 0:
         kwargs["alignIdx"] = align_idx
+    if post_angle_deg is not None:
+        kwargs["postAngleDeg"] = float(post_angle_deg)
     resp = _ok_or_raise(_bridge.call("PLACE_SIGN", **kwargs), "place_sign")
     if align_idx and align_idx > 0 and _PLAN_SESSION.sheet_plan_active() and not one_off:
         _PLAN_SESSION.signs_placed_rows.add(
@@ -2428,6 +2994,7 @@ def build_wztc_order_table(speed: int, road_type: str, lane_width: int, shoulder
     _PLAN_SESSION.lock_sign_rows(sign_rows)
     placement_registry.clear_registry()
     _save_sheet_plan()
+    resp["highwayCaution"] = _highway_caution_for_sheet(sheet_num)
     return _attach_plan_next(resp)
 
 
@@ -2806,6 +3373,14 @@ def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
             f"than station_walk max {max_need:.1f} ft — ticks will clamp. "
             f"Omit approach_length_ft for auto, or pass >= {max_need + 50:.1f}.")
 
+    overlap = check_build_overlap(
+        sheet_num=inputs.sheet_num,
+        origin=list(upstream_edge)[:2],
+        path_vertices=path_vertices,
+        lateral_half_width=float(_PLAN_SESSION.lateral_half_len or 40.0),
+        scan_model=True,
+    )
+
     if _PLAN_SESSION.aligns_ready & {1, 2}:
         if not force:
             raise ValueError(
@@ -2853,10 +3428,11 @@ def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
         dn_s = list(ag.point_at_extended(segs, sta_dn)[:2]) + [dn[2]]
         # Align1: sta0 at up, stations increase AWAY upstream (= −path).
         up_verts = ag.sample_path_vertices(
-            segs, sta_up, sta_up - approach, step_ft=50.0)
+            segs, sta_up, sta_up - approach, step_ft=10.0)
         # Align2: sta0 at dn, stations increase AWAY downstream (= +path).
         dn_verts = ag.sample_path_vertices(
-            segs, sta_dn, sta_dn + approach, step_ft=50.0)
+            segs, sta_dn, sta_dn + approach, step_ft=10.0)
+        _PLAN_SESSION.corridor_path = [[float(p[0]), float(p[1])] for p in path_pts]
         # Ensure first vertex is the snapped edge (sample may duplicate).
         up_verts[0] = up_s
         dn_verts[0] = dn_s
@@ -2939,6 +3515,7 @@ def assemble_corridor(upstream_edge: list[float], downstream_edge: list[float],
             "place_order_table_stations per alignment (runs cross_validate), "
             "then place_sign / place_sheet_geometry"
         ),
+        "overlapCaution": (overlap or {}).get("overlapCaution"),
     }
 
 
@@ -3288,6 +3865,28 @@ def delete_dimension_elements_in_range(low_x: float, low_y: float,
         "delete_dimension_elements_in_range")
 
 
+def arc_dim_line_radius(cx: float, cy: float, r: float,
+                       mid: tuple[float, float],
+                       ox: float, oy: float, pad: float = 15.0) -> float:
+    """Radius of the Arc Size dim line.
+
+    Keep the dim on the same roadside as (ox, oy). If the closed shoulder
+    is inside the curve, ox is closer to the center than the tips — use
+    r-pad (negative DimHeight). Never force r+pad; that draws through the
+    pavement on the inside of an S-bend (live 2026-08-14).
+    """
+    import math
+    vx, vy = mid[0] - cx, mid[1] - cy
+    oxv, oyv = ox - cx, oy - cy
+    r_ox = math.hypot(oxv, oyv)
+    same = vx * oxv + vy * oyv
+    if r < 1.0:
+        return r + pad
+    if same >= 0.0 and r_ox < r - 0.5:
+        return max(1.0, min(r_ox, r - pad))
+    return max(r + pad, r_ox)
+
+
 def _format_ny_plan_dim_text(text: str) -> str:
     """Match straight-sheet ny_Plan look (e.g. 495'-0\") from lengthOnly '495'."""
     s = str(text or "").strip()
@@ -3337,10 +3936,23 @@ def _fit_circle_2d(pts: list[tuple[float, float]],
     sag = r - math.sqrt(max(0.0, r * r - half * half))
     if sag < min_sag:
         return None
-    # Cap radius: allow large fillet radii for short chords (50' on R~300).
-    if r > max(2500.0, 50.0 * chord):
+    # Cap radius: allow highway curves (C-curve R~3000 on a 50' downstream
+    # span). Reject only giant construction arcs (Buffer 495' → R~1e5).
+    if r > max(12000.0, 80.0 * chord):
         return None
     return (ux, uy, r)
+
+
+# Bowed spans normally use the constructed PLACE_CURVED_PLAN_DIMENSION
+# (ArcElement + radial extensions + tip fans). Set True to place a REAL
+# annotative DimensionElement (msdDimTypeArcSize) instead. Arc Size was
+# thought broken on this install until 2026-08-13, when the actual defect
+# turned out to be our own tip order — Arc Size measures counter-clockwise
+# and we passed tips in path order, so clockwise bends swept the long way.
+# Fixed in ExecPlaceArcSizeDimension; see scripts/diag_arc_size_root_cause.py
+# (6/6 hug after fix). Left opt-in pending engineer visual QA that it matches
+# the straight-sheet ny_Plan SizeArrow look.
+ARC_SIZE_BEND_DIMS = True
 
 
 def place_path_hugging_dimension(path: list, text: str,
@@ -3404,7 +4016,7 @@ def place_path_hugging_dimension(path: list, text: str,
             chord = math.hypot(x2 - x1, y2 - y1)
             half = min(chord * 0.5, rr) if rr > 0 else 0.0
             sag = rr - math.sqrt(max(0.0, rr * rr - half * half)) if rr > 0 else 0.0
-            if 1.0 < rr <= max(1200.0, 25.0 * chord) and sag >= 0.35:
+            if 1.0 < rr <= max(12000.0, 80.0 * chord) and sag >= 0.03:
                 fit = (ux, uy, rr)
     if fit is not None:
         cx, cy, r = fit
@@ -3415,8 +4027,10 @@ def place_path_hugging_dimension(path: list, text: str,
         sag = r - math.sqrt(max(0.0, r * r - half * half))
         # force_arc: keep mild bows on the bend (50' Downstream) as arcs;
         # only reject near-straight / giant-R (Buffer approach).
-        min_keep = 0.05 if force_arc else 0.35
-        r_cap = max(2500.0, 50.0 * chord) if force_arc else max(1200.0, 25.0 * chord)
+        min_keep = 0.03 if force_arc else 0.35
+        # Highway C-curves are R~3000; old cap 2500 forced 50' downstream
+        # onto a SizeArrow chord. Reject only giant construction arcs.
+        r_cap = max(12000.0, 80.0 * chord) if force_arc else max(1200.0, 25.0 * chord)
         if sag < min_keep or r > r_cap:
             fit = None
     if fit is not None:
@@ -3425,11 +4039,27 @@ def place_path_hugging_dimension(path: list, text: str,
         a2 = math.atan2(y2 - cy, x2 - cx)
         da = (a2 - a1 + math.pi) % (2.0 * math.pi) - math.pi
         amid = a1 + 0.5 * da
-        r_off = math.hypot(ox - cx, oy - cy)
-        if r_off < r + 1.0:
-            r_off = r + 15.0
+        mid = cleaned[len(cleaned) // 2]
+        r_off = arc_dim_line_radius(cx, cy, r, mid, ox, oy, pad=15.0)
         hx = cx + r_off * math.cos(amid)
         hy = cy + r_off * math.sin(amid)
+        if ARC_SIZE_BEND_DIMS:
+            resp = place_arc_size_dimension(
+                cx, cy, x1, y1, x2, y2, hx, hy,
+                reason=reason or f"curve arc-size dim {text}",
+                override_text=sheet_txt)
+            ids = placement_registry.parse_created_ids(
+                resp if isinstance(resp, dict) else {})
+            return {
+                "status": "OK",
+                "curved": True,
+                "dimType": "ArcSize",
+                "text": sheet_txt,
+                "center": [cx, cy],
+                "createdElementIds": ids,
+                "note": ("curved dim = real annotative DimensionElement "
+                         "(msdDimTypeArcSize, ny_Plan) concentric with bend"),
+            }
         resp = place_curved_plan_dimension(
             cx, cy, x1, y1, x2, y2, hx, hy,
             reason=reason or f"curve arc dim {text}",
@@ -3484,10 +4114,13 @@ def place_arc(x1: float, y1: float, x2: float, y2: float, x3: float, y3: float,
         "place_arc")
 
 
-def place_text_label(text: str, x: float, y: float, z: float = 0.0, reason: str = "") -> dict:
-    """Place a single-line text label via TEXTEDITOR PLACE + INSERT_TEXT."""
+def place_text_label(text: str, x: float, y: float, z: float = 0.0,
+                     reason: str = "", angle_deg: float = 0.0) -> dict:
+    """Place a single-line text label. angle_deg rotates about Z (tangent
+    for Non-Sign dim labels on a curve; 0 = view-identity / +X)."""
     return _ok_or_raise(
-        _bridge.call("PLACE_TEXT_LABEL", text=text, x=x, y=y, z=z, reason=reason),
+        _bridge.call("PLACE_TEXT_LABEL", text=text, x=x, y=y, z=z,
+                     angleDeg=angle_deg, reason=reason),
         "place_text_label")
 
 
@@ -3650,6 +4283,13 @@ def place_lane_highway(lanes: int, x1: float = 0.0, y1: float = 0.0,
     )
     counts = _road_strip_counts(placed)
     path_note = f"; pathVerts={len(verts)}" if verts else ""
+    _remember_placed_road(
+        road_type="one_way", lanes=int(lanes),
+        lane_width_ft=float(lane_width_ft),
+        shoulder_width_ft=float(shoulder_width_ft),
+        yellow_gap_ft=0.0, side=side_n,
+        verts=verts, x1=x1, y1=y1, x2=x2, y2=y2, length=length,
+    )
     return {
         "status": "OK" if not errors else "ERROR",
         "roadType": "one_way",
@@ -3713,6 +4353,13 @@ def place_two_way_highway(lanes: int, x1: float = 0.0, y1: float = 0.0,
     per_dir = int(lanes) // 2
     counts = _road_strip_counts(placed)
     path_note = f"; pathVerts={len(verts)}" if verts else ""
+    _remember_placed_road(
+        road_type="two_way_undivided", lanes=int(lanes),
+        lane_width_ft=float(lane_width_ft),
+        shoulder_width_ft=float(shoulder_width_ft),
+        yellow_gap_ft=float(yellow_gap_ft), side=side_n,
+        verts=verts, x1=x1, y1=y1, x2=x2, y2=y2, length=length,
+    )
     return {
         "status": "OK" if not errors else "ERROR",
         "roadType": "two_way_undivided",
@@ -3780,6 +4427,13 @@ def place_divided_highway(lanes_per_direction: int, x1: float = 0.0,
 
     counts = _road_strip_counts(placed)
     path_note = f"; pathVerts={len(verts)}" if verts else ""
+    _remember_placed_road(
+        road_type="divided", lanes=int(lanes_per_direction) * 2,
+        lane_width_ft=float(lane_width_ft),
+        shoulder_width_ft=float(shoulder_width_ft),
+        yellow_gap_ft=0.0, side=side_n,
+        verts=verts, x1=x1, y1=y1, x2=x2, y2=y2, length=length,
+    )
     return {
         "status": "OK" if not errors else "ERROR",
         "roadType": "divided",
@@ -3846,6 +4500,13 @@ def place_twlt_highway(lanes_per_direction: int, x1: float = 0.0,
 
     counts = _road_strip_counts(placed)
     path_note = f"; pathVerts={len(verts)}" if verts else ""
+    _remember_placed_road(
+        road_type="twlt", lanes=int(lanes_per_direction) * 2,
+        lane_width_ft=float(lane_width_ft),
+        shoulder_width_ft=float(shoulder_width_ft),
+        yellow_gap_ft=float(twlt_width_ft), side=side_n,
+        verts=verts, x1=x1, y1=y1, x2=x2, y2=y2, length=length,
+    )
     return {
         "status": "OK" if not errors else "ERROR",
         "roadType": "twlt",
@@ -4624,15 +5285,16 @@ def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
                                 p["path"], p.get("text") or "", off,
                                 reason=f"compiled curve dim {p.get('text','')}",
                                 force_arc=True)
-                            bridge_op = (
-                                "PLACE_CURVED_PLAN_DIMENSION"
-                                if r.get("dimType") == "CurvedPlanArc"
-                                else "PLACE_DIMENSION"
-                            )
+                            bridge_op = {
+                                "CurvedPlanArc": "PLACE_CURVED_PLAN_DIMENSION",
+                                "ArcSize": "PLACE_ARC_SIZE_DIMENSION",
+                            }.get(r.get("dimType") or "", "PLACE_DIMENSION")
                         else:
+                            sheet_txt = _format_ny_plan_dim_text(p.get("text") or "")
                             r = place_dimension(
                                 t1[0], t1[1], t2[0], t2[1], off[0], off[1],
-                                reason=f"compiled dim {p.get('text','')}")
+                                reason=f"compiled dim {p.get('text','')}",
+                                override_text=sheet_txt)
                             bridge_op = "PLACE_DIMENSION"
                         mid = (0.5 * (float(t1[0]) + float(t2[0])),
                                0.5 * (float(t1[1]) + float(t2[1])))
@@ -4644,18 +5306,23 @@ def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
                             spec_ref=p.get("specRef"),
                             layer="dimension",
                             detail={"text": p.get("text"),
-                                    "curved": bool(p.get("curved"))},
+                                    "curved": bool(p.get("curved")),
+                                    "partKind": (p.get("specRef") or {}).get("partKind"),
+                                    "partsSumFt": (p.get("specRef") or {}).get("partsSumFt"),
+                                    "sheetLengthFt": (p.get("specRef") or {}).get("sheetLengthFt")},
                             geom_extra={
                                 "tip1": list(t1)[:3], "tip2": list(t2)[:3],
                                 "offset": list(off)[:3],
                                 "midX": mid[0], "midY": mid[1],
                                 "text": p.get("text"),
                                 "curved": bool(p.get("curved")),
+                                "partKind": (p.get("specRef") or {}).get("partKind"),
                             },
                         )
                     elif p["kind"] == "label" and "labels" in want:
                         r = place_text_label(p["text"], p["x"], p["y"],
-                                             reason="compiled Non-Sign label")
+                                             reason="compiled Non-Sign label",
+                                             angle_deg=float(p.get("angleDeg") or 0.0))
                         _register(
                             r, kind="label",
                             primitive_id=p.get("primitiveId") or "",
@@ -4776,7 +5443,8 @@ def execute_compiled_plan(plan: dict, layers: Optional[list[str]] = None,
                         )
                     elif p["kind"] == "label":
                         r = place_text_label(p["text"], p["x"], p["y"],
-                                             reason="compiled symbol label")
+                                             reason="compiled symbol label",
+                                             angle_deg=float(p.get("angleDeg") or 0.0))
                         _register(
                             r, kind="label",
                             primitive_id=p.get("primitiveId") or "",
@@ -4964,8 +5632,15 @@ def place_sheet_geometry(sheet_num: str, speed: int, lane_width: int, shoulder_w
     gates = compiled.get("gateFailures") or []
     sheet_key = str(compiled.get("sheet") or sheet_num)
     reg_rows = placement_registry.resolve_latest_placements(sheet_num=sheet_key)
+    model_rows = []
+    try:
+        path = list(_PLAN_SESSION.corridor_path or _PLAN_SESSION.work_bay_vertices or [])
+        model_rows = _model_rows_for_path(path)
+    except Exception:
+        model_rows = []
     scorecard = sheet_scorecard.build_placement_scorecard(
-        compiled, registry_rows=reg_rows, executed=executed, gate_failures=gates)
+        compiled, registry_rows=reg_rows, executed=executed, gate_failures=gates,
+        model_rows=model_rows)
     _PLAN_SESSION.last_scorecard = scorecard
     _PLAN_SESSION.last_compiled = compiled
     _PLAN_SESSION.geometry_qa_passed = bool(scorecard.get("passed"))
@@ -5023,7 +5698,7 @@ def _place_locked_signs_from_stations(outward_sign: float = -1.0,
                                       half_len: float = 40.0) -> dict:
     """Place every locked order-table sign at the outward perp tip of its
     station row. Uses last_station_rows from place_order_table_stations."""
-    from sheet_compile import _outward_unit
+    from sheet_compile import _outward_unit, _post_angle_deg
 
     inputs = _PLAN_SESSION.designer_inputs
     if inputs is None:
@@ -5076,6 +5751,7 @@ def _place_locked_signs_from_stations(outward_sign: float = -1.0,
                 sign_num=sign_num, road_type=road_type, side=side,
                 pt1x=tip_x, pt1y=tip_y, pt1z=pt_z, dir1x=out_x, dir1y=out_y,
                 align_idx=int(align_idx), one_off=False,
+                post_angle_deg=_post_angle_deg(int(align_idx), tan_x, tan_y),
             )
             if side.strip().lower() == "both sides":
                 kwargs.update(
@@ -5171,9 +5847,18 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
 
     inputs = _PLAN_SESSION.designer_inputs
     assert inputs is not None
+    highway_caution = _highway_caution_for_sheet(inputs.sheet_num)
+    overlap = check_build_overlap(
+        sheet_num=inputs.sheet_num,
+        path_vertices=path_vertices,
+        lateral_half_width=float(_PLAN_SESSION.lateral_half_len or half_len or 40.0),
+        scan_model=True,
+    )
     outward_sign, half_len, lat_meta = _apply_locked_lateral(
         outward_sign, half_len, use_locked_lateral)
     phases: list[dict] = []
+    phases.append({"phase": "highway_kind", "result": highway_caution})
+    phases.append({"phase": "overlap", "result": (overlap or {}).get("overlapCaution")})
     if lat_meta.get("usedLockedLateral"):
         phases.append({"phase": "locked_lateral", "result": lat_meta})
 
@@ -5323,6 +6008,7 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
             "scorecardFailures": sc.get("failures"),
         }})
         if not sc.get("passed") and not force:
+            _append_guide_cleanup(phases)
             replan = _replan_after_failure("place_sheet_geometry", {
                 "failures": sc.get("failures") or [],
                 "gateFailures": geom.get("gateFailures") or [],
@@ -5339,6 +6025,15 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
             return _attach_plan_next(out)
     else:
         phases.append({"phase": "place_sheet_geometry", "skipped": True})
+
+    # Drop white align + perp ticks before QA (straight and curved).
+    _append_guide_cleanup(phases)
+
+    ledger_rec = {}
+    try:
+        ledger_rec = _record_sheet_build_ledger(path_vertices) or {}
+    except Exception:
+        ledger_rec = {}
 
     # --- visual QA ---
     qa = None
@@ -5384,28 +6079,14 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
     else:
         phases.append({"phase": "visual_qa", "skipped": True})
 
-    if _PLAN_SESSION.real_road_edge:
-        try:
-            guides = delete_construction_guides()
-            phases.append({"phase": "delete_construction_guides", "result": {
-                "status": guides.get("status"),
-                "deleted": guides.get("deleted"),
-                "candidateIds": guides.get("candidateIds"),
-                "note": guides.get("note"),
-            }})
-        except Exception as e:
-            phases.append({
-                "phase": "delete_construction_guides",
-                "error": str(e),
-                "note": "Guide cleanup failed — call delete_construction_guides manually",
-            })
-
     out = {
         "status": "OK",
         "sheetPlanActive": True,
         "sheet": inputs.sheet_num,
         "phases": phases,
         "planStatus": get_plan_status(),
+        "highwayCaution": highway_caution,
+        "overlapCaution": (overlap or {}).get("overlapCaution"),
     }
     if _PLAN_SESSION.real_road_edge:
         out["realRoadNext"] = (
@@ -5423,6 +6104,8 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
         out["checklist"] = qa.get("checklist")
         out["visionAttachedByChatDriver"] = True
     _attach_build_guide_fields(inputs.sheet_num, out)
+    if ledger_rec:
+        out["ledgerBuildId"] = ledger_rec.get("buildId")
     return _attach_plan_next(out)
 
 
@@ -5950,6 +6633,72 @@ def undo_last_op() -> dict:
     return _ok_or_raise(_bridge.call("UNDO_LAST_OP"), "undo_last_op")
 
 
+_CLEAR_SKIP_OPS = frozenset({
+    "CLEAR_PLAN_ELEMENTS", "DELETE_ELEMENT", "UNDO_LAST_OP",
+    "BUILD_WZTC_ORDER_TABLE", "COMPUTE_SPACING", "GET_JOURNAL", "HANDOFF",
+})
+_CLEAR_ALIGN_OPS = frozenset({
+    "DEFINE_ALIGNMENT_SEGMENT", "COMMIT_ALIGNMENT", "ADOPT_ALIGNMENT_ELEMENT",
+})
+
+
+def harvest_journal_create_ids(text: str, *, keep_alignments: bool = True,
+                               align_idx: int = 0) -> set[str]:
+    """Parse createdElementIds= from a wztc-journal.tsv body.
+
+    Same REQ/RESP adjacency rules as ExecClearPlanElements: reqId reuse
+    across process restarts must bind a RESP to the most recent REQ, not
+    a global last-wins map. Used to recover IDs after journal rotation
+    moves ownership proof into Bridge/archive/.
+    """
+    cur_op: dict[str, str] = {}
+    cur_align: dict[str, int] = {}
+    cur_undone: dict[str, bool] = {}
+    ids: set[str] = set()
+    for ln in (text or "").splitlines():
+        parts = ln.split("\t")
+        if len(parts) < 4:
+            continue
+        kind = parts[1].strip().upper()
+        req = parts[2].strip()
+        if kind == "REQ":
+            cur_op[req] = parts[3].strip().upper()
+            cur_undone[req] = False
+            cur_align.pop(req, None)
+            for p in parts[4:]:
+                if p.startswith("alignIdx="):
+                    raw = p.split("=", 1)[1].strip()
+                    if raw.isdigit():
+                        cur_align[req] = int(raw)
+                    break
+            continue
+        if kind == "UNDONE":
+            cur_undone[req] = True
+            continue
+        if kind != "RESP":
+            continue
+        if cur_undone.get(req):
+            continue
+        if parts[3].strip().upper() != "OK":
+            continue
+        op = cur_op.get(req, "")
+        if keep_alignments and op in _CLEAR_ALIGN_OPS:
+            continue
+        if op in _CLEAR_SKIP_OPS:
+            continue
+        if align_idx and align_idx > 0:
+            if cur_align.get(req) != int(align_idx):
+                continue
+        for p in parts:
+            if p.startswith("createdElementIds="):
+                csv = p.split("=", 1)[1]
+                for one in csv.split(","):
+                    one = one.strip()
+                    if one:
+                        ids.add(one)
+    return ids
+
+
 def clear_plan_elements(keep_alignments: bool = True, align_idx: int = 0) -> dict:
     """Delete journal-owned plan elements — the idempotent-rebuild wipe.
 
@@ -5963,6 +6712,11 @@ def clear_plan_elements(keep_alignments: bool = True, align_idx: int = 0) -> dic
     clear_prior=True) uses this so rebuilding Downstream does not delete
     Upstream ticks/signs. align_idx=0 (default) clears the whole plan.
     Pass align_idx on place_sign so signs are included in scoped clears.
+
+    After VBA CLEAR_PLAN (live journal only), also deletes IDs recorded in
+    rotated Bridge/archive/wztc-journal-*.tsv and the placement registry.
+    Journal rotation was leaving stacked dims/labels across rebuilds
+    (engineer QA 2026-08-13).
 
     Does NOT fence-delete by proximity (that can catch engineer-drawn
     elements). Safe when nothing has been placed (deleted=0).
@@ -6010,7 +6764,26 @@ _GUIDE_OPS = frozenset({
     "PLACE_ORDER_TABLE_STATIONS",
     "PLACE_PERP_LINE",
     "DEFINE_ALIGNMENT_SEGMENT",
+    "COMMIT_ALIGNMENT",
 })
+
+
+def _append_guide_cleanup(phases: list) -> None:
+    """Remove alignment lines + perp ticks. Always after a sheet draw."""
+    try:
+        guides = delete_construction_guides()
+        phases.append({"phase": "delete_construction_guides", "result": {
+            "status": guides.get("status"),
+            "deleted": guides.get("deleted"),
+            "candidateIds": guides.get("candidateIds"),
+            "note": guides.get("note"),
+        }})
+    except Exception as e:
+        phases.append({
+            "phase": "delete_construction_guides",
+            "error": str(e),
+            "note": "Guide cleanup failed — call delete_construction_guides manually",
+        })
 
 
 def delete_construction_guides() -> dict:

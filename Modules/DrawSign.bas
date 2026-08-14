@@ -288,9 +288,13 @@ End Sub
 '   alignment (the direction the stem and face go).
 '
 ' Geometry (confirmed against engineer reference 2026-08-03):
-'   - TWZSGN_P is asymmetric (vertical shaft + east crossbar). Align the
-'     SHAFT CENTERLINE to the tip laterally, and the POST'S INWARD EDGE
-'     to the tip along dir -- not the cell bbox center (that looked SE).
+'   - TWZSGN_P is asymmetric (vertical shaft + east crossbar at 0 deg).
+'     Rotate the POST with travel tangent (arm toward downstream, stem
+'     toward upstream, T along the curve). Face + MUTCD text stay at
+'     viewAngleDeg (view-horizontal). Live miss 2026-08-13: post used
+'     viewAngle so G20-2 on a 90 deg bend sat 90 deg off the roadside.
+'   - Align the SHAFT CENTERLINE to the tip laterally, and the POST'S
+'     INWARD EDGE to the tip along dir -- not the cell bbox center.
 '   - Face origin further out so FACE INWARD EDGE is STEM_GAP beyond the
 '     post outward edge; stem stays on the tip's lateral line.
 '   - Stem LINE connects those two edges only -- never to face center.
@@ -298,13 +302,17 @@ End Sub
 ' put the line through a Scale=960 face.
 ' ============================================================
 Public Sub PlaceSignAssembly(attachmentPt As Point3d, signNum As String, signSize As String, _
-                             dirX As Double, dirY As Double, viewAngleDeg As Double)
+                             dirX As Double, dirY As Double, viewAngleDeg As Double, _
+                             Optional postAngleDeg As Double = -9999#)
     Const STEM_GAP As Double = 50#
+    Dim postAng As Double
+    postAng = postAngleDeg
+    If postAng <= -9000# Then postAng = viewAngleDeg
 
     CadInputQueue.SendKeyin "ACTIVE LEVEL Default"
     CadInputQueue.SendKeyin "ACTIVE COLOR 0"
     CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
-    CadInputQueue.SendKeyin "ACTIVE ANGLE " & viewAngleDeg
+    CadInputQueue.SendKeyin "ACTIVE ANGLE " & postAng
 
     If Len(currentSignFaceLibraryPath) = 0 Then
         currentSignFaceLibraryPath = "c:\pwworking\usny\d0119093\ny_plan_nmutcd_signface.cel"
@@ -341,10 +349,14 @@ Public Sub PlaceSignAssembly(attachmentPt As Point3d, signNum As String, signSiz
     Call SnapInwardEdgeToTip(postEl, attachmentPt, dirX, dirY)
     halfPost = HalfExtentAlongDir(postEl, dirX, dirY)
 
-    ' Outer edge of post along dir, still on the tip's lateral line
+    ' Outer edge of post, forced onto the stem ray (same as L: line on perp).
     Dim postOuter As Point3d
-    postOuter.X = attachmentPt.X + dirX * (2# * halfPost)
-    postOuter.Y = attachmentPt.Y + dirY * (2# * halfPost)
+    postOuter = ExtremePointAlongDir(postEl, dirX, dirY, True)
+    Dim tPost As Double
+    tPost = (postOuter.X - attachmentPt.X) * dirX + (postOuter.Y - attachmentPt.Y) * dirY
+    If tPost < 0.5 Then tPost = 2# * halfPost
+    postOuter.X = attachmentPt.X + dirX * tPost
+    postOuter.Y = attachmentPt.Y + dirY * tPost
     postOuter.Z = attachmentPt.Z
 
     ' --- Face cell (centered on tip laterally) ---
@@ -398,8 +410,17 @@ Public Sub PlaceSignAssembly(attachmentPt As Point3d, signNum As String, signSiz
     ElseIf faceEl.IsSharedCellElement Then
         faceOrigin = faceEl.AsSharedCellElement.Origin
     End If
-    faceInner.X = faceTarget.X
-    faceInner.Y = faceTarget.Y
+    ' Stem ends on the perp ray, 1.5 ft into the orange fill so the white
+    ' line meets the face (G20 rect + diamonds). Prefer color-6 vertices;
+    ' construction/hole verts sit short of the fill and leave a gap.
+    Dim inPt As Point3d
+    Dim tFace As Double
+    inPt = ExtremePointAlongDirPreferColor(faceEl, dirX, dirY, False, 6)
+    tFace = (inPt.X - attachmentPt.X) * dirX + (inPt.Y - attachmentPt.Y) * dirY
+    If tFace < tPost + 1# Then tFace = tPost + STEM_GAP
+    tFace = tFace + 1.5
+    faceInner.X = attachmentPt.X + dirX * tFace
+    faceInner.Y = attachmentPt.Y + dirY * tFace
     faceInner.Z = faceTarget.Z
 
     ' W04-02* cells ship with yellow SF_P copies of the merge symbol on
@@ -542,17 +563,278 @@ PostErr:
     PlaceCellOnPost = "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
-' Half-size of element range projected onto unit dir (ft).
+' Half-size of element along unit dir using real vertices (not AABB).
+' AABB over-estimates a view-horizontal diamond on a diagonal stem, so
+' the white post line stopped short of the face on C/S curves.
 Private Function HalfExtentAlongDir(el As Element, dirX As Double, dirY As Double) As Double
+    Dim minP As Double, maxP As Double
+    Dim anyPts As Boolean
+    anyPts = False
+    minP = 0#: maxP = 0#
+    Call AccumulateDirProj(el, dirX, dirY, minP, maxP, anyPts)
+    If anyPts Then
+        HalfExtentAlongDir = 0.5 * (maxP - minP)
+    Else
+        Dim rng As Range3d
+        rng = el.Range
+        HalfExtentAlongDir = 0.5 * (Abs(dirX) * (rng.High.X - rng.Low.X) + _
+                                    Abs(dirY) * (rng.High.Y - rng.Low.Y))
+    End If
+    If HalfExtentAlongDir < 0.01 Then HalfExtentAlongDir = 0.01
+End Function
+
+Private Function ExtremePointAlongDirPreferColor(el As Element, dirX As Double, dirY As Double, _
+                                                 wantMax As Boolean, preferColor As Long) As Point3d
+    Dim best As Point3d
+    Dim bestP As Double
+    Dim found As Boolean
+    found = False
+    bestP = 0#
+    Call FindExtremeAlongDirColor(el, dirX, dirY, wantMax, preferColor, best, bestP, found)
+    If found Then
+        ExtremePointAlongDirPreferColor = best
+        Exit Function
+    End If
+    ExtremePointAlongDirPreferColor = ExtremePointAlongDir(el, dirX, dirY, wantMax)
+End Function
+
+Private Sub FindExtremeAlongDirColor(el As Element, dirX As Double, dirY As Double, _
+                                     wantMax As Boolean, preferColor As Long, _
+                                     ByRef best As Point3d, ByRef bestP As Double, _
+                                     ByRef found As Boolean)
+    On Error Resume Next
+    Dim ce As ElementEnumerator
+    Set ce = Nothing
+    If el.IsCellElement Then
+        Set ce = el.AsCellElement.GetSubElements
+    ElseIf el.IsSharedCellElement Then
+        Set ce = el.AsSharedCellElement.GetSubElements
+    End If
+    Err.Clear
+    If Not ce Is Nothing Then
+        Dim subEl As Element
+        Do While ce.MoveNext
+            Set subEl = ce.Current
+            Call FindExtremeAlongDirColor(subEl, dirX, dirY, wantMax, preferColor, best, bestP, found)
+        Loop
+        Exit Sub
+    End If
+    If el.Color <> preferColor Then Exit Sub
+    On Error GoTo NoVerts
+    Dim vl As VertexList
+    Dim pts() As Point3d
+    Dim i As Long
+    Dim p As Double
+    Set vl = el.AsVertexList
+    pts = vl.GetVertices()
+    For i = LBound(pts) To UBound(pts)
+        p = pts(i).X * dirX + pts(i).Y * dirY
+        If (Not found) Or (wantMax And p > bestP) Or ((Not wantMax) And p < bestP) Then
+            best = pts(i)
+            bestP = p
+            found = True
+        End If
+    Next i
+NoVerts:
+End Sub
+
+Private Function ExtremePointAlongDir(el As Element, dirX As Double, dirY As Double, _
+                                      wantMax As Boolean) As Point3d
+    Dim best As Point3d
+    Dim bestP As Double
+    Dim found As Boolean
+    found = False
+    bestP = 0#
+    Call FindExtremeAlongDir(el, dirX, dirY, wantMax, best, bestP, found)
+    If found Then
+        ExtremePointAlongDir = best
+        Exit Function
+    End If
     Dim rng As Range3d
     rng = el.Range
-    Dim dx As Double, dy As Double
-    dx = rng.High.X - rng.Low.X
-    dy = rng.High.Y - rng.Low.Y
-    ' For axis-aligned extents (common at 0/90 view angles), projection of
-    ' the half-box onto dir is 0.5*(|dirX|*width + |dirY|*height).
-    HalfExtentAlongDir = 0.5 * (Abs(dirX) * dx + Abs(dirY) * dy)
-    If HalfExtentAlongDir < 0.01 Then HalfExtentAlongDir = 0.01
+    Dim midX As Double, midY As Double, half As Double
+    midX = 0.5 * (rng.Low.X + rng.High.X)
+    midY = 0.5 * (rng.Low.Y + rng.High.Y)
+    half = HalfExtentAlongDir(el, dirX, dirY)
+    If wantMax Then
+        best.X = midX + dirX * half
+        best.Y = midY + dirY * half
+    Else
+        best.X = midX - dirX * half
+        best.Y = midY - dirY * half
+    End If
+    best.Z = 0#
+    ExtremePointAlongDir = best
+End Function
+
+Private Sub AccumulateDirProj(el As Element, dirX As Double, dirY As Double, _
+                              ByRef minP As Double, ByRef maxP As Double, _
+                              ByRef anyPts As Boolean)
+    On Error GoTo TrySubs
+    Dim vl As VertexList
+    Dim pts() As Point3d
+    Dim i As Long
+    Dim p As Double
+    Set vl = el.AsVertexList
+    pts = vl.GetVertices()
+    For i = LBound(pts) To UBound(pts)
+        p = pts(i).X * dirX + pts(i).Y * dirY
+        If Not anyPts Then
+            minP = p: maxP = p: anyPts = True
+        Else
+            If p < minP Then minP = p
+            If p > maxP Then maxP = p
+        End If
+    Next i
+    Exit Sub
+TrySubs:
+    On Error Resume Next
+    Dim ce As ElementEnumerator
+    If el.IsCellElement Then
+        Set ce = el.AsCellElement.GetSubElements
+    ElseIf el.IsSharedCellElement Then
+        Set ce = el.AsSharedCellElement.GetSubElements
+    Else
+        Exit Sub
+    End If
+    If ce Is Nothing Then Exit Sub
+    Dim subEl As Element
+    Do While ce.MoveNext
+        Set subEl = ce.Current
+        Call AccumulateDirProj(subEl, dirX, dirY, minP, maxP, anyPts)
+    Loop
+End Sub
+
+Private Sub FindExtremeAlongDir(el As Element, dirX As Double, dirY As Double, _
+                                wantMax As Boolean, ByRef best As Point3d, _
+                                ByRef bestP As Double, ByRef found As Boolean)
+    On Error GoTo TrySubs2
+    Dim vl As VertexList
+    Dim pts() As Point3d
+    Dim i As Long
+    Dim p As Double
+    Set vl = el.AsVertexList
+    pts = vl.GetVertices()
+    For i = LBound(pts) To UBound(pts)
+        p = pts(i).X * dirX + pts(i).Y * dirY
+        If (Not found) Or (wantMax And p > bestP) Or ((Not wantMax) And p < bestP) Then
+            best = pts(i)
+            bestP = p
+            found = True
+        End If
+    Next i
+    Exit Sub
+TrySubs2:
+    On Error Resume Next
+    Dim ce As ElementEnumerator
+    If el.IsCellElement Then
+        Set ce = el.AsCellElement.GetSubElements
+    ElseIf el.IsSharedCellElement Then
+        Set ce = el.AsSharedCellElement.GetSubElements
+    Else
+        Exit Sub
+    End If
+    If ce Is Nothing Then Exit Sub
+    Dim subEl As Element
+    Do While ce.MoveNext
+        Set subEl = ce.Current
+        Call FindExtremeAlongDir(subEl, dirX, dirY, wantMax, best, bestP, found)
+    Loop
+End Sub
+
+' First hit of ray (ox,oy)+t*(dir) with cell outline. Keeps the stem on
+' the perp line and on the diamond edge (not an inner hole AABB gap).
+Private Function RayHitOutline(el As Element, ox As Double, oy As Double, _
+                               dirX As Double, dirY As Double) As Point3d
+    Dim bestT As Double
+    Dim found As Boolean
+    bestT = 1E+99
+    found = False
+    Call AccelRayHits(el, ox, oy, dirX, dirY, bestT, found)
+    Dim p As Point3d
+    If found And bestT > 0.01 And bestT < 1E+98 Then
+        p.X = ox + dirX * bestT
+        p.Y = oy + dirY * bestT
+        p.Z = 0#
+    Else
+        p = ExtremePointAlongDir(el, dirX, dirY, False)
+        Dim t As Double
+        t = (p.X - ox) * dirX + (p.Y - oy) * dirY
+        If t < 0.01 Then t = 50#
+        p.X = ox + dirX * t
+        p.Y = oy + dirY * t
+        p.Z = 0#
+    End If
+    RayHitOutline = p
+End Function
+
+Private Sub AccelRayHits(el As Element, ox As Double, oy As Double, _
+                         dirX As Double, dirY As Double, _
+                         ByRef bestT As Double, ByRef found As Boolean)
+    On Error GoTo TrySubs3
+    Dim vl As VertexList
+    Dim pts() As Point3d
+    Dim i As Long
+    Dim n As Long
+    Dim t As Double
+    Set vl = el.AsVertexList
+    pts = vl.GetVertices()
+    n = UBound(pts) - LBound(pts) + 1
+    If n < 2 Then Exit Sub
+    For i = LBound(pts) To UBound(pts) - 1
+        t = SegRayT(ox, oy, dirX, dirY, pts(i).X, pts(i).Y, pts(i + 1).X, pts(i + 1).Y)
+        If t > 0.05 And t < bestT Then
+            bestT = t
+            found = True
+        End If
+    Next i
+    ' Close only a small loop (one diamond/rect). Do NOT chord last→first
+    ' across a whole cell vertex dump — that chord sits short of the orange
+    ' face and is the C/S stem gap (L was axis-aligned so the chord missed).
+    Dim closeLen As Double
+    closeLen = Sqr((pts(UBound(pts)).X - pts(LBound(pts)).X) ^ 2 + _
+                   (pts(UBound(pts)).Y - pts(LBound(pts)).Y) ^ 2)
+    If closeLen > 0.5 And closeLen < 80# Then
+        t = SegRayT(ox, oy, dirX, dirY, pts(UBound(pts)).X, pts(UBound(pts)).Y, _
+                    pts(LBound(pts)).X, pts(LBound(pts)).Y)
+        If t > 0.05 And t < bestT Then
+            bestT = t
+            found = True
+        End If
+    End If
+    Exit Sub
+TrySubs3:
+    On Error Resume Next
+    Dim ce As ElementEnumerator
+    If el.IsCellElement Then
+        Set ce = el.AsCellElement.GetSubElements
+    ElseIf el.IsSharedCellElement Then
+        Set ce = el.AsSharedCellElement.GetSubElements
+    Else
+        Exit Sub
+    End If
+    If ce Is Nothing Then Exit Sub
+    Dim subEl As Element
+    Do While ce.MoveNext
+        Set subEl = ce.Current
+        Call AccelRayHits(subEl, ox, oy, dirX, dirY, bestT, found)
+    Loop
+End Sub
+
+Private Function SegRayT(ox As Double, oy As Double, dx As Double, dy As Double, _
+                         ax As Double, ay As Double, bx As Double, by As Double) As Double
+    Dim rx As Double, ry As Double, sx As Double, sy As Double
+    Dim den As Double, t As Double, u As Double
+    rx = dx: ry = dy
+    sx = bx - ax: sy = by - ay
+    den = rx * sy - ry * sx
+    SegRayT = -1#
+    If Abs(den) < 0.0000001 Then Exit Function
+    t = ((ax - ox) * sy - (ay - oy) * sx) / den
+    u = ((ax - ox) * ry - (ay - oy) * rx) / den
+    If t > 0# And u >= -0.02 And u <= 1.02 Then
+        SegRayT = t
+    End If
 End Function
 
 ' Lateral offset of the post SHAFT centerline from the cell origin.
@@ -754,18 +1036,10 @@ End Sub
 ' Move el along dir only so its bbox inward edge (center - dir*half)
 ' coincides with tip. Lateral position is left alone (shaft alignment).
 Private Sub SnapInwardEdgeToTip(el As Element, tip As Point3d, dirX As Double, dirY As Double)
-    Dim rng As Range3d
-    rng = el.Range
-    Dim half As Double
-    half = HalfExtentAlongDir(el, dirX, dirY)
-    Dim midX As Double, midY As Double
-    midX = 0.5 * (rng.Low.X + rng.High.X)
-    midY = 0.5 * (rng.Low.Y + rng.High.Y)
-    Dim curInX As Double, curInY As Double
-    curInX = midX - dirX * half
-    curInY = midY - dirY * half
+    Dim inPt As Point3d
+    inPt = ExtremePointAlongDirPreferColor(el, dirX, dirY, False, 6)
     Dim along As Double
-    along = (tip.X - curInX) * dirX + (tip.Y - curInY) * dirY
+    along = (tip.X - inPt.X) * dirX + (tip.Y - inPt.Y) * dirY
     If Abs(along) < 0.0000001 Then Exit Sub
     Dim delta As Point3d
     delta.X = dirX * along

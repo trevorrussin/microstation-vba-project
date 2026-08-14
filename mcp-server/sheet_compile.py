@@ -100,6 +100,21 @@ def _label_text(item: str, length_ft: float, style: dict) -> str:
     return name
 
 
+def _text_angle_deg(tan_x: float, tan_y: float) -> float:
+    """Plan-label rotation along the tangent, kept readable in the view.
+
+    Follows the curve (same as dim numbers). If the raw atan2 is more than
+    90° clockwise or counterclockwise from view-upright, add/subtract 180°
+    so lettering is not upside-down (engineer 2026-08-13). ±90° is kept.
+    """
+    a = math.degrees(math.atan2(tan_y, tan_x))
+    if a > 90.0:
+        a -= 180.0
+    elif a < -90.0:
+        a += 180.0
+    return a
+
+
 _ORDER_LABEL_KINDS = {
     "ROLL AHEAD": "RollAhead",
     "VEHICLE SPACE": "VehicleSpace",
@@ -154,6 +169,23 @@ def _outward_unit(tan_x: float, tan_y: float, outward_sign: float) -> tuple[floa
     if outward_sign >= 0:
         return (-tan_y, tan_x)
     return (tan_y, -tan_x)
+
+
+def _travel_unit(align_idx: int, tan_x: float, tan_y: float) -> tuple[float, float]:
+    """Unit travel through the workzone (upstream → downstream).
+
+    Align1 tan is away-upstream (= −travel). Align2 tan is away-downstream
+    (= +travel). TWZSGN_P at 0 deg has an east crossbar; rotate the post
+    with this travel so the T stays on the curve tangent.
+    """
+    if int(align_idx) == 2:
+        return (tan_x, tan_y)
+    return (-tan_x, -tan_y)
+
+
+def _post_angle_deg(align_idx: int, tan_x: float, tan_y: float) -> float:
+    tx, ty = _travel_unit(align_idx, tan_x, tan_y)
+    return math.degrees(math.atan2(ty, tx))
 
 
 def _dim_tip_path(segments, sta0: float, sta1: float, outward_sign: float,
@@ -218,6 +250,235 @@ def _path_length(path: list[tuple[float, float]]) -> float:
         total += math.hypot(path[i][0] - path[i - 1][0],
                             path[i][1] - path[i - 1][1])
     return total
+
+
+def _path_heading_delta(path: list[tuple[float, float]]) -> float:
+    """Unsigned heading change from first segment to last, radians."""
+    if len(path) < 2:
+        return 0.0
+    a0 = math.atan2(path[1][1] - path[0][1], path[1][0] - path[0][0])
+    a1 = math.atan2(path[-1][1] - path[-2][1], path[-1][0] - path[-2][0])
+    d = (a1 - a0 + math.pi) % (2.0 * math.pi) - math.pi
+    return abs(d)
+
+
+def _fit_circle_pts(path: list[tuple[float, float]]) -> tuple[float, float, float] | None:
+    """Circumcircle of start / mid / end. None if collinear."""
+    if len(path) < 3:
+        return None
+    (x1, y1), (x2, y2), (x3, y3) = path[0], path[len(path) // 2], path[-1]
+    d = 2.0 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+    if abs(d) < 1e-9:
+        return None
+    ux = ((x1 * x1 + y1 * y1) * (y2 - y3)
+          + (x2 * x2 + y2 * y2) * (y3 - y1)
+          + (x3 * x3 + y3 * y3) * (y1 - y2)) / d
+    uy = ((x1 * x1 + y1 * y1) * (x3 - x2)
+          + (x2 * x2 + y2 * y2) * (x1 - x3)
+          + (x3 * x3 + y3 * y3) * (x2 - x1)) / d
+    r = math.hypot(x1 - ux, y1 - uy)
+    if r < 1.0 or r > 5.0e4:
+        return None
+    return (ux, uy, r)
+
+
+def _circle_residual(path: list[tuple[float, float]], cx: float, cy: float,
+                     r: float) -> float:
+    best = 0.0
+    for x, y in path:
+        best = max(best, abs(math.hypot(x - cx, y - cy) - r))
+    return best
+
+
+def classify_dim_path(path: list[tuple[float, float]],
+                      sag: float | None = None,
+                      tip1=None, tip2=None) -> str:
+    """How to draw a roadside dim: 'straight' | 'arc' | 'compound'.
+
+    MicroStation Arc Size is one circular arc. A reverse-S lane taper
+    (straight–curve–straight) cannot be one Arc Size — that is 'compound'.
+    """
+    if len(path) < 2:
+        return "straight"
+    if sag is None:
+        t1 = tip1 if tip1 is not None else path[0]
+        t2 = tip2 if tip2 is not None else path[-1]
+        sag = _path_sagitta(path, t1, t2)
+    heading = _path_heading_delta(path)
+    chord = math.hypot(path[-1][0] - path[0][0], path[-1][1] - path[0][1])
+    # Short spans on a highway curve (50' on R=3000, sag~0.1 ft) still
+    # change heading ~1 deg — those must hug, not SizeArrow.
+    if sag < 0.12 and heading < math.radians(0.55) and chord > 1.0:
+        return "straight"
+    runs = split_dim_path_runs(path)
+    long_straight = any(
+        k == "straight" and _path_length(pts) >= 80.0 for k, pts in runs)
+    fit = _fit_circle_pts(path)
+    if fit is not None:
+        _cx, _cy, r = fit
+        resid = _circle_residual(path, _cx, _cy, r)
+        # Constant-R highway curve (C-curve, including 350' sign gaps):
+        # one Arc Size. Do not nibble sampling crumbs into extra dims.
+        if resid <= 3.0 and 1.0 < r < 2.0e4:
+            return "arc"
+        if r > 2.0e4 and sag < 0.12:
+            return "straight"
+    if len(runs) >= 2 and long_straight:
+        return "compound"
+    if len(runs) >= 2:
+        return "compound"
+    if fit is None:
+        return "compound" if sag > 0.5 or heading > math.radians(2.0) else "straight"
+    return "arc"
+
+
+def split_dim_path_runs(
+    path: list[tuple[float, float]],
+    min_run_ft: float = 100.0,
+    arc_r_max: float = 8000.0,
+) -> list[tuple[str, list[tuple[float, float]]]]:
+    """Split a compound roadside into straight vs circular-arc runs.
+
+    Local 3-point radius < arc_r_max → arc sample. Adjacent same-kind
+    samples merge. Runs shorter than min_run_ft join the previous run.
+    """
+    if len(path) < 3:
+        return [("straight", list(path))]
+    nseg = len(path) - 1
+    seg_arc = [False] * nseg
+    for i in range(1, len(path) - 1):
+        fit = _fit_circle_pts([path[i - 1], path[i], path[i + 1]])
+        if fit is None:
+            continue
+        r = fit[2]
+        if 25.0 < r < arc_r_max:
+            seg_arc[i - 1] = True
+            seg_arc[i] = True
+    runs: list[tuple[str, list]] = []
+    start = 0
+    cur = seg_arc[0]
+    for i in range(1, nseg):
+        if seg_arc[i] != cur:
+            runs.append(("arc" if cur else "straight", list(path[start:i + 1])))
+            start = i
+            cur = seg_arc[i]
+    runs.append(("arc" if cur else "straight", list(path[start:])))
+
+    merged: list[tuple[str, list]] = []
+    for kind, pts in runs:
+        plen = _path_length(pts)
+        if merged and (plen < min_run_ft or kind == merged[-1][0]):
+            pk, pp = merged[-1]
+            keep = pk if plen < min_run_ft else kind
+            merged[-1] = (keep, pp + pts[1:])
+        else:
+            merged.append((kind, pts))
+    if len(merged) >= 2 and _path_length(merged[0][1]) < min_run_ft:
+        merged[1] = (merged[1][0], merged[0][1] + merged[1][1][1:])
+        merged.pop(0)
+    return merged
+
+
+def _apportion_sheet_lengths(raw: list[float], sheet_len: float) -> list[float]:
+    """Scale run path-lengths so they sum exactly to the sheet table length."""
+    tot = sum(raw) or 1.0
+    parts = [sheet_len * r / tot for r in raw]
+    rounded = [round(p, 1) for p in parts]
+    if rounded:
+        rounded[-1] = round(sheet_len - sum(rounded[:-1]), 1)
+    return rounded
+
+
+def _run_offset(path: list[tuple[float, float]], parent_ox: float,
+                parent_oy: float, dist: float) -> tuple[float, float]:
+    """Dim-line point for a run: local mid, same roadside as parent offset."""
+    if len(path) < 2:
+        return (parent_ox, parent_oy)
+    i = max(1, len(path) // 2)
+    mx, my = path[i]
+    dx = path[i][0] - path[i - 1][0]
+    dy = path[i][1] - path[i - 1][1]
+    L = math.hypot(dx, dy) or 1.0
+    nx, ny = -dy / L, dx / L
+    if (parent_ox - mx) * nx + (parent_oy - my) * ny < 0:
+        nx, ny = -nx, -ny
+    return (mx + nx * dist, my + ny * dist)
+
+
+def _span_dimension_primitives(
+    *,
+    align_idx: int,
+    zone: str,
+    style: dict,
+    tip_path: list,
+    t1: tuple[float, float],
+    t2: tuple[float, float],
+    ox: float,
+    oy: float,
+    offset_dist: float,
+    sheet_len: float,
+    curved: bool,
+    kind: str,
+    overlay: bool = False,
+) -> list[dict]:
+    """One SizeArrow/Arc Size, or several real dims that sum to sheet_len."""
+    spec_base = {"zone": zone, "run": None, "alignIdx": align_idx}
+    if overlay:
+        spec_base["overlay"] = True
+
+    def _one(tip1, tip2, off, text, is_curved, path, path_kind, part_i, n_parts,
+             part_len, parts_sum) -> dict:
+        pid = _primitive_id(align_idx, zone, "dimension")
+        if n_parts > 1:
+            pid = f"{pid}:p{part_i}"
+        prim = {
+            "kind": "dimension",
+            "tip1": tip1, "tip2": tip2, "offset": off,
+            "text": text,
+            "curved": is_curved,
+            "primitiveId": pid,
+            "specRef": {
+                **spec_base,
+                "partIndex": part_i,
+                "partCount": n_parts,
+                "partKind": path_kind,
+                "partLengthFt": part_len,
+                "sheetLengthFt": sheet_len,
+                "partsSumFt": parts_sum,
+            },
+        }
+        if is_curved and path:
+            prim["path"] = path
+            prim["pathKind"] = path_kind
+        return prim
+
+    if not curved or kind != "compound" or len(tip_path) < 3:
+        path_kind = kind if kind != "straight" else ("arc" if curved else "straight")
+        return [_one(t1, t2, (ox, oy), _dim_text(sheet_len, style),
+                     curved, tip_path if curved else None, path_kind,
+                     0, 1, sheet_len, sheet_len)]
+
+    runs = split_dim_path_runs(tip_path)
+    if len(runs) <= 1:
+        k = runs[0][0] if runs else "arc"
+        return [_one(t1, t2, (ox, oy), _dim_text(sheet_len, style),
+                     True, tip_path, k, 0, 1, sheet_len, sheet_len)]
+
+    raw = [max(_path_length(pts), 0.1) for _, pts in runs]
+    lengths = _apportion_sheet_lengths(raw, sheet_len)
+    parts_sum = round(sum(lengths), 1)
+    out: list[dict] = []
+    for i, ((rk, pts), plen) in enumerate(zip(runs, lengths)):
+        sag_i = _path_sagitta(pts, pts[0], pts[-1])
+        is_arc = rk == "arc" or sag_i > 0.35
+        off = _run_offset(pts, ox, oy, offset_dist)
+        out.append(_one(
+            pts[0], pts[-1], off, _dim_text(plen, style),
+            is_arc, pts if is_arc else None, "arc" if is_arc else "straight",
+            i, len(runs), plen, parts_sum,
+        ))
+    return out
+
 
 
 def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
@@ -326,15 +587,21 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
             path_len = _path_length(tip_path)
             sag = _path_sagitta(tip_path, (t1x, t1y), (t2x, t2y))
             sheet_len = float(row["lengthFt"])
+            kind = classify_dim_path(tip_path, sag=sag, tip1=(t1x, t1y),
+                                     tip2=(t2x, t2y))
             # Hug when the tip path bows OR when a Linear Size chord would
             # disagree with the sheet/table length (e.g. downstream taper
-            # showing ~45' instead of 50').
+            # showing ~45' instead of 50'). Short highway-curve spans
+            # (50' on R=3000) use heading, not sag>0.5.
             curved = (
-                len(tip_path) >= 2
-                and (
-                    sag > 0.5
-                    or path_len > chord * 1.005 + 0.25
-                    or abs(chord - sheet_len) > 1.0
+                kind != "straight"
+                or (
+                    len(tip_path) >= 2
+                    and (
+                        sag > 0.5
+                        or path_len > chord * 1.005 + 0.25
+                        or (sag > 0.35 and abs(chord - sheet_len) > 1.0)
+                    )
                 )
             )
             if curved and tip_path:
@@ -348,16 +615,12 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
             else:
                 ox = 0.5 * (t1x + t2x) + mid_ox * offset_dist
                 oy = 0.5 * (t1y + t2y) + mid_oy * offset_dist
-            dim_prim: dict = {
-                "kind": "dimension", "tip1": (t1x, t1y), "tip2": (t2x, t2y),
-                "offset": (ox, oy), "text": _dim_text(row["lengthFt"], style),
-                "curved": curved,
-                "primitiveId": _primitive_id(align_idx, zone, "dimension"),
-                "specRef": {"zone": zone, "run": None, "alignIdx": align_idx},
-            }
-            if curved:
-                dim_prim["path"] = tip_path
-            primitives.append(dim_prim)
+            primitives.extend(_span_dimension_primitives(
+                align_idx=align_idx, zone=zone, style=style,
+                tip_path=tip_path, t1=(t1x, t1y), t2=(t2x, t2y),
+                ox=ox, oy=oy, offset_dist=offset_dist, sheet_len=sheet_len,
+                curved=curved, kind=kind, overlay=False,
+            ))
 
         # Name labels below the dim line: Non-Sign rows only, gated on
         # whether this sheet's elements list actually has this feature
@@ -376,6 +639,7 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
             primitives.append({
                 "kind": "label", "x": tx, "y": ty,
                 "text": _label_text(row["item"], row["lengthFt"], style),
+                "angleDeg": _text_angle_deg(mtx, mty),
                 "primitiveId": _primitive_id(align_idx, zone, "label"),
                 "specRef": {"zone": zone, "run": None, "alignIdx": align_idx},
             })
@@ -386,10 +650,26 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
     # Overlay zones (e.g. SHOULDER TAPER inside gap A): dimension + label on
     # the opposite side of the main sign/dim column by default
     # (annotationStyle.overlayDimSide). Still no sequential station tick.
-    overlay_sign = (
-        -outward_sign if style.get("overlayDimSide", "opposite") == "opposite"
-        else outward_sign
-    )
+    #
+    # REAL-ROAD EXCEPTION (engineer QA 2026-08-13): "opposite" is a printed-
+    # sheet convention — on the schematic the other side is empty paper. On a
+    # real road the alignment is the closed-lane edge, so flipping outward
+    # drives the overlay dim straight across the travel lanes. Measured live
+    # on the C-curve build: SHOULDER TAPER tipped at align−20 (r=3018,
+    # mid-pavement between lane line and yellow) while every other dim tipped
+    # at align+20 (r=3058, on the EOP). When a real-road tip_half_len_ft is
+    # locked, keep the overlay on the SAME roadside and clear the main dim
+    # column radially instead of crossing the road.
+    real_road = tip_half_len_ft is not None and float(tip_half_len_ft) > 0
+    if real_road:
+        overlay_sign = outward_sign
+        overlay_offset = offset_dist * 2.0
+    else:
+        overlay_sign = (
+            -outward_sign if style.get("overlayDimSide", "opposite") == "opposite"
+            else outward_sign
+        )
+        overlay_offset = offset_dist
     for row in walk:
         if row.get("type") != "Overlay" or float(row.get("lengthFt") or 0) <= 0:
             continue
@@ -415,39 +695,40 @@ def compile_plan(spec: dict, resolved: dict, align_idx: int, segments,
         path_len = _path_length(tip_path)
         sag = _path_sagitta(tip_path, (t1x, t1y), (t2x, t2y))
         sheet_len = float(row["lengthFt"])
+        kind = classify_dim_path(tip_path, sag=sag, tip1=(t1x, t1y),
+                                 tip2=(t2x, t2y))
         curved = (
-            len(tip_path) >= 2
-            and (
-                sag > 0.5
-                or path_len > chord * 1.005 + 0.25
-                or abs(chord - sheet_len) > 1.0
+            kind != "straight"
+            or (
+                len(tip_path) >= 2
+                and (
+                    sag > 0.5
+                    or path_len > chord * 1.005 + 0.25
+                    or (sag > 0.35 and abs(chord - sheet_len) > 1.0)
+                )
             )
         )
         if curved and tip_path:
             mid_i = len(tip_path) // 2
             px, py = tip_path[mid_i]
-            ox = px + out_x * offset_dist
-            oy = py + out_y * offset_dist
+            ox = px + out_x * overlay_offset
+            oy = py + out_y * overlay_offset
         else:
-            ox = 0.5 * (t1x + t2x) + out_x * offset_dist
-            oy = 0.5 * (t1y + t2y) + out_y * offset_dist
-        dim_prim: dict = {
-            "kind": "dimension", "tip1": (t1x, t1y), "tip2": (t2x, t2y),
-            "offset": (ox, oy), "text": _dim_text(row["lengthFt"], style),
-            "curved": curved,
-            "primitiveId": _primitive_id(align_idx, zone, "dimension"),
-            "specRef": {"zone": zone, "run": None, "alignIdx": align_idx,
-                        "overlay": True},
-        }
-        if curved:
-            dim_prim["path"] = tip_path
-        primitives.append(dim_prim)
-        label_out = offset_dist + text_extra_along
+            ox = 0.5 * (t1x + t2x) + out_x * overlay_offset
+            oy = 0.5 * (t1y + t2y) + out_y * overlay_offset
+        primitives.extend(_span_dimension_primitives(
+            align_idx=align_idx, zone=zone, style=style,
+            tip_path=tip_path, t1=(t1x, t1y), t2=(t2x, t2y),
+            ox=ox, oy=oy, offset_dist=overlay_offset, sheet_len=sheet_len,
+            curved=curved, kind=kind, overlay=True,
+        ))
+        label_out = overlay_offset + text_extra_along
         primitives.append({
             "kind": "label",
             "x": mx + out_x * (tip_hl + label_out),
             "y": my + out_y * (tip_hl + label_out),
             "text": _label_text(row["item"], row["lengthFt"], style),
+            "angleDeg": _text_angle_deg(mtx, mty),
             "primitiveId": _primitive_id(align_idx, zone, "label"),
             "specRef": {"zone": zone, "run": None, "alignIdx": align_idx,
                         "overlay": True},
@@ -798,6 +1079,10 @@ def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
         out_x, out_y = _outward_unit(tan_x, tan_y, outward_sign)
         angle_deg = math.degrees(math.atan2(tan_y, tan_x))
         kind = "protectiveVehicle" if is_vehicle else "arrowPanel"
+        if is_vehicle:
+            # TWZWVA_P default heading is 180° from alignment tangent
+            # (engineer 2026-08-13: same XY, rotate 180 about cell center).
+            angle_deg = angle_deg + 180.0
 
         if is_arrow_panel:
             # Base = tip of the station perp (same attachment as roadside
@@ -831,6 +1116,7 @@ def compile_symbols(spec: dict, resolved: dict, align_idx: int, segments,
                 "x": x + out_x * label_dist,
                 "y": y + out_y * label_dist,
                 "text": "ARROW PANEL",
+                "angleDeg": _text_angle_deg(tan_x, tan_y),
                 "primitiveId": _primitive_id(align_idx, "arrowPanel", "label"),
                 "specRef": {
                     "zone": anchor.get("zone"), "run": None,

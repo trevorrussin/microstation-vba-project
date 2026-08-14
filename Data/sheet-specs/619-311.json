@@ -32,12 +32,13 @@
       "labelExtra": 20,
       "symbolLabel": 25
     },
-    "notes": "CURVED DIM RULES (engineer 2026-08-13 — keep, repeated after tip/leftover QA): (1) bend dim line = ARC following roadside; (2) must match straight ny_Plan SizeArrow look INCLUDING arrowhead TIPS (always-visible triangles — not FillMode shapes that vanish when view Fill is off); (3) REMOVE leftover bad chord/tip-chain/old-arc dims before rebuild (wipe DimensionElements + color-2 arc/line/shape). Straight spans = one ny_Plan SizeArrow. Bowed spans = PLACE_CURVED_PLAN_DIMENSION. Live prefs: length on dim only; name labels below; SHOULDER TAPER overlay opposite; AP label from compile_symbols. Sign faces view-horizontal. Real-road undivided right-lane align = 2·lane+yellow_gap+lane from first-travel outer. Urban 55 / 12 ft / ≥8 ft: Buffer 495', Roll Ahead 120–200' (min 120), Downstream Taper 50–100' (min 50), Lane Taper 680', Shoulder Taper 160'. See sheet.buildGuide."
+    "notes": "CURVED DIM RULES (engineer 2026-08-13/14): (1) bend dim = annotative Arc Size that FOLLOWS the roadside; (2) same ny_Plan SizeArrow look; (3) REMOVE leftovers before rebuild. Dims always outside pavement. Inside of an S-bend: Arc Size at r-15 (negative DimHeight), not r+15. Buffer/roll/downstream must be complete and off-pavement. Feature NAME labels follow the curve tangent then flip 180° if more than 90° from view-upright. MUTCD faces stay view-horizontal. TWZSGN_P rotates with travel tangent. PV = tangent+180. Straight = SizeArrow. One circular arc = one Arc Size. Compound (reverse-S) splits into real SizeArrow + Arc Size; merge runs < 100'; SizeArrow only if sag < 0.35 ft; parts sum to the table length. Sign stem = post-outer → snapped inward vertex on the perp ray; no RayHit-nudge (G20 inner hole gap). Overlay SHOULDER TAPER stays on the closed roadside on real roads. Length on dim only; names below. Do not CLEAR_PLAN between L/C/S siblings. Urban 55 / 12 ft / ≥8 ft: Buffer 495', Roll Ahead 120–200' (min 120), Downstream Taper 50–100' (min 50), Lane Taper 680', Shoulder Taper 160'. See sheet.buildGuide."
   },
 
   "applicability": {
     "roadType": "Non-Freeway",
     "roadway": "Multilane undivided",
+    "highwayKinds": ["two_way_undivided"],
     "lanesPerDirection": 2,
     "closure": "Right lane closure",
     "duration": "Short Term",
@@ -54,6 +55,8 @@
     "areaTypes": ["URBAN", "RURAL"],
     "areaTypeNote": "Table 311-03 is keyed on URBAN vs RURAL and, for URBAN, on the preconstruction posted speed limit. Area type is a REQUIRED input for this sheet and is not derivable from speed alone."
   },
+
+  "inputsNote": "Agent: call get_required_designer_inputs. Do not offer values outside each item's allowed[] (this sheet has no 60 mph). Do not silently default speed or areaType. Derive closureType from applicability.closure; signSizeClass default NON-FREEWAY. Corridor: propose_corridor_source / lock_corridor_path / snap_work_area_to_path. Closed side is right of travel — do not ask. Do not ask for 38-ft-off-centerline picks.",
 
   "inputs": [
     {

@@ -169,6 +169,10 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = ExecDescribeDrawingState(reqId, params)
         Case "GET_ELEMENTS_RANGE"
             ExecuteOpInner = ExecGetElementsRange(reqId, params)
+        Case "GET_ELEMENT_VERTICES"
+            ExecuteOpInner = ExecGetElementVertices(reqId, params)
+        Case "GET_ELEMENTS_IN_RANGE_BOX"
+            ExecuteOpInner = ExecGetElementsInRangeBox(reqId, params)
         Case "CLASSIFY_SITE_FEATURES"
             ExecuteOpInner = ExecClassifySiteFeatures(reqId, params)
         Case "COMPUTE_SPACING"
@@ -568,6 +572,42 @@ End Function
 ' created; a stale one (already deleted this turn) shouldn't blank
 ' out the whole result.
 ' ============================================================
+Private Function ExecGetElementVertices(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    If Not params.Exists("elementId") Then
+        ExecGetElementVertices = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId"
+        Exit Function
+    End If
+    Dim rows() As String
+    rows = WZTCExec.ExecGetElementVertices(CDbl(params("elementId")))
+    If LBound(rows) = 0 And rows(0) = "error" Then
+        ExecGetElementVertices = reqId & vbTab & "ERROR" & vbTab & "note=" & rows(1)
+        Exit Function
+    End If
+    ExecGetElementVertices = WriteResultRows(reqId, rows)
+    Exit Function
+QErr:
+    ExecGetElementVertices = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function ExecGetElementsInRangeBox(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    If Not (params.Exists("lowX") And params.Exists("lowY") And _
+            params.Exists("highX") And params.Exists("highY")) Then
+        ExecGetElementsInRangeBox = reqId & vbTab & "ERROR" & vbTab & "note=missing lowX/lowY/highX/highY"
+        Exit Function
+    End If
+    Dim maxRows As Long: maxRows = 1500
+    If params.Exists("maxRows") Then maxRows = CLng(params("maxRows"))
+    Dim rows() As String
+    rows = WZTCQuery.FindElementsInRangeBox(CDbl(params("lowX")), CDbl(params("lowY")), _
+                                            CDbl(params("highX")), CDbl(params("highY")), maxRows)
+    ExecGetElementsInRangeBox = WriteResultRows(reqId, rows)
+    Exit Function
+QErr:
+    ExecGetElementsInRangeBox = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
 Private Function ExecGetElementsRange(reqId As String, params As Object) As String
     On Error GoTo QErr
     If Not params.Exists("elementIds") Then
@@ -921,6 +961,7 @@ End Function
 '   PLACE_SIGN      : signNum, roadType, side, pt1X, pt1Y, pt1Z, dir1X, dir1Y
 '                     optional (required only if side=Both Sides):
 '                     pt2X, pt2Y, pt2Z, dir2X, dir2Y
+'                     optional: postAngleDeg (TWZSGN_P travel tangent; default view)
 ' ============================================================
 Private Function BridgePlacePerpLine(reqId As String, params As Object) As String
     On Error GoTo WErr
@@ -957,13 +998,15 @@ Private Function BridgePlaceSign(reqId As String, params As Object) As String
     If params.Exists("pt2Z") Then pt2Z = CDbl(params("pt2Z"))
     If params.Exists("dir2X") Then dir2X = CDbl(params("dir2X"))
     If params.Exists("dir2Y") Then dir2Y = CDbl(params("dir2Y"))
+    Dim postAngleDeg As Double: postAngleDeg = -9999#
+    If params.Exists("postAngleDeg") Then postAngleDeg = CDbl(params("postAngleDeg"))
 
     Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
     Dim result As String
     result = WZTCExec.ExecPlaceSign(CStr(params("signNum")), CStr(params("roadType")), CStr(params("side")), _
                                     CDbl(params("pt1X")), CDbl(params("pt1Y")), CDbl(params("pt1Z")), _
                                     CDbl(params("dir1X")), CDbl(params("dir1Y")), _
-                                    pt2X, pt2Y, pt2Z, dir2X, dir2Y)
+                                    pt2X, pt2Y, pt2Z, dir2X, dir2Y, postAngleDeg)
     If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
     BridgePlaceSign = reqId & vbTab & result
     Exit Function
@@ -1515,10 +1558,12 @@ Private Function BridgePlaceTextLabel(reqId As String, params As Object) As Stri
 
     Dim z As Double: z = 0
     If params.Exists("z") Then z = CDbl(params("z"))
+    Dim angleDeg As Double: angleDeg = 0
+    If params.Exists("angleDeg") Then angleDeg = CDbl(params("angleDeg"))
 
     Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
     Dim result As String
-    result = WZTCExec.ExecPlaceTextLabel(CStr(params("text")), CDbl(params("x")), CDbl(params("y")), z)
+    result = WZTCExec.ExecPlaceTextLabel(CStr(params("text")), CDbl(params("x")), CDbl(params("y")), z, angleDeg)
     If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
     BridgePlaceTextLabel = reqId & vbTab & result
     Exit Function
@@ -2101,7 +2146,8 @@ Private Function ExecClearPlanElements(reqId As String, params As Object) As Str
         If opName = "CLEAR_PLAN_ELEMENTS" Or opName = "DELETE_ELEMENT" Or _
            opName = "UNDO_LAST_OP" Or opName = "BUILD_WZTC_ORDER_TABLE" Or _
            opName = "COMPUTE_SPACING" Or opName = "GET_JOURNAL" Or _
-           opName = "HANDOFF" Then GoTo ClearNextLine
+           opName = "HANDOFF" Or opName = "GET_ELEMENT_VERTICES" Or _
+           opName = "GET_ELEMENTS_IN_RANGE_BOX" Then GoTo ClearNextLine
 
         ' Scoped clear: only ops tagged with this alignIdx. Untagged
         ' create-ops (legacy PLACE_SIGN without alignIdx) are left alone

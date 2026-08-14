@@ -162,20 +162,20 @@ def next_action(session: Any, done: dict[str, bool]) -> dict[str, Any]:
 
     table = {
         "inputs_locked": (
-            "ask_user_choice for speed/lane/shoulder/area_type/sheet, then "
-            "build_wztc_order_table",
-            "ask_user_choice",
+            "get_required_designer_inputs(sheet_num); ask_user_choice once "
+            "per toAsk item using those options; then build_wztc_order_table",
+            "get_required_designer_inputs",
         ),
         "order_table_built": (
             "build_wztc_order_table(...); show table to engineer before drawing",
             "build_wztc_order_table",
         ),
         "corridor_ready": (
-            "ask_user_choice for closed_side (right|left of travel) + point-pick "
-            "upstream/downstream WORK AREA edges; resolve_sheet_lateral(...); "
-            "then run_sheet_build(upstream_edge, downstream_edge) "
-            "(uses locked outward_sign/half_len)",
-            "resolve_sheet_lateral",
+            "propose_corridor_source(); lock_corridor_path(...); "
+            "propose_work_area_on_path(); snap_work_area_to_path(...); "
+            "resolve_sheet_lateral(up, dn, closed_side, path_vertices=...); "
+            "then run_sheet_build (uses locked outward_sign/half_len)",
+            "propose_corridor_source",
         ),
         "stations_placed": (
             f"run_sheet_build() to finish stations/signs/compiler, or "

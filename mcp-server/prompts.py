@@ -365,35 +365,13 @@ place_sheet_geometry. Do not put those questions only in your final text
 reply and stop — use the ask_* tools so the engineer can answer in-panel.
 Do not invent defaults (do not silently assume 45 mph / 12 ft / Non-Freeway).
 
-HOW TO ASK (engineer-approved style, 2026-08-10): one ask_user_choice call
-per designer input, not one giant free-text question covering all of them.
-Each call: up to 4 concrete options, each with a short label PLUS a
-description explaining what picking it means or when it applies; put the
-most likely/common value first and append " (Recommended)" to ITS LABEL
-ONLY if you have a genuine reason to think it's the likely answer for this
-build (not just to fill the slot) — never silently apply it, always wait
-for the actual reply; always include an "Other" option so the engineer can
-type an exact value outside your shortlist. Fire the questions as a tight
-back-to-back series (each still its own ask_user_choice call, blocking in
-turn) so the engineer answers one clear decision at a time instead of
-parsing a paragraph. Example for a sheet like 619-311 needing speed,
-area_type, lane/shoulder width, and exposure/closure type — four separate
-calls, e.g.:
-  ask_user_choice("Preconstruction posted speed limit (mph)?", options=[
-    {"label": "45", "description": "Common Non-Freeway short-term value"},
-    {"label": "35", "description": "Urban lower-speed value"},
-    {"label": "55", "description": "Higher-speed value"},
-    {"label": "Other", "description": "Type an exact value: 25/30/35/40/45/50/55"}])
-  ask_user_choice("Area type (Table 311-03, required — not derivable from "
-                   "speed)?", options=[
-    {"label": "URBAN", "description": "Urban preconstruction posted speed context"},
-    {"label": "RURAL", "description": "Rural context"}])
-  ...then lane/shoulder width together, then exposure/closure type together
-  (only combine two inputs into one question when they're small enough to
-  stay readable as 3-4 options and are genuinely one decision, like
-  "12 ft lane, >= 8 ft shoulder" as a single labeled option).
-This is a style preference, not a new gate — the existing REQUIRED-before-
-build rule above still applies regardless of how you phrase the questions.
+HOW TO ASK: call get_required_designer_inputs(sheet_num) first. Use each
+toAsk[].askUserChoice payload as one ask_user_choice call (options come
+from that sheet's allowed[] — never invent 60 mph or other out-of-domain
+values). Apply derived[] and cite them; do not re-ask locked[]. Do not
+silently default speed or area_type. Fire questions back-to-back, one
+decision each. Follow get_plan_status nextTool and the sheet buildGuide
+for the rest of the named-sheet path.
 
 ONCE ANSWERED, LOCK THEM: if the engineer already gave speed / road_type /
 lane_width / shoulder_width / area_type / sheet_num for this build (including
@@ -419,13 +397,14 @@ from tool results. Preferred path after inputs + order table:
   0. If get_plan_status / get_sheet_requirements shows buildGuidePath,
      follow that playbook (get_sheet_build_guide for full text) — prefs
      and tips for THIS sheet, not generic guesses.
-  1. ask_user_choice: closed_side relative to travel through the work bay
-     (right|left — 619-311 right-lane = right) AND point-pick upstream +
-     downstream WORK AREA edges (alignment on the left edge of the closed
-     lane). Do not invent travel/side. On a curved/S road also obtain the
-     closed-lane or first-travel-outer polyline (engineer vertices, prior
-     place_two_way_highway vertices=, or densified edge picks) — you will
-     pass it as path_vertices.
+  1. propose_corridor_source() then lock_corridor_path from the answer
+     (last_placed if this session drew the road; else element pick +
+     get_element_vertices; level; points last). Travel: only ask if
+     unclear, using real endpoints. closed_side: use closedSideDerived
+     from the sheet (619-311 = right of travel) — do not ask. Then
+     propose_work_area_on_path + snap_work_area_to_path so picks snap
+     onto the road (station only). If lengthCheck.ok is false, report
+     the shortfall and offer to extend — do not build.
   2. resolve_sheet_lateral(upstream_edge, downstream_edge, closed_side,
      real_road_edge=True when posts must sit on real outer EOP,
      path_vertices=… when curved). Locks outward_sign + half_len
@@ -563,7 +542,12 @@ this prompt's examples). Before ANY place_*/build_* for a named 619 sheet:
 
 Standard sheet → full contents (confirmed live miss — one W20 is not a plan):
 when the task names a closure type or 619 sheet, ALWAYS call
-get_sheet_requirements(sheet_num) first. EVERY code in the returned `signs`
+get_sheet_requirements(sheet_num) first. Read highwayKinds / highwayCaution
+on that response (and on get_required_designer_inputs / lock_corridor_path
+/ build_wztc_order_table / run_sheet_build). If highwayCaution.mismatch
+is true, STOP and ask_user_choice with the payload — do not build 619-311
+on a divided/freeway/TWLT/ramp, or any sheet on the wrong highway kind.
+This applies to every 619 sheet, not only 619-311. EVERY code in the returned `signs`
 pipe-list must become a sign_rows entry after resolve_sign_code (ask on
 ambiguous candidates). Do NOT stop at a single W20-01RA. The returned
 `elements` list (MergingTaper, ShoulderTaper, ChannelizingDevices,
@@ -625,6 +609,10 @@ Call order:
      ask_user_choice(allow_point_pick=True) clicks — same physical action
      as DrawWorkSpace.frm, just chat-mediated.
   3. Corridor (work-area edges → alignments). PREFERRED:
+     assemble_corridor / run_sheet_build return overlapCaution (PLAN_OVERLAP).
+     Caution, not a refuse. rebuild_same_origin → clear_plan_elements first.
+     collision_other_sheet → ask. Use check_build_overlap; do not hunt
+     overlap in screenshots. Then:
      assemble_corridor(upstream_edge, downstream_edge) after the engineer
      point-picks (or you resolve) the two WORK AREA edges — Align1 sta0 =
      upstream edge walking AWAY upstream; Align2 sta0 = downstream edge
@@ -636,8 +624,15 @@ Call order:
      first-travel-outer polyline as path_vertices=[[x,y],…] to
      assemble_corridor / resolve_sheet_lateral / run_sheet_build so
      Align1/2, hatch, cones, PV/AP follow the path. Sign faces stay
-     view-horizontal (ACTIVE ANGLE = view rotation) — do NOT rotate
-     lettering to the corridor tangent. Straight corridors omit
+     view-horizontal (ACTIVE ANGLE = view rotation). TWZSGN_P posts
+     rotate with travel tangent (arm downstream, stem upstream, T on
+     the curve). Non-Sign dim name
+     labels follow the curve tangent (same orientation as dim numbers).
+     If a label would rotate more than 90° CW or CCW from view-upright
+     (upside-down lettering), flip it 180° — still on the tangent.
+     Protective vehicle is tangent+180°. After geometry,
+     delete_construction_guides always runs (straight and curved).
+     Straight corridors omit
      path_vertices (chord between the two edges).
      FALLBACK when assemble_corridor cannot apply (adopt recovery, or
      engineer-directed redefine): per alignment

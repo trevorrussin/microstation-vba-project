@@ -85,6 +85,9 @@ Bridge/placement-registry.jsonl
 Bridge/sheet-plan.json
 Bridge/sheet-reflection.jsonl
 Bridge/last-agent-kickoff-prompt.txt
+Bridge/build-ledger.jsonl
+Bridge/_ping.txt
+Bridge/_stale_text_ids.json
 
 # Python bytecode cache, any location
 __pycache__/

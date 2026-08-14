@@ -15,13 +15,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "mcp-server"))
 
-from bridge_client import chat_bridge  # noqa: E402
+from bridge_client import bridge  # noqa: E402
 import alignment_geometry as ag  # noqa: E402
 import lane_highway as lh  # noqa: E402
 import view_capture  # noqa: E402
 import wztc_ops as ops  # noqa: E402
 
-ops.set_bridge(chat_bridge)
+ops.set_bridge(bridge)
 
 OUT = ROOT / "Bridge" / "captures"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -90,8 +90,15 @@ def main() -> int:
 
     print("clear", ops.clear_plan_elements(keep_alignments=False).get("deleted"))
 
-    # Wipe AFTER clear so non-journal leftovers (old SizeArrow chords, prior
-    # curved-plan arcs/tips) are gone before rebuild — engineer: remove bad dims.
+    # Journal clear misses prior-band leftovers (engineer: old build still
+    # visible). Fence-delete the whole L-bend box, then dim wipe.
+    ops.place_fence_block(
+        ORIGIN_X - 200, ORIGIN_Y - 400,
+        ORIGIN_X + 3200, ORIGIN_Y + 3200,
+        reason="wipe old L-bend 619-311 before rebuild")
+    fd = ops.fence_delete_contents(reason="wipe old L-bend 619-311")
+    print("fence_wipe", fd.get("deleted"), fd.get("status"))
+    ops.fence_undefine(reason="clear wipe fence")
     wipe = ops.delete_dimension_elements_in_range(
         ORIGIN_X - 200, ORIGIN_Y - 400,
         ORIGIN_X + 3200, ORIGIN_Y + 3200,
@@ -176,6 +183,8 @@ def main() -> int:
         ("qa_311_curve_work", mx, my, 500, 220),
         ("qa_311_curve_upstream", up[0] - 400, up[1], 1200, 280),
         ("qa_311_curve_downstream", dn[0] + 200, dn[1], 900, 250),
+        ("qa_311_curve_g20_post", dn[0], dn[1] + 400, 350, 350),
+        ("qa_311_curve_w20_post", up[0] - 800, up[1], 350, 220),
     ]
     for name, cx, cy, w, h in captures:
         view_capture.navigate_view(cx, cy, w, h, view_num=1)

@@ -1222,7 +1222,7 @@ Surprises worth keeping: **401 size table uses W20-5aR** (not W21-5aR) ? PDF con
 
 Authored complete specs for Family 4 from per-sheet PDFs (Bridge/captures/619-{306,212,114,041}.pdf): drafts via Bridge/_extract_family4_tables.py, specs via Bridge/_build_family4_specs.py, round-trips under Bridge/roundtrip/619-{306,212,114,041}.py. All four gates PASS (validate + round-trip 0 fails + live BUILD_WZTC_ORDER_TABLE).
 
-**619-306** (family reference): MERGING+DOWNSTREAM like 302 but fixed gaps 1000/1500/2640 and **no AW table** (like 301). Table 306-03 cells == 302-02 on 45-65. **Plan has no shoulder-taper dimension** (L/3 cols exist in table only) ??? do not emit SHOULDER TAPER row. **No NYW8-33**; only 3 notes. **619-212**: short duration; plan SHOULDER TAPER only; gaps 500/1500/2640(½ mi); NYW8-33 on PV; roll-ahead has no ???40 row (recon guess corrected). **619-114**: mobile; 3 tables; moving roll-ahead; W20-5R @500??? min; >15 min ??? 212. **619-041**: mowing/moving non-freeway; W8-23 only; NON-FREEWAY PV speed bands; roll-ahead includes ???40; work area ???40???; >5 min ??? 201.
+**619-306** (family reference): MERGING+DOWNSTREAM like 302 but fixed gaps 1000/1500/2640 and **no AW table** (like 301). Table 306-03 cells == 302-02 on 45-65. **Plan has no shoulder-taper dimension** (L/3 cols exist in table only) ??? do not emit SHOULDER TAPER row. **No NYW8-33**; only 3 notes. **619-212**: short duration; plan SHOULDER TAPER only; gaps 500/1500/2640(? mi); NYW8-33 on PV; roll-ahead has no ???40 row (recon guess corrected). **619-114**: mobile; 3 tables; moving roll-ahead; W20-5R @500??? min; >15 min ??? 212. **619-041**: mowing/moving non-freeway; W8-23 only; NON-FREEWAY PV speed bands; roll-ahead includes ???40; work area ???40???; >5 min ??? 201.
 
 ## 2026-08-03 ??? Cursor ??? Family 1 siblings (202/203/312/317/325/412/414/423/523) all four gates
 
@@ -1240,7 +1240,7 @@ Authored complete specs for Family 5 (ref 619-318): 318, 316, 319, 113, 211, 416
 
 Authored complete specs for Family 7 from Bridge/captures/619-{111,110,112}.pdf via Bridge/_extract_family7_tables.py + _build_family7_specs.py; round-trip Bridge/roundtrip/619-family7.py. All four gates PASS live 2026-08-03. 619-113 stays Family 5 cross-ref.
 
-**Surprises:** (1) **Two roll-ahead shapes in one family**: 111 is speed-keyed moving (same cells as 114-02: 200/5-280/7 / 160/4-240/6) with P,TMIA PV; 110/112 are **GVW-keyed moving** (200/5-240/6 light, 160/4-200/5 heavy) with **PVH+TMIA** ??? header `45-60 / w 55` is context like 301, not speed columns (vision/image reads keep misreading this as a speed??GVW matrix). (2) **2-page 111/112**: Sheet 1 = shoulder <8' (fewer signs / shorter gaps); Sheet 2 = >=8' with 1500'-½ mi advance; specs primary-model Sheet 2. (3) 111 Sheet 1 has **no W20-5R** (only NYW8-33+W4-2R vehicle-mounted); Sheet 2 adds it. 112 Sheet 1 already has W20-5AR; Sheet 2 adds W4-2R.
+**Surprises:** (1) **Two roll-ahead shapes in one family**: 111 is speed-keyed moving (same cells as 114-02: 200/5-280/7 / 160/4-240/6) with P,TMIA PV; 110/112 are **GVW-keyed moving** (200/5-240/6 light, 160/4-200/5 heavy) with **PVH+TMIA** ??? header `45-60 / w 55` is context like 301, not speed columns (vision/image reads keep misreading this as a speed??GVW matrix). (2) **2-page 111/112**: Sheet 1 = shoulder <8' (fewer signs / shorter gaps); Sheet 2 = >=8' with 1500'-? mi advance; specs primary-model Sheet 2. (3) 111 Sheet 1 has **no W20-5R** (only NYW8-33+W4-2R vehicle-mounted); Sheet 2 adds it. 112 Sheet 1 already has W20-5AR; Sheet 2 adds W4-2R.
 
 **Family 8 blocked:** 619-101..104 have no real PDFs ??? every candidate URL on standard-sheets-us-repository, transportation-systems/repository, and metric repo returns ~10 KB HTML error pages (HEAD 200). DesignerRef-only; registry already warned not in 2026 Book 3. Historical master list numbered stop-and-go as 101-104; current NYSDOT special-ops index shows 045/046 instead (also undownloadable from the same public repos). Cannot clear gates without a vector PDF.
 
@@ -1888,3 +1888,177 @@ Engineer (close, then asked): are we using lines instead of annotative dimension
 Answer for Claude: **annotative curved dims exist** ? MicroStation `msdDimTypeArcSize` (`PLACE_ARC_SIZE_DIMENSION` / `ExecPlaceArcSizeDimension`). Straight spans are real `DimensionElement` + `ny_Plan` `msdDimTypeSizeArrow`. Arc Size was tried first on this CONNECT install and failed for roadside hug: empty/broken geometry (2 pts) or giant far-side arc. Live bowed spans therefore use constructed `PLACE_CURVED_PLAN_DIMENSION` (`CreateArcElement1` + radial extensions + SizeArrow-scale tip fans + sheet text). That is a fallback, not a missing API. Do not reintroduce SizeArrow tip-chains. Optional next: another Arc Size smoke (point order / DimHeight) if we want a real annotative dim again; otherwise keep constructed arc and only steal SizeArrow terminators at the ends.
 
 Look: work bay ~(78588, 288033); rebuild `scripts/build_619311_on_curved_road.py`.
+
+
+## 2026-08-13 -- Claude Code -- root cause: Arc Size was never broken, our tip order was
+
+Engineer asked why the curved-dim problem keeps recurring. Investigated instead of retrying.
+
+**Finding: `msdDimTypeArcSize` works fine on this install.** The recorded conclusion
+("annotative curved dims don't work here, fall back to constructed graphics") was wrong,
+and because it was written into `619-311.build.md` / JSON / the agent-log as settled fact,
+every later session skipped re-testing it. That is the recurrence mechanism.
+
+Root cause is in our caller. `ExecPlaceArcSizeDimension` passed the two tips in raw PATH
+order with `rot = Matrix3dIdentity` and never normalized sweep sign. Arc Size measures
+**counter-clockwise** from first tip to second, so any clockwise (right-hand) roadside bend
+swept the reflex way -> the "giant far-side arc". `ExecPlaceCurvedPlanDimension` already
+worked around exactly this defect (wraps `da` to (-pi,pi], picks point order by sign, plus a
+swap-retry when `ArcElement.SweepAngle` returns reflex) -- that fix was never carried back.
+
+Fix: normalize sweep sign in `ExecPlaceArcSizeDimension` before `AddReferencePoint`; response
+now reports `sweepRad` / `tipsSwapped`. Hot-reloaded.
+
+Evidence: `scripts/diag_arc_size_root_cause.py` (new) places Arc Size dims across CCW, CW, and
+the atan2-branch-crossing due-west case, in both tip orders, and compares element range to the
+analytic bbox of the intended minor arc + witness lines. Before: 3/6 hug (the 3 failures are
+exactly the CW-order cases, blowup 2.01x / 131x). After: 6/6 hug, blowup 1.01x.
+Production circle-fit checked separately: `_fit_circle_2d` samples endpoints+mid so |r1-r2| =
+0.00 -- both tips land on one radius, `DimHeight = rOff - r1` is well-defined.
+
+**Not verified:** that Arc Size *looks* like straight-sheet ny_Plan SizeArrow (tips/extensions/
+text) -- engineer requirement (2). Bbox proves the geometry hugs; it does not prove appearance.
+Live bend dims therefore still use `PLACE_CURVED_PLAN_DIMENSION`; switching is the engineer's
+call after visual QA. Registry row for PLACE_ARC_SIZE_DIMENSION also corrected (it documented a
+start/height/end signature the code no longer has).
+
+Probe elements left in the model at ~(90000-93000, 287000), 12 dims -- not deleted.
+
+
+## 2026-08-13 -- Claude Code -- overlay dims crossed the pavement on real roads
+
+Engineer QA on the C-curve 619-311: "still has the wrong dimension." Two defects.
+
+1. **My leftover.** The A/B Arc Size dim I placed to compare terminators (element
+   178800) was still sitting 70 ft outside the real 160' dim -- two `160'-0"` dims
+   at the shoulder taper. Deleted. Do not leave comparison elements in the model;
+   that is the engineer's standing requirement 3.
+
+2. **Real bug: overlay dims flipped across the travel lanes.** `compile_plan`
+   applied `annotationStyle.overlayDimSide="opposite"` unconditionally. That is a
+   printed-sheet convention -- on the schematic the far side is blank paper. On a
+   real road the alignment IS the closed-lane edge, so the flip drove SHOULDER
+   TAPER's dim through the pavement.
+
+   Measured (radius from the C-curve center, road spans r3000-3058, EOP r3058):
+   every main dim tipped at r=3057.7 on the EOP; SHOULDER TAPER tipped at
+   r=3017.7 -- 40 ft inboard, between the lane line (r3012) and yellow (r3025),
+   with its dim arc at r=3032.7 also on pavement.
+
+   Fix in `sheet_compile.compile_plan`: when a real-road `tip_half_len_ft` is
+   locked, keep `overlay_sign = outward_sign` and separate the overlay radially
+   (`overlay_offset = dimOutward*2`) instead of flipping. Schematic builds keep
+   the printed flip. After: all 7 dims tip at r=3057.7; overlay dim line r=3087.7
+   clears the main column at r=3072.8.
+
+Tests `test_overlay_dim_stays_off_pavement_on_real_road` +
+`test_overlay_dim_still_flips_on_schematic_build` (132 pass). Note both needed
+`sheet_elements="MergingTaper|ShoulderTaper|DownstreamTaper"` -- 619-311.json has
+no `sheet.elements` key, so the registry pipe-list must be passed explicitly or
+`_should_annotate_non_sign_label` filters the overlay row out and the test is
+vacuous. Rebuild: `scripts/build_619311_on_c_curve.py`, work bay ~(86497, 289270).
+
+
+## 2026-08-13 -- Claude Code -- CORRECTION: Arc Size is ON; scope reverted to dims only
+
+Supersedes the "Not verified / still uses PLACE_CURVED_PLAN_DIMENSION" line in my
+earlier entry today. Engineer directive: keep the curved-dimension work and genuine
+bug fixes, revert everything else to Cursor's handoff state.
+
+FINAL STATE
+- `ARC_SIZE_BEND_DIMS = True` (wztc_ops). Bowed spans now place a REAL annotative
+  `msdDimTypeArcSize` DimensionElement. Straight spans unchanged (ny_Plan SizeArrow).
+- Cursor's `scripts/build_619311_on_curved_road.py` (L-bend, origin 76000, work bay
+  ~78588,288033) rebuilt untouched: 6 SizeArrow + 2 Arc Size + **0**
+  PLACE_CURVED_PLAN_DIMENSION. The constructed line-graphics fallback is no longer
+  used on a live build. Verified visually: dim line hugs the bend, solid arrowhead
+  terminators both ends, length text on the curve.
+- Root cause of the original "Arc Size is broken" verdict was OUR tip order, not the
+  API -- Arc Size measures CCW, we passed tips in path order, so clockwise bends
+  swept reflex. Fixed in `ExecPlaceArcSizeDimension`; probe
+  `scripts/diag_arc_size_root_cause.py` 6/6.
+- Kept as a genuine bug fix: `sheet_compile.compile_plan` overlay dim side on
+  real-road builds (SHOULDER TAPER was tipping 40 ft into the travel lanes).
+- Scope creep NOT adopted: `scripts/build_619311_on_c_curve.py` was my own C-curve
+  variant; it is not part of the sheet-build path and Cursor's builds are unchanged.
+  The X~84000 band holds leftovers from my C-curve iterations -- engineer will clean.
+
+OPEN DEFECT (pre-existing, affects every rebuild at a fixed origin)
+`clear_plan_elements` cannot delete a prior run's elements once
+Bridge/wztc-journal.tsv has rotated: the ownership proof (createdElementIds= rows)
+moves to Bridge/archive/ and `ownElementOnly` then refuses. Live at origin 76000:
+FOUR stacked `ROLL AHEAD DISTANCE` labels (164238 / 170227 / 176408 / 183626) plus
+an orphaned `120'-0"` text (176407). The 164xxx range predates this session. This is
+why duplicate dim text keeps reappearing across sessions and why "remove leftover
+bad dims" never fully sticks. Fix candidates: have clear_plan_elements consult the
+archived journals, or persist created IDs in the placement registry independent of
+journal rotation.
+
+## 2026-08-13 -- Cursor -- leftover dims after journal rotate + 50' chord look
+
+Engineer: Arc Size look is close, but stacked leftover 120' text/chords remain and Downstream 50' still reads as a chord.
+
+Root cause of leftovers: `CLEAR_PLAN_ELEMENTS` only parsed live `Bridge/wztc-journal.tsv`. `RotateJournalIfOversized` moves older `createdElementIds=` into `Bridge/archive/`, so `ownElementOnly` / clear miss those IDs. Range wipe also skipped TextElements, so orphan `120'-0"` / `ROLL AHEAD DISTANCE` labels stacked.
+
+Fix: do **not** replay every archived journal ID (25 files / ~30 MB hung CLEAR_PLAN). Rebuild wipe `ExecDeleteDimensionElementsInRange` now also deletes Text/TextNode in the work band, which is what stacked the leftover `120'-0"` / `ROLL AHEAD DISTANCE` labels. `harvest_journal_create_ids` is the tested parser if a future bounded archive pass is needed. Compile no longer marks a span "curved" from chord-vs-sheet length alone when sagitta is tiny. Bowed spans stay `PLACE_ARC_SIZE_DIMENSION`. Live rebuild after VBA Reset: wipe deleted 18 leftovers; Roll Ahead `185026` Arc Size; Downstream `185037` Arc Size; scorecard pass. Look work bay ~(78588, 288033).
+
+## 2026-08-13 -- Cursor -- spec-driven designer inputs (all four loop items)
+
+Engineer: if we will need the four agent-loop improvements eventually, do them now.
+
+1. `get_required_designer_inputs` reads spec `inputs[]` (`sheet_resolve.required_designer_inputs`). 619-311 asks 5 (not 7): derives `closureType` from `applicability.closure` and `signSizeClass` NON-FREEWAY. Speed options from `allowed[]` ? no 60. `validate_designer_input_value` rejects 60. Prompt HOW-TO-ASK no longer hardcodes 45/35/55/Other. `plan_workflow` `inputs_locked` nextTool is this lookup.
+2. `chat_driver.tools_for_turn` omits highway-catalog / junctions / gores / cell-browse / registry while `sheet_plan_active()`; keeps `place_two_way_highway`.
+3. Prompt leans on the lookup + `get_plan_status` / buildGuide; work-bay pick / `path_vertices` unchanged.
+4. Unit tests in `tests/test_required_designer_inputs.py` (25 related tests passed). Eval harness scenarios `sheet_619311_inputs_from_spec` and `sheet_619311_reject_speed_60` are API-billed ? not run this turn.
+
+Do not silently default speed/area_type. Do not offer out-of-domain values via "Other".
+
+## 2026-08-13 -- Cursor -- corridor pick ladder (get_element_vertices)
+
+Engineer approved the simulated conversation: designer inputs first, then roadway source, then work bay snapped to the path.
+
+VBA `GET_ELEMENT_VERTICES` (`WZTCExec.ExecGetElementVertices`) returns densified XY for line / line-string / arc / complex chain. Python: `get_element_vertices`, `propose_corridor_source`, `lock_corridor_path`, `propose_work_area_on_path`, `snap_work_area_to_path`. `place_two_way_highway` (and other striping) remembers vertices so "the road I just placed" needs no click. 619-311 closed side derives as right of travel. Length check uses the resolved station walk, not a hardcoded 2345 ft. Do not ask the engineer to aim 38 ft off centerline.
+
+## 2026-08-13 -- Cursor -- curved QA: guides, tangent labels, PV 180
+
+Engineer: (1) drop perp ticks + alignment on curved builds the same as straight; (2) dim name labels follow the curve tangent like dim numbers; (3) protective vehicle faces the wrong way ? rotate 180 about center, straight and curved.
+
+`run_sheet_build` now always calls `delete_construction_guides` after geometry, before visual QA (not only `real_road_edge`). `compile_plan` emits `angleDeg` on Non-Sign labels from the local tangent; `ExecPlaceTextLabel` / `PLACE_TEXT_LABEL` take `angleDeg`. MUTCD sign faces stay view-horizontal. `compile_symbols` sets TWZWVA_P `angleDeg = atan2(tan)+180`.
+
+## 2026-08-13 ? Cursor ? TWZSGN_P post follows travel tangent
+
+Sign faces stay view-horizontal; the T post must not. Root cause: `PlaceSignAssembly` placed TWZSGN_P at `viewAngleDeg` (same as the MUTCD face). On a 90? bend, G20-2's T stayed world-aligned while the road (and straight-approach posts) had rotated. Fix: `PLACE_SIGN` optional `postAngleDeg`; `_place_locked_signs_from_stations` passes `_post_angle_deg` from travel (Align1 tan = ?travel, Align2 tan = +travel). Cell at 0? has an east crossbar = arm toward downstream. Face/text still use view angle. Tests: `test_signpost_angle_follows_travel_tangent`.
+
+## 2026-08-13 ? Cursor ? readable label flip + highway-kind caution
+
+Feature name labels still follow the corridor tangent (`_text_angle_deg`), but if atan2 is more than 90? CW or CCW from view-upright the angle folds ?180 so lettering is not upside-down (?90 kept). Same for ARROW PANEL labels. Wrong-highway caution is spec-driven for every 619 sheet: `applicability.highwayKinds` or parse `roadway`; `highwayCaution` on get_sheet_requirements / get_required_designer_inputs / lock_corridor_path / build_wztc_order_table / run_sheet_build. Does not hard-block ? agent must ask. 619-311 is `two_way_undivided` only.
+
+## 2026-08-13 ? Cursor ? build ledger + overlap check + Tier 1 scorecard
+
+Append-only `Bridge/build-ledger.jsonl` (survives registry wipe). `check_build_overlap` is caution-not-block: same sheet+origin ? clear_plan_elements; same sheet path conflict; other sheet ? ask. Tier 1 exact-duplicate hash fails the scorecard against live model rows (`GET_ELEMENTS_IN_RANGE_BOX` range-intersect scan, not find_elements_near). Tier 2 is station/offset vs ledger paths and live centers. Tests: `tests/test_build_overlap.py`.
+
+## 2026-08-13 ? Cursor ? 619-311 C / S / straight family beside L
+
+Engineer asked three full 619-311s to prove L-bend rules on other alignments. Script `scripts/build_619311_curve_family.py` (uses `bridge`, not chat_bridge). Does **not** `clear_plan_elements` between builds ? only `PlanSession.reset` + fence-wipe of the new AABB ? so the L at `(76000, 288000)` stays. C at `(79600, 288000)` R=3000; S at `(83600, 288000)` reverse-S; straight 1000 ft south at `(76000, 287000)`. All three `run_sheet_build` OK, scorecard passed. Work: C `(82097, 289270)`, S `(86413, 288488)`, straight `(78815, 286962)`. Captures `Bridge/captures/qa_311_family_*.png`. `resolve_sheet_lateral` reports `curved=True` even on the E-W straight because the CHAN_OFF offset polyline is densified (225 verts); dims on that build still read as SizeArrow 120'/50'.
+
+## 2026-08-13 ? Cursor ? compound dims = real SizeArrow + Arc Size parts
+
+Engineer: S-curve lane taper must not be one fake arc; split into real dimensions; each piece shows its length; parts must sum to the table value. `classify_dim_path` / `split_dim_path_runs` / `_apportion_sheet_lengths` in `sheet_compile.py`. One circular arc stays one Arc Size. Downstream 50' on R=3000 was SizeArrow because `_fit_circle_2d` capped R at 2500 ? cap is now 12000. Dim arc is forced outside the tip circle. Sign stem uses cell vertices not AABB (`DrawSign.ExtremePointAlongDir`) so C/S diagonal faces meet the white line. Tests: `test_split_reverse_s_parts_sum_to_sheet`, `test_short_highway_curve_classifies_as_arc`.
+
+## 2026-08-14 ? Cursor ? fresh L/C/S band + live S split
+
+Fresh band: L origin `(90000, 300000)`, C `(93600, 300000)`, S `(97600, 300000)`. Live S failed to split because `assemble_corridor` sampled Align1/2 at 50 ft and erased the fillet; now 10 ft. S lane taper placed as SizeArrow 58.7 + Arc Size 191.2 + SizeArrow 430.1 = 680. C/L stay one dim per span (placedCount 22). Downstream 50' classifies as arc on all three. Stem uses `RayHitOutline`. Captures `qa_311_fresh_*.png`. Work: L `(92506, 299978)`, C `(96097, 301270)`, S `(100413, 300488)`. Tests: 19 passed in `test_curved_corridor_compile.py`.
+
+## 2026-08-14 ? Cursor ? S-curve rebuild: stem gap + L-style dims
+
+Engineer: L is the visual reference; S dims missing/wrong; stem still gapped. Stem gap root cause was `AccelRayHits` always closing last?first on the whole cell vertex dump ? that chord sits short of the orange face on diagonal C/S. Stem now `postOuter` on the perp ray ? `faceTarget` at STEM_GAP; close only loops < 80 ft. Dims: `min_run_ft` 100 (no 58' crumbs); SizeArrow only if run sag < 0.35 ft. Rebuild S only: `python scripts/build_619311_curve_family.py S`. Fence-wipe S AABB only. Captures `qa_311_fresh_s_*.png`.
+
+## 2026-08-14 ? Cursor ? S-curve dims inside pavement + G20 stem
+
+Roll ahead / downstream sat in the travel lanes because `place_path_hugging_dimension` always used `r+15`. On the inside of an S-bend the closed shoulder is closer to the arc center ? dim must be `r-15` (negative `DimHeight`). `arc_dim_line_radius` in `wztc_ops.py`. Buffer looking half-missing was the same inside-arc clip. G20 stem: drop RayHit-nudge (inner SF_P hole); stem to snapped inward vertex on the perp ray. Test: `test_arc_dim_line_radius_inside_of_curve_stays_off_pavement`. Rebuild S only.
+
+## 2026-08-14 ? Cursor ? S buffer invisible SizeArrow + G20 orange snap
+
+Engineer: BUFFER SPACE label present, no dimension; G20 still gapped. Live element 220320 was a SizeArrow whose range equaled the two EOP tips (350×350, no extra for dim line) ? ny_Plan style assignment zeros DimHeight before AddElement. Axis-aligned SizeArrows still drew; the 45° buffer did not. Fix: set DimHeight after style + after Rewrite; pass sheet-length override text. G20: snap/stem to color-6 orange verts, then +1.5 ft into the fill.
+
+

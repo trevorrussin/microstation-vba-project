@@ -130,8 +130,31 @@ def delete_placements(kind: str = "", zone: str = "", run: str = "",
 
 @mcp.tool()
 def get_geometry_scorecard(sheet_num: str = "") -> dict:
-    """Post-placement scorecard: compile expectations vs placement registry."""
+    """Post-placement scorecard: compile expectations vs placement registry
+    plus live Tier-1 stacked-duplicate hash against the model."""
     return wztc_ops.get_geometry_scorecard(sheet_num=sheet_num)
+
+
+@mcp.tool()
+def check_build_overlap(sheet_num: str = "", origin: list | None = None,
+                        path_vertices: list | None = None,
+                        lateral_half_width: float = 0.0,
+                        sta0: float = 0.0, sta1: float = 0.0,
+                        scan_model: bool = True) -> dict:
+    """Caution-not-block overlap check (ledger + Tier 1 stacks + Tier 2
+    station/offset). Do not compose find_elements_near. blocking=False."""
+    return wztc_ops.check_build_overlap(
+        sheet_num=sheet_num, origin=origin, path_vertices=path_vertices,
+        lateral_half_width=lateral_half_width, sta0=sta0, sta1=sta1,
+        scan_model=scan_model)
+
+
+@mcp.tool()
+def get_elements_in_range_box(low_x: float, low_y: float,
+                              high_x: float, high_y: float,
+                              max_rows: int = 1500) -> dict:
+    """Elements whose Range intersects a world AABB (not center-in-box)."""
+    return wztc_ops.get_elements_in_range_box(low_x, low_y, high_x, high_y, max_rows)
 
 
 @mcp.tool()
@@ -303,6 +326,52 @@ def get_elements_range(element_ids: list[str] | str) -> dict:
 
 
 @mcp.tool()
+def get_element_vertices(element_id: str) -> dict:
+    """Densified vertices for a picked line / line-string / arc / complex
+    chain. Use after an element pick. Not a bounding box."""
+    return wztc_ops.get_element_vertices(element_id)
+
+
+@mcp.tool()
+def propose_corridor_source() -> dict:
+    """Phase B: ask which roadway to build along (last placed / click /
+    level / points). Call after designer inputs."""
+    return wztc_ops.propose_corridor_source()
+
+
+@mcp.tool()
+def lock_corridor_path(source: str, element_id: str = "",
+                       vertices: list | None = None, reverse: bool = False,
+                       edge_role: str = "first_travel_outer",
+                       level_name_contains: str = "") -> dict:
+    """Lock first-travel-outer path_vertices from the Phase B answer.
+    source: last_placed | element | level | points. edge_role centerline
+    offsets to the outer edge."""
+    return wztc_ops.lock_corridor_path(
+        source, element_id=element_id, vertices=vertices, reverse=reverse,
+        edge_role=edge_role, level_name_contains=level_name_contains)
+
+
+@mcp.tool()
+def propose_work_area_on_path() -> dict:
+    """Phase C: how to place the work bay along the locked road."""
+    return wztc_ops.propose_work_area_on_path()
+
+
+@mcp.tool()
+def snap_work_area_to_path(mode: str, p1: list | None = None,
+                           p2: list | None = None,
+                           start_sta: float | None = None,
+                           length_ft: float | None = None,
+                           mid: list | None = None) -> dict:
+    """Snap work-bay ends onto the locked corridor. mode: ends |
+    station_length | mid_length. Returns upstream_edge / downstream_edge
+    for resolve_sheet_lateral."""
+    return wztc_ops.snap_work_area_to_path(
+        mode, p1=p1, p2=p2, start_sta=start_sta, length_ft=length_ft, mid=mid)
+
+
+@mcp.tool()
 def focus_view_on_elements(element_ids: list[str] | str, margin: float = 1.3,
                             view_num: int = 1, min_width: float = 50.0,
                             min_height: float = 50.0) -> dict:
@@ -342,6 +411,15 @@ def get_sheet_requirements(sheet_num: str) -> dict:
     When Data/sheet-specs/<sheet>.build.md exists, response includes
     buildGuidePath + buildGuide (durable tips) — follow those on builds."""
     return wztc_ops.get_sheet_requirements(sheet_num)
+
+
+@mcp.tool()
+def get_required_designer_inputs(sheet_num: str = "") -> dict:
+    """Table-driven ask list from Data/sheet-specs/<sheet>.json inputs[].
+    Call before ask_user_choice on a named 619 sheet. Use the returned
+    options; do not invent speed/area_type; do not offer out-of-domain
+    values (619-311 has no 60 mph). Skip locked; apply derived and cite."""
+    return wztc_ops.get_required_designer_inputs(sheet_num)
 
 
 @mcp.tool()
@@ -400,7 +478,8 @@ def place_sign(sign_num: str, road_type: str, side: str,
                pt1x: float, pt1y: float, pt1z: float, dir1x: float, dir1y: float,
                pt2x: Optional[float] = None, pt2y: Optional[float] = None, pt2z: Optional[float] = None,
                dir2x: Optional[float] = None, dir2y: Optional[float] = None,
-               reason: str = "", align_idx: int = 0, one_off: bool = False) -> dict:
+               reason: str = "", align_idx: int = 0, one_off: bool = False,
+               post_angle_deg: Optional[float] = None) -> dict:
     """Place a sign assembly (post + edge-connected stem + face + label).
 
     pt1 is the ATTACHMENT on the perp tick — typically the OUTWARD TIP of
@@ -418,9 +497,12 @@ def place_sign(sign_num: str, road_type: str, side: str,
     If build_wztc_order_table already ran, sign_num must match one of its
     resolved sign_rows — this refuses a hand-picked/guessed legend variant
     that bypasses the order table's own Table-driven resolution. Pass
-    one_off=True only for a genuine ad-hoc sign outside the order table."""
+    one_off=True only for a genuine ad-hoc sign outside the order table.
+    post_angle_deg rotates the TWZSGN_P post with travel tangent; omit to
+    keep the post at view angle. Faces stay view-horizontal either way."""
     return wztc_ops.place_sign(sign_num, road_type, side, pt1x, pt1y, pt1z, dir1x, dir1y,
-                                pt2x, pt2y, pt2z, dir2x, dir2y, reason, align_idx, one_off)
+                                pt2x, pt2y, pt2z, dir2x, dir2y, reason, align_idx, one_off,
+                                post_angle_deg)
 
 
 @mcp.tool()
@@ -782,9 +864,10 @@ def place_arc(x1: float, y1: float, x2: float, y2: float, x3: float, y3: float,
 
 
 @mcp.tool()
-def place_text_label(text: str, x: float, y: float, z: float = 0.0, reason: str = "") -> dict:
-    """Place a single-line text label via TEXTEDITOR PLACE + INSERT_TEXT."""
-    return wztc_ops.place_text_label(text, x, y, z, reason)
+def place_text_label(text: str, x: float, y: float, z: float = 0.0,
+                     reason: str = "", angle_deg: float = 0.0) -> dict:
+    """Place a single-line text label. angle_deg rotates about Z."""
+    return wztc_ops.place_text_label(text, x, y, z, reason, angle_deg)
 
 
 @mcp.tool()

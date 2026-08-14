@@ -110,6 +110,7 @@ def build_placement_scorecard(
     registry_rows: list[dict] | None = None,
     executed: dict | None = None,
     gate_failures: list[str] | None = None,
+    model_rows: list[dict] | None = None,
 ) -> dict:
     """Compare compiled plan expectations to registry heads.
 
@@ -172,6 +173,14 @@ def build_placement_scorecard(
         geom_faithful.check_kind_count_flood(
             expected.get("byKind"), placed.get("byKind"))
     )
+    if model_rows:
+        import build_overlap as ov
+        for d in ov.tier1_duplicates(model_rows):
+            t, cx, cy = d["key"][0], d["key"][1], d["key"][2]
+            failures.append(
+                f"scorecard: stacked {d['count']}x {t} at ({cx},{cy}) "
+                f"ids={d['elementIds'][:6]}"
+            )
 
     citations: list[dict] = []
     for r in (registry_rows or [])[:24]:

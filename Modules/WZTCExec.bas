@@ -86,7 +86,8 @@ Public Function ExecPlaceSign(signNum As String, roadType As String, side As Str
                               pt1X As Double, pt1Y As Double, pt1Z As Double, _
                               dir1X As Double, dir1Y As Double, _
                               Optional pt2X As Double = 0, Optional pt2Y As Double = 0, Optional pt2Z As Double = 0, _
-                              Optional dir2X As Double = 0, Optional dir2Y As Double = 0) As String
+                              Optional dir2X As Double = 0, Optional dir2Y As Double = 0, _
+                              Optional postAngleDeg As Double = -9999#) As String
     On Error GoTo SignError
 
     If SignLibrary.GetSignCount() = 0 Then Call SignLibrary.InitializeSignLibrary
@@ -133,12 +134,12 @@ Public Function ExecPlaceSign(signNum As String, roadType As String, side As Str
 
     ' pt1 = attachment on the perp tick (outward tip); dir = outward along perp.
     ' PlaceSignAssembly places post/face/stem/label with edge-connected stem.
-    Call DrawSign.PlaceSignAssembly(pt1, signNum, signSize, dir1X, dir1Y, viewAngleDeg)
+    Call DrawSign.PlaceSignAssembly(pt1, signNum, signSize, dir1X, dir1Y, viewAngleDeg, postAngleDeg)
 
     If bothSides Then
         Dim pt2 As Point3d
         pt2.X = pt2X: pt2.Y = pt2Y: pt2.Z = pt2Z
-        Call DrawSign.PlaceSignAssembly(pt2, signNum, signSize, dir2X, dir2Y, viewAngleDeg)
+        Call DrawSign.PlaceSignAssembly(pt2, signNum, signSize, dir2X, dir2Y, viewAngleDeg, postAngleDeg)
         Call DrawSign.DrawConnectingArc(pt1, pt2)
     End If
 
@@ -626,7 +627,7 @@ End Function
 ' verified +1 element on DELETE.dgn 2026-08-02.
 ' ============================================================
 Public Function ExecPlaceTextLabel(text As String, x As Double, y As Double, _
-                                   Optional z As Double = 0) As String
+                                   Optional z As Double = 0, Optional angleDeg As Double = 0) As String
     On Error GoTo TxtErr
 
     If Trim(text) = "" Then
@@ -638,8 +639,14 @@ Public Function ExecPlaceTextLabel(text As String, x As Double, y As Double, _
     ' Justification enum alone does not change origin vs range on this install.
     Dim pt As Point3d
     pt.X = x: pt.Y = y: pt.Z = z
+    Dim rot As Matrix3d
+    If Abs(angleDeg) < 0.0001 Then
+        rot = Matrix3dIdentity
+    Else
+        rot = Matrix3dFromAxisAndRotationAngle(2, angleDeg * Atn(1) * 4# / 180#)
+    End If
     Dim te As TextElement
-    Set te = CreateTextElement1(Nothing, text, pt, Matrix3dIdentity)
+    Set te = CreateTextElement1(Nothing, text, pt, rot)
     te.Color = 0
     te.LineWeight = 0
     ActiveModelReference.AddElement te
@@ -657,6 +664,7 @@ Public Function ExecPlaceTextLabel(text As String, x As Double, y As Double, _
 
     ExecPlaceTextLabel = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(te.ID)) & vbTab & _
                          "x=" & x & vbTab & "y=" & y & vbTab & _
+                         "angleDeg=" & angleDeg & vbTab & _
                          "text=" & text & vbTab & "note=placed text label (center)"
     Exit Function
 
@@ -715,7 +723,6 @@ Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
     p2.X = x2: p2.Y = y2: p2.Z = z
     oDim.AddReferencePoint ActiveModelReference, p1
     oDim.AddReferencePoint ActiveModelReference, p2
-    oDim.DimHeight = side * off
 
     ' ny_Plan has ShowSecondaryText=True (primary above + secondary
     ' below). Force one measurement only for the placement copy —
@@ -769,7 +776,13 @@ Public Function ExecPlaceDimension(x1 As Double, y1 As Double, _
 
     oDim.Color = 2
     oDim.LineWeight = 0
+    ' ny_Plan assignment above resets DimHeight. Re-apply after style so a
+    ' 45° SizeArrow actually grows a dim line (S-curve BUFFER range was
+    ' tip-to-tip only, no visible dimension).
+    oDim.DimHeight = side * off
     ActiveModelReference.AddElement oDim
+    oDim.Rewrite
+    oDim.DimHeight = side * off
     oDim.Rewrite
 
     If Not oDim.IsDimensionElement Then
@@ -825,11 +838,36 @@ Public Function ExecPlaceArcSizeDimension(cx As Double, cy As Double, _
     Dim oDim As DimensionElement
     Set oDim = CreateDimensionElement1(Nothing, rot, msdDimTypeArcSize)
 
+    ' Arc Size measures COUNTER-CLOCKWISE from the first tip to the second.
+    ' Passing tips in raw path order therefore sweeps the reflex (long) way
+    ' whenever the roadside bends clockwise — that is the "giant far-side arc"
+    ' misread as "Arc Size is broken on this install". Probed live 2026-08-13
+    ' (scripts/diag_arc_size_root_cause.py): CCW order hugs the minor arc in
+    ' 3/3 cases, CW order sweeps long in 3/3. Same defect ExecPlaceCurvedPlan-
+    ' Dimension already works around; normalize here too.
+    Dim aa1 As Double, aa2 As Double, dda As Double
+    aa1 = Atn2Local(y1 - cy, x1 - cx)
+    aa2 = Atn2Local(y2 - cy, x2 - cx)
+    dda = aa2 - aa1
+    Do While dda <= -3.14159265358979
+        dda = dda + 6.28318530717959
+    Loop
+    Do While dda > 3.14159265358979
+        dda = dda - 6.28318530717959
+    Loop
+
     Dim pC As Point3d, p1 As Point3d, p2 As Point3d
     pC.X = cx: pC.Y = cy: pC.Z = z
-    p1.X = x1: p1.Y = y1: p1.Z = z
-    p2.X = x2: p2.Y = y2: p2.Z = z
-    ' Center + tips. DimHeight = how far the dim arc sits outside the tip arc.
+    If dda >= 0 Then
+        p1.X = x1: p1.Y = y1: p1.Z = z
+        p2.X = x2: p2.Y = y2: p2.Z = z
+    Else
+        p1.X = x2: p1.Y = y2: p1.Z = z
+        p2.X = x1: p2.Y = y1: p2.Z = z
+    End If
+    ' Center + tips. DimHeight = dim-arc radius minus tip radius.
+    ' Negative is required when the closed shoulder is inside the curve
+    ' (rOff < r1). Abs() would draw through the pavement (S-curve QA).
     oDim.AddReferencePoint ActiveModelReference, pC
     oDim.AddReferencePoint ActiveModelReference, p1
     oDim.AddReferencePoint ActiveModelReference, p2
@@ -880,6 +918,8 @@ Public Function ExecPlaceArcSizeDimension(cx As Double, cy As Double, _
                          "dimRadiusFt=" & Format(rOff, "0.0") & vbTab & _
                          "style=" & styleName & vbTab & _
                          "dimType=ArcSize" & vbTab & _
+                         "sweepRad=" & Format(dda, "0.000") & vbTab & _
+                         "tipsSwapped=" & IIf(dda < 0, "Y", "N") & vbTab & _
                          "styleApplied=" & IIf(styleApplied, "Y", "N") & vbTab & _
                          "styleErrNum=" & styleErrNum & vbTab & _
                          "styleErrDesc=" & styleErrDesc & vbTab & _
@@ -1039,11 +1079,18 @@ Public Function ExecDeleteDimensionElementsInRange(lowX As Double, lowY As Doubl
         isArc = el.IsArcElement
         isLn = el.IsLineElement
         isSh = el.IsShapeElement
+        Dim isTxt As Boolean: isTxt = False
+        Dim isNode As Boolean: isNode = False
+        isTxt = el.IsTextElement
+        isNode = el.IsTextNodeElement
         col = el.Color
         Err.Clear
         On Error GoTo DelDimErr
         Dim hit As Boolean: hit = False
         If isDim Then
+            hit = True
+        ElseIf isTxt Or isNode Then
+            ' Orphan length labels survive journal rotation; wipe text in band.
             hit = True
         ElseIf col = 2 And (isArc Or isLn Or isSh) Then
             hit = True
@@ -1080,7 +1127,7 @@ Public Function ExecDeleteDimensionElementsInRange(lowX As Double, lowY As Doubl
 
     ExecDeleteDimensionElementsInRange = "OK" & vbTab & "deleted=" & n & vbTab & _
                                          "elementIds=" & ids & vbTab & _
-                                         "note=deleted DimensionElements + color-2 arc/line/shape in range"
+                                         "note=deleted dims + text + color-2 arc/line/shape in range"
     Exit Function
 DelDimErr:
     ExecDeleteDimensionElementsInRange = "ERROR" & vbTab & "note=" & Err.Description
@@ -2605,6 +2652,127 @@ Private Function ParseVerticesTSV(verticesTSV As String, ByRef pts() As Point3d)
     Next i
     ParseVerticesTSV = n
 End Function
+
+' ============================================================
+' GET ELEMENT VERTICES — arbitrary line / line-string / arc /
+' complex-chain by ID. Returns densified XY for path_vertices.
+' ============================================================
+Public Function ExecGetElementVertices(elementId As Double) As String()
+    On Error GoTo E
+    Dim el As Element
+    Set el = FindElementByID(elementId)
+    Dim errRows() As String
+    If el Is Nothing Then
+        ReDim errRows(0 To 1)
+        errRows(0) = "error"
+        errRows(1) = "element not found: " & elementId
+        ExecGetElementVertices = errRows
+        Exit Function
+    End If
+
+    Dim col As Collection
+    Set col = New Collection
+    AppendPathPoints el, col
+    If col.Count < 2 Then
+        ReDim errRows(0 To 1)
+        errRows(0) = "error"
+        errRows(1) = "element has fewer than 2 vertices (type " & el.Type & ")"
+        ExecGetElementVertices = errRows
+        Exit Function
+    End If
+
+    Dim rows() As String
+    ReDim rows(0 To col.Count)
+    rows(0) = "vtxIndex" & vbTab & "x" & vbTab & "y" & vbTab & "z"
+    Dim i As Long
+    For i = 1 To col.Count
+        rows(i) = (i - 1) & vbTab & CStr(col(i))
+    Next i
+    ExecGetElementVertices = rows
+    Exit Function
+E:
+    ReDim errRows(0 To 1)
+    errRows(0) = "error"
+    errRows(1) = Err.Description
+    ExecGetElementVertices = errRows
+End Function
+
+Private Sub AppendPathPoints(el As Element, col As Collection)
+    On Error Resume Next
+    If el.Type = msdElementTypeArc Then
+        DensifyArc el, col
+        If Err.Number <> 0 Then Err.Clear
+        If col.Count >= 2 Then Exit Sub
+    End If
+
+    Dim en As ElementEnumerator
+    Set en = Nothing
+    If el.Type = msdElementTypeComplexString Then
+        Set en = el.AsComplexStringElement.GetSubElements
+    ElseIf el.Type = msdElementTypeComplexShape Then
+        Set en = el.AsComplexShapeElement.GetSubElements
+    End If
+    If Err.Number <> 0 Then Err.Clear: Set en = Nothing
+    If Not en Is Nothing Then
+        Dim subEl As Element
+        Do While en.MoveNext
+            Set subEl = en.Current
+            If Err.Number <> 0 Then Err.Clear: GoTo NextSub
+            AppendPathPoints subEl, col
+NextSub:
+        Loop
+        If col.Count >= 2 Then Exit Sub
+    End If
+
+    Dim vl As VertexList
+    Set vl = el.AsVertexList
+    If Err.Number <> 0 Then Err.Clear: Exit Sub
+    If vl Is Nothing Then Exit Sub
+    Dim pts() As Point3d
+    pts = vl.GetVertices()
+    If Err.Number <> 0 Then Err.Clear: Exit Sub
+    Dim k As Long
+    For k = LBound(pts) To UBound(pts)
+        PushPoint col, pts(k).X, pts(k).Y, pts(k).Z
+    Next k
+    On Error GoTo 0
+End Sub
+
+Private Sub DensifyArc(el As Element, col As Collection)
+    On Error Resume Next
+    Dim ae As ArcElement
+    Set ae = el
+    If ae Is Nothing Then Exit Sub
+    Dim R As Double, sa As Double, sw As Double
+    R = ae.PrimaryRadius
+    sa = ae.StartAngle
+    sw = ae.SweepAngle
+    Dim ctr As Point3d
+    ctr = ae.CenterPoint
+    If Err.Number <> 0 Then Err.Clear: Exit Sub
+    If R <= 0 Then Exit Sub
+    Dim chord As Double: chord = 25#
+    Dim n As Long
+    n = CLng(Abs(sw) * R / chord)
+    If n < 2 Then n = 2
+    If n > 80 Then n = 80
+    Dim i As Long
+    For i = 0 To n
+        Dim ang As Double
+        ang = sa + sw * (i / n)
+        PushPoint col, ctr.X + R * Cos(ang), ctr.Y + R * Sin(ang), ctr.Z
+    Next i
+    On Error GoTo 0
+End Sub
+
+Private Sub PushPoint(col As Collection, x As Double, y As Double, z As Double)
+    Dim row As String
+    row = Format(x, "0.0000") & vbTab & Format(y, "0.0000") & vbTab & Format(z, "0.0000")
+    If col.Count > 0 Then
+        If col(col.Count) = row Then Exit Sub
+    End If
+    col.Add row
+End Sub
 
 ' ============================================================
 ' FIND ELEMENT BY NUMERIC ID — scan-and-match, same pattern as

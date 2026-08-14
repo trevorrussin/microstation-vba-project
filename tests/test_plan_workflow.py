@@ -34,7 +34,7 @@ def test_checklist_advances_after_order_table_lock():
     st = wztc_ops.get_plan_status()
     assert st["sheetPlanActive"] is True
     assert st["currentStep"] == "corridor_ready"
-    assert st["nextTool"] == "resolve_sheet_lateral"
+    assert st["nextTool"] == "propose_corridor_source"
     wztc_ops._PLAN_SESSION.order_table_built = True
     wztc_ops._PLAN_SESSION.lock_designer_inputs(
         sheet_num="619-311", speed=45, road_type="Non-Freeway",
@@ -104,7 +104,7 @@ def test_run_sheet_build_requires_edges_when_corridor_missing():
         wztc_ops.run_sheet_build()
 
 
-def test_checklist_next_tool_is_resolve_lateral_after_order_table():
+def test_checklist_next_tool_is_propose_corridor_after_order_table():
     wztc_ops._PLAN_SESSION.order_table_built = True
     wztc_ops._PLAN_SESSION.lock_designer_inputs(
         sheet_num="619-311", speed=45, road_type="Non-Freeway",
@@ -112,7 +112,7 @@ def test_checklist_next_tool_is_resolve_lateral_after_order_table():
         closure_type="", exposure_condition="", protective_vehicle_gvw=0)
     wztc_ops._PLAN_SESSION.required_aligns = {1, 2}
     st = wztc_ops.get_plan_status()
-    assert st["nextTool"] == "resolve_sheet_lateral"
+    assert st["nextTool"] == "propose_corridor_source"
 
 
 def test_empty_locked_signs_not_vacuous_done_for_619311():

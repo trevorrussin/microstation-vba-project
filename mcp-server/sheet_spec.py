@@ -38,6 +38,11 @@ from sheet_resolve import (
     canonical_order_label,
     order_table_rows,
     station_walk,
+    required_designer_inputs,
+    validate_designer_input_value,
+    highway_kinds,
+    highway_kind_match,
+    normalize_placed_highway_kind,
 )
 
 from sheet_compile import (
@@ -61,6 +66,8 @@ __all__ = [
     "SPEC_DIR", "SpecError", "allowed_speeds", "shoulder_band", "spec_path",
     "has_spec", "load", "load_raw_path", "legend_suffix", "resolve", "sign_library_key",
     "zone_length", "canonical_order_label", "order_table_rows", "station_walk",
+    "required_designer_inputs", "validate_designer_input_value",
+    "highway_kinds", "highway_kind_match", "normalize_placed_highway_kind",
     "PERP_HALF_LEN_FT", "annotation_style", "channelizing_representation",
     "compile_plan", "compile_channelizing",
     "check_taper_continuity", "compile_symbols", "compile_hatch",

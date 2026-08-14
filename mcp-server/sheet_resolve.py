@@ -474,3 +474,356 @@ def station_walk(spec: dict, resolved: dict, range_pick: str = "min") -> list[di
                         "note": f"runs {o['direction']} from station {anchor_sta:g} "
                                 f"inside {zones[o['zone']].get('containedIn')}"})
     return out
+
+
+# Spec input id -> DesignerInputs field (PlanSession lock).
+_SPEC_INPUT_TO_SESSION = {
+    "preconstructionPostedSpeedMph": "speed",
+    "laneWidthFt": "lane_width",
+    "shoulderWidthBand": "shoulder_width",
+    "areaType": "area_type",
+    "exposureCondition": "exposure_condition",
+    "closureType": "closure_type",
+    "signSizeClass": "road_type",
+}
+
+
+def _norm_token(v) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(v or "").lower())
+
+
+def _try_derive(spec: dict, item: dict) -> Optional[tuple]:
+    """Return (value, cite) when the spec already determines this input."""
+    iid = item.get("id") or ""
+    app = spec.get("applicability") or {}
+    allowed = item.get("allowed")
+    if iid == "closureType":
+        c = str(app.get("closure") or "").lower()
+        if "shoulder" in c and "lane" not in c:
+            val = "SHOULDER CLOSURE OR ENCROACHMENT"
+        elif "lane" in c:
+            val = "LANE CLOSURE OR ENCROACHMENT"
+        else:
+            return None
+        if allowed and val not in allowed:
+            return None
+        return (val, f"applicability.closure={app.get('closure')!r}")
+    if iid == "signSizeClass":
+        rt = str(app.get("roadType") or "")
+        default = item.get("default")
+        if not default:
+            return None
+        if "non-freeway" in rt.lower() and _norm_token(default) == "nonfreeway":
+            return (default, f"applicability.roadType={rt!r} + inputs.default")
+        if rt.lower() == "freeway" and _norm_token(default) == "freeway":
+            return (default, f"applicability.roadType={rt!r} + inputs.default")
+        return None
+    return None
+
+
+def _choice_options(item: dict, *, max_shown: int = 4) -> list[dict]:
+    """ask_user_choice payload from allowed[]. Other only lists in-domain leftovers."""
+    allowed = list(item.get("allowed") or [])
+    default = item.get("default")
+    labels = [str(v) for v in allowed]
+    recommended = str(default) if default is not None and str(default) in labels else None
+    if recommended is None and item.get("id") == "preconstructionPostedSpeedMph" and "45" in labels:
+        recommended = "45"
+    shown = list(labels)
+    other_rest: list[str] = []
+    if len(shown) > max_shown:
+        numeric = all(
+            isinstance(v, (int, float)) or str(v).lstrip("-").isdigit()
+            for v in allowed
+        )
+        prefer: list[str] = []
+        if recommended:
+            prefer.append(recommended)
+        if numeric and labels:
+            for x in (labels[0], labels[-1]):
+                if x not in prefer:
+                    prefer.append(x)
+        for x in shown:
+            if x not in prefer:
+                prefer.append(x)
+        shown = prefer[: max_shown - 1]
+        other_rest = [x for x in labels if x not in shown]
+    options = []
+    for lab in shown:
+        opt: dict = {"label": lab, "description": item.get("label") or lab}
+        if recommended and lab == recommended:
+            opt["label"] = f"{lab} (Recommended)"
+            opt["recommended"] = True
+        options.append(opt)
+    if other_rest:
+        options.append({
+            "label": "Other",
+            "description": (
+                "Type an exact in-domain value: " + "/".join(other_rest)
+                + ". Values outside this sheet's allowed list are rejected."
+            ),
+        })
+    return options
+
+
+def _fallback_inputs_from_applicability(spec: dict) -> list[dict]:
+    app = spec.get("applicability") or {}
+    out: list[dict] = []
+    if app.get("speedRangeMph"):
+        out.append({
+            "id": "preconstructionPostedSpeedMph",
+            "label": "Preconstruction posted speed limit (MPH)",
+            "type": "integer",
+            "allowed": allowed_speeds(spec),
+            "usedBy": [],
+        })
+    lanes = app.get("laneWidthFt")
+    if lanes:
+        out.append({
+            "id": "laneWidthFt",
+            "label": "Lane width (ft)",
+            "type": "integer",
+            "allowed": list(lanes),
+            "usedBy": [],
+        })
+    bands = app.get("shoulderWidthBands")
+    if bands:
+        out.append({
+            "id": "shoulderWidthBand",
+            "label": "Shoulder width band",
+            "type": "enum",
+            "allowed": list(bands),
+            "usedBy": [],
+        })
+    areas = app.get("areaTypes")
+    if areas:
+        out.append({
+            "id": "areaType",
+            "label": "Area type",
+            "type": "enum",
+            "allowed": list(areas),
+            "usedBy": [],
+        })
+    return out
+
+
+def required_designer_inputs(spec: dict, locked: Optional[dict] = None) -> dict:
+    """Deterministic ask-list from spec['inputs'] (or applicability fallback)."""
+    locked = locked or {}
+    sheet = (spec.get("sheet") or {}).get("number") or ""
+    raw = spec.get("inputs")
+    items = list(raw) if raw else _fallback_inputs_from_applicability(spec)
+    to_ask: list[dict] = []
+    derived: list[dict] = []
+    already: list[dict] = []
+    ask_payloads: list[dict] = []
+    for item in items:
+        iid = item.get("id") or ""
+        sess_key = _SPEC_INPUT_TO_SESSION.get(iid, iid)
+        locked_val = locked.get(sess_key)
+        if locked_val not in (None, "", 0):
+            already.append({
+                "id": iid, "sessionKey": sess_key, "value": locked_val,
+                "status": "locked",
+            })
+            continue
+        der = _try_derive(spec, item)
+        if der is not None:
+            val, cite = der
+            derived.append({
+                "id": iid, "sessionKey": sess_key, "value": val,
+                "status": "derived", "cite": cite,
+            })
+            continue
+        options = _choice_options(item)
+        rec = {
+            "id": iid,
+            "sessionKey": sess_key,
+            "label": item.get("label") or iid,
+            "type": item.get("type"),
+            "allowed": item.get("allowed"),
+            "default": item.get("default"),
+            "usedBy": item.get("usedBy"),
+            "note": item.get("note"),
+            "status": "ask",
+            "askUserChoice": {
+                "question": item.get("label") or iid,
+                "options": options,
+            },
+        }
+        to_ask.append(rec)
+        ask_payloads.append(rec["askUserChoice"])
+    return {
+        "status": "OK",
+        "sheetNum": sheet,
+        "askCount": len(to_ask),
+        "toAsk": to_ask,
+        "derived": derived,
+        "locked": already,
+        "askUserChoice": ask_payloads,
+        "highwayKinds": highway_kinds(spec),
+        "highwayRoadway": (spec.get("applicability") or {}).get("roadway") or "",
+        "note": (
+            "Call ask_user_choice once per toAsk item using the provided "
+            "options. Do not offer values outside allowed[]. Do not re-ask "
+            "locked. Apply derived values and cite them in the journal. "
+            "If the placed/locked highway kind is not in highwayKinds, "
+            "caution the engineer before building — wrong sheet for that road."
+        ),
+    }
+
+
+def validate_designer_input_value(spec: dict, input_id: str, value) -> dict:
+    """Reject out-of-domain values (e.g. 60 mph on 619-311) before order table."""
+    items = spec.get("inputs") or _fallback_inputs_from_applicability(spec)
+    item = next((i for i in items if i.get("id") == input_id), None)
+    if item is None:
+        return {"ok": False, "note": f"unknown input id {input_id!r}"}
+    allowed = item.get("allowed")
+    if not allowed:
+        return {"ok": True}
+    if value in allowed or str(value) in [str(a) for a in allowed]:
+        return {"ok": True, "value": value}
+    note = (spec.get("applicability") or {}).get("speedRangeMph", {}).get("note")
+    return {
+        "ok": False,
+        "value": value,
+        "allowed": allowed,
+        "note": note or f"{value!r} is not in allowed {allowed}",
+    }
+
+
+def normalize_placed_highway_kind(placed: str) -> str:
+    """Map place_* / last-road tokens onto sheet highwayKinds."""
+    p = (placed or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if p in ("two_way", "two_way_undivided", "undivided", "twoway"):
+        return "two_way_undivided"
+    if p in ("divided", "median"):
+        return "divided"
+    if p in ("freeway", "freeway_divided"):
+        return "freeway"
+    if p in ("twlt", "twlt_undivided"):
+        return "twlt"
+    if p in ("one_way", "oneway"):
+        return "one_way"
+    if p in ("ramp", "exit_ramp"):
+        return "ramp"
+    if p in ("parkway",):
+        return "parkway"
+    if p in ("any", "all"):
+        return "any"
+    return p
+
+
+def highway_kinds(spec: dict) -> list[str]:
+    """Canonical highway kinds this sheet applies to.
+
+    Prefer applicability.highwayKinds when authored. Otherwise parse
+    applicability.roadway (and roadType) so every 619 spec gets a check
+    without editing 90 JSON files.
+    """
+    app = spec.get("applicability") or {}
+    explicit = app.get("highwayKinds")
+    if isinstance(explicit, list) and explicit:
+        return [normalize_placed_highway_kind(str(x)) for x in explicit]
+    road = str(app.get("roadway") or "").lower()
+    rtype = str(app.get("roadType") or "").lower()
+    kinds: set[str] = set()
+    if "all roadway" in road:
+        return ["any"]
+    if "twlt" in road:
+        kinds.add("twlt")
+    elif "undivided" in road or "two-lane" in road or "two lane" in road:
+        kinds.add("two_way_undivided")
+    elif "multilane two-way" in road or "multilane two way" in road:
+        kinds.add("two_way_undivided")
+    if "divided" in road:
+        kinds.add("divided")
+    if "freeway" in road:
+        kinds.add("freeway")
+        kinds.add("divided")
+    if "ramp" in road:
+        kinds.add("ramp")
+    if "parkway" in road:
+        kinds.add("parkway")
+    if "one-way" in road or "one way" in road:
+        kinds.add("one_way")
+    if not kinds and rtype == "freeway":
+        kinds.update(["freeway", "divided"])
+    if not kinds and rtype == "non-freeway":
+        kinds.add("two_way_undivided")
+    if not kinds:
+        kinds.add("unknown")
+    return sorted(kinds)
+
+
+def highway_kind_match(spec: dict, placed_kind: str = "") -> dict:
+    """Caution payload when the placed/locked road is the wrong type.
+
+    Does not refuse the build — the agent must warn and ask. No placed
+    road → compatible (abstract ticks / no striping yet).
+    """
+    kinds = highway_kinds(spec)
+    roadway = (spec.get("applicability") or {}).get("roadway") or ""
+    sheet = (spec.get("sheet") or {}).get("number") or ""
+    placed = normalize_placed_highway_kind(placed_kind)
+    if not placed or placed in ("unknown",):
+        return {
+            "mismatch": False,
+            "sheetNum": sheet,
+            "highwayKinds": kinds,
+            "roadway": roadway,
+            "placedKind": "",
+        }
+    ok = False
+    if "any" in kinds or "unknown" in kinds:
+        ok = True
+    elif placed in kinds:
+        ok = True
+    elif placed == "divided" and ("freeway" in kinds or "divided" in kinds):
+        ok = True
+    elif placed == "freeway" and ("freeway" in kinds or "divided" in kinds):
+        ok = True
+    elif placed == "one_way" and "ramp" in kinds:
+        ok = True
+    elif placed == "ramp" and ("ramp" in kinds or "one_way" in kinds):
+        ok = True
+    out = {
+        "mismatch": not ok,
+        "sheetNum": sheet,
+        "highwayKinds": kinds,
+        "roadway": roadway,
+        "placedKind": placed,
+    }
+    if not ok:
+        out["caution"] = (
+            f"Sheet {sheet} is for {roadway or kinds} "
+            f"(highwayKinds={kinds}). The current road is {placed}. "
+            "This is the wrong highway type for this sheet. Ask the "
+            "engineer before building — switch sheets or place the "
+            "matching highway."
+        )
+        out["askUserChoice"] = {
+            "question": (
+                f"{sheet} is a {roadway} sheet. The placed road is "
+                f"{placed}. Continue anyway, switch sheets, or place "
+                "the matching highway?"
+            ),
+            "options": [
+                {
+                    "label": "Stop — wrong highway (Recommended)",
+                    "description": "Do not build. Pick a matching 619 sheet or place the right road type.",
+                },
+                {
+                    "label": "Place matching highway first",
+                    "description": "Draw the sheet's highway kind, then rebuild.",
+                },
+                {
+                    "label": "Continue anyway",
+                    "description": "Engineer overrode the caution. Build on this road.",
+                },
+            ],
+        }
+    return out
+
+

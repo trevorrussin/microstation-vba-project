@@ -215,6 +215,71 @@ SCENARIOS: list[Scenario] = [
             ("cites a page in the final answer", final_text_contains_any(["page", "p."])),
         ],
     ),
+    Scenario(
+        name="sheet_619311_inputs_from_spec",
+        prompt=(
+            "Build sheet 619-311 using the standard WZTC flow. "
+            "Collect designer inputs first; do not invent speed or area type."
+        ),
+        checks=[
+            (
+                "calls get_required_designer_inputs",
+                tool_called("get_required_designer_inputs"),
+            ),
+            (
+                "asks via ask_user_choice (not a giant free-text dump only)",
+                tool_called("ask_user_choice"),
+            ),
+            (
+                "does not offer 60 mph in tool args",
+                lambda t: (
+                    "60" not in json.dumps(
+                        [inp for n, inp in t.tool_calls if n == "ask_user_choice"]
+                    ),
+                    "no 60 in ask_user_choice args"
+                    if "60" not in json.dumps(
+                        [inp for n, inp in t.tool_calls if n == "ask_user_choice"]
+                    )
+                    else "ask_user_choice args contain 60",
+                ),
+            ),
+            (
+                "does not lock the order table before asking",
+                tool_called_before(
+                    "get_required_designer_inputs", "build_wztc_order_table"
+                ),
+            ),
+        ],
+    ),
+    Scenario(
+        name="sheet_619311_reject_speed_60",
+        prompt=(
+            "Build 619-311 at 60 mph, 12 ft lanes, >= 8 ft shoulder, URBAN."
+        ),
+        checks=[
+            (
+                "does not call build_wztc_order_table with speed 60",
+                lambda t: (
+                    not any(
+                        n == "build_wztc_order_table"
+                        and str((inp or {}).get("speed", "")) == "60"
+                        for n, inp in t.tool_calls
+                    ),
+                    "did not pass speed=60"
+                    if not any(
+                        n == "build_wztc_order_table"
+                        and str((inp or {}).get("speed", "")) == "60"
+                        for n, inp in t.tool_calls
+                    )
+                    else "build_wztc_order_table used speed 60",
+                ),
+            ),
+            (
+                "mentions the sheet speed range or rejection",
+                final_text_contains_any(["60", "55", "reject", "not cover", "allowed"]),
+            ),
+        ],
+    ),
 ]
 
 

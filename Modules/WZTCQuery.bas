@@ -169,6 +169,99 @@ NextRow:
 End Function
 
 ' ============================================================
+' FIND ELEMENTS WHOSE RANGE INTERSECTS A WORLD AABB
+' Not center-in-box — long lines/dims that cross the band are kept.
+' Cap at maxRows; truncated=Y in a trailing note is the caller's problem
+' (Python overlap tool). AABB is a prefilter; Python does the verdict.
+' ============================================================
+Public Function FindElementsInRangeBox(lowX As Double, lowY As Double, _
+                                       highX As Double, highY As Double, _
+                                       maxRows As Long) As String()
+    Dim rows() As String
+    ReDim rows(0 To 0)
+    rows(0) = "elementId" & vbTab & "type" & vbTab & "level" & vbTab & "cellName" & vbTab & _
+              "cx" & vbTab & "cy" & vbTab & "w" & vbTab & "h" & vbTab & "text" & vbTab & _
+              "rangeLowX" & vbTab & "rangeLowY" & vbTab & "rangeHighX" & vbTab & "rangeHighY"
+
+    Dim cap As Long: cap = maxRows
+    If cap <= 0 Then cap = 1500
+
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+
+    Dim matchEls As New Collection
+    Dim truncated As Boolean: truncated = False
+    Dim el As Element
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        On Error Resume Next
+        Dim lo As Point3d, hi As Point3d
+        lo = el.Range.Low: hi = el.Range.High
+        If Err.Number <> 0 Then Err.Clear: GoTo NextEl
+        On Error GoTo 0
+        If hi.X < lowX Or lo.X > highX Or hi.Y < lowY Or lo.Y > highY Then GoTo NextEl
+        If matchEls.Count >= cap Then
+            truncated = True
+            Exit Do
+        End If
+        matchEls.Add el
+NextEl:
+    Loop
+
+    Dim n As Long: n = matchEls.Count
+    If n > 0 Then ReDim Preserve rows(0 To n)
+    Dim i As Long
+    For i = 1 To n
+        Set el = matchEls(i)
+        On Error Resume Next
+        Dim lo2 As Point3d, hi2 As Point3d
+        lo2 = el.Range.Low: hi2 = el.Range.High
+        If Err.Number <> 0 Then Err.Clear: GoTo NextRow
+        On Error GoTo 0
+        Dim cx As Double, cy As Double, w As Double, h As Double
+        cx = (lo2.X + hi2.X) / 2#: cy = (lo2.Y + hi2.Y) / 2#
+        w = hi2.X - lo2.X: h = hi2.Y - lo2.Y
+        Dim lvlName As String
+        On Error Resume Next
+        lvlName = el.Level.Name
+        If Err.Number <> 0 Then lvlName = "": Err.Clear
+        On Error GoTo 0
+        Dim cellName As String: cellName = ""
+        If el.Type = msdElementTypeCellHeader Then
+            On Error Resume Next
+            Dim ce As CellElement: Set ce = el
+            cellName = ce.Name
+            On Error GoTo 0
+        End If
+        Dim txt As String: txt = ""
+        If el.Type = msdElementTypeText Then
+            On Error Resume Next
+            txt = el.AsTextElement.Text
+            On Error GoTo 0
+        End If
+        rows(i) = CStr(ElIDAsDouble(el.ID)) & vbTab & ElementTypeName(el.Type) & vbTab & _
+                  lvlName & vbTab & cellName & vbTab & _
+                  Format(cx, "0.00") & vbTab & Format(cy, "0.00") & vbTab & _
+                  Format(w, "0.00") & vbTab & Format(h, "0.00") & vbTab & txt & vbTab & _
+                  Format(lo2.X, "0.00") & vbTab & Format(lo2.Y, "0.00") & vbTab & _
+                  Format(hi2.X, "0.00") & vbTab & Format(hi2.Y, "0.00")
+NextRow:
+    Next i
+
+    If truncated Then
+        n = n + 1
+        ReDim Preserve rows(0 To n)
+        rows(n) = "TRUNCATED" & vbTab & "OTHER" & vbTab & "" & vbTab & "" & vbTab & _
+                  "0" & vbTab & "0" & vbTab & "0" & vbTab & "0" & vbTab & _
+                  "truncated=Y" & vbTab & "0" & vbTab & "0" & vbTab & "0" & vbTab & "0"
+    End If
+    FindElementsInRangeBox = rows
+End Function
+
+' ============================================================
 ' STATION -> POINT/TANGENT ON A COMMITTED ALIGNMENT
 ' Reuses PerpPlacement's arc-length path engine (same geometry
 ' PlacePerp already uses) rather than reimplementing it.
@@ -362,6 +455,7 @@ Private Function ElementTypeName(t As MsdElementType) As String
         Case msdElementTypeShape:     ElementTypeName = "SHAPE"
         Case msdElementTypeText:      ElementTypeName = "TEXT"
         Case msdElementTypeTextNode:  ElementTypeName = "TEXT_NODE"
+        Case msdElementTypeDimension: ElementTypeName = "DIMENSION"
         Case Else:                    ElementTypeName = "OTHER"
     End Select
 End Function

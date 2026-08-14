@@ -57,6 +57,12 @@ def _next_req_id() -> str:
     return f"P{next(_req_counter)}"
 
 
+def _response_has_req_ids(text: str, req_ids: list[str]) -> bool:
+    """Match whole reqId tokens. 'P1' must not match leftover 'P12490'."""
+    heads = {ln.split("\t", 1)[0] for ln in text.splitlines() if ln.strip()}
+    return all(rid in heads for rid in req_ids)
+
+
 def _parse_response_line(line: str) -> dict[str, Any]:
     parts = line.split("\t")
     if len(parts) < 2:
@@ -174,15 +180,15 @@ class Bridge:
             results.append(parsed)
         return results
 
-    def _read_response_with_retry(self, req_ids: list[str], timeout_s: float = 5.0) -> str:
+    def _read_response_with_retry(self, req_ids: list[str], timeout_s: float = 90.0) -> str:
         deadline = time.time() + timeout_s
         text = self.response_file.read_text(encoding="utf-8", errors="replace")
-        if all(rid in text for rid in req_ids):
+        if _response_has_req_ids(text, req_ids):
             return text
         while time.time() < deadline:
             time.sleep(0.1)
             text = self.response_file.read_text(encoding="utf-8", errors="replace")
-            if all(rid in text for rid in req_ids):
+            if _response_has_req_ids(text, req_ids):
                 return text
         raise BridgeError(
             f"response.tsv never contained all reqIds {req_ids} within {timeout_s}s "
