@@ -14,21 +14,21 @@ Preparing a workzone traffic control plan by hand in MicroStation is time-consum
 - Switching MicroStation levels by hand for each element type, then switching back
 - Keeping track of which signs go where in the .dgn file
 
-This tool automates all of that, and you drive it by describing what you need instead of clicking through a form:
+This tool automates most of that, and you drive it by describing what you need instead of clicking through a form:
 
-**You describe the workzone, the agent does the lookups.** Tell it the road speed, lane width, shoulder width, and area type, and it pulls every required spacing value — downstream taper length, roll-ahead distance, vehicle space, buffer space, merging taper, shoulder taper — directly from the NYSDOT standard tables. It never guesses a number; every spacing, taper length, and sign size is traceable back to a PE-reviewed table.
+**You describe the workzone, the agent does the lookups.** Tell it the road speed, lane width, shoulder width, and area type, and it pulls the required spacing values — downstream taper length, roll-ahead distance, vehicle space, buffer space, merging taper, shoulder taper — directly from the NYSDOT standard tables. It's built to never guess a number; every spacing, taper length, and sign size it uses is traceable back to a PE-reviewed table rather than an estimate.
 
-**Built-in sign library with 500+ NYSDOT/MUTCD signs.** Mention a sign by number or description (for example, W20-01RA) and the agent resolves it to the correct cell, size (Freeway or Non-Freeway), and recommended spacing — including sheet-registry codes that don't match a library key one-to-one.
+**Built-in sign library with 500+ NYSDOT/MUTCD signs.** Mention a sign by number or description (for example, W20-01RA) and the agent resolves it to the correct cell, size (Freeway or Non-Freeway), and recommended spacing — including many sheet-registry codes that don't match a library key one-to-one. Coverage isn't complete: some sheet-registry codes (mostly R- and W1/W3/W4/W5/W7/W8/W9-series and NY-custom signs) aren't in the library yet, and the agent will tell you when it hits one instead of guessing.
 
-**Whole-sheet automation.** For sheets the agent has a machine-readable spec for (the NYSDOT Part 619 catalog, growing over time), it can build the entire station table, sign placement, dimensions, channelizing devices, and work-area hatch for that sheet from your road parameters — then check its own work for overlaps and table-crossing errors before you ever see it.
+**Whole-sheet automation, for sheets it has a spec for.** For sheets in the NYSDOT Part 619 catalog that have a machine-readable spec (a growing but still partial subset), it can build the station table, sign placement, dimensions, channelizing devices, and work-area hatch for that sheet from your road parameters, then check its own work for overlaps and table-crossing errors. For sheets without a spec yet, it falls back to placing elements piece by piece rather than as a full-sheet build.
 
-**Handles curved and complex corridors.** Roads with arcs, S-curves, ramp gores, divided highways, two-way-left-turn lanes, and orthogonal intersections are all supported — the agent walks the actual path geometry, not a straight-line approximation, so spacing and sign placement stay correct on a curve.
+**Handles curved and complex corridors, with less mileage than straight ones.** Roads with arcs, S-curves, ramp gores, divided highways, two-way-left-turn lanes, and orthogonal intersections are supported — the agent walks the actual path geometry, not a straight-line approximation. This is newer and less battle-tested than straight-alignment placement, so give curved/complex builds a closer visual check before you sign off.
 
 **Automatic element placement on the correct MicroStation levels.** Every element the agent places — sign faces, work space hatching, channelizing device lines, barriers, dimensions — goes on its correct NYSDOT level with the correct color and line weight automatically.
 
-**It shows its work and asks when it's unsure.** The agent narrates what it's doing in the chat panel, takes its own screenshots to self-check placements, and stops to ask you — by text, button choice, or having you click a point in the drawing — whenever a decision needs engineering judgment rather than a table lookup.
+**It shows its work and asks when it's unsure.** The agent narrates what it's doing in the chat panel, takes its own screenshots to self-check placements, and stops to ask you — by text, button choice, or having you click a point in the drawing — whenever a decision needs engineering judgment rather than a table lookup. It won't catch every mistake this way — treat its self-checks as a first pass, not a substitute for your own review of the finished plan.
 
-**Repeatable, consistent results.** The same road parameters produce the same spacings and placements every time. There is no risk of forgetting a value or entering it in the wrong cell.
+**Repeatable, consistent results — when the inputs are unambiguous.** The same road parameters produce the same spacings and placements every time. There is no risk of forgetting a value or entering it in the wrong cell, but this is still an actively developed tool: expect occasional rough edges, and verify its output the way you would any drafted plan before it goes out.
 
 ---
 
@@ -38,7 +38,7 @@ The primary way to use this tool is the **in-MicroStation chat panel**. You no l
 
 1. Open MicroStation with your design file (units set to feet) and the `Test` VBA project loaded.
 2. Run the macro **LaunchChatPanel** from the MicroStation VBA macro list. This opens the chat panel as a modeless window alongside your drawing.
-3. On your machine (or whoever is running the agent process), make sure `chat_driver.py` is running — see [What You Need Before Starting](#what-you-need-before-starting). It's a separate small Python process that holds the actual agent; the panel itself just displays the conversation and forwards what you type.
+3. On your machine (or whoever is running the agent process), make sure `chat_driver.py` is running. It's a separate small Python process that holds the actual agent; the panel itself just displays the conversation and forwards what you type.
 4. Type what you need in plain language. For example:
 
    > "I need a right-lane closure on a two-lane rural highway, 55 mph, 12 ft lanes, 8 ft shoulders. Signs are W20-1, W20-4, and W20-7."
@@ -98,27 +98,6 @@ The agent is built to hand judgment calls back to you, not to guess:
 - **It asks when something is a judgment call**, not a table lookup — by text, by offering you a short list of concrete choices, or by asking you to click a point or element directly in the drawing.
 - **Sheet builds preview in a sandbox first** so nothing lands in your real drawing without you seeing it.
 - **Every placement is undoable and logged.** The agent can undo its own most recent action, and every operation it performs — with the reason it gave for doing it — is recorded so you (or it) can review the history of a session.
-
----
-
-## What You Need Before Starting
-
-**To run the in-MicroStation chat agent (what the field/design engineer uses):**
-
-- MicroStation CONNECT Edition (2023 recommended), design file units set to **feet**
-- NYSDOT ProjectWise WorkSpace mounted locally, which provides the sign face cells (`ny_plan_nmutcd_signface.cel`) and WZTC symbols (`ny_plan_wztc.cel`)
-- The `Test` VBA project loaded with the current modules from this repo, including `UserForms/WZTCChatPanel.frm` and `Modules/WZTCChatTimer.bas`
-- Python 3.10+ with `pip install -r mcp-server/requirements.txt`, and an `ANTHROPIC_API_KEY` available (environment variable, `ant auth login` profile, or `mcp-server/.env`)
-- `chat_driver.py` running (`python mcp-server/chat_driver.py`, or `python mcp-server/restart_chat_driver.py` to relaunch it after an update) — it is a separate process from MicroStation and is not auto-started
-- The panel itself is opened from the MicroStation VBA macro list — run the macro **LaunchChatPanel**
-
-**To use this project's tools from Claude Code instead (developer/automation use, not the field workflow):**
-
-```
-claude mcp add wztc-designer -- python "c:\repos\microstation-vba-project\mcp-server\server.py"
-```
-
-This registers the same underlying tool surface as an MCP server for Claude Code. It's a separate integration path from the chat panel above — useful for developing this project or automating it from Claude Code, not what an engineer uses day to day in MicroStation.
 
 ---
 
@@ -189,7 +168,6 @@ Place remaining WZTC symbols (arrow panels, flaggers, crash cushions, etc.) and 
 
 - **Ask, don't guess.** If you're not sure what the agent needs from you, just ask it — it will tell you what information or drawing input it's waiting on.
 - **Multiple runs:** If you need to redo a section, tell the agent what to change; it can move, re-level, or delete elements it placed itself. For a bigger rework, it's often simplest to delete the affected elements and ask it to rebuild that portion.
-- **Cell library path:** The tool requires the NYSDOT ProjectWise WorkSpace to be mounted at the standard local path. If sign cells or WZTC symbols don't appear, confirm your ProjectWise WorkSpace is active and connected.
 - **Curved alignments:** The agent measures distance along the actual path, including arcs — ask it to show you current stationing along the alignment if you want to verify placement.
 - **Sandbox builds:** For a full sheet build, ask to see the sandbox result before committing it if you want a chance to review first.
 - **Sign lookups:** You can reference a sign by its printed sheet code even if it doesn't match a sign library key exactly — the agent resolves the mapping and will tell you if a code is ambiguous or not yet in the library.
