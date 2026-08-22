@@ -267,6 +267,8 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = BridgePlaceArc(reqId, params)
         Case "PLACE_TEXT_LABEL"
             ExecuteOpInner = BridgePlaceTextLabel(reqId, params)
+        Case "SHOW_SHEET_VIEWER"
+            ExecuteOpInner = BridgeShowSheetViewer(reqId, params)
         Case "PLACE_CIRCLE"
             ExecuteOpInner = BridgeGeomPlaceCircle(reqId, params)
         Case "PLACE_ELLIPSE"
@@ -1542,6 +1544,39 @@ WErr:
 End Function
 
 ' Required: text, x, y. Optional: z
+Private Function BridgeShowSheetViewer(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("sheetNum") Then
+        BridgeShowSheetViewer = reqId & vbTab & "ERROR" & vbTab & "note=missing sheetNum"
+        Exit Function
+    End If
+
+    ' Opens the existing NYSDOT SheetViewer form (Launcher.LaunchNYSDOTViewer)
+    ' on the requested sheet, so the agent answers "show me 619-311" with the
+    ' real in-MicroStation viewer -- embedded WebBrowser, zoom and scroll --
+    ' instead of a static bitmap in the chat panel.
+    Dim res As String
+    res = SheetViewer.ShowSheetByNumber(CStr(params("sheetNum")))
+
+    Dim parts() As String
+    parts = Split(res, "|")
+    If parts(0) <> "OK" Then
+        BridgeShowSheetViewer = reqId & vbTab & "ERROR" & vbTab & "note=" & _
+            IIf(UBound(parts) >= 1, parts(1), "sheet viewer refused")
+        Exit Function
+    End If
+
+    BridgeShowSheetViewer = reqId & vbTab & "OK" & vbTab & _
+        "sheetNum=" & CStr(params("sheetNum")) & vbTab & _
+        "listing=" & parts(1) & vbTab & _
+        "category=" & IIf(UBound(parts) >= 2, parts(2), "") & vbTab & _
+        "note=NYSDOT SheetViewer opened in MicroStation on this sheet"
+    Exit Function
+
+WErr:
+    BridgeShowSheetViewer = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
 Private Function BridgePlaceTextLabel(reqId As String, params As Object) As String
     On Error GoTo WErr
     If Not (params.Exists("text") And params.Exists("x") And params.Exists("y")) Then

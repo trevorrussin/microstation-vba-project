@@ -3,121 +3,103 @@ Option Explicit
 ' ============================================================
 ' WZTC CHAT TIMER (M7 Stage 1)
 ' ------------------------------------------------------------
-' Win32 SetTimer/KillTimer polling loop for WZTCChatPanel.frm.
-' No Timer control exists in this MicroStation VBA host (unlike
-' Access/Excel), and nothing resembling a polling loop existed
-' anywhere in this repo before M7 -- this is the first one.
-' Confirmed working live (2026-08-01): the SetTimer/AddressOf
-' mechanism fires reliably every intervalMs with no drift or
-' missed ticks across a 700+ tick session.
+' Polls Bridge/chat-log.tsv and delivers new lines to the open
+' WZTCChatPanel. Originally used Win32 SetTimer + AddressOf.
+' That callback form triggers VBA "Unexpected error (35010)" on
+' 64-bit VBE compile/run in this MicroStation host (confirmed
+' 2026-08-21) -- a known VBE bug around AddressOf, not a logic
+' bug in the panel. Replaced with Sleep + DoEvents pump: no
+' function pointer, so Compile/Run no longer hit 35010.
 '
-' hWnd=0 creates a timer with no associated window; Win32's
-' message pump calls ChatTimerProc directly out of the existing
-' VBA idle loop -- no blocking Do/Loop of our own, so MicroStation
-' and every other open modeless form (WZTCDesigner, PlacePerp,
-' etc.) stay fully responsive between ticks.
-'
-' AddressOf only works on a Public Sub in a standard module (not
-' a class or form), so the callback lives here and reaches the
-' open panel via a module-level object reference -- same
-' reach-back-into-host-form indirection this repo already uses
-' for WithEvents handlers (Class Modules/SignNumBox.cls is the
-' live example; Class Modules/PlaceButtons.cls is confirmed dead
-' code despite being documented -- do not copy that one).
+' StartChatTimer only stores state. RunPollPump (called once
+' from WZTCChatPanel's post-modeless Activate) blocks that
+' Activate with DoEvents so the modeless form stays clickable
+' while lines are delivered every intervalMs. StopChatTimer
+' clears mRunning so the pump exits on QueryClose/Terminate.
 '
 ' Watched files MUST be CRLF, not bare LF -- same requirement as
-' Data/sheet-registry.tsv and Data/command-registry.tsv (see
-' Data/README.md). A bare-LF file reads as a single giant line
-' under Line Input#, which silently breaks the line-count-based
-' new-content detection below. Confirmed by testing, not
-' theoretical -- this exact failure mode cost significant bring-up
-' time on 2026-08-01.
+' Data/sheet-registry.tsv (see Data/README.md).
 '
-' Re-importing this module over an existing copy of the same name
-' does not reliably replace it in this VBA IDE -- Remove the old
-' module first, then File -> Import File. Confirmed by testing.
-'
-' Stage 1: watches a throwaway test file, no LLM/bridge involved.
-' Stage 5: WZTCChatPanel points this at the real Bridge/chat-log.tsv
-' -- this module does not change.
+' Re-importing this module: Remove the old module first, then
+' Import, then rename the component to WZTCChatTimer in the
+' VBA project tree (Import without Attribute VB_Name lands as
+' ModuleN -- confirmed 2026-08-21).
 ' ============================================================
 
 #If VBA7 Then
-    Private Declare PtrSafe Function SetTimer Lib "user32" ( _
-        ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr, _
-        ByVal uElapse As Long, ByVal lpTimerFunc As LongPtr) As LongPtr
-    Private Declare PtrSafe Function KillTimer Lib "user32" ( _
-        ByVal hwnd As LongPtr, ByVal uIDEvent As LongPtr) As Long
+    Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
 #Else
-    Private Declare Function SetTimer Lib "user32" ( _
-        ByVal hwnd As Long, ByVal nIDEvent As Long, _
-        ByVal uElapse As Long, ByVal lpTimerFunc As Long) As Long
-    Private Declare Function KillTimer Lib "user32" ( _
-        ByVal hwnd As Long, ByVal uIDEvent As Long) As Long
-#End If
-
-#If VBA7 Then
-    Private mTimerID As LongPtr
-#Else
-    Private mTimerID As Long
+    Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
 #End If
 
 Private mPanel As Object           ' the open WZTCChatPanel instance
 Private mWatchFile As String       ' file being polled for new lines
 Private mLastLineCount As Long     ' lines already delivered to the panel
+Private mIntervalMs As Long        ' Sleep between ticks
+Private mRunning As Boolean        ' pump guard -- StopChatTimer clears this
+Private mPumpActive As Boolean     ' true while RunPollPump's Do-loop is on stack
 
 ' ============================================================
-' START -- begin polling watchFile every intervalMs, delivering
-' each new line (beyond whatever's in the file at start time) to
-' panel.AppendChatLine. Safe to call again after StopChatTimer.
+' START -- store panel/file/interval. Does NOT start polling;
+' call RunPollPump once the form is modeless and Activate can
+' afford to block with DoEvents.
 ' ============================================================
 Public Sub StartChatTimer(panel As Object, watchFile As String, _
                           Optional intervalMs As Long = 300)
-    Call StopChatTimer   ' guard against double-registration on reopen
+    Call StopChatTimer   ' clear any prior session state
 
     Set mPanel = panel
     mWatchFile = watchFile
     mLastLineCount = CountLines(mWatchFile)   ' don't replay pre-existing lines
-
-    mTimerID = SetTimer(0, 0, intervalMs, AddressOf ChatTimerProc)
-    If mTimerID = 0 Then
-        If Not mPanel Is Nothing Then mPanel.AppendChatLine "[WZTCChatTimer] SetTimer failed to register"
-        Set mPanel = Nothing
-    End If
+    If intervalMs < 50 Then intervalMs = 50
+    mIntervalMs = intervalMs
+    mRunning = True
 End Sub
 
 ' ============================================================
-' STOP -- call from the panel's QueryClose/Terminate. Guarded
-' against being called when no timer is running (mTimerID = 0),
-' and against a stale mTimerID firing into a panel reference
-' that's already gone.
+' PUMP -- blocks the caller (panel Activate) until StopChatTimer.
+' DoEvents keeps the modeless form responsive between ticks.
+' ============================================================
+Public Sub RunPollPump()
+    If mPumpActive Then Exit Sub   ' never nest
+    If Not mRunning Then Exit Sub
+    If mPanel Is Nothing Then Exit Sub
+
+    mPumpActive = True
+    On Error GoTo PumpErr
+
+    Do While mRunning
+        Call PollOnce
+        Sleep mIntervalMs
+        DoEvents
+    Loop
+
+PumpDone:
+    mPumpActive = False
+    Exit Sub
+
+PumpErr:
+    On Error Resume Next
+    If Not mPanel Is Nothing Then mPanel.AppendChatLine "[WZTCChatTimer] " & Err.Description
+    Resume PumpDone
+End Sub
+
+' ============================================================
+' STOP -- call from the panel's QueryClose/Terminate. Clears
+' mRunning so RunPollPump exits on the next DoEvents pass.
 ' ============================================================
 Public Sub StopChatTimer()
-    If mTimerID <> 0 Then
-        KillTimer 0, mTimerID
-        mTimerID = 0
-    End If
+    mRunning = False
     Set mPanel = Nothing
     mWatchFile = ""
     mLastLineCount = 0
 End Sub
 
 ' ============================================================
-' TIMER CALLBACK -- must be Public Sub in a standard module.
-' Re-reads mWatchFile each tick (same whole-file-reread pattern
-' WZTCCommandRegistry.ReadAllLines / the journal readers already
-' use elsewhere in this codebase -- file sizes here are small
-' enough that this isn't a performance concern) and delivers only
-' lines beyond mLastLineCount, so a human editing the file
-' externally (or Python appending to it) shows up incrementally.
+' ONE TICK -- same deliver-new-lines logic as the old SetTimer
+' callback. Safe to call from the pump or manually.
 ' ============================================================
-#If VBA7 Then
-Public Sub ChatTimerProc(ByVal hwnd As LongPtr, ByVal uMsg As Long, _
-                         ByVal idEvent As LongPtr, ByVal dwTime As Long)
-#Else
-Public Sub ChatTimerProc(ByVal hwnd As Long, ByVal uMsg As Long, _
-                         ByVal idEvent As Long, ByVal dwTime As Long)
-#End If
+Public Sub PollOnce()
     On Error GoTo ProcErr
 
     If mPanel Is Nothing Then Exit Sub
@@ -131,21 +113,8 @@ Public Sub ChatTimerProc(ByVal hwnd As Long, ByVal uMsg As Long, _
     ' count. ReadAllLines returns 0 on any I/O error (file locked mid-
     ' append by chat_driver.py is the common case) -- treating that as
     ' "rotated" used to reset mLastLineCount to 0 and replay the entire
-    ' chat-log into the panel (confirmed live 2026-08-02: Conversation
-    ' filled with hours of old FINAL/ASK_USER_CHOICE lines after a recent
-    ' turn, including stale pick-point prompts over the Reference pane).
+    ' chat-log into the panel (confirmed live 2026-08-02).
     If n > 0 And n < mLastLineCount Then
-        ' mWatchFile is smaller than what's already been delivered -- it was
-        ' rotated/archived externally (chat_driver.py archives an oversized
-        ' chat-log.tsv and starts a fresh one, see ChatLog._rotate_if_oversized).
-        ' Resync from scratch instead of silently missing all future lines
-        ' forever (mLastLineCount would otherwise stay stuck above the new,
-        ' smaller file's line count and "n > mLastLineCount" would never be
-        ' true again). Makes rotation safe regardless of timing -- no need to
-        ' coordinate it with the panel being closed/reopened.
-        '
-        ' Also clear the conversation/activity panes so a real rotation
-        ' doesn't stack the new file under the previous session's text.
         On Error Resume Next
         mPanel.ResetTranscriptPanes
         On Error GoTo ProcErr
@@ -162,27 +131,13 @@ Public Sub ChatTimerProc(ByVal hwnd As Long, ByVal uMsg As Long, _
     Exit Sub
 
 ProcErr:
-    ' Never let an error inside the timer callback propagate --
-    ' that would be an error inside MicroStation's own message
-    ' pump. Surface it in the transcript instead and keep polling.
     On Error Resume Next
     If Not mPanel Is Nothing Then mPanel.AppendChatLine "[WZTCChatTimer] " & Err.Description
 End Sub
 
 ' ============================================================
-' FILE I/O -- ADODB.Stream at Charset "utf-8" rather than the
-' Open/Line Input# pattern WZTCSheetRegistry.ReadAllLines /
-' WZTCCommandRegistry.ReadAllLines use. Those read ASCII-only
-' data (op names, numeric params); chat-log.tsv carries Claude's
-' natural-language prose, which routinely has em-dashes and curly
-' quotes. Open/Line Input# reads the system ANSI codepage, so
-' those multi-byte UTF-8 characters split into mojibake (confirmed
-' live 2026-08-01 -- an em-dash rendered as "â€"" in the panel).
-' chat_driver.py writes this file as UTF-8, so this is the read
-' side that needs to match, not the write side.
-' Blank lines are skipped, same as the modules above, so an empty
-' line in the chat log can't desync the line-count bookkeeping
-' against what's actually rendered.
+' FILE I/O -- ADODB.Stream UTF-8 (chat-log is written UTF-8 by
+' chat_driver.py; Open/Line Input# would mojibake em-dashes).
 ' ============================================================
 Private Function ReadAllLines(path As String, ByRef outLines() As String) As Long
     On Error GoTo ReadErr

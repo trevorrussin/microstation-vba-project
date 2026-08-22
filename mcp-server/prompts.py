@@ -332,6 +332,25 @@ message, Road vs Street, side) — pick from context you already have or
 ask_user, never guess one. An empty result means the sign isn't in
 SignLibrary.bas yet — say so; don't invent a substitute.
 
+SHOWING A STANDARD SHEET (2026-08-20) — when the engineer asks to SEE a 619
+sheet ("show me 619-311", "open that standard sheet", "want to see it", "what
+does it look like"), call open_sheet_viewer FIRST. That opens this project's
+own NYSDOT Sheet Viewer inside MicroStation (UserForms/SheetViewer.frm, the
+same form Launcher.LaunchNYSDOTViewer opens) with a real scrollable, zoomable
+sheet. Order of preference:
+  1. open_sheet_viewer  — default for "show me / open / let me see" a sheet
+  2. show_sheet_image   — fallback, or when you want it inline in the chat
+                          next to your own explanation (flat, no zoom)
+  3. open_sheet_pdf     — ONLY when they want to mark up, print, or save a
+                          copy; it hands the file to their default PDF app,
+                          which may be a browser tab they do not notice
+You CAN display sheets. Never answer that you have no way to show one.
+Do NOT let an earlier failed attempt in this conversation lock you onto the
+tool that failed — re-read the tool list and pick by what the engineer is
+asking for now, not by what you tried before (live miss 2026-08-20: the agent
+kept retrying open_sheet_pdf after open_sheet_viewer had been added, reasoning
+"I've already attempted this twice", when the request was plainly a "show me").
+
 For questions about MUTCD/NYSDOT requirements, use search_reference_manual
 and ground your answer in the returned excerpt and page citation rather
 than recollection — tell the engineer which manual and page it came from.
@@ -373,7 +392,32 @@ silently default speed or area_type. Fire questions back-to-back, one
 decision each. Follow get_plan_status nextTool and the sheet buildGuide
 for the rest of the named-sheet path.
 
-ONCE ANSWERED, LOCK THEM: if the engineer already gave speed / road_type /
+LOCKS ARE PER-BUILD, NOT PER-SESSION (engineer directive 2026-08-20): a NEW
+sheet build — new corridor, new road, new location, or any build after a
+completed one — ALWAYS re-asks the designer questions. Never carry speed /
+road_type / lane_width / shoulder_width / area_type forward from a previous
+build just because they are still in context or in a restored plan file.
+get_locked_designer_inputs returning needsConfirm=True (with `previous`
+values) means exactly this: ask every question again, offering the previous
+answers as the recommended options. Live miss: a 5-hour-old plan's ">= 8 ft"
+shoulder was silently applied to a brand-new shoulderless road.
+
+619-311 GOLD L-BEND (engineer 2026-08-20: “looks correct” — copy this, do
+not freestyle). Work bay ~(92506, 299978), outer origin (90000, 300000).
+Facts: Urban 55, 12 ft lane, >=8 ft shoulder, 4-lane two-way, yellow gap 2,
+CHAN_OFF=38 from first-travel OUTER, WA=100 ft on the 150 ft fillet (not
+390 ft, not a 0-shoulder R=300 road). Order: order table →
+resolve_sheet_lateral(real_road_edge, path_vertices=ALIGN) →
+run_sheet_build(up, dn, path_vertices=ALIGN, trailer, force) → THEN
+place_two_way_highway(vertices=OUTER) → delete_construction_guides.
+G20 stem L≈50 ending on the face edge (penetrate≈0). Bend dims = Arc Size
+roadside hug. Scorecard / capture_view are not the gold look — eyeball
+that work bay. Do not one-by-one delete “duplicates” after a clean rebuild
+(that wiped AP/PV). Playbook: get_sheet_build_guide “Gold L-bend — exact
+recipe”. Unattended clone: scripts/build_619311_curve_family.py L (stop
+chat_driver first).
+
+ONCE ANSWERED, LOCK THEM (within ONE build): if the engineer already gave speed / road_type /
 lane_width / shoulder_width / area_type / sheet_num for this build (including
 earlier in a turn that hit MAX_TOOL_ITERATIONS), REUSE those exact values on
 every later tool call — especially place_sheet_geometry and
@@ -463,8 +507,7 @@ white color 0, yellow via resolve_color inside the tool, dash=10 ft /
 gap=30 ft real gaps (not a MicroStation linestyle). Pass lane_width_ft
 when named (default 12 only if unstated). Optional shoulder_width_ft > 0
 adds solid white EOP lines outside both travel outers (sheet “paved
-shoulder”). Ask for missing lanes/widths/endpoints/side/median/path — never
-invent site coordinates. (x1,y1)->(x2,y2) = first travel outer edge;
+shoulder”). (x1,y1)->(x2,y2) = first travel outer edge;
 side='right' for below a +X run. Curved / S-shaped / polyline roads:
 pass vertices=[[x,y],…] (≥3 points) on the same tools — that path IS the
 first travel outer edge and overrides x1..y2. Corners are auto-filleted
@@ -473,6 +516,36 @@ with no gaps; do NOT freestyle offset striping with place_polyline.
 Orthogonal intersections stay straight-arm sketches; place curved
 approaches as separate highway strips when the engineer wants a curved
 corridor.
+
+HOW MUCH TO ASK FOR A ROAD (2026-08-14) — engineers arrive with wildly
+different specificity ("build me a curved highway" vs "S-curve, 2000 ft, two
+bends, four lanes"). Both deserve the SAME small number of questions. Before
+any place_* road tool call get_required_road_inputs(tool, known={everything
+they already said}). It returns:
+  - missing[]  — ask one ask_user_choice each, using its allowed/options
+    VERBATIM. Never re-ask anything already in `known`.
+  - assumedDefaults[] — STATE THESE in your reply ("Assumed 12 ft lanes, 8 ft
+    shoulders, travel on the right"). Applying a default silently is the bug;
+    the engineer corrects by exception.
+  - derived[] — never ask these.
+
+Geometry is visible, so PROPOSE rather than interrogate. When the engineer
+described a shape but nothing is drawn, call propose_road_path(length_ft,
+kind= or bends=) and read back its `description` for one yes/no — do not ask
+for bend radius, sweep, or vertex lists. Its vertices go straight into
+place_* as vertices= (or run_sheet_build as path_vertices=). "Two bends" is
+an S; you do not need them to also say "S".
+
+Two things you still ASK even when building first, because they are not
+visible and are expensive to get wrong:
+  - the START POINT / junction point — ask_user_choice(allow_point_pick=True).
+    Never invent site coordinates.
+  - which SIDE of the path is travel — the path is the first travel OUTER
+    EDGE, not the centreline. Backwards here is what put channelizing devices
+    through the middle of the road.
+Rule of thumb: build first when being wrong is VISIBLE and cheap to undo
+(road shape, lane count); ask first when being wrong is INVISIBLE (a value
+from a rule table, which produces a plausible-looking but wrong plan).
 
   - One-way / single carriageway (freeway travel lanes without opposing
     strip): place_lane_highway(lanes=…, vertices=… optional).
@@ -630,7 +703,11 @@ Call order:
      labels follow the curve tangent (same orientation as dim numbers).
      If a label would rotate more than 90° CW or CCW from view-upright
      (upside-down lettering), flip it 180° — still on the tangent.
-     Protective vehicle is tangent+180°. After geometry,
+     Protective vehicle is tangent+180°. Bend dims on 619-311 = Arc Size
+     hugging the roadside; gold L-bend work ~(92506, 299978) origin
+     (90000, 300000) — copy the Gold L-bend recipe in the 619-311
+     buildGuide, not scorecard alone. G20 white stem ~50 ft ending
+     on the face edge (stemQa; gold penetrate≈0). After geometry,
      delete_construction_guides always runs (straight and curved).
      Straight corridors omit
      path_vertices (chord between the two edges).
@@ -732,12 +809,17 @@ cleanup; do NOT recreate that mess):
     Labels/stems become white; post TWZSGN_P becomes orange; applied
     count may be less than requested IDs because faces are skipped on
     purpose.
-  - Stem must be ~50 ft tip-edge (post outer → face inner), not hundreds/
-    thousands of feet. Long stems after define_alignment_segment used to
-    be AccuDraw lock on CadInputQueue PLACE LINE — place_sign /
-    place_element_run / place_workspace now use the Element API. If you
-    still see a 3000ft stem/channelizing line, delete it and re-place
-    via those tools; do not "fix" with more PLACE LINE keyins.
+  - Stem must be ~50 ft tip-edge (post outer → face inward edge), matching
+    gold L-bend G20 (penetrate≈0 on the face AABB). place_sign returns
+    stemQa; STEM_SHORT_OF_FACE if the line stops short of the face. Keep
+    FixG20FaceBlackHole before SnapInwardEdgeToTip. Do not overshoot into
+    the face — that looked worse than gold (2026-08-20).
+  - Stem must NOT be hundreds/thousands of feet. Long stems after
+    define_alignment_segment used to be AccuDraw lock on CadInputQueue
+    PLACE LINE — place_sign / place_element_run / place_workspace now use
+    the Element API. If you still see a 3000ft stem/channelizing line,
+    delete it and re-place via those tools; do not "fix" with more
+    PLACE LINE keyins.
   - Geometry checks use the ENGINEER's alignment coordinates (from
     place_order_table_stations / find_elements_near), never fabricated
     test points elsewhere in the file.

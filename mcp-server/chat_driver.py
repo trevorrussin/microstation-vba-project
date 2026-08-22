@@ -42,6 +42,20 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# Corporate TLS interception (live 2026-08-20): the network injects a
+# self-signed root, so Python's bundled CA list rejects api.anthropic.com with
+# "CERTIFICATE_VERIFY_FAILED: self-signed certificate in certificate chain" and
+# every turn dies as a bare "Connection error." in the panel. Windows already
+# trusts that root; truststore makes Python use the OS certificate store
+# instead of certifi's static bundle. Must run BEFORE any SSL context is
+# built. Optional on purpose -- a machine without interception needs nothing.
+try:
+    import truststore
+
+    truststore.inject_into_ssl()
+except Exception:  # pragma: no cover - only bites on unusual installs
+    pass
+
 import anthropic
 from anthropic import beta_tool
 from dotenv import load_dotenv
@@ -188,6 +202,29 @@ def _show_reference_image(tool_name: str, result) -> None:
         LOG.error(f"reference-image render failed (non-fatal, text excerpt still stands): {e}")
 
 
+def _show_sheet_image(tool_name: str, result) -> None:
+    """Put show_sheet_image's rendered page into the panel.
+
+    Added 2026-08-20 after the agent told the engineer "I can't render or
+    display the actual NYSDOT PDF image in this chat -- I have no
+    image-display tool" when asked to show 619-311. That was false: the panel
+    has displayed images since 2026-08-02, and all 68 sheet PDFs are on disk.
+    The capability existed with no tool exposing it, so the model answered
+    honestly from what it could see. Same pattern as _show_reference_image --
+    best-effort, never fails the turn."""
+    if tool_name != "show_sheet_image":
+        return
+    if not isinstance(result, dict) or result.get("status") != "OK":
+        return
+    path = result.get("imagePath")
+    if not path:
+        return
+    try:
+        _log_screenshot(Path(path))
+    except Exception as e:
+        LOG.error(f"sheet-image display failed (non-fatal, lookup still stands): {e}")
+
+
 def _show_view_update(tool_name: str, result) -> None:
     """After a successful adjust_view call, refresh the panel's screenshot
     so the engineer sees the new zoom/pan immediately, same as the
@@ -332,6 +369,7 @@ def _wrap_op(tool_name: str, fn):
             LOG.tool_result(tool_name, "OK", _summarize(result))
             _collect_element_ids(result)
             _show_reference_image(tool_name, result)
+            _show_sheet_image(tool_name, result)
             _show_view_update(tool_name, result)
             if tool_name in ("run_visual_qa_captures", "run_sheet_build"):
                 vision = _vision_blocks_for_qa_captures(result) if isinstance(result, dict) else None
@@ -378,6 +416,11 @@ _BASE_OP_NAMES = [
     "station_to_point", "get_alignment_stationing",
     "get_alignment_vertices", "get_locked_designer_inputs", "get_plan_status",
     "propose_corridor_source", "lock_corridor_path",
+    # 2026-08-14: specificity handling for the striping catalog. Base mode, not
+    # WZTC-only — "build me a curved highway" is general CAD. propose_road_path
+    # answers a DESCRIBED shape without a click session; get_required_road_inputs
+    # asks only the gaps and reports what it will assume.
+    "propose_road_path", "get_required_road_inputs",
     "propose_work_area_on_path", "snap_work_area_to_path",
     "get_placements", "delete_placements",
     "get_geometry_scorecard", "reflect_sheet_build",
@@ -426,7 +469,17 @@ _BASE_OP_NAMES = [
 # them.
 _WZTC_OP_NAMES = [
     "compute_spacing", "get_sheet_requirements", "get_sheet_build_guide",
+    # 2026-08-20: the agent said it "has no image-display tool" when asked to
+    # show 619-311. The panel has displayed images since 2026-08-02 and all 68
+    # sheet PDFs are on disk — nothing exposed the capability.
+    "open_sheet_viewer", "show_sheet_image", "open_sheet_pdf",
     "get_required_designer_inputs",
+    # 2026-08-14: the domain check that rejects an out-of-spec answer (e.g.
+    # 60 mph on 619-311, whose tables stop at 55). It existed in wztc_ops but
+    # was never added here, so the agent could not call it — same registration
+    # gap as the 28 missing ops found 2026-08-02. A tool the driver cannot
+    # reach is not wired.
+    "validate_designer_input_value",
     "resolve_sign_code",
     "place_perp_line", "place_sign", "place_workspace", "place_element_run",
     "place_cell_on_post", "set_sign_attributes",

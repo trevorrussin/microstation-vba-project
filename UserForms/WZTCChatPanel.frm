@@ -126,12 +126,24 @@ Private Const TASKBAR_MARGIN_PTS As Double = 40   ' leaves room for the taskbar
 ' the second (already-modeless) Activate would re-trigger the same
 ' Hide+Show forever.
 Private mForcedModeless As Boolean
+' True once the chat-log DoEvents pump has been started for this
+' instance. Pump lives in WZTCChatTimer (no AddressOf -- avoids 35010).
+Private mPumpStarted As Boolean
 
 ' ============================================================
 ' ACTIVATE -- see the header comment above for why this exists.
+' After the modeless re-Show, start the chat-log poll pump. That
+' call blocks this Activate with DoEvents until the form closes;
+' the modeless UI stays responsive between ticks.
 ' ============================================================
 Private Sub UserForm_Activate()
-    If mForcedModeless Then Exit Sub
+    If mForcedModeless Then
+        If Not mPumpStarted Then
+            mPumpStarted = True
+            Call WZTCChatTimer.RunPollPump
+        End If
+        Exit Sub
+    End If
     mForcedModeless = True
     Me.Hide
     Me.Show vbModeless
@@ -974,8 +986,8 @@ Private Sub txtInput_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift
 End Sub
 
 ' ============================================================
-' TEARDOWN -- KillTimer on every path out of the form, guarded
-' against double-kill inside StopChatTimer itself.
+' TEARDOWN -- stop the DoEvents poll pump on every path out.
+' StopChatTimer clears mRunning so RunPollPump exits.
 ' ============================================================
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     Call WZTCChatTimer.StopChatTimer

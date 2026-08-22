@@ -57,11 +57,18 @@ def test_propose_ladder_recommends_last_placed():
         closure_type="", exposure_condition="", protective_vehicle_gvw=0)
     locked2 = wztc_ops.lock_corridor_path("last_placed")
     assert locked2["closed_side"] == "right"
+    # 2026-08-20 fix: the locked path is the CHANNELIZING LINE, not the road
+    # outer edge — 2*12 + 2 + 12 = 38 ft right of travel for a 4-lane right
+    # closure (see scripts/build_619311_curve_family.py CHAN_OFF). The old
+    # assertion (edge on y=0, the outer edge) was asserting the bug that put
+    # the whole plan 38 ft off the reference build.
+    assert abs(locked2["alignOffsetFt"] - 38.0) < 1e-6
+    assert locked2["edgeRole"] == "closed_lane_edge"
     snap = wztc_ops.snap_work_area_to_path(
         "ends", p1=[2500, 40], p2=[2740, -10])
     assert snap["status"] == "OK"
     assert abs(snap["workLenFt"] - 240) < 1.0
-    assert abs(snap["upstream_edge"][1]) < 1e-6
+    assert abs(snap["upstream_edge"][1] - (-38.0)) < 1e-6
     wztc_ops._LAST_PLACED_ROAD = None
     wztc_ops._PLAN_SESSION.reset()
 

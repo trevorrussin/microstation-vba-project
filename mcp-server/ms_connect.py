@@ -40,7 +40,12 @@ import winreg
 
 import pythoncom
 import win32com.client
-import win32com.client.gencache as gencache
+
+# MUST come before any gencache generation: relocates pywin32's generated-code
+# cache off %TEMP% (a temp cleaner gutted it 2026-08-20 and the bridge reported
+# "no MicroStation instances found running at all" while MicroStation was open)
+# and provides dispatch_with_repair for the self-heal path below.
+import com_cache
 
 DEFAULT_PROJECT_NAME = "Test"
 DEFAULT_PROG_ID = "MicroStationDGN.Application"
@@ -66,12 +71,20 @@ def _clsid_for_progid(prog_id: str) -> str:
         winreg.CloseKey(key)
 
 
-def _candidate_apps(prog_id: str = DEFAULT_PROG_ID):
+def _candidate_apps(prog_id: str = DEFAULT_PROG_ID, bind_errors: list | None = None):
     """Yields (open_file_description, app) for every distinct instance of
     prog_id currently registered in the Running Object Table. A moniker
     that fails to bind (a stale/dying process still lingering in the ROT)
     is skipped rather than raised -- that's a normal, harmless occurrence,
-    not something callers need to handle."""
+    not something callers need to handle.
+
+    bind_errors, when supplied, collects "matched the CLSID but could not be
+    bound" failures. Previously these were swallowed silently, which is how a
+    gutted type-library cache masqueraded as "no MicroStation instances found
+    running at all" (2026-08-20) -- the ROT entry was right there and every
+    bind was failing. A skipped instance must never be reported as an absent
+    one.
+    """
     target = _clsid_for_progid(prog_id).lower()
 
     rot = pythoncom.GetRunningObjectTable()
@@ -99,8 +112,12 @@ def _candidate_apps(prog_id: str = DEFAULT_PROG_ID):
             # fail under plain dynamic dispatch (see Claude Code memory
             # feedback_vba_compile_error_recovery.md's "com_record" note).
             idisp = unknown.QueryInterface(pythoncom.IID_IDispatch)
-            app = gencache.EnsureDispatch(idisp)
-        except Exception:
+            # Self-healing: regenerates and retries once if the cached
+            # wrappers were removed underneath us.
+            app = com_cache.dispatch_with_repair(idisp)
+        except Exception as e:
+            if bind_errors is not None:
+                bind_errors.append(f"{type(e).__name__}: {str(e)[:200]}")
             continue
 
         try:
@@ -120,7 +137,8 @@ def get_microstation_app(project_name: str = DEFAULT_PROJECT_NAME):
     running and what to close."""
     matches = []
     diagnostics = []
-    for open_file, app in _candidate_apps():
+    bind_errors: list[str] = []
+    for open_file, app in _candidate_apps(bind_errors=bind_errors):
         try:
             app.VBE.VBProjects(project_name)
             matches.append(app)
@@ -133,6 +151,19 @@ def get_microstation_app(project_name: str = DEFAULT_PROJECT_NAME):
 
     found = "\n  ".join(diagnostics) if diagnostics else "(no MicroStation instances found running at all)"
     if len(matches) == 0:
+        # Distinguish "nothing is running" from "it is running but every bind
+        # failed" -- conflating those cost a 20-minute misdiagnosis on
+        # 2026-08-20, when the real cause was a wiped type-library cache.
+        if bind_errors and not diagnostics:
+            raise RuntimeError(
+                f"MicroStation IS registered in the COM Running Object Table, but "
+                f"every attempt to bind to it failed -- so this is NOT 'MicroStation "
+                f"is not running'. Bind errors:\n  " + "\n  ".join(bind_errors) +
+                f"\n\nIf these mention CLSIDToClassMap/CLSIDToPackageMap, the pywin32 "
+                f"type-library cache at {com_cache.CACHE_DIR} was removed or "
+                f"truncated; com_cache.dispatch_with_repair already tried to "
+                f"regenerate it once and could not. See com_cache.py."
+            )
         raise RuntimeError(
             f"No running MicroStation instance has the {project_name!r} VBA project "
             f"loaded. Instances found:\n  {found}"

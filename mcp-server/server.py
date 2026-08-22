@@ -340,6 +340,38 @@ def propose_corridor_source() -> dict:
 
 
 @mcp.tool()
+def propose_road_path(length_ft: float, kind: str = "", bends: int | None = None,
+                      start_x: float = 0.0, start_y: float = 0.0,
+                      bearing_deg: float = 0.0, radius_ft: float | None = None,
+                      step_ft: float = 25.0) -> dict:
+    """Generate a road path from a DESCRIBED shape when nothing is drawn yet.
+
+    For "build me a curved highway" / "S-curve, 2000 ft, two bends". kind:
+    straight|c_curve|s_curve|l_bend|n_bend, or omit it and pass bends (0
+    straight, 1 curve, 2 reverse-S, 3+ N-bend). Returns vertices for place_*
+    vertices= / run_sheet_build path_vertices=, a one-line description to
+    confirm, and assumedDefaults to state. Ask for the start point — do not
+    invent site coordinates."""
+    return wztc_ops.propose_road_path(
+        length_ft=length_ft, kind=kind, bends=bends, start_x=start_x,
+        start_y=start_y, bearing_deg=bearing_deg, radius_ft=radius_ft,
+        step_ft=step_ft)
+
+
+@mcp.tool()
+def get_required_road_inputs(tool: str, known: dict | None = None) -> dict:
+    """Which striping questions remain, and what will be assumed.
+
+    The striping catalog's get_required_designer_inputs. Call before any
+    place_* road tool. tool accepts a catalog name or the engineer's word
+    ('highway', 'divided', 'intersection', 'ramp'); known is everything they
+    already said, so a specific engineer is never re-asked. Returns missing
+    (one ask_user_choice each, allowed/options verbatim), assumedDefaults
+    (state them — never silent), derived, ready."""
+    return wztc_ops.get_required_road_inputs(tool, known)
+
+
+@mcp.tool()
 def lock_corridor_path(source: str, element_id: str = "",
                        vertices: list | None = None, reverse: bool = False,
                        edge_role: str = "first_travel_outer",
@@ -420,6 +452,44 @@ def get_required_designer_inputs(sheet_num: str = "") -> dict:
     options; do not invent speed/area_type; do not offer out-of-domain
     values (619-311 has no 60 mph). Skip locked; apply derived and cite."""
     return wztc_ops.get_required_designer_inputs(sheet_num)
+
+
+@mcp.tool()
+def open_sheet_viewer(sheet_num: str) -> dict:
+    """PREFERRED way to show a 619 standard sheet — opens the NYSDOT Sheet
+    Viewer inside MicroStation on that sheet.
+
+    The project's own viewer (UserForms/SheetViewer.frm), embedding a
+    WebBrowser control, so the engineer gets a real scrollable/zoomable sheet
+    in a MicroStation form rather than a flat picture. Use FIRST when asked to
+    see a sheet; show_sheet_image is the fallback, open_sheet_pdf is for
+    markup/print/save. Opens a window — do it when asked, not speculatively."""
+    return wztc_ops.open_sheet_viewer(sheet_num)
+
+
+@mcp.tool()
+def show_sheet_image(sheet_num: str, page: int = 1) -> dict:
+    """DISPLAY the actual 619 standard sheet drawing in the chat panel.
+
+    Use whenever the engineer asks to SEE a sheet ("show me 619-311", "what
+    does that sheet look like"). You CAN show it — the panel renders images
+    and every sheet PDF is on disk; never reply that you have no way to
+    display it. Renders the page and returns imagePath/pageCount/title.
+    Visual companion to get_sheet_requirements (text) — showing a sheet locks
+    nothing and starts no build."""
+    return wztc_ops.show_sheet_image(sheet_num, page)
+
+
+@mcp.tool()
+def open_sheet_pdf(sheet_num: str) -> dict:
+    """Open a 619 sheet's source PDF in the engineer's own PDF viewer.
+
+    For when they want to zoom, pan, mark up, search, print, or save a copy —
+    the panel image from show_sheet_image is a static bitmap with none of
+    that. Opens beside MicroStation in Adobe (or their default viewer).
+    Rule of thumb: show_sheet_image to LOOK, open_sheet_pdf to WORK. Opens a
+    window on their desktop, so do it when asked, not speculatively."""
+    return wztc_ops.open_sheet_pdf(sheet_num)
 
 
 @mcp.tool()
@@ -1364,7 +1434,13 @@ def search_reference_manual(query: str, source: str = "", max_results: int = 10)
     index is missing, returns one hit with heading INDEX_MISSING (run
     ingest_manuals.py). Multi-word queries that miss under FTS5 AND are
     retried with OR / phrase matching. A genuine empty list means no
-    match after those retries — not "manuals unavailable"."""
+    match after those retries — not "manuals unavailable".
+
+    DISPLAYS AN IMAGE: the top hit's actual PDF page is rendered into the
+    chat panel alongside the text excerpt, so the engineer sees the page the
+    answer is grounded in. You do not need a separate tool to show it, and
+    you should not tell the engineer you cannot display manual pages. To show
+    a 619 standard sheet drawing specifically, prefer show_sheet_image."""
     return manual_search.search(query, source=source, max_results=max_results)
 
 

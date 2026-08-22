@@ -397,8 +397,16 @@ Public Sub PlaceSignAssembly(attachmentPt As Point3d, signNum As String, signSiz
     faceOrigin.Z = postOuter.Z
     Call MoveCellOriginTo(faceEl, faceOrigin)
 
+    ' Fix face symbology BEFORE any inward-edge snap or stem length. On G20
+    ' the library can leave the SF_P hole at color 6; PreferColor(6) then
+    ' latches the hole (short of the orange border), SnapInwardEdgeToTip
+    ' parks that hole on faceTarget, and the stem stops in the visual gap
+    ' (curve G20, live 2026-08-20).
+    Call HideDuplicateYellowLegend(faceEl, cellName)
+    Call FixG20FaceBlackHole(faceEl, signNum)
+
     Dim faceInner As Point3d
-    ' Snap face so its inward edge is exactly STEM_GAP past postOuter
+    ' Snap face so its true orange inward edge is exactly STEM_GAP past postOuter
     Dim faceTarget As Point3d
     faceTarget.X = postOuter.X + dirX * STEM_GAP
     faceTarget.Y = postOuter.Y + dirY * STEM_GAP
@@ -410,31 +418,20 @@ Public Sub PlaceSignAssembly(attachmentPt As Point3d, signNum As String, signSiz
     ElseIf faceEl.IsSharedCellElement Then
         faceOrigin = faceEl.AsSharedCellElement.Origin
     End If
-    ' Stem ends on the perp ray, 1.5 ft into the orange fill so the white
-    ' line meets the face (G20 rect + diamonds). Prefer color-6 vertices;
-    ' construction/hole verts sit short of the fill and leave a gap.
-    Dim inPt As Point3d
+
+    ' Stem end = snapped inward orange edge (faceTarget). Gold L-bend
+    ' reference at ~(92570,300000) uses L≈STEM_GAP with penetrate≈0 —
+    ' driving STEM_INTO_FACE past the edge made curve G20s look worse
+    ' (live 2026-08-20). FixG20-before-snap keeps PreferColor on the
+    ' real border so faceTarget is the true edge.
     Dim tFace As Double
-    inPt = ExtremePointAlongDirPreferColor(faceEl, dirX, dirY, False, 6)
-    tFace = (inPt.X - attachmentPt.X) * dirX + (inPt.Y - attachmentPt.Y) * dirY
-    If tFace < tPost + 1# Then tFace = tPost + STEM_GAP
-    tFace = tFace + 1.5
+    tFace = (faceTarget.X - attachmentPt.X) * dirX + (faceTarget.Y - attachmentPt.Y) * dirY
+    If tFace < tPost + STEM_GAP - 0.5 Then tFace = tPost + STEM_GAP
     faceInner.X = attachmentPt.X + dirX * tFace
     faceInner.Y = attachmentPt.Y + dirY * tFace
     faceInner.Z = faceTarget.Z
 
-    ' W04-02* cells ship with yellow SF_P copies of the merge symbol on
-    ' top of the black SFB_P legend; hide the small yellow duplicates so
-    ' the black symbol reads (live 2026-08-03 south 619-311 QA).
-    Call HideDuplicateYellowLegend(faceEl, cellName)
-
-    ' G20-* faces: library place can leave the SF_P "grouped hole" (inner
-    ' border cell) at color 6/orange instead of 240/black — engineer
-    ' reference next to the Y=297000 build had SF_P hole=240 with orange
-    ' outer (SF_P complex) + black SFB_P legend (2026-08-10).
-    Call FixG20FaceBlackHole(faceEl, signNum)
-
-    ' --- Stem: post outward edge -> face inward edge only (on tip line) ---
+    ' --- Stem: post outward edge -> face inward edge (on tip line) ---
     ' Element API (CreateLineElement2), NOT PLACE LINE CONSTRAINED: AccuDraw
     ' distance lock left over from a long define_alignment_segment was making
     ' CadInputQueue stems 3000ft instead of STEM_GAP (live 2026-08-03).
@@ -1033,8 +1030,9 @@ Private Sub MoveCellOriginTo(el As Element, newOrigin As Point3d)
     Call el.Rewrite
 End Sub
 
-' Move el along dir only so its bbox inward edge (center - dir*half)
-' coincides with tip. Lateral position is left alone (shaft alignment).
+' Move el along dir only so its inward edge coincides with tip.
+' Prefer color-6 (orange) after FixG20FaceBlackHole; fall back to any vert.
+' Lateral position is left alone (shaft alignment).
 Private Sub SnapInwardEdgeToTip(el As Element, tip As Point3d, dirX As Double, dirY As Double)
     Dim inPt As Point3d
     inPt = ExtremePointAlongDirPreferColor(el, dirX, dirY, False, 6)

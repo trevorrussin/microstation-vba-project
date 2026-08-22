@@ -2059,6 +2059,368 @@ Roll ahead / downstream sat in the travel lanes because `place_path_hugging_dime
 
 ## 2026-08-14 ? Cursor ? S buffer invisible SizeArrow + G20 orange snap
 
-Engineer: BUFFER SPACE label present, no dimension; G20 still gapped. Live element 220320 was a SizeArrow whose range equaled the two EOP tips (350�350, no extra for dim line) ? ny_Plan style assignment zeros DimHeight before AddElement. Axis-aligned SizeArrows still drew; the 45� buffer did not. Fix: set DimHeight after style + after Rewrite; pass sheet-length override text. G20: snap/stem to color-6 orange verts, then +1.5 ft into the fill.
+Engineer: BUFFER SPACE label present, no dimension; G20 still gapped. Live element 220320 was a SizeArrow whose range equaled the two EOP tips (350×350, no extra for dim line) ? ny_Plan style assignment zeros DimHeight before AddElement. Axis-aligned SizeArrows still drew; the 45° buffer did not. Fix: set DimHeight after style + after Rewrite; pass sheet-length override text. G20: snap/stem to color-6 orange verts, then +1.5 ft into the fill.
 
 
+
+
+## 2026-08-14 -- Claude Code -- specificity handling + finish the corridor pick ladder
+
+Engineer: "lets do all" on the four-phase plan (button issue + specificity).
+
+PHASE 1 -- pick ladder finished
+`validate_designer_input_value` was in sheet_resolve/sheet_spec but had no
+wztc_ops wrapper and was not in `_WZTC_OP_NAMES`, so the agent could not call the
+one check that rejects 60 mph on 619-311. Added a sheet_num-taking wrapper +
+registered it. `_validate_op_names` caught the missing wrapper at import -- that
+guard works. Live: 55 -> ok, 60 -> ok=False with allowed[25..55] and the sheet's
+own note. Agent tool count 122.
+
+PHASE 2 -- path synthesizer (`mcp-server/road_path_synth.py`, new)
+Nothing in the repo could GENERATE a path; corridor_path/find_reference_linework/
+get_element_vertices all pick an EXISTING one. So "build me a curved highway" had
+no answer but a click session. `synthesize_path(length_ft, kind|bends, start,
+bearing, radius)` -> vertices for place_* `vertices=` / run_sheet_build
+`path_vertices=`. Kinds straight|c_curve|s_curve|l_bend|n_bend; bends alone infers
+the kind (2 -> reverse-S). Verified: length error <=0.01%, C deflects 45 deg, S nets
+0 deg but genuinely reverses (cross-product sign flips), L deflects a true 90 deg
+with a corner-scale radius (deriving L's radius from the 45 deg default gave a
+1910 ft "corner" on a 3000 ft run -- fixed). Vertex budget capped via
+`cp.downsample_polyline` (VBA rejected ~5k-vertex PLACE_POLYLINE, 2026-08-13).
+
+PHASE 3 -- striping gap-fill (`mcp-server/road_inputs.py`, new)
+The sheet side had spec `inputs[]`; the striping catalog had nothing, so vague and
+specific engineers got the same unstructured guesswork. Declarative per-tool spec
+classifying every parameter REQUIRED / DEFAULTABLE / DERIVED, with `path` as one
+input satisfied four ways (synthesize | last_placed | element | points -- synthesize
+first). `get_required_road_inputs(tool, known)` returns missing / assumedDefaults /
+derived / ready. Result: vague "curved highway" asks 2 (lanes, path); "S-curve
+2000 ft 2 bends 4 lanes" asks 0. Conditional requirements work (tee_side only for
+tee; median only for a divided arm). Engineer words map to tools ('highway',
+'divided', 'intersection', 'ramp'). `primary/secondary_lanes_out` are DERIVED, not
+defaultable -- their default is another answer (lanes_in), not a constant; a spec
+well-formedness test caught that.
+
+Defaults are announced, not silent: `announceDefaults` string is returned pre-call,
+so the agent states "Assumed 12 ft lanes, ... travel on the right" before building.
+The `side` default carries the first-travel-outer-edge warning.
+
+Prompt: replaced the one-line "Ask for missing lanes/widths/..." clause with a
+HOW MUCH TO ASK block -- call get_required_road_inputs first, never re-ask what is
+in `known`, state assumedDefaults, PROPOSE geometry via propose_road_path rather
+than interrogating for radius/sweep, but still ASK the start point and which side is
+travel. Rule: build first when being wrong is VISIBLE and cheap to undo; ask first
+when being wrong is INVISIBLE (a rule-table value).
+
+PHASE 4 -- evals, plus a latent hazard fixed
+Added `corridor_pick_ladder_offered`, `vague_road_request_proposes`,
+`specific_road_request_not_reasked` (11 scenarios total) with `max_calls` and
+`tool_arg_equals` helpers -- question count is now an asserted metric.
+
+**The harness could draw in the live file.** It stubbed LOG and INPUT but left
+wztc_ops on the real chat_bridge; the pre-existing scenarios were safe only because
+they happen to be lookups. Any scenario whose correct behaviour is "place the road"
+would really place it, wherever the engineer was working. Added `_NoDrawBridge`:
+default-DENY by op prefix (only GET_/LIST_/FIND_/DESCRIBE_/RESOLVE_/SEARCH_/
+COMPUTE_/CROSS_VALIDATE/CAPTURE_ pass through), writes return a synthetic OK and are
+reported at the end. `--allow-draw` opts out.
+
+VERIFIED: 194 unit tests pass (was 166). Driver restarted (PID 23976) so the panel
+has the new tools + prompt. NOT VERIFIED: the three new eval scenarios never ran --
+this machine's TLS chain has a self-signed cert (proxy), so anthropic.Anthropic()
+raises APIConnectionError from a Claude Code shell, sandboxed or not. $0.00 spent.
+Run them yourself from the console that runs chat_driver.py:
+  python mcp-server/eval_harness.py --only vague_road_request_proposes       specific_road_request_not_reasked corridor_pick_ladder_offered
+
+## 2026-08-20 — Cursor — AutoCAD south trailer lot: copy_element not insert_block
+
+USPS Trenton VMF (`X-BASE_USPS_Civil_Trenton NJ VMF (1).dwg`) south trailer parking
+was rebuilt after user rejected random full-width rows + solid peach hatch. Root cause
+of tiny ~20×8 ft trailers: `insert_block` with `A$C52cc25ab` at scale 1 does **not**
+match upper-lot block scale (~236×92 ft). **`copy_element` from `6A741` with
+`own_element_only=False` preserves correct scale** (verified bbox width 236.2 ft).
+
+Cleanup + rebuild via `scripts/build_south_trailer_lot_acad.py` (uses
+`c:\repos\autocad-bridge\mcp-server\acad_ops.py` COM, not MicroStation bridge):
+deleted ~50 wrong-scale blocks, placed **78** full-size trailers in aerial clusters
+(west column, north row, center back-to-back, SW block, south row), pavement boundary
+`6B62B`, hatch `6B62C` on `C-CURB-EXIST` with **GRASS pattern scale 30** (same as
+upper lot hatch `6926C`). Stall lines span cluster widths only — not one line across
+entire lot. Pavement hatch is GRASS/dot grid, not `C-PAMENT NEW` solid peach.
+
+## 2026-08-20 — Cursor — South lot extended west/east to match aerial
+
+Second pass after engineer QA vs Google Earth: prior layout only covered x≈13600–15300
+(missing entire western third and east property column). Rebuilt via updated
+`scripts/build_south_trailer_lot_acad.py`: clears all south-lot `C-VMF PARKING`
+blocks + stall lines south of y=-4979, then places **136** trailers anchored to
+curb geometry (`69204` west tip ~11753, `691EE` east ~17319). E-W rows use
+`copy_element` from `6A741` (x=11867–16807 step 240); east N-S column uses
+`6A78D` at x=17040. Verified coverage x≈11749–16838, y≈-5050 to -6250.
+
+## 2026-08-20 — Cursor — South lot: drive aisles (satellite cluster layout)
+
+Engineer QA: trucks could not exit — prior layout filled entire lot with 136
+continuous E-W rows (no circulation). Annotated satellite (`Screenshot_2026-08-20_021119`)
+shows sparse clusters with large open center drive aisle: west edge column, central
+back-to-back island, two separated N-S south blocks with gap, NE entry row.
+Rebuilt to **47 trailers** in named clusters only; center void left empty.
+South fence blocks use N-S orientation (`6A78D`); others E-W (`6A741`).
+
+## 2026-08-20 — Cursor — South lot L-shaped boundary from curbs/property
+
+Wrong rectangle `6B62B`/`6B62C` replaced with L-shaped boundary `6B741` (polyline)
++ hatch `6B742` tied to existing anchors: inner NW `12245` (69207), pocket junction
+`13541`, east inner `15396` (69208), arc `16022`/`16794` (691ED/691EE), access road
+`17319`, south `y=-6300`, west on 69204 property bearing to SW `(11518,-6300)`, NW jog
+`11753→12245` on north cutoff. Script: `scripts/fix_south_lot_boundary_acad.py`.
+Upper lot copy template remains `6A741` (block) — distinct from boundary handle.
+
+## 2026-08-20 — Cursor — South lot boundary traced from red satellite outline
+
+Replaced simplified L/rectangle with **134-vertex** closed polyline extracted from
+engineer's red annotation on annotated screenshot (`Screenshot_2026-08-20_021119`).
+Script `fix_south_lot_boundary_from_image.py`: OpenCV contour of red pixels ->
+bilinear map to CAD quad (NW 12245/-4979, NE 17319/-4979, SE/SW south corners).
+Hatch `6B749` on boundary `6B748`, GRASS scale 30. Vertices saved to
+`scripts/south_lot_boundary_vertices.json`. Preserves NW diagonal/notches and east
+access-road bump from imagery — not axis-aligned.
+
+## 2026-08-20 — Cursor — South lot boundary: aerial depth + surveyed curbs (not red trace)
+
+Prior `6B748` red-pixel trace was rejected: 134 noisy vertices, zigzag west edge,
+self-intersections. Replaced with `scripts/build_south_lot_boundary_from_aerial.py`:
+homography on **satellite asphalt** (not red markup) for **south depth** only;
+north/west/east from surveyed CAD (`69204` bearing, y=-4979 curb cut, x=17319 access).
+Current: closed polyline `6B752` + GRASS hatch `6B753` (~1413 ft deep to y=-6392 vs
+guessed -6300). Vertices in `scripts/south_lot_boundary_vertices.json`.
+
+## 2026-08-20 — Cursor — South lot full satellite match (depth + silhouette)
+
+Root cause of shallow/wrong boundary: red outline is in the **bottom** of
+`Screenshot_2026-08-20_021119` (px y≈400–582), not the middle ROI; prior scripts
+calibrated against the wrong band and guessed south at y≈-6300 (~1413 ft deep).
+
+Fix (`scripts/build_south_lot_match_satellite.py`):
+- Outer **closed** perimeter from red L/R silhouette (16 verts), not red-stroke ribbon
+- Isotropic scale from north curb width ≈17.78 ft/px → south ≈**y=-8215 (~3236 ft deep)**
+- West snapped to `69204` property bearing; SW notch + east taper kept from silhouette
+- Boundary `6B755` + GRASS hatch `6B757` @ scale 30 on `C-CURB-EXIST`
+- 45 trailers via `copy_element` from `6A741`/`6A78D` in satellite clusters (west 7 EW,
+  center 7+7 EW, NE 5 NS, south-west 10 NS, south-east 9 NS, center aisle open)
+- Viewport crop `6B4F7` stops at y=-5300 — engineer must zoom south to see full lot
+
+
+## 2026-08-14 -- Claude Code -- COM type-library cache: relocated + self-healing
+
+Bridge died mid-session with "No running MicroStation instance has the 'Test' VBA
+project loaded. Instances found: (no MicroStation instances found running at all)"
+while MicroStation was open on DELETE.dgn. That message was wrong twice over.
+
+ROOT CAUSE (not MicroStation, not the AutoCAD bridge)
+pywin32 generates early-bound wrappers into `win32com.__gen_path__`, which
+defaults to %TEMP%\gen_py\<pyver>. A temp cleaner removed every .py source under
+the MicroStation entry (CF9F97BF-...x0x10x1) and left __pycache__ behind. A
+directory with no __init__.py still imports as an empty NAMESPACE PACKAGE, so
+pywin32 raised "has no attribute 'CLSIDToClassMap'" (EnsureDispatch) /
+'CLSIDToPackageMap' (plain Dispatch). Evidence it was age-based cleanup, not the
+new AutoCAD bridge: MicroStation .py files dated Aug 13 were removed; AutoCAD's 39
+.py files dated Aug 18-20 in the SIBLING directory survived. Separate typelib
+GUIDs, separate dirs; no code in this repo ever deletes or rebuilds the cache.
+
+`ms_connect._candidate_apps` swallowed every bind failure in a bare
+`except Exception: continue`, so a present-but-unbindable instance was reported as
+an absent one. That is what cost ~20 minutes.
+
+FIX (mcp-server/com_cache.py, new)
+1. RELOCATE off %TEMP% to %LOCALAPPDATA%\microstation-vba-project\gen_py\<pyver>
+   (override: WZTC_GEN_PY_DIR). Must set BOTH `win32com.__gen_path__` AND
+   `sys.modules["win32com.gen_py"].__path__` -- win32com/__init__.py synthesises
+   that module from the string at import, and imports resolve through its
+   __path__. Setting only the string leaves generation and import disagreeing.
+   gencache.GetGeneratePath() reads __gen_path__ dynamically, so runtime
+   relocation is supported. Imported at the top of ms_connect BEFORE gencache.
+2. SELF-HEAL `dispatch_with_repair()`: on the corruption signature only,
+   regenerate from the live object's own typelib and retry ONCE. Regeneration
+   uses makepy bForDemand=True so the PACKAGE layout is written INTO the existing
+   directory -- a stale empty dir shadows a single-file module of the same name,
+   since Python resolves packages before modules. Nothing is ever deleted.
+   Unrelated errors re-raise untouched so a real COM fault is not disguised.
+3. HONEST ERRORS: `_candidate_apps(bind_errors=[])` collects bind failures;
+   get_microstation_app now distinguishes "registered but every bind failed"
+   (names the errors + the cache path) from "genuinely not running".
+
+VERIFIED live against the open session: attach from an EMPTY relocated cache 0.3s;
+self-heal from a REPRODUCED corrupt shape (empty dir + __pycache__, built in
+scratch, nothing deleted) 0.3s, regenerating Application.py/_Application.py/etc;
+chat_bridge round-trip OK (model 'left lane closure', annotation scale 960).
+Tests tests/test_com_cache.py (10) incl. both error-message branches.
+Suite 204 passed. chat_driver restarted (PID 33480).
+
+ALSO: MicroStation CONNECT's process name is `microstation`, NOT `ustation`
+(that is V8i). I checked for `ustation` twice today and twice told the engineer
+MicroStation was not running when it was. Check the right name.
+
+
+## 2026-08-20 -- Claude Code -- agent could not SHOW a sheet (capability existed, nothing exposed it)
+
+Engineer asked the panel "can you show me what standard sheet 619-311 looks
+like". The agent answered: "I can't render or display the actual NYSDOT PDF
+image in this chat -- I have no image-display tool, only text-returning
+lookups." False on both counts.
+
+- The panel HAS displayed images since 2026-08-02: chat_driver `_log_screenshot`
+  (PNG->BMP, LoadPicture will not take PNG) and `_show_reference_image`.
+- All 68 sheet PDFs are on disk; 619-311 also has a pre-rendered PNG. Specs
+  carry `sheet.localPdf` (68/68) and `sheet.localRender` (only 4/68).
+
+ROOT CAUSE: `_show_reference_image` fires as a SIDE EFFECT of
+`search_reference_manual` (chat_driver wrapper), and that tool's docstring never
+mentioned rendering a page -- zero hits for image/display/render/show. The model
+was told it had a text search tool, so it answered honestly from what it could
+see. Same class as validate_designer_input_value existing but unregistered, and
+the corridor ladder existing but never offered: capability present, model
+uninformed.
+
+FIX
+1. `show_sheet_image(sheet_num, page=1)` (wztc_ops) -- returns the sheet page as
+   a PNG. Uses `localRender` when present, else renders `localPdf` on demand with
+   PyMuPDF at 150 dpi. Rendering on demand is the whole point: looking only for a
+   pre-made PNG would have worked for 4 sheets and failed for 64.
+2. `chat_driver._show_sheet_image` hook -- converts to BMP and logs it so the
+   panel actually displays it. Best-effort like the reference-image hook; a
+   display failure never fails the turn.
+3. `search_reference_manual` docstring now states it DISPLAYS AN IMAGE (top hit's
+   PDF page) and points at show_sheet_image for 619 sheets.
+4. Registered in server.py and chat_driver `_WZTC_OP_NAMES` (123 tools).
+
+VERIFIED: 619-311 via localRender (804 KB); 619-301 / 619-415 / 619-501 rendered
+on demand from PDF (528-630 KB). Visually confirmed the 619-301 render is the
+full legible sheet -- plan view, Tables 301-01..04, sign schedule, notes, title
+block -- not a blank page. Clean errors for bad page / unknown sheet / empty arg.
+Tests `tests/test_show_sheet_image.py` (12) incl. a guard that every spec'd sheet
+has a usable PDF, that the hook fires only for this tool, and that the docstring
+still advertises the image. Suite 216 passed. Driver restarted (PID 49784).
+
+LESSON: an undocumented side effect is invisible to the model. If a tool produces
+a visible artifact, say so IN THE DOCSTRING -- the model cannot see the wrapper.
+
+
+## 2026-08-20 -- Claude Code -- open_sheet_pdf (the panel image cannot zoom)
+
+Engineer, after show_sheet_image landed: nice, but it would be better to zoom /
+pan / mark up / download like Adobe does. The panel's image is an MSForms Image
+control fed by LoadPicture -- a static bitmap, no zoom, no pan, by design.
+Building a viewer inside MSForms would be real .frm Designer work (manual
+delete+reimport, not hot-reload) to produce something worse than Adobe.
+
+Shipped instead: `open_sheet_pdf(sheet_num)` shells the sheet's own PDF open in
+the default viewer via os.startfile, giving zoom/pan/markup/search/print/save
+for free. Registered in server.py + chat_driver (124 tools).
+
+Split stated in the docstring so the model picks correctly:
+show_sheet_image to LOOK, open_sheet_pdf to WORK.
+
+The path is derived from the spec's localPdf, never from engineer input, and is
+pinned inside the repo with relative_to(root) so a bad spec cannot shell open
+something else on disk. Viewer failure still returns the path so the engineer
+can open it by hand. Docstring notes it opens a window on their desktop -- do it
+when asked, not speculatively.
+
+NOT DONE (deliberate, engineer said "mainly just need this wired in"): the
+region+DPI crop option for in-chat zooms, and in-panel pan/zoom.
+
+Tests: 6 added to tests/test_show_sheet_image.py (18 there, 222 suite). Success
+path runs with os.startfile monkeypatched -- do not pop a viewer onto the
+engineer's screen from a test run. Driver restarted.
+
+
+## 2026-08-20 -- Claude Code -- build speed: 2258s -> 160s (14x), accuracy unchanged
+
+Engineer: speed up builds while keeping accuracy. Measured first, then fixed.
+
+MEASURED (live, this install) -- per bridge round trip:
+    ms_connect.get_microstation_app()  ~680 ms   <-- paid on EVERY call
+      of which app.VBE.VBProjects()    ~500 ms
+    app.CadInputQueue.SendKeyin()      ~100 ms
+So ~87% of a small op was re-proving WHICH MicroStation to talk to. Striping
+also ran THREE round trips per segment (PLACE_POLYLINE -> CHANGE_ELEMENT_LEVEL
+-> CHANGE_ELEMENT_SYMBOLOGY): 309 elements = ~927 round trips = ~1248 s.
+
+FIX 1 -- per-thread COM handle cache (bridge_client).
+The old comment said caching "raised CoInitialize has not been called"; right
+cause, wrong conclusion. COM apartments are per-THREAD, so one shared handle
+breaks when the MCP SDK dispatches on another worker. Keyed the cache on the
+thread (threading.local) -- each thread inits its own apartment once and reuses
+its own handle. Must NOT CoUninitialize per call any more (that tears down the
+apartment the handle lives in). Staleness handled by letting the keyin fail and
+re-attaching ONCE, not by probing: even the cheapest liveness probe measured
+65-75 ms, i.e. a tenth of the win, on every op.
+    780 ms -> 113 ms per call.
+
+FIX 2 -- batch the striping passes (wztc_ops._bridge_call_batched).
+bridge_client.call_batch already existed and VBA already looped every request
+line (RunChatToolRequest) -- the capability was there and simply unused. Now
+place / level / symbology run as three batched passes across ALL segments,
+chunked at 60 ops so one keyin never looks like a hang. Same ops, same order,
+same journal rows per op.
+    4040 ms/element -> 91 ms/element (44x on the road alone).
+
+FIX 3 -- delete_construction_guides batched too (was 1 round trip per guide;
+a real build leaves ~488).
+
+FIX 4 -- Tier-1 stacked-duplicate false positive.
+New shared _guide_element_ids() (split out of delete_construction_guides) now
+also filters model_rows before the scorecard's tier1_duplicates scan. A perp
+tick that happened to land on a road dash failed an otherwise clean build
+("stacked 2x LINE ... ids=['225844','225938']") -- 225938 was a guide, deleted
+seconds later, gone by the time anyone looked. Whether it fired depended purely
+on where the road fell, so it read as intermittent. Guides are transient
+scaffolding and must not count as duplicates; real duplicates still fail.
+
+RESULT (fresh L-bend, agent's own tool pipeline, 180000/340000):
+    ROAD 309 placed | LOCK offset=38.0 | LATERAL src=locked_road half_len=20.0
+    BUILD OK | scorecard passed | visual_qa passed
+    TOTAL 160.6 s vs 2258 s baseline = 14x
+Geometry verified identical to the reference: 524 elements
+(324 Default, 8 SF_P, 41 TWZCD_P, 141 TWZWS2_P), curved hatch on the bend,
+dims + labels + AP + G20-2 correct. Yellow centreline still resolves yellow.
+
+Tests: tests/test_bridge_batching.py (11) pins the round-trip COUNT -- a
+refactor back to per-element calls would pass every geometry test while
+quietly restoring the 20-minute build. Suite 252 passed.
+
+ALSO FIXED (found en route): tests were writing the LIVE Bridge/sheet-plan.json.
+Any test that locks designer inputs + a corridor makes sheet_plan_active() True,
+after which every call _save_sheet_plan()s to the module-global path with no
+test hook. A plain `pytest tests/` clobbered the real plan's resumability
+record. conftest.py now autouses a tmp_path SHEET_PLAN_PATH. Pre-existing --
+reproduces on an unmodified checkout.
+
+NOT DONE: the ~500 ms VBE.VBProjects check still runs on the FIRST call per
+thread (correct -- it is the deterministic multi-instance guard). Cones and
+hatch were already single-call and untouched.
+
+## 2026-08-20 � Cursor � G20 stem gap: FixG20 before snap + STEM_INTO_FACE=8 + place_sign stemQa
+
+Curve G20 white stems stopped short of the orange face even when AABB length looked fine. Root cause: `PlaceSignAssembly` ran `SnapInwardEdgeToTip` / PreferColor(6) **before** `FixG20FaceBlackHole`, so the still-orange SF_P hole was treated as the inward edge and the face parked with the real orange border beyond the stem tip. Fix in `Modules/DrawSign.bas`: HideDuplicateYellowLegend + FixG20FaceBlackHole first, then snap; stem end = faceTarget + STEM_INTO_FACE (8 ft) along the perp ray (not PreferColor alone). `wztc_ops.place_sign` now attaches `stemQa` and returns `STEM_INTO_FACE_FAIL` if penetrate < 2 ft. Playbook/JSON/prompts lock gold L-bend ~(92570, 300000). Tests: `tests/test_sign_stem_qa.py`. Live smoke: diagonal G20 `stemQa.penetrateFt=8.0`.
+
+## 2026-08-20 � Cursor � Stem overshoot was wrong; gold is L�50 / penetrate�0
+
+Engineer rejected the L-bend rebuild as worse than the gold reference at ~(92570, 300000) in DELETE.dgn. COM measure of gold G20 (post 215245 / face 215248 / stem 215309): length **50.0**, penetrate **�0** (end on face AABB edge). Our STEM_INTO_FACE=8 overshoot made stems L=58 and looked worse. Also `capture_view` status bar stayed stuck at 1754/-899 across navigations � do not trust PrintWindow captures vs the gold look. Reverted DrawSign stem end to faceTarget after FixG20-before-snap; stemQa now fails only when short of face by >1.5 ft. Wiped bad L-bend WZTC (kept striping) and re-queued a gold-matching rebuild.
+
+## 2026-08-20 -- Cursor -- Gold L-bend rebuilt by exact curve_family script, not chat agent
+
+Engineer: rebuild like gold with no deviations. Tonight's (50,-2000) L was a different recipe (0 ft shoulder, R=300, WA ~390, chat-agent assemble/run_sheet_build/deletes) and cannot look like gold. Gold is `scripts/build_619311_curve_family.py L`: origin (90000,300000), 4-lane 12/8/2, CHAN_OFF=38, WA=100 on the fillet, `run_sheet_build(path_vertices=align_verts, trailer, force)` then `place_two_way_highway` then `delete_construction_guides`. Live rerun: 151.3s, status=OK, scorecard True, work ~(92506, 299978). G20 235742 / post 235739 / stem 235803: L=50.00 penetrate=0.00. Chat driver was stopped so it could not race the bridge.
+
+## 2026-08-20 -- Cursor -- Gold L-bend recipe locked into playbook / prompt / JSON
+
+Engineer confirmed the `build_619311_curve_family.py L` rebuild looks correct and asked to remember the method. Authoritative clone: origin (90000,300000), work ~(92506,299978), Urban 55 / 12 / >=8, CHAN_OFF=38 from first-travel OUTER, WA=100 ft on the 150 ft fillet, `run_sheet_build(path_vertices=ALIGN, trailer, force)` then `place_two_way_highway(vertices=OUTER)` then `delete_construction_guides`. Chat-agent freestyle on a different road (0-shoulder, R=300, WA~390 at (50,-2000)) plus post-build deletes is how gold was lost. Written into `Data/sheet-specs/619-311.build.md` (Gold L-bend section), `619-311.json` annotationStyle.notes, and `mcp-server/prompts.py` (619-311 GOLD L-BEND block). Next in-panel turn loads this via `get_sheet_build_guide`. Chat driver was left stopped; restart it to pick up the prompt.
+
+## 2026-08-21 � Cursor � WZTCChatPanel Unexpected error (35010)
+
+Panel launch failed with VBA `Unexpected error (35010)`. Confirmed via Compile: same dialog. Root cause is the known 64-bit VBE bug triggered by `AddressOf` in `Modules/WZTCChatTimer.bas` (`SetTimer(..., AddressOf ChatTimerProc)`) � not a logic bug in `WZTCChatPanel.frm`. Mid-recovery, removing+Import of `WZTCChatTimer.bas` landed as `Module3` (no `Attribute VB_Name`; project rule forbids adding it), so `Call WZTCChatTimer.StartChatTimer` became `Variable not defined` until the component was renamed to `WZTCChatTimer` in the live Test.mvba. `CadInputQueue` `VBA RUN LaunchChatPanel` hangs while the 35010 dialog is up. Fix path: dismiss dialog ? VBA Reset ? **Save Test.mvba** ? full MicroStation restart ? run `Launcher.LaunchChatPanel` (not F5 on the form). Do not Remove/re-Import the timer without immediately renaming the component back to `WZTCChatTimer`.
+
+## 2026-08-21 � Cursor � Fix chat panel 35010 by dropping AddressOf timer
+
+`Unexpected error (35010)` on `LaunchChatPanel` / Compile was the 64-bit VBE `AddressOf` bug in `WZTCChatTimer` (`SetTimer` callback), not panel logic. Replaced Win32 timer with `Sleep` + `DoEvents` pump (`RunPollPump`); `WZTCChatPanel` starts the pump on the post-modeless `Activate`. Hot-reloaded both; Compile clean; live launch showed `WZTC Agent Chat`. Do not reintroduce `AddressOf` into this project without a separate precompiled add-in.

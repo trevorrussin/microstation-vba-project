@@ -108,6 +108,24 @@ def tool_called_before(first: str, second: str) -> Check:
     return check
 
 
+def max_calls(name: str, limit: int) -> Check:
+    """Cap how many times a tool may fire -- question count is the metric."""
+    def check(t: Trace) -> tuple[bool, str]:
+        n = sum(1 for nm, _ in t.tool_calls if nm == name)
+        return n <= limit, f"{name} called {n}x (limit {limit})"
+    return check
+
+
+def tool_arg_equals(name: str, key: str, value) -> Check:
+    """Some call to `name` passed key=value (engineer's own number reused)."""
+    def check(t: Trace) -> tuple[bool, str]:
+        seen = [str((inp or {}).get(key, "")) for nm, inp in t.tool_calls if nm == name]
+        ok = any(s == str(value) for s in seen)
+        return ok, (f"{name}.{key}={value}" if ok
+                    else f"{name}.{key} was {seen or 'never passed'}, wanted {value}")
+    return check
+
+
 def final_text_contains_any(substrs: list[str]) -> Check:
     def check(t: Trace) -> tuple[bool, str]:
         low = t.final_text.lower()
@@ -280,10 +298,100 @@ SCENARIOS: list[Scenario] = [
             ),
         ],
     ),
+    Scenario(
+        name="corridor_pick_ladder_offered",
+        prompt=(
+            "Build 619-311 along the road that is already drawn here. "
+            "Speed 55, URBAN, 12 ft lanes, >= 8 ft shoulder, right lane closed."
+        ),
+        checks=[
+            ("offers the roadway-source ladder",
+             tool_called("propose_corridor_source")),
+            ("ladder comes before the lateral lock",
+             tool_called_before("propose_corridor_source", "resolve_sheet_lateral")),
+            ("does not fall straight to clicking two work-area edges",
+             max_calls("ask_user_choice", 4)),
+        ],
+    ),
+    Scenario(
+        name="vague_road_request_proposes",
+        prompt="Build me a curved highway.",
+        checks=[
+            ("looks up which road questions actually remain",
+             tool_called("get_required_road_inputs")),
+            ("proposes a path instead of demanding vertices",
+             tool_called("propose_road_path")),
+            ("does not interrogate a five-word request",
+             max_calls("ask_user_choice", 3)),
+            ("states the assumptions it applied",
+             final_text_contains_any(
+                 ["assum", "12 ft", "default", "lane width", "shoulder"])),
+        ],
+    ),
+    Scenario(
+        name="specific_road_request_not_reasked",
+        prompt=(
+            "Build an S-curved highway 2000 feet long with 2 bends, "
+            "four lane road, starting at 100000, 300000 heading east."
+        ),
+        checks=[
+            ("reuses the stated length rather than asking",
+             tool_arg_equals("propose_road_path", "length_ft", 2000)),
+            ("reuses the stated bend count",
+             tool_arg_equals("propose_road_path", "bends", 2)),
+            ("builds a 4-lane two-way road",
+             tool_arg_equals("place_two_way_highway", "lanes", 4)),
+            ("asks almost nothing -- they already specified it",
+             max_calls("ask_user_choice", 2)),
+        ],
+    ),
 ]
 
 
 # ============================================================ Runner
+
+# Read-only op prefixes. Default-DENY: anything not matching is stubbed, so a
+# new scenario can never quietly draw in the engineer's open design file.
+_READ_ONLY_PREFIXES = (
+    "GET_", "LIST_", "FIND_", "DESCRIBE_", "RESOLVE_", "SEARCH_",
+    "COMPUTE_", "CROSS_VALIDATE", "CAPTURE_", "CELL_LIBRARY_STATUS",
+)
+
+
+class _NoDrawBridge:
+    """Wraps the real bridge and refuses to let an eval modify the drawing.
+
+    The harness already isolates the chat log and stdin (see _StubInput), but
+    it left wztc_ops pointed at the live chat_bridge -- so a scenario whose
+    correct behaviour is "place the road" would really place it, in whatever
+    file the engineer happens to have open. Reads pass through so lookups stay
+    realistic; writes return a synthetic OK and are recorded.
+
+    Consistent with this harness's philosophy: scenarios assert WHICH tools the
+    agent chose, not what geometry came back.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.blocked: list[tuple[str, dict]] = []
+        self._next_id = 900000
+
+    def call(self, op: str, **kwargs):
+        name = str(op or "").upper()
+        if name.startswith(_READ_ONLY_PREFIXES):
+            return self._inner.call(op, **kwargs)
+        self.blocked.append((name, dict(kwargs)))
+        self._next_id += 1
+        eid = str(self._next_id)
+        return {
+            "status": "OK",
+            "elementId": eid,
+            "createdElementIds": eid,
+            "deleted": 0,
+            "placedCount": 1,
+            "note": f"[eval no-draw] {name} not executed against the live file",
+        }
+
 
 class _StubInput:
     """Replaces chat_driver.INPUT for the duration of an eval run. Real
@@ -339,6 +447,11 @@ def main() -> int:
     parser.add_argument("--only", nargs="*", help="scenario names to run (default: all)")
     parser.add_argument("--list", action="store_true", help="list scenarios and exit, no API calls")
     parser.add_argument("--report", help="write a JSON report to this path")
+    parser.add_argument(
+        "--allow-draw", action="store_true",
+        help=("let scenarios execute write ops against the OPEN design file. "
+              "Off by default -- an eval that places a road would otherwise "
+              "really place it, wherever the engineer is working."))
     args = parser.parse_args()
 
     scenarios = SCENARIOS
@@ -358,6 +471,12 @@ def main() -> int:
     # Isolate from the live chat panel -- see module docstring.
     chat_driver.LOG = chat_driver.ChatLog(chat_driver.BRIDGE_DIR / "eval-log.tsv")
     chat_driver.INPUT = _StubInput()
+    no_draw = None
+    if not args.allow_draw:
+        no_draw = _NoDrawBridge(chat_driver.chat_bridge)
+        chat_driver.wztc_ops.set_bridge(no_draw)
+        print("no-draw guard ON: write ops are stubbed "
+              "(pass --allow-draw to hit the real design file)")
 
     client = anthropic.Anthropic()
     results: list[ScenarioResult] = []
@@ -373,6 +492,11 @@ def main() -> int:
                 mark = "PASS" if ok else "FAIL"
                 print(f"  [{mark}] {label} -- {detail}")
         print(f"  => {'PASS' if result.passed else 'FAIL'}")
+
+    if no_draw is not None and no_draw.blocked:
+        ops = sorted({n for n, _ in no_draw.blocked})
+        print(f"\nno-draw guard intercepted {len(no_draw.blocked)} write op(s): "
+              f"{', '.join(ops)}")
 
     n_pass = sum(1 for r in results if r.passed)
     print(f"\n{n_pass}/{len(results)} scenarios passed. "

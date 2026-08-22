@@ -290,6 +290,86 @@ End Sub
 ' matching the Workzone Category and Sheet Number chosen in
 ' WZTCDesigner so the designer can reference both at once.
 ' ============================================================
+' ============================================================
+' AGENT ENTRY POINT - open this viewer on a given sheet number
+' ============================================================
+' Called from the bridge (SHOW_SHEET_VIEWER) so the WZTC chat agent can
+' answer "show me 619-311" with the real viewer instead of a static bitmap.
+'
+' Deliberately does NOT use SelectAndShow: that one references WZTCDesigner,
+' and merely touching a UserForm auto-instantiates it in VBA -- an agent
+' request for a sheet would pop the designer form open as a side effect.
+'
+' Always vbModeless. A modal form here would block MicroStation AND stall the
+' bridge call that opened it (same trap as F5 on a designer window).
+'
+' Cannot use the "ALL" category: AddAllSheets is a stub that copies from an
+' already-cleared list ("In actual implementation, you'd list all 91"), so it
+' yields nothing. Map the number to its own category range instead.
+Public Function ShowSheetByNumber(sheetNum As String) As String
+    On Error GoTo SErr
+
+    Dim sn As String
+    sn = Trim$(sheetNum)
+    Dim dash As Long
+    dash = InStr(sn, "-")
+    If dash = 0 Then
+        ShowSheetByNumber = "ERROR|expected a sheet number like 619-311, got " & sn
+        Exit Function
+    End If
+
+    Dim num As Long
+    num = CLng(Val(Mid$(sn, dash + 1)))
+    Dim catText As String
+    Select Case num
+        Case 1 To 20:    catText = "001-020: General Information (8 sheets)"
+        Case 21 To 99:   catText = "021-099: Special Operations (20 sheets)"
+        Case 110 To 200: catText = "110-200: Mobile Operations (5 sheets)"
+        Case 201 To 300: catText = "201-300: Short Duration Operations (12 sheets)"
+        Case 301 To 400: catText = "301-400: Short Term Operations (24 sheets)"
+        Case 401 To 500: catText = "401-500: Intermediate Operations (14 sheets)"
+        Case 501 To 600: catText = "501-600: Long Term Operations (10 sheets)"
+        Case Else
+            ShowSheetByNumber = "ERROR|no category covers sheet number " & num
+            Exit Function
+    End Select
+
+    Me.Width = 700
+    Me.Height = 520
+    Me.Show vbModeless
+
+    Dim i As Integer
+    Dim foundCat As Boolean: foundCat = False
+    For i = 0 To cboCategory.ListCount - 1
+        If cboCategory.List(i) = catText Then
+            cboCategory.ListIndex = i   ' fires cboCategory_Change -> PopulateSheets
+            foundCat = True
+            Exit For
+        End If
+    Next i
+    If Not foundCat Then
+        ShowSheetByNumber = "ERROR|category not in list: " & catText
+        Exit Function
+    End If
+
+    ' Sheet entries read "619-311: TITLE" -- match on the number prefix so a
+    ' title edit never breaks the lookup.
+    For i = 0 To cboSheet.ListCount - 1
+        If InStr(1, cboSheet.List(i), sn & ":", vbTextCompare) = 1 Then
+            cboSheet.ListIndex = i      ' fires cboSheet_Change -> LoadSelectedSheet
+            ShowSheetByNumber = "OK|" & cboSheet.List(i) & "|" & catText
+            Exit Function
+        End If
+    Next i
+
+    ShowSheetByNumber = "ERROR|" & sn & " not listed under " & catText
+    Exit Function
+
+SErr:
+    ShowSheetByNumber = "ERROR|" & Err.Description
+End Function
+
+
 Public Sub SelectAndShow(catText As String, sheetText As String)
     ' Must hide topmost modal form (designer) before showing this form modeless.
     WZTCDesigner.Hide

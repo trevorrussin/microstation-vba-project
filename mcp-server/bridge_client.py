@@ -18,6 +18,7 @@ silently.
 from __future__ import annotations
 
 import itertools
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,55 @@ from typing import Any
 import pythoncom
 
 import ms_connect
+
+# Per-thread cached MicroStation COM handle.
+#
+# Measured live 2026-08-20 on this install, per bridge round trip:
+#     ms_connect.get_microstation_app()  ~680 ms   <-- was paid EVERY call
+#       of which app.VBE.VBProjects()    ~500 ms
+#     app.CadInputQueue.SendKeyin()      ~100 ms
+# So ~87% of a small op's wall time was re-proving which MicroStation to talk
+# to, not doing the work. A 309-element road ran ~1248 s largely on this.
+#
+# The module docstring's note that caching "raised CoInitialize has not been
+# called" was right about the cause but not the fix: COM apartments are
+# per-thread, so ONE shared handle breaks when the MCP SDK dispatches the
+# next call on a different worker thread. Keying the cache on the thread
+# fixes that without marshalling — each thread initializes its own apartment
+# once and reuses its own handle. Correspondingly we must NOT CoUninitialize
+# after each call any more; that would tear down the apartment the cached
+# handle lives in.
+#
+# Staleness (MicroStation closed/restarted) is handled by letting the keyin
+# fail and re-attaching once, rather than probing before every call — even
+# the cheapest liveness probe measured 65-75 ms, which would give back a
+# tenth of the win on every single op.
+_tls = threading.local()
+
+
+def _attach_app():
+    """Fresh attach + apartment init for the CURRENT thread."""
+    pythoncom.CoInitialize()
+    app = ms_connect.get_microstation_app(PROJECT_NAME)
+    _tls.app = app
+    return app
+
+
+def _thread_app():
+    app = getattr(_tls, "app", None)
+    return app if app is not None else _attach_app()
+
+
+def _send_keyin(keyin: str) -> None:
+    """SendKeyin on the cached handle, re-attaching once if it went stale."""
+    try:
+        _thread_app().CadInputQueue.SendKeyin(keyin)
+    except Exception:
+        # Stale handle (MicroStation restarted, apartment torn down, RPC
+        # server gone). Drop it and try exactly once more with a fresh
+        # attach; a second failure is a real error and propagates.
+        _tls.app = None
+        _attach_app().CadInputQueue.SendKeyin(keyin)
 
 BRIDGE_DIR = Path(r"c:\repos\microstation-vba-project\Bridge")
 REQUEST_FILE = BRIDGE_DIR / "request.tsv"
@@ -141,27 +191,12 @@ class Bridge:
         # required (VBA's Line Input # reads a bare-LF file as one giant line).
         self.request_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-        # COM objects are apartment-threaded: a handle obtained on one thread
-        # cannot be used from another without marshaling. The MCP SDK runs
-        # each synchronous tool call via a worker-thread dispatch, which is
-        # not guaranteed to be the same OS thread call to call (confirmed by
-        # testing: caching one COM handle at server startup and reusing it
-        # here raised "CoInitialize has not been called" on the first real
-        # tool call). So this initializes COM and re-attaches fresh on
-        # whichever thread is actually calling, every time, rather than
-        # caching anything across calls.
-        pythoncom.CoInitialize()
-        try:
-            # Deterministic attach (2026-08-02, see ms_connect.py) --
-            # GetObject(Class=...) would attach to whichever MicroStation
-            # instance the ROT happens to hand back if more than one is
-            # running; this instead requires the one instance that actually
-            # has PROJECT_NAME's VBA project loaded, or raises clearly.
-            app = ms_connect.get_microstation_app(PROJECT_NAME)
-            keyin = f"VBA RUN [{PROJECT_NAME}]{self.run_sub}"
-            app.CadInputQueue.SendKeyin(keyin)
-        finally:
-            pythoncom.CoUninitialize()
+        # COM objects are apartment-threaded, so the handle is cached PER
+        # THREAD (see _tls above) instead of re-attached every call. The
+        # deterministic attach itself (ms_connect, 2026-08-02) is unchanged —
+        # it still refuses to guess between multiple MicroStation instances;
+        # it just isn't re-run for every op now.
+        _send_keyin(f"VBA RUN [{PROJECT_NAME}]{self.run_sub}")
 
         resp_text = self._read_response_with_retry(req_ids)
         resp_lines = {l.split("\t", 1)[0]: l for l in resp_text.splitlines() if l.strip()}
@@ -185,11 +220,19 @@ class Bridge:
         text = self.response_file.read_text(encoding="utf-8", errors="replace")
         if _response_has_req_ids(text, req_ids):
             return text
+        # Adaptive backoff instead of a flat 0.1 s: SendKeyin is synchronous on
+        # this install, so the response is usually already there and a fixed
+        # 100 ms sleep was pure latency on every op that did miss the first
+        # read. Start fine, widen for genuinely slow ops (big batches, hatch)
+        # so a long wait doesn't spin the file read.
+        delay = 0.005
         while time.time() < deadline:
-            time.sleep(0.1)
+            time.sleep(delay)
             text = self.response_file.read_text(encoding="utf-8", errors="replace")
             if _response_has_req_ids(text, req_ids):
                 return text
+            if delay < 0.1:
+                delay = min(delay * 2, 0.1)
         raise BridgeError(
             f"response.tsv never contained all reqIds {req_ids} within {timeout_s}s "
             "of sending the keyin — MicroStation may be busy, closed, or the "

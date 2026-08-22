@@ -27,6 +27,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 import json
+import math
+import os
 
 import plan_workflow
 import placement_registry
@@ -296,6 +298,93 @@ def get_element_vertices(element_id: str) -> dict:
         "end": verts[-1] if verts else None,
         "note": "Pass path_vertices to lock_corridor_path (source=element).",
     }
+
+
+# After PlaceSignAssembly: stem must meet the face AABB inward edge.
+# Gold L-bend G20 at ~(92570,300000) has L≈50 and penetrate≈0 (end on
+# the edge). Fail only when the stem stops short of the face (the visual
+# gap). Overshoot is not required — STEM_INTO_FACE=8 made builds worse.
+_MAX_STEM_SHORT_OF_FACE_FT = 1.5
+
+
+def measure_stem_into_face_ft(
+    stem_start: tuple[float, float],
+    stem_end: tuple[float, float],
+    face_low: tuple[float, float],
+    face_high: tuple[float, float],
+) -> float:
+    """How far past the face AABB inward edge the stem end sits (ft).
+
+    Positive = into the face along the stem direction. Negative = stem
+    ends short of the face (the visual gap on diagonal G20s).
+    """
+    sx, sy = float(stem_start[0]), float(stem_start[1])
+    ex, ey = float(stem_end[0]), float(stem_end[1])
+    dx, dy = ex - sx, ey - sy
+    length = math.hypot(dx, dy)
+    if length < 1e-9:
+        return 0.0
+    ux, uy = dx / length, dy / length
+    corners = (
+        (float(face_low[0]), float(face_low[1])),
+        (float(face_low[0]), float(face_high[1])),
+        (float(face_high[0]), float(face_low[1])),
+        (float(face_high[0]), float(face_high[1])),
+    )
+    face_in = min((cx - sx) * ux + (cy - sy) * uy for cx, cy in corners)
+    return length - face_in
+
+
+def _attach_sign_stem_qa(resp: dict) -> dict:
+    """Fail place_sign when the white stem stops short of the face AABB."""
+    if not isinstance(resp, dict) or str(resp.get("status", "")).upper() != "OK":
+        return resp
+    ids = placement_registry.parse_created_ids(resp)
+    if len(ids) < 3:
+        return resp
+    post_id, face_id, stem_id = ids[0], ids[1], ids[2]
+    try:
+        stem = get_element_vertices(stem_id)
+        verts = stem.get("path_vertices") or []
+        if len(verts) < 2:
+            return resp
+        a = (float(verts[0][0]), float(verts[0][1]))
+        b = (float(verts[-1][0]), float(verts[-1][1]))
+        fr = get_elements_range(face_id)
+        face_low = (float(fr["lowX"]), float(fr["lowY"]))
+        face_high = (float(fr["highX"]), float(fr["highY"]))
+        # Orient so start is nearer the post center.
+        pr = get_elements_range(post_id)
+        pcx, pcy = float(pr["centerX"]), float(pr["centerY"])
+        if math.hypot(a[0] - pcx, a[1] - pcy) > math.hypot(b[0] - pcx, b[1] - pcy):
+            a, b = b, a
+        penetrate = measure_stem_into_face_ft(a, b, face_low, face_high)
+    except Exception as exc:  # noqa: BLE001 — QA must not crash place
+        out = dict(resp)
+        out["stemQa"] = {"ok": False, "note": f"stem QA skipped: {exc}"}
+        return out
+    short_of = -penetrate if penetrate < 0 else 0.0
+    qa = {
+        "ok": short_of <= _MAX_STEM_SHORT_OF_FACE_FT,
+        "penetrateFt": round(penetrate, 3),
+        "maxShortFt": _MAX_STEM_SHORT_OF_FACE_FT,
+        "stemElementId": stem_id,
+        "faceElementId": face_id,
+        "postElementId": post_id,
+        "stemLengthFt": round(math.hypot(b[0] - a[0], b[1] - a[1]), 3),
+    }
+    out = dict(resp)
+    out["stemQa"] = qa
+    if not qa["ok"]:
+        out["status"] = "ERROR"
+        note = str(out.get("note") or "")
+        out["note"] = (
+            f"STEM_SHORT_OF_FACE short={short_of:.2f}ft "
+            f"(max {_MAX_STEM_SHORT_OF_FACE_FT}); white stem stops short of "
+            f"face edge — match gold L≈50 / penetrate≈0 (FixG20 before snap). "
+            f"{note}"
+        ).strip()
+    return out
 
 
 def station_to_point(align_idx: int, sta: float) -> dict:
@@ -1593,6 +1682,35 @@ def get_sheet_requirements(sheet_num: str) -> dict:
     return resp
 
 
+def validate_designer_input_value(input_id: str, value, sheet_num: str = "") -> dict:
+    """Check one designer answer against the sheet's allowed[] BEFORE locking it.
+
+    Call after the engineer answers an ask_user_choice whose value came from
+    "Other" (a typed value), or any time you are unsure a number is on the
+    sheet. 619-311's tables stop at 55 mph, so 60 must be refused and
+    escalated — never extrapolated into a plan that looks right and is not.
+
+    Returns ok=True, or ok=False with allowed[] and the sheet's own note.
+    On ok=False, tell the engineer the sheet does not cover that value and
+    ask them to pick from allowed[] or choose a different sheet.
+    """
+    sn = (sheet_num or "").strip()
+    if not sn:
+        sn = str(_PLAN_SESSION.get_locked_inputs_dict().get("sheet_num") or "").strip()
+    if not sn:
+        return {"ok": False, "status": "ERROR",
+                "note": "sheet_num required (or lock a sheet first)"}
+    spec = sheet_spec.load(sn)
+    if spec is None:
+        return {"ok": False, "status": "ERROR", "found": False, "sheetNum": sn,
+                "note": f"no Data/sheet-specs/{sn}.json"}
+    out = dict(sheet_spec.validate_designer_input_value(spec, input_id, value))
+    out.setdefault("status", "OK")
+    out["sheetNum"] = sn
+    out["inputId"] = input_id
+    return out
+
+
 def get_required_designer_inputs(sheet_num: str = "") -> dict:
     """Table-driven designer-input ask list from Data/sheet-specs/<sheet>.json.
 
@@ -1631,6 +1749,169 @@ def get_required_designer_inputs(sheet_num: str = "") -> dict:
     out["found"] = True
     out["highwayCaution"] = _highway_caution_for_sheet(sn)
     return out
+
+
+def open_sheet_viewer(sheet_num: str) -> dict:
+    """PREFERRED way to show a 619 standard sheet — opens the NYSDOT Sheet
+    Viewer inside MicroStation on that sheet.
+
+    This is the project's own viewer (UserForms/SheetViewer.frm, the same one
+    Launcher.LaunchNYSDOTViewer and WZTCDesigner's Reference button open). It
+    embeds a WebBrowser control, so the engineer gets a real scrollable,
+    zoomable sheet in a MicroStation form — not a flat picture.
+
+    Use this FIRST whenever they ask to see a sheet ("show me 619-311", "pull
+    up that standard sheet", "what does it look like"). Fall back to
+    show_sheet_image only if this errors, and use open_sheet_pdf when they
+    specifically want to mark up, print, or save a copy.
+
+    Opens a window on the engineer's screen — do it when asked, not
+    speculatively. Changes nothing in the design file.
+    """
+    sn = (sheet_num or "").strip()
+    if not sn:
+        return {"status": "ERROR", "note": "sheet_num required"}
+    return _ok_or_raise(
+        _bridge.call("SHOW_SHEET_VIEWER", sheetNum=sn),
+        "open_sheet_viewer")
+
+
+def show_sheet_image(sheet_num: str, page: int = 1) -> dict:
+    """Show a 619 sheet as a flat image in the chat panel.
+
+    SECOND CHOICE — prefer open_sheet_viewer, which opens the real NYSDOT
+    Sheet Viewer inside MicroStation with scroll and zoom. Use this when that
+    fails, or when you want the sheet inline in the conversation next to your
+    own explanation. The panel image cannot be zoomed or panned.
+
+    Renders the page from the sheet's PDF (or reuses a pre-rendered PNG when
+    one exists) and hands it to the panel. Returns imagePath, pageCount, and
+    the sheet title. Pass page for multi-page sheets; page 1 is the drawing.
+
+    This is the visual companion to get_sheet_requirements (tables/signs as
+    text) and get_sheet_build_guide (build playbook). Showing the sheet does
+    not lock any designer input or start a build.
+    """
+    sn = (sheet_num or "").strip()
+    if not sn:
+        return {"status": "ERROR", "found": False, "note": "sheet_num required"}
+    spec = sheet_spec.load(sn)
+    if spec is None:
+        return {
+            "status": "ERROR", "found": False, "sheetNum": sn,
+            "note": (f"no Data/sheet-specs/{sn}.json — cannot show a sheet "
+                     f"with no spec. Check the number with "
+                     f"get_sheet_requirements."),
+        }
+    sheet = spec.get("sheet") or {}
+    root = Path(__file__).resolve().parent.parent
+    out_dir = root / "Bridge" / "captures"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    page_n = max(1, int(page or 1))
+    page_count = int(sheet.get("pdfPages") or 1)
+
+    # A pre-rendered PNG exists for only a handful of sheets; every sheet has
+    # a PDF. Render on demand so this works for all of them, not just those.
+    render = sheet.get("localRender")
+    if render and page_n == 1:
+        rp = root / str(render)
+        if rp.exists():
+            return {
+                "status": "OK", "found": True, "sheetNum": sn,
+                "title": sheet.get("title", ""), "page": 1,
+                "pageCount": page_count, "imagePath": str(rp),
+                "source": "localRender",
+                "note": "Sheet image ready — it is displayed in the panel.",
+            }
+
+    pdf_rel = sheet.get("localPdf")
+    if not pdf_rel:
+        return {"status": "ERROR", "found": False, "sheetNum": sn,
+                "note": f"sheet {sn} has no localPdf in its spec"}
+    pdf_path = root / str(pdf_rel)
+    if not pdf_path.exists():
+        return {"status": "ERROR", "found": False, "sheetNum": sn,
+                "note": f"sheet PDF not on disk: {pdf_path}"}
+    try:
+        import fitz  # PyMuPDF, same dependency manual_search.render_page_image uses
+
+        with fitz.open(str(pdf_path)) as doc:
+            page_count = doc.page_count
+            if page_n > page_count:
+                return {"status": "ERROR", "found": True, "sheetNum": sn,
+                        "pageCount": page_count,
+                        "note": f"page {page_n} out of range (sheet has {page_count})"}
+            pix = doc.load_page(page_n - 1).get_pixmap(dpi=150)
+            out = out_dir / f"sheet_{sn.replace('-', '')}_p{page_n}_live.png"
+            pix.save(str(out))
+    except Exception as e:
+        return {"status": "ERROR", "found": True, "sheetNum": sn,
+                "note": f"could not render {pdf_path.name} page {page_n}: {e}"}
+    return {
+        "status": "OK", "found": True, "sheetNum": sn,
+        "title": sheet.get("title", ""), "page": page_n,
+        "pageCount": page_count, "imagePath": str(out), "source": "localPdf",
+        "note": "Sheet image ready — it is displayed in the panel.",
+    }
+
+
+def open_sheet_pdf(sheet_num: str) -> dict:
+    """Open a 619 sheet's source PDF in the engineer's own PDF viewer.
+
+    Use when they want to DO something with the sheet rather than just glance
+    at it — zoom, pan, mark up, search, print, save a copy. The panel image
+    from show_sheet_image is a static bitmap with none of that; this hands
+    them the real PDF in Adobe (or whatever their default viewer is), opening
+    beside MicroStation.
+
+    Rule of thumb: show_sheet_image to LOOK, open_sheet_pdf to WORK. Say which
+    one you did, and offer the other.
+
+    Opens a window on the engineer's desktop — a visible action, so do it when
+    asked, not speculatively. Returns immediately; it does not wait for them
+    to close the viewer, and it changes nothing in the design file.
+    """
+    sn = (sheet_num or "").strip()
+    if not sn:
+        return {"status": "ERROR", "found": False, "note": "sheet_num required"}
+    spec = sheet_spec.load(sn)
+    if spec is None:
+        return {"status": "ERROR", "found": False, "sheetNum": sn,
+                "note": (f"no Data/sheet-specs/{sn}.json — check the number "
+                         f"with get_sheet_requirements.")}
+    sheet = spec.get("sheet") or {}
+    pdf_rel = sheet.get("localPdf")
+    if not pdf_rel:
+        return {"status": "ERROR", "found": False, "sheetNum": sn,
+                "note": f"sheet {sn} has no localPdf in its spec"}
+    root = Path(__file__).resolve().parent.parent
+    pdf_path = (root / str(pdf_rel)).resolve()
+    # The path comes from a spec file, not from the engineer, but keep it
+    # pinned inside the repo so a bad spec can never shell open something else.
+    try:
+        pdf_path.relative_to(root)
+    except ValueError:
+        return {"status": "ERROR", "found": False, "sheetNum": sn,
+                "note": f"refusing to open a path outside the project: {pdf_path}"}
+    if not pdf_path.exists():
+        return {"status": "ERROR", "found": False, "sheetNum": sn,
+                "note": f"sheet PDF not on disk: {pdf_path}"}
+    try:
+        os.startfile(str(pdf_path))  # noqa: S606 - Windows default handler
+    except Exception as e:
+        return {"status": "ERROR", "found": True, "sheetNum": sn,
+                "pdfPath": str(pdf_path),
+                "note": (f"could not open the PDF viewer: {e}. The file is "
+                         f"still at {pdf_path} if they want to open it "
+                         f"manually.")}
+    return {
+        "status": "OK", "found": True, "sheetNum": sn,
+        "title": sheet.get("title", ""), "pdfPath": str(pdf_path),
+        "pageCount": int(sheet.get("pdfPages") or 1),
+        "note": ("Opened in the default PDF viewer — full zoom, pan, markup, "
+                 "search, print and save-a-copy available there."),
+    }
 
 
 def get_sheet_build_guide(sheet_num: str) -> dict:
@@ -1833,6 +2114,63 @@ def propose_corridor_source() -> dict:
     }
 
 
+def propose_road_path(length_ft: float, kind: str = "", bends: Optional[int] = None,
+                      start_x: float = 0.0, start_y: float = 0.0,
+                      bearing_deg: float = 0.0,
+                      radius_ft: Optional[float] = None,
+                      step_ft: float = 25.0) -> dict:
+    """Generate a road path from a described shape — for when nothing is drawn.
+
+    Use when the engineer describes a road instead of pointing at one ("a
+    curved highway", "S-curve, 2000 ft, two bends"). Returns vertices you pass
+    straight to place_* as vertices= (or to run_sheet_build as path_vertices=),
+    plus a one-line description to read back for a yes/no.
+
+    kind: straight | c_curve | s_curve | l_bend | n_bend. Omit it and pass
+    bends instead — 0 is straight, 1 a curve, 2 a reverse-S, 3+ an N-bend.
+    Omit radius_ft and a highway-sane one is derived and reported in
+    assumedDefaults. START POINT IS NOT INVENTED: ask for it with
+    ask_user_choice(allow_point_pick=True) unless the engineer gave one.
+
+    Propose, then confirm — do not interrogate for shape parameters the
+    engineer can judge far more easily by looking at the result.
+    """
+    import road_path_synth as rps
+
+    return rps.synthesize_path(
+        length_ft=float(length_ft), kind=kind, bends=bends,
+        start_x=float(start_x), start_y=float(start_y),
+        bearing_deg=float(bearing_deg), radius_ft=radius_ft,
+        step_ft=float(step_ft))
+
+
+def get_required_road_inputs(tool: str, known: Optional[dict] = None) -> dict:
+    """Which road-striping questions still need asking, and what will be assumed.
+
+    The striping catalog's equivalent of get_required_designer_inputs. Call it
+    BEFORE any place_lane_highway / place_two_way_highway /
+    place_divided_highway / place_twlt_highway / place_orthogonal_intersection
+    / place_ramp_gore so you ask only the gaps.
+
+    tool accepts a catalog tool name or the engineer's word ('highway',
+    'divided', 'intersection', 'ramp'). known is what they already told you —
+    pass every value you have, so an engineer who said "S-curve, 2000 ft, two
+    bends, four lanes" is not re-asked any of it.
+
+    Returns missing (ask one ask_user_choice each, using allowed/options
+    verbatim), assumedDefaults (STATE THESE in your reply — never apply them
+    silently), derived, and ready. When only `path` is missing and the
+    engineer described a shape, call propose_road_path and confirm rather
+    than asking them to click.
+    """
+    import road_inputs as ri
+
+    out = ri.get_required_road_inputs(tool, known)
+    if out.get("status") == "OK":
+        out["announceDefaults"] = ri.announce_defaults(out.get("assumedDefaults") or [])
+    return out
+
+
 def lock_corridor_path(
         source: str,
         element_id: str = "",
@@ -1898,17 +2236,70 @@ def lock_corridor_path(
         pts = cp.offset_polyline(pts, _centerline_offset_ft())
         role = "first_travel_outer"
 
-    length = cp.polyline_length(pts)
-    approach = _approach_for_locked_sheet()
-    check = cp.length_check(length, approach, None) if approach else None
     closed = None
     di = _PLAN_SESSION.designer_inputs
     if di:
         closed = _derived_closed_side(di.sheet_num)
+
+    # THE ALIGNMENT IS THE CHANNELIZING LINE, NOT THE ROAD EDGE (live miss
+    # 2026-08-20): every known-good 619-311 build offsets the first-travel-
+    # outer edge to the closed lane's cone line (2·lane + gap + lane = 38 ft
+    # on a 4-lane right closure) before assemble_corridor — see
+    # scripts/build_619311_curve_family.py CHAN_OFF and the reference build
+    # at (92570, 300000). Locking the raw outer edge put the whole plan
+    # (cones, hatch, stations, signs) 38 ft off the correct lateral band.
+    road_facts = None
+    if src == "last_placed" and _LAST_PLACED_ROAD:
+        last = _LAST_PLACED_ROAD
+        road_facts = {
+            "roadType": str(last.get("roadType") or ""),
+            "lanes": int(last.get("lanes") or 0),
+            "laneWidthFt": float(last.get("laneWidthFt") or 0.0),
+            "shoulderWidthFt": float(last.get("shoulderWidthFt") or 0.0),
+            "yellowGapFt": float(last.get("yellowGapFt") or 2.0),
+            "side": str(last.get("side") or "right"),
+        }
+    align_offset_ft = 0.0
+    align_offset_note = ""
+    if road_facts and role == "first_travel_outer":
+        kind = _placed_highway_kind()
+        per_dir = max(1, road_facts["lanes"] // 2)
+        lane_w = road_facts["laneWidthFt"] or 12.0
+        gap = road_facts["yellowGapFt"]
+        if kind in ("two_way_undivided", "two_way") and closed in ("right", "left"):
+            if closed == "right":
+                align_offset_ft = per_dir * lane_w + gap + (per_dir - 1) * lane_w
+            else:
+                align_offset_ft = per_dir * lane_w + gap + lane_w
+            if str(road_facts["side"]).lower() == "left":
+                align_offset_ft = -align_offset_ft
+            pts = cp.offset_polyline(pts, align_offset_ft)
+            role = "closed_lane_edge"
+            align_offset_note = (
+                f"align = road outer edge offset {align_offset_ft:g} ft to the "
+                f"closed-lane cone line ({closed} closure, {per_dir} lanes/dir)"
+            )
+        elif closed not in ("right", "left"):
+            align_offset_note = (
+                "closed side not derivable yet — path left on the road edge; "
+                "re-lock (or offset) once closed_side is known, or the plan "
+                "builds on the wrong lateral band"
+            )
+        else:
+            align_offset_note = (
+                f"no closed-lane offset rule for road kind {kind!r} — path "
+                "left on the road edge; verify lateral before building"
+            )
+
+    length = cp.polyline_length(pts)
+    approach = _approach_for_locked_sheet()
+    check = cp.length_check(length, approach, None) if approach else None
     _PLAN_SESSION.corridor_path = pts
     _PLAN_SESSION.corridor_meta = {
         "source": src, "edgeRole": role, "lengthFt": length, "reversed": bool(reverse),
         "closedSideDerived": closed,
+        "roadFacts": road_facts,
+        "alignOffsetFt": align_offset_ft,
     }
     _save_sheet_plan()
     out = {
@@ -1921,6 +2312,9 @@ def lock_corridor_path(
         "end": pts[-1],
         "path_vertices": pts,
         "closedSideDerived": closed,
+        "alignOffsetFt": align_offset_ft,
+        "alignOffsetNote": align_offset_note or None,
+        "roadFacts": road_facts,
         "travelAskUserChoice": {
             "question": "Travel direction through the work bay?",
             "options": cp.travel_choice_options(pts),
@@ -2153,6 +2547,16 @@ class PlanSession:
     plan_updated_at: str = ""
     # Post-placement scorecard + phase-boundary replan / reflection.
     last_scorecard: Optional[dict] = None
+    # Alignment-line bbox, cached right before delete_construction_guides
+    # removes the very elements run_visual_qa_captures needs to frame the
+    # camera. Live miss 2026-08-20: run_sheet_build always drops the
+    # construction-guide alignment/tick lines "before QA (straight and
+    # curved)" (2026-08-14 change), and visual QA re-reads those same live
+    # elements via get_alignment_vertices to compute its capture bbox — so a
+    # build with a passing scorecard (22 elements placed, geometry correct)
+    # still failed the visual_qa phase with "could not read alignment
+    # vertices for framing" because its own cleanup had just deleted them.
+    last_alignment_bbox_pts: Optional[list] = None
     last_compiled: Optional[dict] = None
     last_failed_phase: str = ""
     last_replan: Optional[dict] = None
@@ -2171,6 +2575,15 @@ class PlanSession:
     # Locked first-travel-outer polyline for this sheet build.
     corridor_path: Optional[list] = None
     corridor_meta: Optional[dict] = None
+    # Designer inputs must be RE-ASKED before the next order table: set when
+    # a plan is restored from a stale sheet-plan.json, and when a build
+    # completes. Live 2026-08-20: a 5-hour-old plan restored across driver
+    # restarts silently fed speed 55 / ">= 8 ft" shoulder into a brand-new
+    # L-bend build on a shoulderless road — the engineer was never asked.
+    # Cleared by build_wztc_order_table (explicit values = the re-ask
+    # happened). Within one build nothing sets it, so the 2026-08-04
+    # "never re-ask mid-build" rule still holds.
+    inputs_need_confirm: bool = False
 
     def reset(self) -> None:
         """Drop plan-flow memory (call from exit_mode so a later general/
@@ -2210,13 +2623,33 @@ class PlanSession:
         self.opposite_half_len = None
         self.corridor_path = None
         self.corridor_meta = None
+        self.inputs_need_confirm = False
+        self.last_alignment_bbox_pts = None
 
     def lock_designer_inputs(self, **kwargs) -> None:
         self.designer_inputs = DesignerInputs(**kwargs)
+        # An explicit lock IS the confirmation — the ask happened (or the
+        # engineer supplied values directly). Next completed build re-sets it.
+        self.inputs_need_confirm = False
 
     def get_locked_inputs_dict(self) -> dict:
         if self.designer_inputs is None:
             return {"locked": False}
+        if self.inputs_need_confirm:
+            # Stale (restored from an old plan file, or left over from a
+            # completed build). NOT locked: a new build must re-ask, with
+            # these as recommended defaults. Auto-fill paths key off
+            # locked=True, so nothing silently reuses them.
+            return {
+                "locked": False,
+                "needsConfirm": True,
+                "previous": asdict(self.designer_inputs),
+                "note": (
+                    "Previous build's designer inputs — re-ask ALL of them "
+                    "(offer these as the recommended options) before "
+                    "build_wztc_order_table. Do not silently reuse."
+                ),
+            }
         out = {"locked": True, **asdict(self.designer_inputs)}
         if self.lateral_outward_sign is not None or self.lateral_half_len is not None:
             out["lateral"] = {
@@ -2266,6 +2699,7 @@ def _save_sheet_plan() -> Optional[Path]:
         "updatedAt": s.plan_updated_at,
         "sheetNum": di.sheet_num if di else "",
         "designerInputs": asdict(di) if di else None,
+        "inputsNeedConfirm": bool(_PLAN_SESSION.inputs_need_confirm),
         "requiredAligns": sorted(s.required_aligns),
         "alignsReady": sorted(s.aligns_ready),
         "stationsPlacedAligns": sorted(s.stations_placed_aligns),
@@ -2311,6 +2745,7 @@ def _save_sheet_plan() -> Optional[Path]:
         "visualQaFailures": list(s.visual_qa_failures or []),
         "corridorPath": s.corridor_path,
         "corridorMeta": s.corridor_meta,
+        "lastAlignmentBboxPts": s.last_alignment_bbox_pts,
         "lastPlacedRoad": (
             None if not _LAST_PLACED_ROAD else {
                 k: v for k, v in _LAST_PLACED_ROAD.items() if k != "path_vertices"
@@ -2391,6 +2826,8 @@ def _load_sheet_plan(path: Optional[Path] = None) -> dict:
     cp = data.get("corridorPath")
     s.corridor_path = list(cp) if isinstance(cp, list) and len(cp) >= 2 else None
     s.corridor_meta = data.get("corridorMeta") if isinstance(data.get("corridorMeta"), dict) else None
+    bbox = data.get("lastAlignmentBboxPts")
+    s.last_alignment_bbox_pts = list(bbox) if isinstance(bbox, list) and len(bbox) >= 2 else None
     global _LAST_PLACED_ROAD
     lp = data.get("lastPlacedRoad")
     if isinstance(lp, dict) and isinstance(lp.get("path_vertices"), list) and len(lp["path_vertices"]) >= 2:
@@ -2409,6 +2846,23 @@ def _load_sheet_plan(path: Optional[Path] = None) -> dict:
         s.closed_outward_x = float(co[0])
         s.closed_outward_y = float(co[1])
     s.plan_updated_at = str(data.get("updatedAt") or "")
+    # A restored plan is a RESUME only when it's fresh (driver restart
+    # mid-build). Older than an hour — or carrying an explicit flag — means a
+    # different working session: designer inputs become defaults to re-ask,
+    # not locks (live 2026-08-20: a 5-hour-old 619-311 plan silently supplied
+    # speed/shoulder for a brand-new road).
+    s.inputs_need_confirm = bool(data.get("inputsNeedConfirm", False))
+    if not s.inputs_need_confirm:
+        try:
+            from datetime import datetime, timezone
+            ts = datetime.fromisoformat(s.plan_updated_at)
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            age_s = (datetime.now(timezone.utc) - ts).total_seconds()
+            if age_s > 3600:
+                s.inputs_need_confirm = True
+        except (ValueError, TypeError):
+            s.inputs_need_confirm = True
     s.last_failed_phase = str(data.get("lastFailedPhase") or "")
     s.last_replan = data.get("lastReplan")
     s.visual_qa_failures = list(data.get("visualQaFailures") or [])
@@ -2804,13 +3258,16 @@ def place_sign(sign_num: str, road_type: str, side: str,
     if post_angle_deg is not None:
         kwargs["postAngleDeg"] = float(post_angle_deg)
     resp = _ok_or_raise(_bridge.call("PLACE_SIGN", **kwargs), "place_sign")
+    if isinstance(resp, dict):
+        resp = _attach_sign_stem_qa(resp)
     if align_idx and align_idx > 0 and _PLAN_SESSION.sheet_plan_active() and not one_off:
-        _PLAN_SESSION.signs_placed_rows.add(
-            (int(align_idx), str(sign_num).strip().upper()))
-        _save_sheet_plan()
+        if isinstance(resp, dict) and str(resp.get("status", "")).upper() == "OK":
+            _PLAN_SESSION.signs_placed_rows.add(
+                (int(align_idx), str(sign_num).strip().upper()))
+            _save_sheet_plan()
     if isinstance(resp, dict):
         ids = placement_registry.parse_created_ids(resp)
-        if ids:
+        if ids and str(resp.get("status", "")).upper() == "OK":
             sheet = ""
             if _PLAN_SESSION.designer_inputs:
                 sheet = _PLAN_SESSION.designer_inputs.sheet_num
@@ -2827,6 +3284,7 @@ def place_sign(sign_num: str, road_type: str, side: str,
                 extra={
                     "x": float(pt1x), "y": float(pt1y), "z": float(pt1z or 0),
                     "signNum": str(sign_num).strip().upper(),
+                    "stemQa": resp.get("stemQa"),
                 },
             )
     return _attach_plan_next(resp) if isinstance(resp, dict) else resp
@@ -3220,14 +3678,37 @@ def resolve_sheet_lateral(
     from sheet_compile import _outward_unit
     out_x, out_y = _outward_unit(a1_tx, a1_ty, outward_sign)
 
+    # Lateral geometry comes from the ROAD THAT IS ACTUALLY THERE when the
+    # corridor was locked from a placed road — not from designer inputs and
+    # not from caller kwargs. Live miss 2026-08-20: the sheet's ">= 8 ft"
+    # shoulder band (stale from a previous build) fed shoulder_width_ft=8
+    # for a road placed with NO shoulder, so half_len came out 20 instead of
+    # 12 and every tip landed 8 ft past the real EOP. A measured 0.0
+    # shoulder is a VALID value, which is why this must not run through
+    # `or`-style missing-value fallbacks.
     lw = float(lane_width_ft or 0.0)
     sh = float(shoulder_width_ft or 0.0)
-    if _PLAN_SESSION.designer_inputs is not None:
+    facts = ((_PLAN_SESSION.corridor_meta or {}).get("roadFacts")
+             if _PLAN_SESSION.corridor_meta else None)
+    lateral_source = "caller"
+    overrode = {}
+    if facts and float(facts.get("laneWidthFt") or 0.0) > 0:
+        f_lw = float(facts["laneWidthFt"])
+        f_sh = float(facts.get("shoulderWidthFt") or 0.0)
+        if lw > 0 and abs(lw - f_lw) > 0.01:
+            overrode["lane_width_ft"] = {"caller": lw, "road": f_lw}
+        if shoulder_width_ft and abs(sh - f_sh) > 0.01:
+            overrode["shoulder_width_ft"] = {"caller": sh, "road": f_sh}
+        lw, sh = f_lw, f_sh
+        lateral_source = "locked_road"
+    elif _PLAN_SESSION.designer_inputs is not None:
         if lw <= 0:
             lw = float(_PLAN_SESSION.designer_inputs.lane_width or 0)
+            lateral_source = "designer_inputs"
         if sh <= 0:
             sh = _shoulder_ft_from_band(
                 _PLAN_SESSION.designer_inputs.shoulder_width)
+            lateral_source = "designer_inputs"
 
     use_real = bool(real_road_edge) and lw > 0
     half_len = (lw + max(sh, 0.0)) if use_real else 40.0
@@ -3260,6 +3741,8 @@ def resolve_sheet_lateral(
         "closed_outward": [round(out_x, 6), round(out_y, 6)],
         "lane_width_ft": lw,
         "shoulder_width_ft": sh,
+        "lateralSource": lateral_source,
+        "overrodeCaller": overrode or None,
         "note": (
             f"Locked lateral for run_sheet_build: outward_sign={outward_sign:g}, "
             f"half_len={half_len:g} "
@@ -4149,6 +4632,42 @@ def place_polyline(vertices: list[list[float]], reason: str = "") -> dict:
     return _ok_or_raise(_bridge.call("PLACE_POLYLINE", verticesTSV=verts_tsv, reason=reason), "place_polyline")
 
 
+# One keyin carries this many ops. VBA loops the whole request file, so the
+# only real ceilings are the 90 s response timeout and how much work one
+# synchronous keyin should do before MicroStation looks unresponsive.
+# 60 keeps a chunk near a second of VBA work while cutting round trips ~60x.
+_BRIDGE_BATCH_SIZE = 60
+
+
+def _bridge_call_batched(ops: list[tuple[str, dict]], errors: list[str]) -> list[dict]:
+    """Run ops through bridge.call_batch in chunks; never raise.
+
+    Returns one result dict per input op, positionally aligned (an empty dict
+    where a chunk failed), so callers can zip results back onto their inputs.
+    A failed chunk appends to `errors` and continues — matching the previous
+    per-op try/except behaviour rather than aborting the whole road.
+    """
+    out: list[dict] = []
+    for start in range(0, len(ops), _BRIDGE_BATCH_SIZE):
+        chunk = ops[start:start + _BRIDGE_BATCH_SIZE]
+        try:
+            results = _bridge.call_batch(chunk)
+        except Exception as e:
+            errors.append(f"batch [{start}:{start + len(chunk)}] failed: {e}")
+            out.extend({} for _ in chunk)
+            continue
+        for op, res in zip(chunk, results):
+            if str((res or {}).get("status", "")).upper() != "OK":
+                errors.append(
+                    f"{op[0]} failed: {(res or {}).get('note') or res}")
+            out.append(res or {})
+        # A short chunk response would silently misalign the zip in the
+        # caller; pad so position always maps back to the right segment.
+        if len(results) < len(chunk):
+            out.extend({} for _ in range(len(chunk) - len(results)))
+    return out
+
+
 def _place_road_line_segments(
     segs: list[dict], *, reason_prefix: str, need_yellow: bool = True,
 ) -> tuple[list[dict], list[str], int | None]:
@@ -4166,6 +4685,19 @@ def _place_road_line_segments(
 
     placed: list[dict] = []
     errors: list[str] = []
+
+    # Build every polyline's geometry first (pure Python, no bridge calls),
+    # then place/level/colour them in BATCHES.
+    #
+    # This used to run three separate bridge round trips per segment
+    # (PLACE_POLYLINE -> CHANGE_ELEMENT_LEVEL -> CHANGE_ELEMENT_SYMBOLOGY),
+    # so a 309-element road cost ~927 round trips and ran ~1248 s live
+    # (2026-08-20). WZTCBridge.RunChatToolRequest already loops every line of
+    # the request file and writes every response, so N ops cost ONE keyin —
+    # the batching capability existed in bridge_client.call_batch and simply
+    # was not used here. Same ops, same order, same journal entries per op;
+    # only the number of keyin/COM round trips changes.
+    prepared: list[dict] = []
     for seg in segs:
         if (seg.get("style") or "") == "meta":
             continue
@@ -4179,28 +4711,59 @@ def _place_road_line_segments(
                     [float(seg["x1"]), float(seg["y1"]), 0.0],
                     [float(seg["x2"]), float(seg["y2"]), 0.0],
                 ]
-            r = place_polyline(
-                poly,
-                reason=f"{reason_prefix} {kind} {seg['style']} row={seg['row']}",
-            )
-            eid = str(r.get("elementId") or "")
-            color = yellow_idx if kind == "yellow" and yellow_idx is not None else 0
-            if eid:
-                change_element_level(eid, "Default", own_element_only=True,
-                                     reason="road strip align-like level")
-                change_element_symbology(eid, color=color, weight=0, own_element_only=True,
-                                         reason="road strip color/weight")
-            placed.append({
-                "elementId": eid, "style": seg["style"], "kind": kind,
-                "row": seg["row"],
-                "arm": seg.get("arm") or "",
-                "x1": float(poly[0][0]), "y1": float(poly[0][1]),
-                "x2": float(poly[-1][0]), "y2": float(poly[-1][1]),
-                "vertexCount": len(poly),
-                "color": color,
-            })
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             errors.append(str(e))
+            continue
+        prepared.append({
+            "poly": poly,
+            "kind": kind,
+            "style": seg["style"],
+            "row": seg["row"],
+            "arm": seg.get("arm") or "",
+            "color": yellow_idx if kind == "yellow" and yellow_idx is not None else 0,
+        })
+
+    if not prepared:
+        return placed, errors, yellow_idx
+
+    # --- pass 1: place every polyline ---
+    place_ops = [
+        ("PLACE_POLYLINE", {
+            "verticesTSV": "|".join(
+                f"{v[0]},{v[1]},{v[2] if len(v) > 2 else 0}" for v in item["poly"]),
+            "reason": f"{reason_prefix} {item['kind']} {item['style']} row={item['row']}",
+        })
+        for item in prepared
+    ]
+    for item, resp in zip(prepared, _bridge_call_batched(place_ops, errors)):
+        item["elementId"] = str((resp or {}).get("elementId") or "")
+
+    # --- pass 2 + 3: level, then colour/weight, for everything that placed ---
+    got = [i for i in prepared if i["elementId"]]
+    if got:
+        _bridge_call_batched([
+            ("CHANGE_ELEMENT_LEVEL", {
+                "elementId": i["elementId"], "level": "Default",
+                "ownElementOnly": "Y", "reason": "road strip align-like level",
+            }) for i in got
+        ], errors)
+        _bridge_call_batched([
+            ("CHANGE_ELEMENT_SYMBOLOGY", {
+                "elementId": i["elementId"], "color": i["color"], "weight": 0,
+                "ownElementOnly": "Y", "reason": "road strip color/weight",
+            }) for i in got
+        ], errors)
+
+    for item in prepared:
+        poly = item["poly"]
+        placed.append({
+            "elementId": item.get("elementId", ""), "style": item["style"],
+            "kind": item["kind"], "row": item["row"], "arm": item["arm"],
+            "x1": float(poly[0][0]), "y1": float(poly[0][1]),
+            "x2": float(poly[-1][0]), "y2": float(poly[-1][1]),
+            "vertexCount": len(poly),
+            "color": item["color"],
+        })
     return placed, errors, yellow_idx
 
 
@@ -5636,6 +6199,17 @@ def place_sheet_geometry(sheet_num: str, speed: int, lane_width: int, shoulder_w
     try:
         path = list(_PLAN_SESSION.corridor_path or _PLAN_SESSION.work_bay_vertices or [])
         model_rows = _model_rows_for_path(path)
+        # Drop construction guides before the Tier-1 stacked-duplicate check.
+        # run_sheet_build deletes alignment lines and perp ticks immediately
+        # after this scorecard runs, so flagging one as a "duplicate" of a
+        # road dash fails a build over an element that is already gone by the
+        # time anyone investigates (live 2026-08-20).
+        guide_ids = _guide_element_ids()
+        if guide_ids:
+            model_rows = [
+                r for r in model_rows
+                if str(r.get("elementId") or "") not in guide_ids
+            ]
     except Exception:
         model_rows = []
     scorecard = sheet_scorecard.build_placement_scorecard(
@@ -6026,6 +6600,22 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
     else:
         phases.append({"phase": "place_sheet_geometry", "skipped": True})
 
+    # Cache the alignment bbox BEFORE deleting the very lines it comes from.
+    # delete_construction_guides removes the alignment/tick elements;
+    # run_visual_qa_captures re-reads those same live elements afterward to
+    # frame its camera (get_alignment_vertices -> GET_ALIGNMENT_VERTICES),
+    # so without this the guide cleanup silently blinds visual QA every time
+    # (live 2026-08-20: scorecard passed, 22 elements placed, visual_qa
+    # failed with "could not read alignment vertices for framing").
+    try:
+        req_for_bbox = sorted(
+            _PLAN_SESSION.required_aligns or _PLAN_SESSION.aligns_ready or {1, 2})
+        cached_pts = _alignment_bbox_pts(req_for_bbox)
+        if len(cached_pts) >= 2:
+            _PLAN_SESSION.last_alignment_bbox_pts = cached_pts
+    except Exception:
+        pass
+
     # Drop white align + perp ticks before QA (straight and curved).
     _append_guide_cleanup(phases)
 
@@ -6078,6 +6668,12 @@ def run_sheet_build(upstream_edge: Optional[list[float]] = None,
                        "note": "include_visual_qa=False"})
     else:
         phases.append({"phase": "visual_qa", "skipped": True})
+
+    # This build is done: the NEXT sheet build is a new job and must re-ask
+    # the designer questions (engineer directive 2026-08-20). Does not
+    # disturb the current build's own state or checklist.
+    _PLAN_SESSION.inputs_need_confirm = True
+    _save_sheet_plan()
 
     out = {
         "status": "OK",
@@ -6366,6 +6962,11 @@ def run_visual_qa_captures(view_num: int = 1, force: bool = False) -> dict:
 
     req = sorted(_PLAN_SESSION.required_aligns or _PLAN_SESSION.aligns_ready or {1, 2})
     pts = _alignment_bbox_pts(req)
+    if len(pts) < 2 and _PLAN_SESSION.last_alignment_bbox_pts:
+        # run_sheet_build deletes the alignment/tick lines before calling
+        # here (delete_construction_guides runs before QA); this is the bbox
+        # it cached from those same elements one step earlier.
+        pts = _PLAN_SESSION.last_alignment_bbox_pts
     if len(pts) < 2:
         plan_workflow.raise_plan_gate(
             "could not read alignment vertices for framing.",
@@ -6786,6 +7387,57 @@ def _append_guide_cleanup(phases: list) -> None:
         })
 
 
+def _guide_element_ids() -> set[str]:
+    """Element IDs created by construction-guide ops, read from the journal.
+
+    Shared by delete_construction_guides (what to REMOVE) and the placement
+    scorecard (what to IGNORE). Guides are alignment centrelines and perp
+    ticks — transient scaffolding that run_sheet_build deletes moments after
+    the scorecard runs.
+
+    Live 2026-08-20: a perp tick that happened to land on a road dash failed
+    an otherwise clean build's Tier-1 stacked-duplicate check
+    ("scorecard: stacked 2x LINE ... ids=['225844','225938']"). 225938 was a
+    guide and no longer existed by the time anyone looked at it. Whether that
+    coincidence occurs depends purely on where the road geometry falls, which
+    made the failure look intermittent.
+    """
+    from pathlib import Path
+
+    journal = Path(__file__).resolve().parent.parent / "Bridge" / "wztc-journal.tsv"
+    ids: set[str] = set()
+    if not journal.exists():
+        return ids
+    cur_op: dict[str, str] = {}
+    cur_undone: dict[str, bool] = {}
+    for ln in journal.read_text(encoding="utf-8", errors="replace").splitlines():
+        parts = ln.split("\t")
+        if len(parts) < 4:
+            continue
+        kind = parts[1].strip().upper()
+        req = parts[2].strip()
+        if kind == "REQ":
+            cur_op[req] = parts[3].strip().upper()
+            cur_undone[req] = False
+            continue
+        if kind == "UNDONE":
+            cur_undone[req] = True
+            continue
+        if kind != "RESP" or cur_undone.get(req):
+            continue
+        if parts[3].strip().upper() != "OK":
+            continue
+        if cur_op.get(req, "") not in _GUIDE_OPS:
+            continue
+        for part in parts:
+            if part.startswith("createdElementIds="):
+                for one in part.split("=", 1)[1].split(","):
+                    one = one.strip()
+                    if one:
+                        ids.add(one)
+    return ids
+
+
 def delete_construction_guides() -> dict:
     """Delete ONLY alignment centerlines and order-table perp tick lines.
 
@@ -6800,55 +7452,33 @@ def delete_construction_guides() -> dict:
     if not journal.exists():
         return {"status": "OK", "deleted": 0, "note": "no journal file"}
 
-    cur_op: dict[str, str] = {}
-    cur_undone: dict[str, bool] = {}
-    ids: set[str] = set()
     try:
-        lines = journal.read_text(encoding="utf-8", errors="replace").splitlines()
+        ids = _guide_element_ids()
     except OSError as e:
         return {"status": "ERROR", "deleted": 0, "note": str(e)}
 
-    for ln in lines:
-        parts = ln.split("\t")
-        if len(parts) < 4:
-            continue
-        kind = parts[1].strip().upper()
-        req = parts[2].strip()
-        if kind == "REQ":
-            cur_op[req] = parts[3].strip().upper()
-            cur_undone[req] = False
-            continue
-        if kind == "UNDONE":
-            cur_undone[req] = True
-            continue
-        if kind != "RESP":
-            continue
-        if cur_undone.get(req):
-            continue
-        if parts[3].strip().upper() != "OK":
-            continue
-        op = cur_op.get(req, "")
-        if op not in _GUIDE_OPS:
-            continue
-        for p in parts:
-            if p.startswith("createdElementIds="):
-                csv = p.split("=", 1)[1]
-                for one in csv.split(","):
-                    one = one.strip()
-                    if one:
-                        ids.add(one)
-
+    # Batched: this was one bridge round trip per guide element, and a real
+    # build leaves hundreds of alignment/tick elements behind (live
+    # 2026-08-20: the cleanup phase alone was a visible chunk of a 1010 s
+    # run_sheet_build). Same DELETE_ELEMENT ops, same ownElementOnly gate,
+    # same journal rows — just far fewer keyins.
     deleted = 0
     errors: list[str] = []
-    for eid in sorted(ids, key=lambda x: float(x) if x.replace(".", "", 1).isdigit() else 0):
-        try:
-            r = delete_element(eid, reason="construction guide (align/tick) cleanup")
-            if str(r.get("status", "")).upper() == "OK":
-                deleted += int(r.get("deleted") or 1)
+    ordered = sorted(
+        ids, key=lambda x: float(x) if x.replace(".", "", 1).isdigit() else 0)
+    if ordered:
+        del_errors: list[str] = []
+        results = _bridge_call_batched([
+            ("DELETE_ELEMENT", {
+                "elementId": eid, "ownElementOnly": "Y",
+                "reason": "construction guide (align/tick) cleanup",
+            }) for eid in ordered
+        ], del_errors)
+        for eid, r in zip(ordered, results):
+            if str((r or {}).get("status", "")).upper() == "OK":
+                deleted += int((r or {}).get("deleted") or 1)
             else:
-                errors.append(f"{eid}:{r.get('note')}")
-        except Exception as e:
-            errors.append(f"{eid}:{e}")
+                errors.append(f"{eid}:{(r or {}).get('note')}")
 
     return {
         "status": "OK" if not errors else "PARTIAL",

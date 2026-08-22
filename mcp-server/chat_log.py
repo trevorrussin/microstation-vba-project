@@ -4,7 +4,9 @@ self-contained I/O concern.
 """
 from __future__ import annotations
 
+import errno
 import json
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -45,12 +47,38 @@ class ChatLog:
         except OSError:
             pass
 
+    # WZTCChatTimer.bas and WZTCChatPanel.frm both poll chat-log.tsv from VBA
+    # while this process appends to it. VBA's file open can hold a brief
+    # exclusive handle, and an append landing in that window dies with
+    # "[Errno 13] Permission denied" -- seen live 2026-08-20. That one landed
+    # on a status line and self-recovered, but the same race on a FINAL write
+    # would leave a turn with no visible answer in the panel, which looks
+    # exactly like a hang. Retry across the window instead of losing the line.
+    _WRITE_ATTEMPTS = 6
+    _WRITE_BACKOFF_S = 0.04
+
     def _write(self, line_type: str, **fields: str) -> None:
         self._rotate_if_oversized()
         kv = "\t".join(f"{k}={_flatten(str(v))}" for k, v in fields.items())
         line = f"{datetime.now()}\t{line_type}" + (f"\t{kv}" if kv else "")
-        with open(self.path, "a", encoding="utf-8", newline="\r\n") as f:
-            f.write(line + "\n")
+        last: OSError | None = None
+        for attempt in range(self._WRITE_ATTEMPTS):
+            try:
+                with open(self.path, "a", encoding="utf-8", newline="\r\n") as f:
+                    f.write(line + "\n")
+                return
+            except OSError as e:
+                # Only a sharing/permission clash is worth retrying; a bad path
+                # or a full disk will not fix itself and should surface fast.
+                if getattr(e, "errno", None) not in (errno.EACCES, errno.EPERM):
+                    raise
+                last = e
+                if attempt < self._WRITE_ATTEMPTS - 1:
+                    time.sleep(self._WRITE_BACKOFF_S * (2 ** attempt))
+        # ~2.5s of retries exhausted: the panel will miss this line, but the
+        # turn itself must not die because a log write lost a race.
+        print(f"[chat_log] dropped {line_type} line after "
+              f"{self._WRITE_ATTEMPTS} attempts: {last}")
 
     def thinking(self, text: str) -> None:
         if text.strip():
