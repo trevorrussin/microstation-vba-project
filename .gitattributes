@@ -2,6 +2,6 @@
 *.bas text eol=crlf
 *.cls text eol=crlf
 *.frm text eol=crlf
-
 # Treat UserForm resource files as binary (no diff/line-ending changes)
 *.frx binary
+*.mp4 filter=lfs diff=lfs merge=lfs -text

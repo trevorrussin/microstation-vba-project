@@ -4,6 +4,14 @@ A MicroStation tool that automates the creation of NYSDOT-compliant workzone tra
 
 ---
 
+## Demo Video
+
+[**Watch the agent build a workzone plan from a plain-language request**](<Project Documentation/Video Project 3.mp4>)
+
+GitHub plays the video inline when you open that link. If you're viewing this file locally, open `Project Documentation/Video Project 3.mp4` directly in any video player.
+
+---
+
 ## Why Use This Tool
 
 Preparing a workzone traffic control plan by hand in MicroStation is time-consuming and error-prone. It requires:
@@ -101,69 +109,6 @@ The agent is built to hand judgment calls back to you, not to guess:
 
 ---
 
-## Manual Fallback — the 8-Step Wizard
-
-The original click-through wizard is still in the repo and still works if you'd rather not use the chat agent, or if the agent queues something that's easier to finish by hand. It walks you through the same sequence the agent now performs automatically: Designer → Draw Work Space → Draw Alignment → Place Reference Lines → (optional) Sign Attribute Editor → Place Signs → Draw Elements → Cell Library. Launch it from the MicroStation VBA macro list with the macro **LaunchWZTC**.
-
-This path is no longer where new capability is being added — curved roads, corridor assembly, and whole-sheet automation are agent-only for now — but every level/color/weight rule and every spacing table it uses is the same one the agent uses, so results from either path are consistent.
-
-![Step 1 — Designer Window](Screenshots/step1.png)
-*The Designer window from the manual wizard. Road parameters are on the left, calculated spacings in the center panel, and the Upstream and Downstream alignment tables on the right.*
-
-<details>
-<summary>Full manual wizard walkthrough (8 steps, click to expand)</summary>
-
-### Step 1 — Configure Your Workzone (Designer Window)
-
-Select your category, road speed, road type (Freeway/Non-Freeway), lane width, and shoulder width, then click **Calculate Spacing** to fill in every required spacing value from the NYSDOT tables. Add signs to the Upstream/Downstream alignment tables by number (for example `W20-01RA`) — the library auto-fills size and spacing. Click **View Standard Sheet** at any time to open the governing 619 sheet in MicroStation as a reference. Click **Submit** when done.
-
-![Step 2 — 619 Standard Sheet Viewer](Screenshots/step2.png)
-*The built-in 619 standard sheet viewer, open alongside the Designer window as an in-drawing reference.*
-
-### Step 2 — Draw the Work Zone Boundary (Draw Work Space Window)
-
-Click **Draw Work Space**, click the corners of your boundary, right-click to close the shape, then click the **border** of the shape to apply the hatch fill. Placed automatically on level TWZWS2_P.
-
-![Step 3 — Draw Work Space Window](Screenshots/step3.png)
-
-### Step 3 — Draw the Alignment (Draw Alignment Window)
-
-Draw line or arc segments for your centerline; each connects to the end of the previous one. Switch alignments via the dropdown and commit each with **Commit This Alignment** (or commit all at once). Drawn on the Default level in white as a construction reference.
-
-![Step 4 — Draw Alignments Window](Screenshots/step4.png)
-
-### Step 4 — Place Reference Lines (Place Reference Lines Window)
-
-The tool walks the alignment and proposes an 80-ft perpendicular tick line at the correct calculated distance for each item in sequence. **Place Line** to accept, **Skip** to omit.
-
-### Step 5 — Sign Face Background Color (Optional)
-
-Optional attribute pass for sign faces already in the drawing — click **Apply Attributes to Sign**, then click each sign. Skip straight to Step 6 if not needed.
-
-![Step 6 — Sign Attribute Editor](Screenshots/step6.png)
-
-### Step 6 — Place Sign Graphics (Place Signs Window)
-
-For each sign with a placed tick line, click **Draw Sign** and click the post location — the tool places the face cell, post cell, connecting line, and text label in one operation. Click **Next Sign** to advance.
-
-![Step 6 — Place Signs Window](Screenshots/step5.png)
-
-### Step 7 — Draw Remaining Elements (Draw Elements Window)
-
-Cycles through Channelizing Devices, Removal Striping, Temporary Barrier, and Barrier with Warning Lights: **Start Drawing**, draw, right-click to finish, **Next WZTC Element**. **Place Dimension** adds annotations.
-
-![Step 7 — Draw Elements Window](Screenshots/step7.png)
-
-### Step 8 — Place Symbols and Callouts (Cell Library Window)
-
-Place remaining WZTC symbols (arrow panels, flaggers, crash cushions, etc.) and text callouts. **Finish** deletes the perpendicular reference tick lines from Step 4, leaving only the final plan elements.
-
-![Step 8 — Cell Library Window](Screenshots/step8.png)
-
-</details>
-
----
-
 ## Tips
 
 - **Ask, don't guess.** If you're not sure what the agent needs from you, just ask it — it will tell you what information or drawing input it's waiting on.
@@ -216,7 +161,7 @@ You confirm the barricade placement and finish the callout yourself in a few cli
 
 The following explains some choices made in how this tool works, in case you are troubleshooting or want to understand the behavior better.
 
-**Why the agent never computes a spacing or sign size itself.** Every number that reaches the drawing comes from a lookup against PE-reviewed NYSDOT tables (`compute_spacing`, `get_sheet_requirements`, `resolve_sign_code`), never from the model's own estimate. This keeps every plan traceable to a standard sheet or table, the same guarantee the manual wizard always provided.
+**Why the agent never computes a spacing or sign size itself.** Every number that reaches the drawing comes from a lookup against PE-reviewed NYSDOT tables (`compute_spacing`, `get_sheet_requirements`, `resolve_sign_code`), never from the model's own estimate. This keeps every plan traceable to a standard sheet or table rather than an AI-generated guess.
 
 **Why sheet builds preview in a sandbox first.** A full sheet build touches many elements at once. Building it in an offset scratch area first, and only merging it into your real drawing once you've reviewed it, avoids having to hand-clean a bad build out of your live design file.
 
