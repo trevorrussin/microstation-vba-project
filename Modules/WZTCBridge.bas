@@ -173,6 +173,12 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = ExecGetElementVertices(reqId, params)
         Case "GET_ELEMENTS_IN_RANGE_BOX"
             ExecuteOpInner = ExecGetElementsInRangeBox(reqId, params)
+        Case "GET_ELEMENT_CAD_PROPS"
+            ExecuteOpInner = ExecGetElementCadProps(reqId, params)
+        Case "GET_MAX_ELEMENT_ID"
+            ExecuteOpInner = WriteResultRows(reqId, WZTCQuery.GetMaxElementId())
+        Case "LIST_LEVEL_DEFS"
+            ExecuteOpInner = ExecListLevelDefs(reqId, params)
         Case "CLASSIFY_SITE_FEATURES"
             ExecuteOpInner = ExecClassifySiteFeatures(reqId, params)
         Case "COMPUTE_SPACING"
@@ -245,8 +251,8 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = ExecRunRegistryCommand(reqId, params, True)
         Case "MOVE_ELEMENT"
             ExecuteOpInner = BridgeMoveElement(reqId, params)
-        Case "COPY_ELEMENT"
-            ExecuteOpInner = BridgeCopyElement(reqId, params)
+        Case "COPY_ELEMENT", "COPY_FEATURE_LINE_GRAPHICS"
+            ExecuteOpInner = BridgeCopyElement(reqId, params, opType)
         Case "ROTATE_ELEMENT"
             ExecuteOpInner = BridgeRotateElement(reqId, params)
         Case "SCALE_ELEMENT"
@@ -608,6 +614,32 @@ Private Function ExecGetElementsInRangeBox(reqId As String, params As Object) As
     Exit Function
 QErr:
     ExecGetElementsInRangeBox = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function ExecGetElementCadProps(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    Dim minId As Double: minId = 0
+    If params.Exists("minId") Then minId = CDbl(params("minId"))
+    Dim ids As String: ids = ""
+    If params.Exists("ids") Then ids = CStr(params("ids"))
+    Dim maxRows As Long: maxRows = 1500
+    If params.Exists("maxRows") Then maxRows = CLng(params("maxRows"))
+    ExecGetElementCadProps = WriteResultRows(reqId, WZTCQuery.GetElementCadProps(minId, ids, maxRows))
+    Exit Function
+QErr:
+    ExecGetElementCadProps = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function ExecListLevelDefs(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    Dim f As String: f = ""
+    If params.Exists("names") Then f = CStr(params("names"))
+    Dim maxRows As Long: maxRows = 3000
+    If params.Exists("maxRows") Then maxRows = CLng(params("maxRows"))
+    ExecListLevelDefs = WriteResultRows(reqId, WZTCQuery.ListLevelDefs(f, maxRows))
+    Exit Function
+QErr:
+    ExecListLevelDefs = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 Private Function ExecGetElementsRange(reqId As String, params As Object) As String
@@ -2601,15 +2633,20 @@ WErr:
     BridgeMoveElement = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
-Private Function BridgeCopyElement(reqId As String, params As Object) As String
+Private Function BridgeCopyElement(reqId As String, params As Object, _
+                                   Optional gateOpName As String = "COPY_ELEMENT") As String
     On Error GoTo WErr
     If Not (params.Exists("elementId") And params.Exists("deltaX") And params.Exists("deltaY")) Then
         BridgeCopyElement = reqId & vbTab & "ERROR" & vbTab & "note=missing elementId/deltaX/deltaY"
         Exit Function
     End If
 
+    Dim gateName As String
+    gateName = Trim(gateOpName)
+    If gateName = "" Then gateName = "COPY_ELEMENT"
+
     Dim gateMsg As String
-    gateMsg = WZTCCommandRegistry.CheckSafetyGate("COPY_ELEMENT")
+    gateMsg = WZTCCommandRegistry.CheckSafetyGate(gateName)
     If gateMsg <> "" Then
         BridgeCopyElement = reqId & vbTab & "ERROR" & vbTab & "note=" & gateMsg
         Exit Function

@@ -91,3 +91,42 @@ Bridge/_stale_text_ids.json
 
 # Python bytecode cache, any location
 __pycache__/
+
+# Hindsight session memory (regenerated each sessionStart)
+.cursor/rules/hindsight-session.mdc
+# Standards library binaries (official PDFs/ZIPs, re-downloadable via
+# scripts/standards_fetch.py). Registry + derived index data stay tracked.
+Standards/**/*.pdf
+Standards/**/*.PDF
+Standards/**/*.zip
+Standards/**/*.xlsx
+Standards/**/*.xls
+Standards/**/*.doc
+Standards/**/*.docx
+Standards/*.pdf
+Standards/*.zip
+Standards/index/
+
+# Tutorials: recordings/decks (1.5 GB) and their regenerable extraction (scripts/tutorials_ingest.py, tutorial_digest.py)
+Standards/Tutorials/
+Standards/derived/tutorials/
+
+# Generated output and client project data - never commit
+outputs/
+Screenshots/
+Markups/
+*HWP24QC1*.xlsx
+@AutomationLog.txt
+Data/corner-cad-regions.json
+Data/hwp24qc1-*.json
+Data/loc01-island-to-corner.json
+
+# Separate nested repository
+cad-conversion-mvp/
+
+# Scratch scripts and their result artifacts (project convention: never tracked)
+scripts/_tmp_*
+scripts/_bts_fmt/
+scripts/_*.txt
+scripts/_*.json
+scripts/_*.png

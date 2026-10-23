@@ -968,3 +968,195 @@ Private Function TransformPoint(p As Point3d, xf As Variant) As Point3d
     outPt.Z = xf.RowZ.X * p.X + xf.RowZ.Y * p.Y + xf.RowZ.Z * p.Z + xf.TranslationZ
     TransformPoint = outPt
 End Function
+
+' ============================================================
+' CAD QC READ-BACK (qa_gate cad.symbology) — read-only
+' ============================================================
+' Returns CAD properties for elements with ID > minId (elements created
+' after a task baseline) or for an explicit id list. Uncertain object-model
+' members (level symbology, line style name, text height, element class)
+' are read late-bound through Object + On Error Resume Next so a wrong
+' member name returns "" (gate -> UNCERTAIN) instead of a compile error.
+' Distinct levels of a cell's content, recursing into nested cells (a cell header itself has no level).
+Private Sub CollectCellLevels(ce As Object, ByRef cl As String, depth As Long, ByRef nSub As Long)
+    Dim en As Object, e1 As Object, ln As String
+    On Error Resume Next
+    If depth > 6 Then Exit Sub
+    Set en = ce.GetSubElements
+    If en Is Nothing Then Exit Sub
+    Do While en.MoveNext And nSub < 800
+        Set e1 = en.Current
+        nSub = nSub + 1
+        If e1.Type = msdElementTypeCellHeader Then
+            CollectCellLevels e1.AsCellElement, cl, depth + 1, nSub
+        Else
+            ln = ""
+            ln = CStr(e1.Level.Name)
+            If Len(ln) > 0 Then
+                If InStr(1, "|" & cl & "|", "|" & ln & "|") = 0 Then
+                    If Len(cl) > 0 Then cl = cl & "|"
+                    cl = cl & ln
+                End If
+            End If
+        End If
+    Loop
+End Sub
+
+Public Function GetElementCadProps(minId As Double, idList As String, maxRows As Long) As String()
+    Dim rows() As String
+    ReDim rows(0 To 0)
+    rows(0) = "elementId" & vbTab & "type" & vbTab & "level" & vbTab & "color" & vbTab & "weight" & vbTab & _
+              "lineStyle" & vbTab & "lvlColor" & vbTab & "lvlWeight" & vbTab & "lvlStyle" & vbTab & _
+              "lvlFromLibrary" & vbTab & "cellName" & vbTab & "textHeight" & vbTab & "elClass" & vbTab & _
+              "zLow" & vbTab & "zHigh" & vbTab & "rangeLowX" & vbTab & "rangeLowY" & vbTab & _
+              "rangeHighX" & vbTab & "rangeHighY" & vbTab & _
+              "textWidth" & vbTab & "textFont" & vbTab & "textRotDeg" & vbTab & "text" & vbTab & "childLevels"
+    Dim cap As Long: cap = maxRows
+    If cap <= 0 Then cap = 1500
+    Dim wanted As String: wanted = "," & Replace(idList, " ", "") & ","
+
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Dim el As Element
+    Dim n As Long: n = 0
+    Dim eid As Double
+    Dim lo As Point3d, hi As Point3d
+    Dim lvlName As String, col As String, wt As String, ls As String
+    Dim lc As String, lw As String, lsn As String, lib As String
+    Dim cellName As String, th As String, cls As String
+    Dim tw As String, tf As String, tr As String, tx As String, cl As String
+    Dim rx As Double, ry As Double
+    Dim o As Object, lv As Object, te As Object, ce As Object, sub1 As Object, subEn As Object
+    Dim nSub As Long
+    Dim textOnly As Boolean: textOnly = (UCase(Trim(idList)) = "TEXT")
+    Do While oEnum.MoveNext
+        Set el = oEnum.Current
+        eid = ElIDAsDouble(el.ID)
+        If textOnly Then
+            If el.Type <> msdElementTypeText Then GoTo NextCad
+        ElseIf Len(idList) > 0 Then
+            If InStr(1, wanted, "," & CStr(eid) & ",") = 0 Then GoTo NextCad
+        ElseIf eid <= minId Then
+            GoTo NextCad
+        End If
+        If n >= cap Then
+            n = n + 1
+            ReDim Preserve rows(0 To n)
+            rows(n) = "TRUNCATED"
+            Exit Do
+        End If
+        lvlName = "": col = "": wt = "": ls = "": lc = "": lw = "": lsn = "": lib = ""
+        cellName = "": th = "": cls = ""
+        tw = "": tf = "": tr = "": tx = "": cl = ""
+        On Error Resume Next
+        lo = el.Range.Low: hi = el.Range.High
+        lvlName = el.Level.Name
+        col = CStr(el.Color)
+        wt = CStr(el.LineWeight)
+        Set o = el
+        ls = CStr(o.LineStyle.Name)
+        Set lv = Nothing
+        Set lv = el.Level
+        lc = CStr(lv.ElementColor)
+        lw = CStr(lv.ElementLineWeight)
+        lsn = CStr(lv.ElementLineStyle.Name)
+        lib = CStr(lv.IsFromLibrary)
+        If el.Type = msdElementTypeCellHeader Then
+            ' A cell header has no level of its own (Level is Nothing); name needs AsCellElement.
+            Set ce = el.AsCellElement
+            cellName = CStr(ce.Name)
+            nSub = 0
+            CollectCellLevels ce, cl, 0, nSub
+        End If
+        If el.Type = msdElementTypeText Then
+            Set te = el.AsTextElement
+            th = CStr(te.TextStyle.Height)
+            tw = CStr(te.TextStyle.Width)
+            tf = CStr(te.TextStyle.Font.Name)
+            rx = te.Rotation.RowX.X: ry = -te.Rotation.RowX.Y
+            If Abs(rx) < 0.000000001 Then
+                tr = CStr(90 * Sgn(ry))
+            ElseIf rx > 0 Then
+                tr = Format(Atn(ry / rx) * 45 / Atn(1), "0.0")
+            Else
+                tr = Format(Atn(ry / rx) * 45 / Atn(1) + 180, "0.0")
+            End If
+            tx = Replace(Replace(Replace(CStr(te.Text), vbTab, " "), vbCr, " "), vbLf, " ")
+        End If
+        cls = CStr(o.Class)
+        Err.Clear
+        On Error GoTo 0
+        n = n + 1
+        ReDim Preserve rows(0 To n)
+        rows(n) = CStr(eid) & vbTab & ElementTypeName(el.Type) & vbTab & lvlName & vbTab & col & vbTab & wt & vbTab & _
+                  ls & vbTab & lc & vbTab & lw & vbTab & lsn & vbTab & lib & vbTab & cellName & vbTab & th & vbTab & cls & vbTab & _
+                  Format(lo.Z, "0.000") & vbTab & Format(hi.Z, "0.000") & vbTab & _
+                  Format(lo.X, "0.00") & vbTab & Format(lo.Y, "0.00") & vbTab & _
+                  Format(hi.X, "0.00") & vbTab & Format(hi.Y, "0.00") & vbTab & _
+                  tw & vbTab & tf & vbTab & tr & vbTab & tx & vbTab & cl
+NextCad:
+    Loop
+    GetElementCadProps = rows
+End Function
+
+' Highest graphical element ID in the active model (task baseline for qa_gate).
+Public Function GetMaxElementId() As String()
+    Dim rows(0 To 1) As String
+    rows(0) = "maxId" & vbTab & "count"
+    Dim oScan As ElementScanCriteria
+    Set oScan = New ElementScanCriteria
+    oScan.ExcludeNonGraphical
+    Dim oEnum As ElementEnumerator
+    Set oEnum = ActiveModelReference.Scan(oScan)
+    Dim mx As Double: mx = 0
+    Dim c As Long: c = 0
+    Dim v As Double
+    Do While oEnum.MoveNext
+        v = ElIDAsDouble(oEnum.Current.ID)
+        If v > mx Then mx = v
+        c = c + 1
+    Loop
+    rows(1) = CStr(mx) & vbTab & CStr(c)
+    GetMaxElementId = rows
+End Function
+
+' Level definitions (nameFilter = comma list of substrings; "" = all, capped).
+Public Function ListLevelDefs(nameFilter As String, maxRows As Long) As String()
+    Dim rows() As String
+    ReDim rows(0 To 0)
+    rows(0) = "name" & vbTab & "color" & vbTab & "weight" & vbTab & "style" & vbTab & "fromLibrary"
+    Dim parts() As String: parts = Split(UCase(nameFilter), ",")
+    Dim n As Long: n = 0
+    Dim lvl As Level
+    Dim keep As Boolean
+    Dim k As Long
+    Dim lv As Object
+    Dim c As String, w As String, s As String, lb As String
+    For Each lvl In ActiveDesignFile.Levels
+        keep = (Len(nameFilter) = 0)
+        For k = 0 To UBound(parts)
+            If Len(Trim(parts(k))) > 0 Then
+                If InStr(1, UCase(lvl.Name), Trim(parts(k))) > 0 Then keep = True
+            End If
+        Next k
+        If keep Then
+            If maxRows > 0 And n >= maxRows Then Exit For
+            Set lv = lvl
+            c = "": w = "": s = "": lb = ""
+            On Error Resume Next
+            c = CStr(lv.ElementColor)
+            w = CStr(lv.ElementLineWeight)
+            s = CStr(lv.ElementLineStyle.Name)
+            lb = CStr(lv.IsFromLibrary)
+            Err.Clear
+            On Error GoTo 0
+            n = n + 1
+            ReDim Preserve rows(0 To n)
+            rows(n) = lvl.Name & vbTab & c & vbTab & w & vbTab & s & vbTab & lb
+        End If
+    Next lvl
+    ListLevelDefs = rows
+End Function

@@ -2059,7 +2059,7 @@ Roll ahead / downstream sat in the travel lanes because `place_path_hugging_dime
 
 ## 2026-08-14 ? Cursor ? S buffer invisible SizeArrow + G20 orange snap
 
-Engineer: BUFFER SPACE label present, no dimension; G20 still gapped. Live element 220320 was a SizeArrow whose range equaled the two EOP tips (350×350, no extra for dim line) ? ny_Plan style assignment zeros DimHeight before AddElement. Axis-aligned SizeArrows still drew; the 45° buffer did not. Fix: set DimHeight after style + after Rewrite; pass sheet-length override text. G20: snap/stem to color-6 orange verts, then +1.5 ft into the fill.
+Engineer: BUFFER SPACE label present, no dimension; G20 still gapped. Live element 220320 was a SizeArrow whose range equaled the two EOP tips (350Ã350, no extra for dim line) ? ny_Plan style assignment zeros DimHeight before AddElement. Axis-aligned SizeArrows still drew; the 45Â° buffer did not. Fix: set DimHeight after style + after Rewrite; pass sheet-length override text. G20: snap/stem to color-6 orange verts, then +1.5 ft into the fill.
 
 
 
@@ -2132,12 +2132,12 @@ raises APIConnectionError from a Claude Code shell, sandboxed or not. $0.00 spen
 Run them yourself from the console that runs chat_driver.py:
   python mcp-server/eval_harness.py --only vague_road_request_proposes       specific_road_request_not_reasked corridor_pick_ladder_offered
 
-## 2026-08-20 — Cursor — AutoCAD south trailer lot: copy_element not insert_block
+## 2026-08-20 â Cursor â AutoCAD south trailer lot: copy_element not insert_block
 
 USPS Trenton VMF (`X-BASE_USPS_Civil_Trenton NJ VMF (1).dwg`) south trailer parking
 was rebuilt after user rejected random full-width rows + solid peach hatch. Root cause
-of tiny ~20×8 ft trailers: `insert_block` with `A$C52cc25ab` at scale 1 does **not**
-match upper-lot block scale (~236×92 ft). **`copy_element` from `6A741` with
+of tiny ~20Ã8 ft trailers: `insert_block` with `A$C52cc25ab` at scale 1 does **not**
+match upper-lot block scale (~236Ã92 ft). **`copy_element` from `6A741` with
 `own_element_only=False` preserves correct scale** (verified bbox width 236.2 ft).
 
 Cleanup + rebuild via `scripts/build_south_trailer_lot_acad.py` (uses
@@ -2145,38 +2145,38 @@ Cleanup + rebuild via `scripts/build_south_trailer_lot_acad.py` (uses
 deleted ~50 wrong-scale blocks, placed **78** full-size trailers in aerial clusters
 (west column, north row, center back-to-back, SW block, south row), pavement boundary
 `6B62B`, hatch `6B62C` on `C-CURB-EXIST` with **GRASS pattern scale 30** (same as
-upper lot hatch `6926C`). Stall lines span cluster widths only — not one line across
+upper lot hatch `6926C`). Stall lines span cluster widths only â not one line across
 entire lot. Pavement hatch is GRASS/dot grid, not `C-PAMENT NEW` solid peach.
 
-## 2026-08-20 — Cursor — South lot extended west/east to match aerial
+## 2026-08-20 â Cursor â South lot extended west/east to match aerial
 
-Second pass after engineer QA vs Google Earth: prior layout only covered x≈13600–15300
+Second pass after engineer QA vs Google Earth: prior layout only covered xâ13600â15300
 (missing entire western third and east property column). Rebuilt via updated
 `scripts/build_south_trailer_lot_acad.py`: clears all south-lot `C-VMF PARKING`
 blocks + stall lines south of y=-4979, then places **136** trailers anchored to
 curb geometry (`69204` west tip ~11753, `691EE` east ~17319). E-W rows use
-`copy_element` from `6A741` (x=11867–16807 step 240); east N-S column uses
-`6A78D` at x=17040. Verified coverage x≈11749–16838, y≈-5050 to -6250.
+`copy_element` from `6A741` (x=11867â16807 step 240); east N-S column uses
+`6A78D` at x=17040. Verified coverage xâ11749â16838, yâ-5050 to -6250.
 
-## 2026-08-20 — Cursor — South lot: drive aisles (satellite cluster layout)
+## 2026-08-20 â Cursor â South lot: drive aisles (satellite cluster layout)
 
-Engineer QA: trucks could not exit — prior layout filled entire lot with 136
+Engineer QA: trucks could not exit â prior layout filled entire lot with 136
 continuous E-W rows (no circulation). Annotated satellite (`Screenshot_2026-08-20_021119`)
 shows sparse clusters with large open center drive aisle: west edge column, central
 back-to-back island, two separated N-S south blocks with gap, NE entry row.
 Rebuilt to **47 trailers** in named clusters only; center void left empty.
 South fence blocks use N-S orientation (`6A78D`); others E-W (`6A741`).
 
-## 2026-08-20 — Cursor — South lot L-shaped boundary from curbs/property
+## 2026-08-20 â Cursor â South lot L-shaped boundary from curbs/property
 
 Wrong rectangle `6B62B`/`6B62C` replaced with L-shaped boundary `6B741` (polyline)
 + hatch `6B742` tied to existing anchors: inner NW `12245` (69207), pocket junction
 `13541`, east inner `15396` (69208), arc `16022`/`16794` (691ED/691EE), access road
 `17319`, south `y=-6300`, west on 69204 property bearing to SW `(11518,-6300)`, NW jog
-`11753→12245` on north cutoff. Script: `scripts/fix_south_lot_boundary_acad.py`.
-Upper lot copy template remains `6A741` (block) — distinct from boundary handle.
+`11753â12245` on north cutoff. Script: `scripts/fix_south_lot_boundary_acad.py`.
+Upper lot copy template remains `6A741` (block) â distinct from boundary handle.
 
-## 2026-08-20 — Cursor — South lot boundary traced from red satellite outline
+## 2026-08-20 â Cursor â South lot boundary traced from red satellite outline
 
 Replaced simplified L/rectangle with **134-vertex** closed polyline extracted from
 engineer's red annotation on annotated screenshot (`Screenshot_2026-08-20_021119`).
@@ -2184,9 +2184,9 @@ Script `fix_south_lot_boundary_from_image.py`: OpenCV contour of red pixels ->
 bilinear map to CAD quad (NW 12245/-4979, NE 17319/-4979, SE/SW south corners).
 Hatch `6B749` on boundary `6B748`, GRASS scale 30. Vertices saved to
 `scripts/south_lot_boundary_vertices.json`. Preserves NW diagonal/notches and east
-access-road bump from imagery — not axis-aligned.
+access-road bump from imagery â not axis-aligned.
 
-## 2026-08-20 — Cursor — South lot boundary: aerial depth + surveyed curbs (not red trace)
+## 2026-08-20 â Cursor â South lot boundary: aerial depth + surveyed curbs (not red trace)
 
 Prior `6B748` red-pixel trace was rejected: 134 noisy vertices, zigzag west edge,
 self-intersections. Replaced with `scripts/build_south_lot_boundary_from_aerial.py`:
@@ -2195,20 +2195,20 @@ north/west/east from surveyed CAD (`69204` bearing, y=-4979 curb cut, x=17319 ac
 Current: closed polyline `6B752` + GRASS hatch `6B753` (~1413 ft deep to y=-6392 vs
 guessed -6300). Vertices in `scripts/south_lot_boundary_vertices.json`.
 
-## 2026-08-20 — Cursor — South lot full satellite match (depth + silhouette)
+## 2026-08-20 â Cursor â South lot full satellite match (depth + silhouette)
 
 Root cause of shallow/wrong boundary: red outline is in the **bottom** of
-`Screenshot_2026-08-20_021119` (px y≈400–582), not the middle ROI; prior scripts
-calibrated against the wrong band and guessed south at y≈-6300 (~1413 ft deep).
+`Screenshot_2026-08-20_021119` (px yâ400â582), not the middle ROI; prior scripts
+calibrated against the wrong band and guessed south at yâ-6300 (~1413 ft deep).
 
 Fix (`scripts/build_south_lot_match_satellite.py`):
 - Outer **closed** perimeter from red L/R silhouette (16 verts), not red-stroke ribbon
-- Isotropic scale from north curb width ≈17.78 ft/px → south ≈**y=-8215 (~3236 ft deep)**
+- Isotropic scale from north curb width â17.78 ft/px â south â**y=-8215 (~3236 ft deep)**
 - West snapped to `69204` property bearing; SW notch + east taper kept from silhouette
 - Boundary `6B755` + GRASS hatch `6B757` @ scale 30 on `C-CURB-EXIST`
 - 45 trailers via `copy_element` from `6A741`/`6A78D` in satellite clusters (west 7 EW,
   center 7+7 EW, NE 5 NS, south-west 10 NS, south-east 9 NS, center aisle open)
-- Viewport crop `6B4F7` stops at y=-5300 — engineer must zoom south to see full lot
+- Viewport crop `6B4F7` stops at y=-5300 â engineer must zoom south to see full lot
 
 
 ## 2026-08-14 -- Claude Code -- COM type-library cache: relocated + self-healing
@@ -2401,13 +2401,13 @@ NOT DONE: the ~500 ms VBE.VBProjects check still runs on the FIRST call per
 thread (correct -- it is the deterministic multi-instance guard). Cones and
 hatch were already single-call and untouched.
 
-## 2026-08-20 � Cursor � G20 stem gap: FixG20 before snap + STEM_INTO_FACE=8 + place_sign stemQa
+## 2026-08-20  Cursor  G20 stem gap: FixG20 before snap + STEM_INTO_FACE=8 + place_sign stemQa
 
 Curve G20 white stems stopped short of the orange face even when AABB length looked fine. Root cause: `PlaceSignAssembly` ran `SnapInwardEdgeToTip` / PreferColor(6) **before** `FixG20FaceBlackHole`, so the still-orange SF_P hole was treated as the inward edge and the face parked with the real orange border beyond the stem tip. Fix in `Modules/DrawSign.bas`: HideDuplicateYellowLegend + FixG20FaceBlackHole first, then snap; stem end = faceTarget + STEM_INTO_FACE (8 ft) along the perp ray (not PreferColor alone). `wztc_ops.place_sign` now attaches `stemQa` and returns `STEM_INTO_FACE_FAIL` if penetrate < 2 ft. Playbook/JSON/prompts lock gold L-bend ~(92570, 300000). Tests: `tests/test_sign_stem_qa.py`. Live smoke: diagonal G20 `stemQa.penetrateFt=8.0`.
 
-## 2026-08-20 � Cursor � Stem overshoot was wrong; gold is L�50 / penetrate�0
+## 2026-08-20  Cursor  Stem overshoot was wrong; gold is L50 / penetrate0
 
-Engineer rejected the L-bend rebuild as worse than the gold reference at ~(92570, 300000) in DELETE.dgn. COM measure of gold G20 (post 215245 / face 215248 / stem 215309): length **50.0**, penetrate **�0** (end on face AABB edge). Our STEM_INTO_FACE=8 overshoot made stems L=58 and looked worse. Also `capture_view` status bar stayed stuck at 1754/-899 across navigations � do not trust PrintWindow captures vs the gold look. Reverted DrawSign stem end to faceTarget after FixG20-before-snap; stemQa now fails only when short of face by >1.5 ft. Wiped bad L-bend WZTC (kept striping) and re-queued a gold-matching rebuild.
+Engineer rejected the L-bend rebuild as worse than the gold reference at ~(92570, 300000) in DELETE.dgn. COM measure of gold G20 (post 215245 / face 215248 / stem 215309): length **50.0**, penetrate **0** (end on face AABB edge). Our STEM_INTO_FACE=8 overshoot made stems L=58 and looked worse. Also `capture_view` status bar stayed stuck at 1754/-899 across navigations  do not trust PrintWindow captures vs the gold look. Reverted DrawSign stem end to faceTarget after FixG20-before-snap; stemQa now fails only when short of face by >1.5 ft. Wiped bad L-bend WZTC (kept striping) and re-queued a gold-matching rebuild.
 
 ## 2026-08-20 -- Cursor -- Gold L-bend rebuilt by exact curve_family script, not chat agent
 
@@ -2417,10 +2417,333 @@ Engineer: rebuild like gold with no deviations. Tonight's (50,-2000) L was a dif
 
 Engineer confirmed the `build_619311_curve_family.py L` rebuild looks correct and asked to remember the method. Authoritative clone: origin (90000,300000), work ~(92506,299978), Urban 55 / 12 / >=8, CHAN_OFF=38 from first-travel OUTER, WA=100 ft on the 150 ft fillet, `run_sheet_build(path_vertices=ALIGN, trailer, force)` then `place_two_way_highway(vertices=OUTER)` then `delete_construction_guides`. Chat-agent freestyle on a different road (0-shoulder, R=300, WA~390 at (50,-2000)) plus post-build deletes is how gold was lost. Written into `Data/sheet-specs/619-311.build.md` (Gold L-bend section), `619-311.json` annotationStyle.notes, and `mcp-server/prompts.py` (619-311 GOLD L-BEND block). Next in-panel turn loads this via `get_sheet_build_guide`. Chat driver was left stopped; restart it to pick up the prompt.
 
-## 2026-08-21 � Cursor � WZTCChatPanel Unexpected error (35010)
+## 2026-08-21  Cursor  WZTCChatPanel Unexpected error (35010)
 
-Panel launch failed with VBA `Unexpected error (35010)`. Confirmed via Compile: same dialog. Root cause is the known 64-bit VBE bug triggered by `AddressOf` in `Modules/WZTCChatTimer.bas` (`SetTimer(..., AddressOf ChatTimerProc)`) � not a logic bug in `WZTCChatPanel.frm`. Mid-recovery, removing+Import of `WZTCChatTimer.bas` landed as `Module3` (no `Attribute VB_Name`; project rule forbids adding it), so `Call WZTCChatTimer.StartChatTimer` became `Variable not defined` until the component was renamed to `WZTCChatTimer` in the live Test.mvba. `CadInputQueue` `VBA RUN LaunchChatPanel` hangs while the 35010 dialog is up. Fix path: dismiss dialog ? VBA Reset ? **Save Test.mvba** ? full MicroStation restart ? run `Launcher.LaunchChatPanel` (not F5 on the form). Do not Remove/re-Import the timer without immediately renaming the component back to `WZTCChatTimer`.
+Panel launch failed with VBA `Unexpected error (35010)`. Confirmed via Compile: same dialog. Root cause is the known 64-bit VBE bug triggered by `AddressOf` in `Modules/WZTCChatTimer.bas` (`SetTimer(..., AddressOf ChatTimerProc)`)  not a logic bug in `WZTCChatPanel.frm`. Mid-recovery, removing+Import of `WZTCChatTimer.bas` landed as `Module3` (no `Attribute VB_Name`; project rule forbids adding it), so `Call WZTCChatTimer.StartChatTimer` became `Variable not defined` until the component was renamed to `WZTCChatTimer` in the live Test.mvba. `CadInputQueue` `VBA RUN LaunchChatPanel` hangs while the 35010 dialog is up. Fix path: dismiss dialog ? VBA Reset ? **Save Test.mvba** ? full MicroStation restart ? run `Launcher.LaunchChatPanel` (not F5 on the form). Do not Remove/re-Import the timer without immediately renaming the component back to `WZTCChatTimer`.
 
-## 2026-08-21 � Cursor � Fix chat panel 35010 by dropping AddressOf timer
+## 2026-08-21  Cursor  Fix chat panel 35010 by dropping AddressOf timer
 
 `Unexpected error (35010)` on `LaunchChatPanel` / Compile was the 64-bit VBE `AddressOf` bug in `WZTCChatTimer` (`SetTimer` callback), not panel logic. Replaced Win32 timer with `Sleep` + `DoEvents` pump (`RunPollPump`); `WZTCChatPanel` starts the pump on the post-modeless `Activate`. Hot-reloaded both; Compile clean; live launch showed `WZTC Agent Chat`. Do not reintroduce `AddressOf` into this project without a separate precompiled add-in.
+
+## 2026-08-27 — Cursor — 727 DGN had NY West GCS, not Long Island
+
+Live file `727.21.101_map_alg_081826.dgn`: alignment XY (~1.01M, 246.8k US survey ft) are Long Island zone numbers for the Bronx, but `ModelReference.GetGCS(True)` returned **NY83-WF** (West zone) — Bing showed rural imagery. Fix: `GEOCOORDINATE ASSIGN NOQUERY NY83-LIF` (no reproject). **Do not** use `WriteGCS(gcs, True, True)` — that reprojects and moves geometry (accidentally triggered once; MicroStation `UNDO` restored coords). After assign + `SET BACKGROUNDMAP NONE` / `AERIAL`, Bing shows NYC urban grid. COM attach: `CreateGCSFromKeyName('NY83-LIF'|'EPSG:2263')`; assign-no-reproject key-in is the safe live path.
+
+## 2026-08-27 — Cursor — 727 median offset: station ≠ chainage from AC west end
+
+`scripts/compare_median_alignment_offset.py` first pass used `chainage = station_ft` (19+50 → 1950 ft) or snapped early labels to the AC west endpoint (~2.9 ft). Engineer measured ~7 ft at 19+50. Correct rule on this file: **chainage_along_red = station_ft − 1000** (station 10+00 at the west end of the 6-segment AC best-fit line). That puts 19+50 at chainage 950 ft → **6.6 ft** perpendicular to the chained Default median. Stations come from `ACSR_P_T` red text labels (100-ft station steps: 19+50, 20+50, …). Output: `outputs/727-alignment-offset/red_vs_white_perp_offset_20260827_191553.xlsx`.
+
+## 2026-08-27 — Cursor — 727 corridor: chorded stationing path + one-sided perp
+
+Per-segment AC sampling left a chainage hole (~24+50–38+93) because `nearest_station` on the chorded polyline maps disjoint segment 1 to ch 3893+, so the hatch visually started near 36+50. Arc bow-ties came from `min |t|` perp feet flipping sides on curves. Fix: sample the **chorded AC stationing path** (same as spreadsheet `station−1000`) from ch 950 through AC end; one-sided perpendicular to white (sign locked at 19+50); 10 ft steps on curves (36+50–65+50, 73+50–86+50). Live shape **2722040** (~2030 verts, starts 19+50).
+
+## 2026-09-02 — Cursor — 727 offset: nearest parallel dashed @ 8 ft (not far RG)
+
+User flagged gap stations — dashed lines on **Level 2** in `basemap (1)` ref, not scanned by *EB-only level list. Added `BASEMAP_EXTRA_LEVELS = ("Level 2",)` for basemap attachments (+431 segments). Latest `dashed_sandwich_offset_20260902_212409.csv`: 238/242 both sides, 0 blank-both, 4 one-sided, 0 sides >8 ft.
+
+## 2026-09-03 — Cursor — 727 offset: same-source sandwich (not per-side mix)
+
+Per-side closest-wins between *EB and basemap Level 2 mixed sources (e.g. 241+50 took Level 2 north ~4.7 with EB south ~1.9; engineer hand-check is **6 / 1.9** = complete EB pair). `_measure_sides` now takes a **complete pair from one source**: both *EB if present; else both Level 2; else fill only a missing side. Also restores dash-gap fill with on-dash near-tie preference (+0.15 ft). Known checks: 19+50 = 1.072/1.67, 241+50 = 5.994/1.894. Output `dashed_sandwich_offset_20260903_125614.xlsx`. Remaining wide primary-only stations (no Level 2 alternate) need a separate spur/line-class rule if still wrong.
+
+## 2026-09-03 — Cursor — 727 offset: full-corridor alignment (Complex Strings + Arcs)
+
+Fixed large gaps and missing data around stations 45 and 75. Root cause: the red alignment (`ACSRT_P`) is not just lines/linestrings but a continuous ~33k ft chain of **Complex Strings** (`Type 12`) and **Arcs** (`Type 16`). Updated `compare_median_alignment_offset.py` to recursively extract sub-elements from complex strings and tessellate arcs. Also unified stationing to `station_ft - 1950.0` for the entire 242-station corridor, aligning physical chainage with labels. Increased "both sides found" density from 44 to 180 rows. Verification: 45+50 = 0.537/3.053, 75+50 = 1.091/0.658, 241+50 = 0.317/4.5. Output `dashed_sandwich_offset_20260903_144339.xlsx`.
+
+## 2026-09-10 � Cursor � BTS estimate table: match SAMPLE pay-item wrap
+
+Markup PDF page 4 `LIST OF PAY ITEMS` is the format authority (not inventing wraps). Descriptions that fit the DESCRIPTION column stay **one centered line** (e.g. full `PULLBOX, RECTANGULAR, 26 X 18 INCH, REINFORCED CONCRETE`, and markup `SHOW AS 1 LINE` ? `BREAKAWAY TRANSFORMER BASE`). Longer rows wrap only at SAMPLE phrase breaks (conduit / pole TYPE / extension arm). Root cause of bad format: `TCSH_P_T` **TextNodes** auto-split at ~22 chars regardless of `LineLength`. Fix: replace body description TextNodes with `CreateTextElement1` lines (script `scripts/_fix_bts_table_format.py`) in `XS Stacked Views` on `60785527_cph_tsp_02.dgn`. Also corrected row order to `815002` ? `8151` ? `8152` (insert between 8151 and 81822011).
+
+## 2026-09-10 � Cursor � Skill: plan-markup-edits (table + callout leaders)
+
+Saved reusable process after Ballys Hutch BTS markup work on `fea_tsp` / `tsp_02`. Skill: `.claude/skills/plan-markup-edits/SKILL.md` (mirrored under `.cursor/skills/`). Hard lessons encoded: pay-item descriptions must be TextElements (TextNodes auto-wrap ~22 chars); NOTES left-justified wide lines; callout edits use `SetTextLine` + `SAVE DESIGN` (never `DeleteAllTextLines` in cells); cloned note-dimensions often invisible � always place a real stub?tip leader line on `TCPP_P_T`. Use for any future PDF markup pass, not only this DGN.
+## 2026-09-10 — Cursor — plan-markup-edits: overlap gate + TCSHL blue renumber
+
+Extended `.cursor/skills/plan-markup-edits/SKILL.md` (mirrored `.claude/skills/…`) with **§4 Text position + overlap**: keep notes/callouts at original origins; move only when text-through-text is real; overlap check required before claiming done. Also applied BTS_2 cyan FreeText 1–15 onto `TCSHL` bubbles in `fea_tsp`/`nyu_drawing_model` (letters/digits → new numbers; e.g. old `5`→`13`, `1`→`10`; unmatched `H`/`I`/`G` left alone). Edit path: TextElement inside cell → `Text=` + subelement `Rewrite` + `SAVE DESIGN` (IDs from `GetSubElements` alias to the parent cell via `GetElementByID64`). Positions unchanged; pairwise TCSHL center check showed no pairs closer than 3.5.
+
+## 2026-09-10 — Cursor — BTS_2 P/PB tags: textbox only (no leaders)
+
+Placed green FreeText pole/pullbox tags `P1`–`P8` and `PB1`–`PB8` on `fea_tsp`/`nyu_drawing_model` as `TCPP_P_T` TextElements (ids 5771–5786): red text (color 3) + green text background fill (BackgroundFillColor 2, BorderAndBackgroundVisible). No leaders. PDF→DGN via the same digit-anchor affine as the TCSHL renumber. PB1 nudged west/north to clear TCSHL `I` (overlap gate). Skill updated: short P/PB tags are textbox-only, not full callouts.
+
+## 2026-09-10 — Cursor — Markup overlap gate: Range boxes + alwaysApply rule
+
+Missed P6-vs-vehicular-callout clash because the first check used center distance only; long right-justified callout Ranges still covered the tag. Fixed: nudged P6 (5776) +8/−4; also PB4 and P1. Skill §4 is now a blocking Range/bbox gate with required done-evidence. Added alwaysApply `.cursor/rules/plan-markup-edits.mdc` pointing at the skill so the gate loads every session.
+
+## 2026-09-10 — Cursor — Callout leaders must be note dims (not plain lines)
+
+Fake `CreateLineElement1` leaders on new BTS callouts lacked arrowheads and were outside the callout cell, so moving text disconnected the leader. Fix: removed orphan lines; rebuilt 7 callouts as TextNode + stub + visible `DimensionType` 53 note dim (`ny_Plan`, `IsHidden=False`) sharing a GraphicGroup (GG lock on). Skill updated: never fake leaders with plain lines; keep text/stub/note-dim moving together (cell or GG).
+
+## 2026-09-10 — Cursor — Callout move: snapped tip vs free tip
+
+Engineer clarified leader move rules: text/stub/leader/arrow always stay connected. If tip is **snapped/associated** to an element, arrow stays on that element and leader reflows/flips when text moves sides. If tip is **not snapped**, the whole annotation translates together. Skill §3 updated. Current agent-placed note dims use free XYZ tips (not COM associations), so whole-unit move is the correct mode until tips are associated.
+
+## 2026-09-10 — Cursor — Associative callout tips blocked without VBA RUN
+
+Wanted snapped tips (arrow stays, leader flips). Python/COM cannot pass AssociationPoint into AddReferencePoint. Injected VBA works in-IDE, but this fea_tsp session rejects external VBA RUN (no Test.mvba; key-in macros no-op). Left runnable Import: scripts/AssociateCalloutTips.bas (F5 RunAssociateCalloutTips) plus WZTCExec.ExecAssociateDimTip for when Test is loaded. Skill notes the COM vs VBA gap.
+
+## 2026-09-10 — Cursor — Callout tip association blocked on VBA [run]
+
+Wanted associative tips on dims 5917–5947 (nearest keypoints refined). Python AddReferencePoint(AssociationPoint) AVs; VBA RUN no-ops while VBE caption shows Test.mvba [run]. Injected AssociateCalloutTips.RunAssociateCalloutTips into Desktop Test.mvba (also scripts/AssociateCalloutTips.bas). After engineer Ctrl+Break + Reset, F5 that sub or ask agent to VBA RUN.
+
+## 2026-09-10 — Cursor — Note-dim tip snap: AssociationPoint ByRef myth
+
+Compile error ByRef on `AddReferencePoint ActiveModelReference, oAssoc`: CONNECT typelib types that arg as Point3d only (`IID Point3d`), not AssociationPoint. Fixed AssociateCalloutTips / ExecAssociateDimTip to use `ActiveModelReference.Point3dFromAssociationPoint` then AddReferencePoint(Point3d). Ran OK on dims 5917–5947 (xyz snap). True associative flip still needs Association Lock in UI — not available via this VBA API.
+
+## 2026-09-10 — Cursor — True associative note tips via PLACE NOTE + Association Lock
+
+COM AddReferencePoint cannot take AssociationPoint. Working path: AssociationLock ON → PLACE NOTE → SendTentativePoint(tip) → SendDataPointForLocate(target, tip) → SendDataPoint(textEnd). Verified tip stays when modifying text end. Rebuilt callout leaders: 6054–6060 (was 5917–5947); 5932 recovered as 6057. Skill updated with this recipe.
+
+## 2026-09-10 — Cursor — Callout text must live on associative Place Note
+
+Separate TextNode+GG meant dragging wording moved the whole group (tip left). Rebuilt 7 callouts as PLACE NOTE + Association Lock with PrimaryText = callout lines; removed old TextNode/stub. IDs ~6100–6106. Verified text-end modify keeps tip. Skill updated.
+
+## 2026-09-10 — Cursor — Restored stock callout look; drag-flip vs look tradeoff
+
+Engineer rejected Place-Note-as-text look. Restored TextNode + ~5' stub + note-dim leader (PrimaryText *) with associative tip (dims 6107–6113, GG 6114–6120). Dragging separate TextNode with GG lock still moves the block — true text-drag flip needs wording on the note. Skill documents the tradeoff.
+
+## 2026-09-10 — Cursor — Restore pre-association callout mode
+
+Engineer asked to roll back from association/drag-flip experiments. Left callouts as TextNode+stub+note-dim (*) in GG 6114–6120 (dims 6107–6113). Turned GraphicGroupLock ON so Move moves the unit. Attempted MOVE COPY OFF; if Move still copies, toggle Make Copy off on Move tool settings in the UI.
+
+## 2026-09-10 — Cursor — Move-copy was orphan TextNode, not Make Copy
+
+User still saw Move leave a copy. Root cause: leftover TextNode **6114** (GG=4) stacked on real callout TN **6117** (GG 6114) from earlier rebuilds — moving the GG left the orphan behind. Deleted via `ModelReference.RemoveElement`. Also set `AssociationLockEnabled=False`, kept `GraphicGroupLockEnabled=True`. Move Element tool settings in this session only exposes Use Fence (no Make Copy checkbox); forced `SET ITEM TOOLSETTINGS MAKECOPY/COPIES/COPYTOGGLE=0` anyway.
+## 2026-09-10 — Cursor — Rebuild callout tip arrows (stock look)
+
+Engineer reported tip arrows gone after AssociationLock toggle. Wrongly probed AutoCAD MCP once; stayed on MicroStation after. Rebuilt 7 note dims (GG 6114–6120): PLACE NOTE tip→stub-end, PrimaryText=`*`, ny_Plan, TCPP_P_T, IsHidden=False. Three tips failed under associative locate (Point1→0,0); recreated those with free XYZ PLACE NOTE. Final dims 6145/6155/6147/6156/6157/6150/6151. AssocLock OFF, GG lock ON. Anatomy: TextNode+stub+note-dim (pre-association-experiment look).
+
+## 2026-09-10 — Cursor — Gate: never user-autocad on this repo by default
+
+After wrongly calling AutoCAD MCP during MicroStation callout work: added alwaysApply `.cursor/rules/cad-mcp-namespace.mdc` (default `user-wztc-designer` / `ms_connect`; `user-autocad` only if engineer names AutoCAD/DWG). Mirrored note in `plan-markup-edits` rule + skill (§0) and `.claude/skills/plan-markup-edits`.
+## 2026-09-11 — Cursor — P/PB tags wrapped in TCSHL circles
+
+Engineer asked for the same bubbles as the numbered TCSHL circles around earlier P/PB tags. Cloned TCSHL cell 3696 for P1–P8 and PB1–PB8 (cells 6287–6332), set inner text, PB* scaled 1.2× for 3-char fit, deleted plain TextElements 5771–5786. Level TCSH_P_T. Range overlap gate: 0 clashes involving P/PB cells. SAVE DESIGN.
+## 2026-09-11 — Cursor — P/PB TCSHL labels rewritten after clone
+
+Clone+first Rewrite left inner text as `1`. Second pass set Text on cell sub TextElement + Rewrite + SAVE DESIGN; verified P1–P8 and PB1–PB8 all match after save (cells 6287–6332).
+
+## 2026-09-15 — Cursor — 727 offset spreadsheet on map_alg_091026
+
+New open file `727.21.101_map_alg_091026.dgn`: station/AC levels are `AC_C` / `AC` (old `ACSR_P_T` / `ACSRT_P` empty). Stationing extends to **299+75** with a label gap **249+00→296+34** at Havemeyer split (EB/WB CAD not in file yet — per engineer note). Updated `compare_median_alignment_offset.py`: level auto-detect, PC/PT single-line parse on `AC_C`, station-guided AC chain (fixes ~71k inflated length → **27,938 ft**). Output `outputs/727-alignment-offset/dashed_sandwich_offset_20260915_184334.xlsx` + `NOTES_20260915.md`.
+## 2026-09-15 — Cursor — Include ET/WT ~100 ft ticks east of Havemeyer
+
+Missed ~112 side-station labels (`ET ##+##` / `WT ##+##` on `AC_C`) because parser only accepted bare `##+##`. Updated `compare_median_alignment_offset.py` to parse ET/WT, keep them as separate rows (`point`=ET|WT), chain AC on mainline+ET only (exclude WT to avoid zigzag). Regenerated `dashed_sandwich_offset_20260915_192602.xlsx` (377 rows; 56 ET + 56 WT).
+
+## 2026-09-17 — Cursor — BTS r1 page-3 conduit callouts on fea_tsp
+
+Applied green FreeText plan markups in `60785527_fea_tsp.dgn` / `nyu_drawing_model`:
+- **NEW** (12): stock-clone TextNode+stub+note-dim (`ny_Plan` / `TCPP_P_T`) for all conduit/cable blocks + `PULL NEW CABLES AT EXIST. CONDUIT` (tn ids 7022–7121). PDF→DGN via digit-anchor affine; tips snapped to nearest `TCI`/`TCI_P`.
+- **EDIT** (5): SetTextLine on 6132 (vehicular items), 6120 (+680.83080011), 6129/6126/6280 APS W/POST (+680.5001).
+- Skipped ambiguous chips with no clear host callout: table `5`, qty `(1)`/`(2)`, `680.818122011 (4)` / `(5)`.
+- Overlap gate (Range AABB, pad 0.25): **PASS** after nudging PULL west/north off APS streetlight 6135 (`dx=-24, dy=+9` total from first clear attempt).
+
+## 2026-09-17 — Cursor — Rebuild conduit callouts to stock anatomy
+
+Engineer: new callouts built wrong. Root cause: clone+Move left stubs pointing away from tip on right-side callouts; dim pt2 sometimes on wrong stub end; blank PULL line. Rebuilt all 12 as stock unit: TextNode (just=12) + 5ft stub **toward tip** + PLACE NOTE dim (`DimensionType` 53, `PrimaryText=*`, `ny_Plan`, `TCPP_P_T`, color 3), shared GG 7202–7213. Overlap gate PASS after PULL nudge.
+
+## 2026-09-17 � Cursor � ESTIMATE table: never ModifyVertex borders
+
+Tried to extend `O_Details_Table Border_P` column fills on `tsp_02` / `XS Stacked Views` by `ModifyVertex` on bottom corners. That scrambled rectangles into **diagonal** lines (ids 58251/58252/58253/59711/59924/59925). Fixed by deleting those shapes and replacing with axis-aligned `CreateShapeElement1` rectangles to Y=239578.793. Soft rule: estimate-table work is **text-first** (`scripts/_fix_bts_table_format.py` / plan-markup-edits �1); new row bands only via **Clone+Move** of a full-width band; never `ModifyVertex` on live table borders. Skill �1 updated with this hard rule.
+
+## 2026-09-17 � Cursor � Estimate table layout rules + padding fix
+
+Added plan-markup-edits �1 layout rules: cell padding (text must not touch blue borders), row height (just tall enough; no huge empty rows), column widths (fit SAMPLE, don't over-widen). Live `tsp_02` ESTIMATE table: re-placed descriptions with `LINE_PITCH=2.70` and pad 0.4; `peek_vs_pad=0`. Safe path only (text + CreateShapeElement1 band replace when needed; no ModifyVertex).
+
+## 2026-09-17 � Cursor � Hindsight MCP + hooks installed
+
+Installed `hindsight-cursor` and ran `hindsight-cursor init --api-url https://api.hindsight.vectorize.io --bank-id microstation-vba`. Wrote project `.cursor/mcp.json`, merged `hindsight` into user `~/.cursor/mcp.json`, scaffolded `~/.hindsight/cursor.json`, copied plugin to `.cursor-plugin/hindsight-memory/`, and added workspace `.cursor/hooks.json` (Cursor only loads hooks from that file, not from `.cursor-plugin` alone). MCP endpoint is OAuth-protected (Bearer); authenticate in Cursor Settings ? MCP after a full quit/reopen. Hooks need an API token in `~/.hindsight/cursor.json` (`hindsightApiToken`) for auto recall/retain � OAuth covers MCP tools only.
+
+## 2026-09-17 � Cursor � Hindsight local (Ollama) live
+
+Switched off cloud to local: `hindsight-embed` + `hindsight-api` on `http://127.0.0.1:8888`, LLM `ollama`/`qwen3:8b`, bank `microstation-vba`. Config: `~/.hindsight/embed`, `~/.hindsight/cursor.json`, project + user `mcp.json` ? `http://127.0.0.1:8888/mcp/microstation-vba/`. Smoke retain/recall OK via HTTP (qwen extracted CAD MCP preference). `hindsight-embed memory �` CLI wrapper fails on Windows (get-cli); use HTTP/MCP instead. Start with `hindsight-embed daemon start`; Ollama must be up.
+
+## 2026-09-18 � Cursor � never switch MicroStation DGN files
+
+Engineer forbade agents from opening/switching DGNs mid-session after an agent
+called `OpenDesignFile` on `fea_tsp` because `tsp_02` was active and
+conduit scans were empty. New always-apply rule
+`.cursor/rules/never-switch-dgn.mdc`; cross-linked from
+`cad-mcp-namespace.mdc`, `CLAUDE.md`, and plan-markup skill. If the wrong
+file is open: stop and ask � do not `OpenDesignFile` / `RD=` / `RF=`.
+
+## 2026-09-21 � Cursor � PB# circles to fitted rectangles on fea_tsp
+
+In open 60785527_fea_tsp.dgn / 
+yu_drawing_model, replaced the circle (ellipse) around each PB1-PB8 TCSHL cell with an axis-aligned rectangle fitted to the text Range + 0.30 pad (level TCSH_P_T). Script: scripts/_pb_circle_to_rect.py. First attempt used cell Drop() which orphaned the text (children not re-added); undid and switched to Clone text -> CreateShapeElement1 rect -> RemoveElement(cell) -> AddElement(clone). Verified: 8/8 PB texts present, each with one enclosing rect and zero enclosing circles.
+
+## 2026-09-21 � Cursor � per-callout rectangles (left stack, fea_tsp)
+
+Engineer: not one box around the whole left callout column � one rectangle per callout. Removed group wrap shape 9693. Placed 11 red TCPP_P_T rectangles (ids 9705-9715) fitted to each left-below-table callout TextNode Range + 0.5 pad in 60785527_fea_tsp.dgn / 
+yu_drawing_model. Script: scripts/_rect_each_left_callout2.py.
+
+## 2026-09-29 � Cursor � AutoCAD ask + guided flare redraw
+
+Built reusable AutoCAD ask in `scripts/acad_ask.py`: textbox dialogs (`ask_choice` / `ask_text` / `ask_message`) plus `ask_points` via LISP getpoint in the drawing. One-shot ask that returns to the agent: `scripts/_acad_ask_once.py` ? `_acad_ask_last.json` (do not auto-chain without reading the answer). Pocket redraw: `scripts/_acad_redraw_one_pocket.py` (P1/P2/P3 solids on PROP-D-ROAD-RAMPS). Gotcha: overlapping delete radii wiped neighbor flares (E-north lost when E-south cleaned) � keep per-pocket radius tight (~7�8). Degenerate AddSolid when OSNAP doubles a corner � reject near-zero area; allow empty-space third point with OSMODE 0.
+
+## 2026-09-29 � Cursor � acad_ask always has a textbox
+
+Standing rule for `scripts/acad_ask.py`: every prompt (`ask_message`, `ask_text`, `ask_choice`, gate before `ask_points`) must show a typeable textbox. Suggestion buttons only fill the box. Removed mid-pick AutoCAD `(alert)` dialogs during `ask_points` because those had no text field � Esc cancels a pick instead.
+
+## 2026-09-29 � Cursor � flare pick rules + curb reclass by flares
+
+Engineer-drawn PROP-D triangles (P1/P2/P3 pocket, often on tan PRO-S) documented in `scripts/_acad_flare_rules_from_picks.py`. Reclass INNER steel curb by flare geometry: `scripts/_acad_reclassify_by_flares.py` � Corner under flares (~0.75 ft), Depressed flare-to-flare angle wedge, Straight elsewhere; never touch outer FLs. Loc01 after pass: Straight ~267 ft, Depressed ~67 ft, Corner ~30 ft (was Straight 21 / Corner 245). N and SW islands still have 0 yellow flares � Corner/Depressed there need flares or a follow-up ask.
+
+## 2026-09-29 � Cursor � Loc01 inner curb restore rules
+
+Engineer closed DWG without save and reopened to restore original inner curb (offset rebuild was wrong). Standing rules going forward: never big-move or delete/recreate the inner line for layer work; only change layer; only minor nudge if a segment cuts through a flare. Yellow PROP-D flares must be redrawn after the `full estimate` (meaning TBD � asked). Clean reopen state: 0 flares, 0 steel-faced curb segs.
+
+## 2026-09-29 � Cursor � Loc01 curb classify rules are FIXED (always)
+
+Standing engineer authority for Loc01 steel-faced curb (do not reinvent):
+1. **Depressed** = flare-to-flare per PROP-D ped ramp (includes flares); **insert split vertices** at those stations so layer changes land on flare edges.
+2. **Corner** = outside depressed, neighborhood curved (path/chord + heading turn over ~5 ft window of small segs).
+3. **Straight** = outside depressed, essentially colinear.
+4. **INNER only** � never touch OUTER FLs `13D80A/13D25C/13D7DC/13CEC7/13D2EA/13D7BC`.
+5. **Never Delete** inner sources after classify � **hide** (`Visible=False`) so colored ByLayer segs show. Closest approved LF pass was v4 (~70.8/56.2/126.8 on outers); INNER rematch is `scripts/_acad_reclassify_loc01_v7_keep.py` (2026-09-29): Depressed U24 11.07 � U28 8.85 � U25 12.76 � U27 11.62 � U29 11.75; totals ~76/56/149 ft with Mid/E Corner/Straight included. Wrong angular-wedge / delete-source scripts must not be used again.
+
+## 2026-09-30 � Cursor � Loc01 others reclassed with NW process (no flares)
+
+Engineer: NW on `13D986` is the correct process; fix other islands with **layers only**, do **not** draw flares. Ran `scripts/_acad_reclassify_others_nw_process.py` on recovered DWG: kept NW steel (r<=32), cleared 688 non-NW steel segs, reclassified N/SW/E/MidN/MidS with same `depressed_span` + `insert_stations` + `window_is_curved` as v7. Depressed from existing PROP blocks only: U25 12.76 � U27 11.62 � U29 11.75. MidN/MidS/E had **no** PROP flare solids to measure � Corner/Straight only. Sources hidden not deleted; outers untouched.
+
+## 2026-09-30 � Cursor � FL classify must use NW vertex density (~2 ft), not 0.3 ft
+
+Root cause of `all Corner` on N/SW/E/Mid: `sample_fl_vlax(step=0.30)` densified feature lines to ~150 pts so `window_is_curved` (same thresholds as NW) fired almost everywhere. NW `13D986` is a sparse 3dpoly (~2 ft mean seg). Fixed `_acad_reclassify_others_nw_process.py` to sample at **step=2.0**; re-ran (NW kept). Non-NW now ~62 ft Straight / 36 Depressed / 123 Corner (vs prior dense runoff of hundreds of Corner segs).
+
+## 2026-09-30 � Cursor � Engineering loop + Loc01 curb skill/verify gate
+
+Implemented Boris-style discipline for this repo (not a giant agent framework):
+1. `.cursor/rules/agent-engineering-loop.mdc` (alwaysApply) � plan ? verify ? re-plan on failure ? mistakes become durable rules.
+2. `.cursor/skills/loc01-curb-classify/SKILL.md` (+ `.claude/skills/�`) � frozen Straight/Depressed/Corner rules; NW authority; forbid 0.3 ft densify; outers/hide rules.
+3. `.cursor/skills/fresh-context-review/SKILL.md` � independent requirements review.
+4. `scripts/_acad_verify_loc01_curb.py` � done gate (outers + per-island LF); wired into `_acad_reclassify_others_nw_process.py` and `_acad_reclassify_loc01_v7_keep.py` (exit nonzero on fail).
+5. `CLAUDE.md` � engineering loop + Loc01 section. Live verify on recovered DWG: PASS (NW S/D/C present; N/SW Depressed OK).
+
+## 2026-09-30 � Cursor � Live curb LF ? 4.09 AD/BD/CD by Corner ID
+
+Estimate updates go **only** to `4.09 AD` (Straight) / `4.09 BD` (Depressed) / `4.09 CD` (Corner) Length col D, matched by Corner ID col C. `HW-200` / `C.E. (Main)` are never written (VLOOKUP/refs). Corner IDs from `Screenshots/extracted/*SGD.pdf` ? `Data/hwp24qc1-corner-ids-from-pdfs.json`. Loc01 CAD islands ? Corner ID map in `Data/loc01-island-to-corner.json` (from Loc01-02/50-52 PDF labels; MidS shares Loc 52 with SW � confirm). Poller: `scripts/_acad_live_curb_qty.py` (`--watch` / `--dry-run`); dashboard CSV `outputs/loc01-curb-live-qty.csv`.
+
+## 2026-09-30 � Cursor � Live qty is Working-estimate + all Corner IDs
+
+Reworked `_acad_live_curb_qty.py`: always targets `2026.09.28_HWP24QC1 - Pre-Final Cost Estimate_Working.xlsx` in place (never delete). Writes only `4.09 AD/BD/CD` Length by Corner ID. Not Loc01-only � uses `Data/corner-cad-regions.json` (add center/radius per Corner ID as more sites are classified) + full 98 Corner IDs from Working `4.09 AD`. Optional XData `HWP24QC1/CORNER_ID` overrides spatial assign.
+
+## 2026-09-30 � Cursor � Loc 05�08 SGD inventory (batch path for 42 sheets)
+
+Screenshots now hold ~43 Civil Location DWGs (Loc 05�98). COM inventory of `HWP24QC1_Location_05-08_SGD.dwg` (see also [Inspect Loc05-08 curb FLs](e0970dec-fd75-4f58-8fb5-1955e14f4879)): 23� `AeccDbFeatureLine` on `C-TOPO-FEAT` only (no Loc01-style inner 3dpoly); steel Straight/Depressed/Corner layers absent; 4 PROP-D-ROAD-RAMPS blocks (*U24/*U25/*U26/*U28) with in-block flares for Depressed measure; Civil Object Enabler OK (native Aecc, zero proxies). Loc01 handle lists do not transfer � pair FLs by center/diag, RDP 0.1 on FLs, hide not delete. Helper: `scripts/_acad_inv_loc05_08_dwg.py`. Skill `loc01-curb-classify` updated with Loc 05�98 batch notes. Full ModelSpace COM scan ~2+ min/sheet.
+
+## 2026-09-30 � Cursor � Loc09 classified OUTER; batch hide/layer mistakes
+
+Engineer: Loc09 steel was on the **outer** FL (1544B diag 34.3), not INNER; only one island classified though sheet has many PROP-D ramps; do not hide color-coded ramps/FLs; inners may not be only on `C-TOPO-FEAT`. Root cause: `pick_inner_fl` fallback used **largest** FL when pair centers were >4 ft apart; `HIDE_SOURCES` hid the FL; multi-island/no-inner when FLs on other layers. Fixed batch: INNER = closer to ramp cluster (pair tol 10 ft), never largest fallback; scan `C-TOPO-FEAT`+`PRO-S-CURB-LINE`+`PROP-S-CURB-LINE`; `HIDE_SOURCES=False`; unhide pass; `--force` redo. Skill updated. Must engineering-loop verify every sheet before next.
+
+## 2026-09-30 — Cursor — Loc10 Straight-in-Depressed: missed PRO-S flare ramps
+
+Engineer caught Straight steel in depressed curb on Loc10. Root cause: batch scanner only measured `PROP-D-ROAD-RAMPS`; Loc10 ped ramps with yellow flares are anonymous blocks `*U255`–`*U260` on `PRO-S-CURB-LINE` (2 solids + hatch each). With ramps=0 the classifier fell through to Corner/Straight only (Depressed=0). Fix in `scripts/_acad_batch_classify_locations.py`: scan `PRO-S-CURB-LINE` / `PROP-S-CURB-LINE` / `S-CURB-DROP` for inserts with ≥2 solids; hard VERIFY FAIL if ramps exist and Depressed≈0. Also harden `ramp_flare_data` (hatch Area early-bind) and late-bind Color on AddLine. Loc10 force reclass: VERIFY PASS Depressed=40.6 across 6 ramps (Straight 146.8 / Corner 34.5). Skill `loc01-curb-classify` updated. Batch still paused pending engineer eyeball of Loc10.
+
+## 2026-09-30 — Cursor — Batch loop: no-save on Depressed=0 verify fail
+
+Engineer accepted Loc10 as close enough and required the Depressed/ramp check remembered going forward. Batch loop now: (1) scan PRO-S / S-CURB-DROP flare blocks not only PROP-D; (2) VERIFY FAIL if ramps exist and Depressed≈0; (3) **do not Save** on verify fail — clear bad steel instead. Encoded in `_acad_batch_classify_locations.py`, `loc01-curb-classify` skill, and `CLAUDE.md` Loc01 section. Resuming remaining failed sheets after Loc10.
+
+## 2026-09-30 — Cursor — Failure Recovery Loop: gate fail interrupts batch
+
+Engineer rated process ~9 but agent behavior ~6: batch continued after Loc11+ INNER fails, producing fake progress. Encoded highest-priority rule: failed hard gate is an interruption, not an observation — STOP / diagnose / hypothesis / fix / re-verify failed case before NEXT. Repeated identical fails = one systemic investigation. Durable: skill top section, `.cursor/rules/curb-classify-failure-recovery.mdc` (alwaysApply), `agent-engineering-loop.mdc`, `CLAUDE.md`. Batch script now **exits on first verify_fail/error**, leaves DWG open, writes `outputs/curb-batch-paused.txt` = blocked (`--continue-on-fail` only if explicitly forced).
+
+## 2026-09-30 — Cursor — Universal Engineering Failure Protocol (domain-independent)
+
+Engineer clarified failure recovery must not be curb/FL-specific — it is the agent control layer for every task. Added `.cursor/rules/engineering-failure-protocol.mdc` (alwaysApply): PASS / FAIL / UNCERTAIN (UNCERTAIN=FAIL), states BLOCKED/ESCALATED, stop-diagnose-hypothesis-fix-fix-reverify, systemic repeated fails, silent wrong outputs. Rewrote `agent-engineering-loop.mdc` as two-layer (control vs domain how-to). Removed curb-only `curb-classify-failure-recovery.mdc`. Loc01 skill now points up to the protocol and only lists curb hard gates as instances. Batch exit-on-first-fail remains an enforcement instance, not the protocol itself.
+
+## 2026-09-30 — Cursor — Prove-the-fix + investigation types in failure protocol
+
+Engineer: correction is not PASS just because the original error disappears — must prove original requirement and no new failure. Elevated three investigation types (local / systemic / plan→re-plan) into `engineering-failure-protocol.mdc`. First line of protocol is now never confuse batch/checklist progress with engineering progress. Synced `agent-engineering-loop.mdc` and `CLAUDE.md`.
+
+## 2026-09-30 � Cursor � Evidence proportionality in Failure Protocol
+Encoded sample-first investigation (not exhaustive-by-default) into `.cursor/rules/engineering-failure-protocol.mdc` (control-loop diagram + Evidence proportionality / Anti-exhaustive / forbidden overclaim) and a short pointer in `agent-engineering-loop.mdc` + `CLAUDE.md`. Value-of-information gate: before the next instance, name what could change the conclusion or stop. Does not weaken FAIL/UNCERTAIN ? BLOCKED.
+
+## 2026-09-30 � Cursor � Engineering harness entrypoint
+Added `scripts/engineering_harness.py` (status/verify/restore-steel/classify) with sample-first evidence, `outputs/engineering-harness-manifest.json` states (PASSED|BLOCKED|ESCALATED), `_acad_verify_location_sheet.py` done-gate (Screenshots xref, no d017/pwworking, steel LF, Depressed if ramps), `_acad_restore_sgd_steel.py` from backup/classified + reattach Location xref. Batch prefers SGD hosts. Skill + CLAUDE + agent-engineering-loop point at harness. Smoke: verify sample correctly BLOCKED on zero steel.
+
+## 2026-10-01 — Claude Code — Curb batch: site-zone filter, flare-read bug, Corner ID by label
+
+Systemic root cause of Loc09/11+/20–24 INNER fails: SGD hosts carry a copied template PROP-D ramp kit + PRO-S `E52F`/`FC58` (same handles every sheet), often off-site; batch picked them as islands/INNER. New `scripts/_acad_site_zone.py` keeps ramps/FLs only where the survey xref is dense (≥100 ents / ~150 ft); wired into `_acad_batch_classify_locations.py` and `_acad_verify_location_sheet.py`. Found `ramp_flare_data` early-bound `Coordinate` bug → 0 flares → Depressed from DWS only (≈2–3 ft short/ramp); fixed (late bind) in `_acad_reclassify_loc01_v7_keep.py`. Corner IDs now from nearest plan-xref `CORNER ID` MLeader arrow (sort order mis-assigned 3/5 on Loc03-04; regions JSON corrected). Corner master list = Working `4.09 AD`. Batch: never closes modified docs; pre-save copies DWG+.bak to `Screenshots/_presave_backup_YYYYMMDD/`; `--keep-open`; `--all` = SGD only; 0 islands = FAIL. Results: Loc20 PASS (1 corner, S6.3/D17.7/C4.3, visual verified); Loc03-04 PASS (5 islands, S124.7/D70.3/C26.8). Loc10 SGD = Loc03-04 content → ESCALATED. Loc05-08 left untouched (open in AutoCAD with unsaved changes not made by agent). Remaining 41 sheets: batch run pending engineer approval (auto-mode blocked the bulk save run).
+
+## 2026-10-01 — Claude Code — Full Loc curb batch run (40 PASS / 4 ESCALATED)
+
+Ran `_acad_batch_classify_locations.py` across all Screenshots SGD sheets with stop-on-fail; fixed each stop before resuming. New batch rules (all in code + skill): flare-contact INNER check; tan PRO-S outline chain incl. AcDbLine/AcDbArc pieces (engineer: "inner tan pro-s-curb outline"); flare base = shortest triangle edge; template kit filter on E52F or FC58 (150 ft); plan-label island scope (60 ft); merge islands sharing a curb; 1-island/1-ID Corner fallback; COM retry on ensure_layers + flare reads. PASS+saved: 03-04, 09, 11-12, 13, 14, 15-18, 19, 20, 21, 22, 23-24, 25, 26, 27-29, 30, 31-32, 34, 35, 36, 37-38, 39, 40-41, 42-43, 44, 45-47, 48, 49, 56-57, 58-60, 68-73, 74-79, 80, 81-85, 86-87, 88, 89-96, 90-91, 92-93, 94, 95. ESCALATED: 10 (wrong content), 33 (nested paths), 61 (no ramps at corner), 62-67 (island2 no curb). 05-08 untouched (open with someone's unsaved edits). Open question: outline mode colors whole tan box incl. back edges — confirm. Pre-save copies in `Screenshots/_presave_backup_20261001/`.
+
+## 2026-10-09 � Cursor � 727 Cross Bronx profile cuts (ORD automation blocked)
+
+Live ORD 2023 file `X727.21_fea_rwy_alt_R01.dgn` has map_alg + photo/DTM refs; Test VBA loaded. Corridor stationing from prior offset run: ~27,938 ft path, labels 19+50�299+75, gap 249+00�296+34 at Havemeyer. Wrote cut schedule `outputs/727-profile-cuts/PROFILE_CUT_SCHEDULE.md` + `cuts.tsv` (24� ~1000 ft EG profile cuts). Cannot headlessly run Quick Profile From Surface / Open Profile Model / Place Named Boundary Civil Profile � those are interactive civil tools; registry marks PLACE NAMED BOUNDARY / PLACE CIVIL GEOMETRY unsafe-blocked. Do not retry via WZTC bridge keyins.
+
+## 2026-10-09 � Cursor � 727 AC/tick 1000-ft profile cut guides placed live
+
+Engineer asked to drive profiles from map_alg orange **AC** + **AC_C** ticks (not manual datapoints). Attachment Scan returns host master units for both (do not apply GetReferenceToMasterTransform �10 on text � that was a false 9M-ft snap). Script `scripts/create_727_profile_cuts_from_ticks.py` chained AC along ticks and placed 24 cut polylines+labels on level `WZTC_EG_PROFILE_CUTS` in `X727.21_fea_rwy_alt_R01.dgn` (W01�W23 + E01). CSV `outputs/727-profile-cuts/cut_anchors_from_ticks.csv`. ORD Quick Profile From Surface still has no headless keyin � guides are locate targets for ribbon/Named Boundary.
+
+## 2026-10-09 � Cursor � ORD profiles live in Explorer, not plan graphics
+
+Engineer correction: Create Profile From Surface results belong under OpenRoads Explorer Alignments ? Profiles (or a Profile Model), not as plan linework in Default. Prior `WZTC_EG_PROFILE_CUTS` placement (1076 els) are locate/cut guides only � not ruled EG profiles. Host `X727.21_fea_rwy_alt_R01.dgn` still has only the Default model; map_alg AC is graphics-level linework unless promoted to civil geometry + terrain is a Terrain Model.
+
+## 2026-10-14 — Cursor — Create Drawing 'Invalid name' on X727 Named Boundaries
+
+Live file `X727.11_fea_rwy_alt_b_usc.dgn` (Default only). Named Boundaries plan group `727.21.101 1960's CL` (Plan 1–20). Create Drawing opens with View/Model names `727.21.101 1960's CL - Plan 1` (apostrophe from group), and **One Sheet Per Dgn** checked with path **(Undefined)** — OK stays disabled / Message Center reports Invalid name specified. Profile create buttons disabled until a profile named-boundary group is selected. Create Drawing fields are custom Bentley controls (not Win32/UIA-editable); headless click automation could not reliably toggle the checkbox or rewrite names — engineer must uncheck One Sheet Per Dgn (or set a real path) and remove the apostrophe from View/Model names (or rename the NB group to `1960s`). Do not keep retrying UIAutomation SetValue on those fields.
+
+## 2026-10-14 � Cursor � Alt B Profile 1 Create Drawing succeeded
+
+Live `X727.11_fea_rwy_alt_b_usc.dgn`. Created models `727.21.101 1960s CL - Profile 1` + `[Sheet]` (safe names, no apostrophe).
+
+Root causes / working path:
+1. Create Profile Drawing needs an open Profile Model view (`View 1, Profile - 727.21.101 1960's CL`). Error otherwise: "No view found for profile boundaries."
+2. `MODEL ACTIVE "Default"` **closes** the profile view � do not switch active model after Open Profile Model if only one view is showing the profile. Create while Profile Model (`\x01`) is active; NB Profile children are still reachable via keyboard expand (Right arrow on Profile Groups / group).
+3. Open Profile Model identify: host `AC` graphics often fail; successful datapoint was map_alg `_CIVIL_CONSTRUCTION` (and earlier one host AC type 4). Fit View **before** arming OPM; do not Fit after arm (cancels command). Scripts: `_tmp_727_fit_then_open_profile.py`, `_tmp_727_finish_profile_cd.py`, `_tmp_727_locate_civil_ha.py`.
+4. Create Drawing OK disabled until **One Sheet Per Dgn** unchecked and View/Drawing/Sheet names use `1960s` not `1960's`. Civil NB group rename still fails; edit Create Drawing names instead.
+
+## 2026-10-21 � Cursor � Morris/Clay overpasses on Profile 1 Drawing
+
+Placed NBI Item54 underclearance marks on `727.21.101 1960s CL1 - Profile 1` (Drawing) in `X727.11_fea_rwy_alt_a.dgn`. Calibration from annotation cells: X=4650+(sta-6600), Y=5*elev+79.95. Stations from NBI lat/lon?EPSG:2263 projected onto `cut_anchors_from_ticks.csv`. Clay STA 71+72 CLR 14.17' on-sheet (ids 3969�3973, 3980�3981). Morris STA 59+08 CLR 14.67' west of sheet start 66+00 (ids 3962�3966, 3982�3983). Roadway elev = USGS EPQS ground proxy; soffit = road + Item54. TextStyle.Height needs ~0.003 (not 2.5) � Drawing text scales ~1000x. Details: `outputs/727-profile-cuts/morris_clay_draw_result.json`.
+
+## 2026-10-21 � Cursor � Four overpasses Morris/Weeks/Monroe/Clay
+
+Engineer corrected: the crest-area set is Morris, Weeks, Monroe, Clay (not Morris-Clay only). NBI BINs 1066290/1066300/1066310/1066320; Item54 clearances 14.67/15.49/18.50/14.17 ft. Stations from NBI lat/lon?EPSG:2263?cut_anchors: 59+08 / 64+12 / 66+63 / 71+72. Profile 1 annotations are 66+00�80+00 so only Monroe+Clay sit on the labeled sheet; Weeks is just left of 66+00; Morris further west. All four drawn on Drawing model (same Clay-style soffit/CLR marks). `scripts/_tmp_727_draw_four_overpasses.py`, `outputs/727-profile-cuts/four_overpasses_*.json`.
+
+## 2026-10-23 — Claude Code — QA/QC + standards retrieval plan (proposed)
+
+Wrote `dev-notes/qaqc-standards-plan.md`: general QA/QC for all MicroStation/engineering tasks. Core: task card → standards registry + jurisdiction rules → criteria matrix → independent deterministic checks → `qa_gate.py` PASS/FAIL/UNCERTAIN record → Stop-hook / chat_driver / batch enforcement. Grounded in 2026-10-01 incidents (verify gate counted lines not feet; 0-flare silent bug; Loc10 wrong-file PASS; template kit; sort-order Corner IDs). Sources mapped: config ZIP (levels, superelevation XML, sight distance XML, pay item lookup), DDC GR Apr 2024 §2.4/§3, HDM Ch 20 §20.5.4 CAD QC list, HDM Ch 8 rev 104. Not built yet — Phase 0 = gate skeleton + Stop hook + fixtures. Awaiting engineer decisions (§9).
+
+## 2026-10-23 — Claude Code — QA gate + standards library BUILT (engineer approved plan)
+
+Engineer approved `dev-notes/qaqc-standards-plan.md` (no risk tiers; PDFs live in Standards/). Built:
+- `scripts/standards_fetch.py` → 479 official files (343 PDFs, 1.4 GB): all HDM chapters + appendices, May-2026 NYSDOT e-standards (specs vols 1–4, std sheet books 1–4), Sept-2026 tracked specs, PDM/CPDM/3R/survey/ROW/utility, DDC spec bulletins + current NYC DOT/DEP standards, NYC Stormwater Manual. Registry `Standards/registry.json`; binaries gitignored.
+- `mcp-server/standards_index.py`: outline/heading section tree with exact heading boundaries, tables, sheet pages, OCR fallback (rapidocr) for scanned PDFs (DEP Sewer Design Standards), BM25+synonyms (`Standards/synonyms.tsv`), bge-small vectors, bge-reranker, cross-ref links. Tools: search_standards / get_standard_section / read_standard_pages / standards_toc / follow_standard_ref / list_standards (MCP + chat agent). Eval: `scripts/standards_eval.py`.
+- `scripts/qa_gate.py` + `qa/criteria.yaml` (requirements-as-code, HDM Ch20 §20.5.4/§20.7/§20.9 CAD rules) + `qa/failure_modes.yaml` (FMEA from real incidents) + `qa/checks/*` + `engcalc/hydraulics.py`. Visual: geometry render from DGN data + independent Claude vision review + agent review record. Stop hooks block turn end while an open task ≠ PASS. Chat agent: `qa_check_drafting`; run_turn sends agent back (×2) if touched elements lack a QA PASS.
+- New VBA ops GET_ELEMENT_CAD_PROPS / GET_MAX_ELEMENT_ID / LIST_LEVEL_DEFS (WZTCQuery/WZTCBridge) — NOT hot-reloaded/live-tested (MicroStation closed). First live session: hot_reload, run one cad.drafting task end to end.
+- `pytest tests/qa` 25/25 (known-bad fixtures incl. Loc10 wrong-file, 0.01-ft Length, duplicates).
+
+## 2026-10-23 — Cursor — Key-in Browser col1 dump + registry diff
+
+Live ORD Key-in Browser is owner-drawn (`MStnChild_Thin`, no UIA children). Open with **Ctrl+D → Key-in** (F9 remapped by AECOM Barmenu). Script `scripts/dump_keyin_browser.py` BitBlt-scrolls column-1 (Tables=All), Tesseract-OCRs mid-width crops, writes `outputs/keyin-browser-dump/keyin_browser_col1.tsv` + `keyin_registry_diff.txt`. Latest run: **368** col1 keywords, registry **2252** rows / **2162** KEYIN|COMMAND strings / **286** first-tokens; **93** first-token overlaps. Not a full leaf-path dump (col2/col3 DFS still open).
+
+
+## 2026-10-23 — Claude Code — QA/standards live verification + retrieval eval
+
+- VBA ops GET_ELEMENT_CAD_PROPS / GET_MAX_ELEMENT_ID / LIST_LEVEL_DEFS hot-reloaded (IDE matched disk case-insensitively first) and verified live. `Level.IsFromLibrary` not exposed (blank) → level check uses `Standards/derived/nysdot-levels.tsv` (3,045 levels snapshot). Level.ElementColor/ElementLineWeight/ElementLineStyle work; ByLevel reads as -1.
+- Live read-only gate run on X727.11 (engineer file, no edits) exercised read-back, 3D auto-detect, render, vision review. Calibrated: ByLevel resolves to level symbology; `_CIVIL*` helper geometry ignored. Fixed CLI bridge init + .env key load.
+- Index: 343 docs / 16,868 pages / 38,019 chunks / 781 tables; OCR (rapidocr) on ~1,650 scanned pages (DEP Sewer Design Stds, HDM 11A/25a, RMM, CPDM). Split-heading fix (number line + title line). Retrieval eval recall@5 0.75 (BM25) → 0.94 (hybrid+rerank) → 1.00 with jurisdiction filter; MRR 0.93.
+- Known gaps: vector-graphic pages (HDM Ch15, ped-facility/ADA guides) have little extractable text; live draw→fail→fix→PASS loop not run (active DGN was a real project file — needs a scratch DGN).
+
+## 2026-10-23 — Claude Code — Vertical clearance arrows on CL1 Profile 1 (STA 66–80)
+Engineer markup `Markups/X727.11_fea_rwy_profile_virginiapark (1).pdf` (Rosedale example = vertical double arrow + rotated "MIN. VC" text). Applied to the four bridges on the open Drawing `727.21.101 1960s CL1 - Profile 1` in `X727.11_fea_rwy_alt_a.dgn` (the markup sheets 181–209 are a different file; only the style was reused). Rule from engineer: min VC = red (color 3) soffit line Y minus nested EG profile Y, measured at both ends of the soffit line; arrow at the smaller side. Y scale 5 units/ft. Result (`scripts/_tmp_727_vc_arrows.py`, `outputs/727-profile-cuts/vc_arrows_result.json`): Morris 13.36' (right end), Weeks 14.26' (right), Monroe 17.69' (right), Clay 12.53' (left). Elements: Default level, color 0 / weight 0 (gate table: only true Dimension-type elements are color 2), ids 4281–4300. Older NBI labels (`MORRIS AV CLR 14.67'` etc.) still on the sheet and now disagree with the measured values. Text read-back lacks text content/height (gate can't verify them). QA gate: deterministic checks PASS; escalated on VIS-01 (vision API SSL error + review-before-render ordering bug in `qa_gate run`).
+
+## 2026-10-23 — Claude Code — QA gate now measures text (FM-012) + SSL/review-order fixes
+Cause of the RW-label miss (0.003x0.010 beside 0.007x0.007 notes, in clutter): GET_ELEMENT_CAD_PROPS returned blank `textHeight` (it read `TextStyle` off a plain Element; needs `AsTextElement`), no width/font/rotation/content, so CAD-TXT-01 was NA and the render drew text as a box. Fixes: (1) `WZTCQuery.GetElementCadProps` now returns textWidth/textFont/textRotDeg/text (rotation sign: MicroStation RowX.Y is transposed, negate) and `ids="TEXT"` returns every text element (sheet style reference) — hot-reloaded + verified live. (2) New checks `cad_rules.text_style` (CAD-TXT-02: new text must match a height/width/font already on the sheet, else FAIL; unreadable or no reference = UNCERTAIN) and `text_overlap` (CAD-TXT-03). (3) Render draws the real string at real size/rotation, existing sheet text in gray; vision prompt tells reviewer to compare. (4) `qa/checks/visual.py` uses truststore (corp TLS) so the vision reviewer runs; agent review now matches by render SHA (run always re-renders, so timestamp could never be newer). FM-012 + 6 known-bad fixtures in tests/qa (35 pass). Still not covered: text vs profile/linework overlap (needs vertex geometry of referenced elements) — the render + vision reviewer are the only check for that. Rule for any tool: copy text style from the nearest existing note of the same kind; never shrink text to fit clutter, move it.
+
+## 2026-10-23 � Cursor � Profile 1 RW TOW = EG_road + left/right height
+Engineer rule: inventory `h_left`/`h_right` are heights above existing roadway elev at the wall's low-sta / high-sta ends (e.g. road 50 + 22 ? TOW 72). N/S is side of road, not an elev offset. `scripts/_tmp_727_rw_tow_from_eg.py` samples EG profile Y on Drawing `727.21.101 1960s CL1 - Profile 1`, then `TOW = y_to_elev(EG) + h`. Six walls 1095046�1095051; JSON `outputs/727-profile-cuts/retaining_walls_profile1.json`. QA `20261023-101103-correct-retaining-wall-profile-lines-lef` closed PASS. Vision often misreads overlapping N/S walls as broken left/right pairs � dispute those; CAD-TXT-03 AABB is the text-overlap authority.
+
+## 2026-10-23 � Cursor � Standards backcheck + CAD-TXT-04 text-vs-line
+Engineer: text-on-line should have been caught by reading NYSDOT CADD standards before placing, not after. HDM Ch 20 p9(i) already requires placing text off linear features (leader if needed); p9(h) is text-vs-text only. Process fix: `qa-gate.mdc` / `CLAUDE.md` / qa-gate skill now require standards backcheck for every element class before place. Gate: new `CAD-TXT-04` (`cad_rules.text_line_clearance`) uses segment paths from `get_element_vertices`, not line range AABB; FM-013 + tests. Placement script `_tmp_727_rw_tow_from_eg.py` nudges labels using real text Range vs all RW segments.
+
+## 2026-10-23 — Claude Code — QA completeness gate (change set + applicability registry + dispositions)
+Built the three completeness pieces (engineer approved "do all three"). (1) **Change set**: `qa_gate start` snapshots every element in the active model (`qa/changeset.py`, `snapshot.json` in the task dir); `run` diffs it, so created + MODIFIED existing elements go through every check and **CAD-CHG-01** FAILs on any modified/deleted existing element the task didn't declare (`start --may-modify` declares it; chat agent: ids it explicitly touched are allowed, collateral changes fail). Chat driver takes the snapshot at the start of each turn (`qa_tools.take_snapshot`, passed to `run_inline(snapshot=)`); chat_driver.py not running at the time, so no restart needed — next launch picks it up. (2) **Applicability registry** `qa/applicability.yaml`: requirements per element KIND (TEXT, CELL, DIMENSION, TWZ* level, Profile model, deleted, all) derived from the measured change set, not the agent's description; each has doc/section/page (verified against the standards index) and a check id or `manual`. **COV-01** (non-blocking) lists each as verified / unverified / engineer-review / FAILED and says PASS ≠ full NYSDOT/DDC compliance. (3) **STD-DISP-01**: the start-of-task standards search candidates are stored on the task; each must be marked `qa_gate dispose --cite "..." --applies yes|no --reason "..."` or the run is UNCERTAIN; "applies" candidates with no registry check show up as gaps. FM-013/FM-014 + `tests/qa/test_qa_completeness.py` (53 tests pass). Live-tested with scratch lines (modify + delete detected; scratch removed). Known limits: registry only covers 7 element kinds, most NYSDOT requirements are `manual`; a requirement missing from the registry still reads complete — add rows when an engineer correction reveals one. Search candidates from a vague desc can be irrelevant (still must be dispositioned).
+
+## 2026-10-23 — Claude Code — Operation contracts (OP-01) + geometric relations (REQ-GEOM-01)
+Closes the "gate checks hygiene, not whether the edit is right" gap. `mcp-server/op_recorder.py` is hooked into `Bridge.call_batch` (bridge_client.py): every edit op through the bridge appends a record to `outputs/qa/oplog.jsonl` with its exact params and the operand's vertices/props BEFORE and operand + new elements AFTER (read back from MicroStation by the recorder, not reported by the agent). `qa/operations.py` re-measures each: MOVE, COPY, COPY_PARALLEL (distance, side, parallel, extent), ROTATE (CCW +, calibrated live), SCALE, MIRROR, ARRAY (copies 1..N), EXTEND (EXTEND_LINE recreates the line under a new id), BREAK_LINE, CHANGE_LEVEL/SYMBOLOGY, EDIT_TEXT (style+anchor must not change), DELETE, PLACE_POLYLINE/CIRCLE/ARC/BLOCK/TEXT_LABEL. `qa/checks/operations_check.py`: **OP-01** FAILs a wrong edit, goes UNCERTAIN when readback is missing, when numbers/compass/left-right words in the task description don't match any op parameter, or when changed elements have no recorded op and no expectation; composite builders (place_sign etc.) are WARN-listed (not verified here). **REQ-GEOM-01**: `qa_gate expect --rel offset|length|angle --a ID [--b ID] --value N [--tol T]` is measured from saved geometry (for edits made outside the bridge, e.g. direct COM scripts). Run output prints "CAD standards checks: X | Requested edit verified: Y" separately. Live-verified with 17 real ops (16 PASS by measurement, deliberate off-line BREAK_LINE FAILs: break point is placed at the clicked x,y, not projected — real tool weakness). Regression corpus: `tests/qa/fixtures/oplog_live_2026-10-23.jsonl` + mutation tests (0 false passes of 20+ mutations); 67 tests pass. NOTE: the running MCP server and chat driver must be restarted/reconnected to load the recorder (Claude Code: /mcp reconnect wztc-designer). Chat path: op-log offset taken at turn start with the snapshot. Not covered: fence ops, place_sign/place_cell/sheet builders, curved-alignment offsets (multi-vertex COPY_PARALLEL is UNCERTAIN), batches with several edits of the same element (before-geometry is read once per batch).
+
+## 2026-10-23 — Claude Code — Tutorials ingested; 15 live-tested playbooks wired into the agent and QA gate
+Ingested `Standards/Tutorials` (26 mp4 = 4.6 h, 4 decks, ORD manual PDF 584 p, workflow xlsx) with `scripts/tutorials_ingest.py`: faster-whisper large-v3 on the GPU + rapidocr on scene-change frames (silent videos sampled every 2-4 s; ~half the videos have no narration). Gotchas: av must be <17 for faster-whisper; torch is CPU-only so pip nvidia-cublas/cudnn wheels are added to the DLL path; ONE worker only (two or three large-v3 workers fill the 12 GB GPU and crawl); a `.Count` on one PowerShell process returns nothing (use @(...).Count); "ORD - Creating Proposed Terrains.pptx" has a damaged zip index (recovered from raw local headers, original untouched) and actually contains the ProjectWise/alignments/templates deck. `scripts/tutorial_digest.py` condenses transcripts; `mcp-server/tutorial_kb.py` = FTS5 index (947 chunks) with file+timestamp+keyframe; tools list_tutorial_playbooks / get_tutorial_playbook / search_tutorials / read_tutorial / list_tutorials / check_playbook (MCP server + chat driver; reconnect `/mcp` and restart the chat driver to load them).
+Playbooks (`Data/tutorial-playbooks/`): profile-sheet-annotation, profile-cutting-workflow, plan-sheets-named-boundaries, cross-section-sheets, offsets-tapers-geometry, new-file-setup-and-coordinates, hatching-and-patterns, line-styles, references-levels-models-measuring, alignments-horizontal-vertical, as-built-geometry-layout, corridors-and-templates, terrain-rasters-imagery-elevations, ord-modeling-workflow-overview (14; each cites file+time and is validated by `tests/qa/test_tutorial_playbooks.py`, which also requires every tutorial file to be covered). `scripts/playbook_runner.py --all --live`: preflight + every agent step executed on scratch elements and verified from read-back (101 PASS, 0 FAIL, 74 engineer-only MANUAL, 3 advisory WARN: active model was 3D); report `outputs/playbooks/report.md`. Live testing found and fixed real bugs: GET_ELEMENT_CAD_PROPS returned blank name/level for cell headers (now AsCellElement name + recursive child levels, gate judges cell content levels), nested-cell recursion, HasPattern() is a method, find_cell scans 30 libraries (playbooks name the library), workspace names differ from the recordings. New gate rules CAD-SCALE-01, CAD-MODEL-01, ORD-offset sign cross-check; registry `qa/applicability.yaml` requirements carry `playbook: topic#step`. Findings worth knowing: ORD offsets are negative LEFT, our copy_parallel is + LEFT; custom line-style Scale factor must equal the annotation scale (not readable via COM: engineer/vision review); 2D models force Z=0, so the snap-to-3D problem only exists in 3D models; 480_Vert places at 99.4 x 39.2 ft, 240_1 52.0 x 8.5, 120_1 25.8 x 4.3.

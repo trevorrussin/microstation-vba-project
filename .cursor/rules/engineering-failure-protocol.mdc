@@ -1,0 +1,263 @@
+---
+description: >-
+  Universal Engineering Failure Protocol — agent control loop independent of
+  task domain. Failed/uncertain verify interrupts the plan; diagnose before
+  continue. Always apply to every task in this repo.
+alwaysApply: true
+---
+
+# Universal Engineering Failure Protocol
+
+**Never confuse batch/checklist progress with engineering progress.**
+
+Progress means **verified engineering outcomes**, not actions performed
+(sheets opened, scripts run, “18/94 completed”). Untrusted throughput is
+still zero.
+
+This protocol applies to **every** task, sheet, drawing, script, classification,
+calculation, extraction, and output. It is **independent** of the specific
+engineering rules being applied (curb FLs, ramps, VBA, sheet builds, etc.).
+
+**Two layers (do not mix):**
+
+| Layer | Answers |
+|-------|---------|
+| **This protocol (agent control)** | What do I do when my current approach stops working? |
+| **Domain skills / specs** | How do I solve this particular engineering task? |
+
+---
+
+## Control loop
+
+```
+Understand → Investigate → Plan → Execute → VERIFYING
+     │
+     │   INVESTIGATE (evidence proportionality):
+     │     Define question → required confidence
+     │            ↓
+     │     Can a representative sample answer it?
+     │        YES ─────────────── NO
+     │         ↓                   ↓
+     │      Sample              Exhaustive / targeted
+     │         ↓
+     │      Consistent? ──NO──→ Expand sample / stratify
+     │         ↓ YES
+     │      Conclude (state sample-based if not exhaustive)
+     │
+                                              │
+                         ┌── PASS ────────────┤
+                         │                    │
+                    Continue / SAVE / NEXT    │
+                         │                    │
+                         └── FAIL or UNCERTAIN
+                                    ↓
+                              STOP workflow
+                                    ↓
+                              STATUS = BLOCKED
+                                    ↓
+                    Classify investigation type
+                    (local | systemic | plan)
+                                    ↓
+                         Root-cause hypothesis
+                                    ↓
+                         Test hypothesis (evidence first)
+                                    ↓
+                         Smallest justified correction
+                                    ↓
+                         PROVE THE FIX (see below)
+                                    ↓
+                         Re-verify failed case + regressions
+                                    │
+                         ┌── PASS ──┴── FAIL / UNCERTAIN ──┐
+                         ↓                                   ↓
+                    Continue                    Investigate again
+                         │                     (new hypothesis)
+                         │                                   ↓
+                         │              plan still wrong → RE-PLAN
+                         │                                   ↓
+                         │                          ESCALATED → ask engineer
+```
+
+If the **fundamental approach** is wrong: **STOP and re-plan**. Do not patch
+forward on a bad plan.
+
+---
+
+## Task states
+
+`NOT_STARTED` → `IN_PROGRESS` → `VERIFYING` →
+
+| State | Meaning | Allowed |
+|-------|---------|---------|
+| `PASSED` | Evidence supports the result **and** no new failure introduced | SAVE / NEXT / continue |
+| `BLOCKED` | FAIL or UNCERTAIN | Investigate only — **no** advance |
+| `ESCALATED` | Cannot safely resolve from evidence | Ask engineer — **no** silent skip |
+
+---
+
+## Three verify outcomes
+
+| Outcome | Definition | Next |
+|---------|------------|------|
+| **PASS** | Evidence supports the result; correction (if any) proved | Continue |
+| **FAIL** | Evidence contradicts the expected condition | Investigate |
+| **UNCERTAIN** | Cannot establish that the result is correct | **Same as FAIL** — investigate |
+
+**UNCERTAIN must not become “probably okay → continue.”**
+
+Silent failure counts: a technically valid script output that violates visual or
+engineering expectation is still **FAIL**, not PASS.
+
+---
+
+## Three investigation types
+
+Classify the failure **before** changing code or thresholds:
+
+### 1. Local failure
+
+Only this item looks unusual. Neighbors / known-good cases still look fine.
+
+→ Investigate **this** case. Compare to one known-good.
+
+### 2. Systemic failure
+
+Multiple items show the **same** failure mode.
+
+→ **One** common-cause investigation. Do **not** keep processing more items
+with the same broken method (Loc 11 → 12 → 13 is one problem, not three).
+
+### 3. Plan failure
+
+The fundamental approach or assumption is wrong (wrong layer family, wrong
+authority, wrong algorithm class, invented scheme).
+
+→ **STOP and re-plan.** Do not loosen thresholds or patch the bad plan to
+force a pass. State the new plan and how it will be verified before executing.
+
+---
+
+## Prove the fix (mandatory after any correction)
+
+A correction is **not** successful merely because the original error message
+disappears or a count now matches.
+
+After every fix, the agent must show:
+
+1. **Original requirement satisfied** — the condition that failed now holds
+   for the right engineering reason (not a coincidental number match).
+2. **No new failure introduced** — related gates still pass (boundaries,
+   duplicates, downstream steps, unrelated geometry/systems untouched).
+3. **Evidence cited** — what was checked (handles, counts, LF, visual/frame,
+   test, log line).
+
+Example: expected 4 islands, found 3 → after a detection change finds 4,
+that is **not** automatic PASS. Still verify: four real islands, correct
+boundaries, no duplicates, downstream classify still correct, no collateral
+damage. Only then `PASSED`.
+
+Fix-induced false passes are **FAIL** / **UNCERTAIN** → stay `BLOCKED`.
+
+---
+
+## On FAIL / UNCERTAIN
+
+1. **STOP** the current workflow immediately (batch, multi-sheet, multi-item).
+2. **State the discrepancy** — expected vs observed, where.
+3. **Classify** local / systemic / plan (above).
+4. **Inspect evidence** — intermediates, not only finals. Compare to a
+   **known-good** case when one exists; name the first meaningful difference.
+5. **Hypothesis** — one testable claim + what observable would confirm it.
+6. **Test** before changing the method. Keep a short failure memory of
+   rejected hypotheses (do not re-try them blindly).
+7. **Smallest justified correction** — never loosen thresholds or invent
+   alternate schemes merely to obtain a passing result.
+8. **Prove the fix** + re-verify the exact failed case and regressions.
+9. Still failing → investigate again (new hypothesis) or **re-plan** if type 3.
+   Cannot resolve safely → `ESCALATED`.
+
+---
+
+## Evidence proportionality (investigation)
+
+Do **not** inspect every available instance by default.
+
+Certainty is **not** the same as exhaustive coverage. Use the **smallest
+amount of evidence** that can reasonably support the conclusion.
+
+Do **not** confuse exhaustive verification with reasonable evidence gathering.
+Start with sampling when items are similar; escalate to exhaustive or larger
+checks **only when justified** — never “always inspect 5” and never “always
+inspect all.”
+
+**Value-of-information gate (mandatory before the next instance):**
+
+> Before inspecting another instance, identify what **new information** it
+> could provide that would **change the current conclusion**. If you cannot
+> name a plausible way it would change the conclusion, **do not inspect it.**
+
+Also ask: *Does examining additional instances have a reasonable chance of
+changing my conclusion?* If no → stop investigating and proceed.
+
+For repeated, independent, or structurally similar items:
+
+1. Inspect an initial sample. Prefer **representative** and/or **random**
+   picks, plus **edge cases**, **materially different** configs, and known
+   **high-risk** cases — **not** only the first N in a folder list.
+2. Look for the **specific condition** the question needs.
+3. If the sample is **clear and consistent**, conclude. When not exhaustive,
+   **state sample-based scope** (e.g. “Based on a sample of 5 representative
+   sheets, none had steel layers; not all sheets were opened because results
+   were consistent and no material variation was identified.”).
+4. Expand the sample only if:
+   - results are mixed,
+   - items differ materially,
+   - the sample is too small for the needed confidence,
+   - the cost of being wrong is high,
+   - an automated check can cheaply cover all, or
+   - the engineer explicitly requires exhaustive verification.
+
+### Anti-exhaustive-investigation
+
+The existence of more evidence does **not**, by itself, require inspecting it.
+Investigation is driven by whether more evidence could **materially change**
+the conclusion. Do not open every drawing/file merely because every one exists,
+or to make a conclusion “feel safer.”
+
+| Situation | Appropriate |
+|-----------|-------------|
+| Many nearly identical items | Sample |
+| Heterogeneous sources / designers | Larger or stratified sample |
+| Mixed sample results | Expand |
+| One named item / sheet | Inspect that item |
+| Safety-critical or engineer says “every” | Exhaustive (or cheap automated all) |
+| Cheap script can check all | Run the script — do not hand-open all |
+
+This does **not** weaken FAIL/UNCERTAIN → BLOCKED. Sampling answers *how much
+to inspect*; it does not allow treating uncertain results as PASS.
+
+---
+
+## Explicitly forbidden
+
+- Advancing the batch / next item while `BLOCKED`
+- Reporting FAIL then continuing as if progress occurred
+- Treating UNCERTAIN as PASS
+- Treating “error gone” / “count matches” as PASS without prove-the-fix
+- Repeating the same failed procedure across items without a new hypothesis
+- Patching a plan failure instead of re-planning
+- Chat-only “fix later” while execution continues
+- Exhaustive instance-by-instance inspection when a representative sample
+  already answers the question and further instances would not change it
+- Claiming “none/all of the set” when only a sample was checked (state
+  sample-based scope instead)
+
+---
+
+## Domain rules sit underneath
+
+Task-specific PASS criteria live in skills/specs (e.g. Loc01 curb classify).
+Those answer *what* must be true. **This file answers what to do when it isn’t.**
+
+Enforcement instance (not the protocol itself):
+`scripts/_acad_batch_classify_locations.py` exits on first `verify_fail`/`error`.

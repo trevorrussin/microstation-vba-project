@@ -1,0 +1,13 @@
+# Project symbology table (mirrors CLAUDE.md "Element Level / Color / Weight - Do Not Mix Up").
+# A rule overrides ByLevel for matching elements. First match wins.
+# match: level (regex, case-insensitive) and optional type (element type name from the bridge).
+rules:
+  - {level: "^TWZ", color: 6, weight: 2, note: "WZTC drawing elements (DrawElements.bas GetElementLevel)"}
+  - {level: "^Default$", type: "Dimension", color: 2, weight: 0, note: "Dimension elements"}
+  - {level: "^Default$", color: 0, weight: 0, note: "Alignment lines, perp tick lines"}
+# Levels accepted even if not reported as library levels.
+approved_levels: ["Default"]
+# Values the COM read-back may return for ByLevel symbology.
+bylevel_tokens: ["-1", "4294967295", "ByLevel", "BYLEVEL"]
+# Internal helper geometry not subject to drafting rules (OpenRoads civil construction elements).
+ignore_levels: ["^_CIVIL"]

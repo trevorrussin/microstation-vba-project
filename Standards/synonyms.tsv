@@ -1,0 +1,49 @@
+# Query expansion for standards search (standards_index.py). term<TAB>alt1|alt2|...
+# Lowercase keys. Add a row whenever a search misses because the standard uses a different word.
+cb	catch basin|inlet
+inlet	catch basin|drop inlet
+mh	manhole|drainage structure
+dws	detectable warning|detectable warning surface|truncated domes
+ped	pedestrian
+ramp	curb ramp|pedestrian ramp
+par	pedestrian access route
+ada	accessible|americans with disabilities act|prowag
+hgl	hydraulic grade line
+egl	energy grade line
+rcp	reinforced concrete pipe
+cmp	corrugated metal pipe
+hdpe	high density polyethylene pipe
+invert	invert elevation
+cover	pipe cover|minimum cover|depth of cover
+tc	time of concentration|top of curb
+idf	intensity duration frequency|rainfall intensity
+q	discharge|flow rate|peak flow
+manning	manning's n|roughness coefficient
+swppp	stormwater pollution prevention plan
+spdes	state pollutant discharge elimination system
+ms4	municipal separate storm sewer system
+gi	green infrastructure
+smp	stormwater management practice
+row	right of way|right-of-way
+wztc	work zone traffic control|temporary traffic control
+ttc	temporary traffic control|work zone traffic control
+mpt	maintenance and protection of traffic|work zone traffic control
+taper	merging taper|shifting taper|shoulder taper
+buffer	buffer space|longitudinal buffer
+channelizing	channelizing devices|drums|cones|barrels
+pv	protective vehicle|shadow vehicle
+tma	truck mounted attenuator
+ap	arrow panel|arrow board
+sight	sight distance|stopping sight distance
+ssd	stopping sight distance
+superelevation	cross slope|e max|emax
+cl	centerline
+eop	edge of pavement
+sw	sidewalk
+curb	curbing|curb and gutter
+steel	steel faced curb|steel-faced
+gr	guide rail|guiderail
+dgn	microstation design file
+level	microstation level|layer
+symbology	color|weight|line style|level
+cadd	cad|microstation

@@ -1,0 +1,98 @@
+# Failure-mode catalog (FMEA-lite). qa_gate.py prints the rows matching a task's type at
+# task START (so the agent plans against them) and every row names the check that detects it.
+# Add a row for every engineer correction or incident; link the detecting check.
+
+- id: FM-001
+  applies: [cad.classify.curb, cad.drafting, generic]
+  mode: "Silent COM failure - early-bound property (Length, Coordinate) raises, caught, value replaced by default."
+  effect: "Wrong quantities that still \"pass\" (0.01 ft per line; 0 flares -> Depressed short 2-3 ft)."
+  cause: "win32com early binding lacks members on IAcadEntity; broad except swallowed it."
+  detection: "CURB-GATE-01 (late-bound recompute), unit fixtures in tests/qa/"
+  mitigation: "Late-bind (win32com.client.dynamic.Dispatch); COM exception -> UNCERTAIN, never default."
+  incident: "2026-10-01 curb batch"
+- id: FM-002
+  applies: [cad.classify.curb]
+  mode: "Wrong drawing in the file (sheet saved with another sheet's content)."
+  effect: "Classified and quantified the wrong location; presence-only gate passed."
+  detection: "CURB-ID-01"
+  mitigation: "Identity check before any content check."
+  incident: "2026-10-01 Loc10_SGD = Loc03-04"
+- id: FM-003
+  applies: [cad.classify.curb, cad.drafting]
+  mode: "Template / seed geometry treated as real design (copied ramp kit E52F/FC58)."
+  effect: "Fake islands, wrong INNER, wrong quantities."
+  detection: "site-zone + template-kit + label-scope filters; REQ-TASK expected counts per sheet"
+  mitigation: "Scope inputs by authority (survey density, plan labels) before classifying."
+  incident: "2026-10-01 Loc09/20/21/26/61"
+- id: FM-004
+  applies: [cad.classify.curb, engineering.calc, generic]
+  mode: "Mapping by sort order / assumption instead of evidence (Corner IDs)."
+  effect: "Quantities written against the wrong estimate rows."
+  detection: "label proximity assignment; REQ-TASK"
+  incident: "2026-10-01 Loc03-04 (3/5 wrong)"
+- id: FM-005
+  applies: [cad.drafting, generic]
+  mode: "Screenshot accepted as proof while the drawing was wrong (GPU capture vs real screen)."
+  effect: "'Confirmed' claims contradicted by engineer."
+  detection: "VIS-01 uses a geometry render from element data + independent reviewer; CAD-* deterministic rows"
+  incident: "2026-08-10 619-311"
+- id: FM-006
+  applies: [cad.drafting]
+  mode: "Element drawn with active symbology instead of ByLevel / project table (wrong color or weight)."
+  effect: "Plan sheet does not match NYSDOT symbology; rejected submission (HDM §20.6)."
+  detection: "CAD-SYM-01, CAD-WT-01"
+- id: FM-007
+  applies: [cad.drafting]
+  mode: "Element placed at wrong elevation or wrong coordinates (stray far from work area)."
+  effect: "Invisible/misplaced elements; HDM §20.5.4.2.b/e rejection."
+  detection: "CAD-Z-01, CAD-LOC-01"
+- id: FM-008
+  applies: [cad.drafting]
+  mode: "Duplicate placement (command run twice, retry after timeout)."
+  effect: "Double quantities, overprinted linework."
+  detection: "CAD-DUP-01"
+- id: FM-009
+  applies: [engineering.calc, generic]
+  mode: "Requirement cited from memory or from a superseded edition."
+  effect: "Design against the wrong criterion."
+  detection: "STD-CITE-01 (quote must appear on the cited page of the indexed current edition)"
+- id: FM-010
+  applies: [cad.classify.curb, cad.drafting, generic]
+  mode: "Batch keeps going after a failed item (fake progress)."
+  effect: "Many wrong outputs before anyone looks."
+  detection: "qa_gate exit code + stop hook; batch scripts stop on first FAIL"
+  incident: "2026-09-30 Loc 11->12->13"
+- id: FM-011
+  applies: [cad.classify.curb]
+  mode: "Geometry tolerance picks the wrong vertex (flare apex inside CURB_NEAR on tight outlines)."
+  effect: "Depressed span runs up the side edge."
+  detection: "VIS-01 render; flare base = shortest triangle edge"
+  incident: "2026-10-01 Loc11-12"
+- id: FM-012
+  applies: [cad.drafting]
+  mode: "New text placed with a different height/width/font than the sheet's existing notes, or in profile clutter; gate passed because text size was never read back."
+  effect: "Annotation looks wrong on the sheet; engineer rework; false PASS."
+  detection: "CAD-TXT-02 (style vs sheet text), CAD-TXT-03 (text-text), CAD-TXT-04 (text-line), VIS-01 render draws real text size/rotation"
+  incident: "2026-10-23 profile sheet RW labels 0.003x0.010 vs notes 0.007x0.007"
+- id: FM-013
+  applies: [cad.drafting]
+  mode: "New text sits on a new line/polyline; gate only checked text-on-text (CAD-TXT-03) and treated line range-AABB as the obstacle (false-positive for diagonals) or skipped lines entirely."
+  effect: "Labels unreadable on plot; false PASS on profile/plan annotations."
+  detection: "CAD-TXT-04 segment-vs-text-box clearance using get_element_vertices paths"
+  incident: "2026-10-23 profile RW TOW labels on wall lines; engineer: check text overlaps with lines"
+- id: FM-013
+  applies: [cad.drafting]
+  mode: "Existing elements modified, moved or deleted while only new element ids were checked (id baseline cannot see edits)."
+  effect: "Silent damage to engineer/other-tool linework; false PASS."
+  detection: "CAD-CHG-01 (pre/post snapshot diff; undeclared edits FAIL)"
+- id: FM-014
+  applies: [cad.drafting, cad.classify.curb, engineering.calc, generic]
+  mode: "A governing standard or requirement is never identified, so no check exists for it and every implemented check still passes."
+  effect: "Noncompliant drawing with a green gate."
+  detection: "STD-DISP-01 (every search candidate dispositioned), COV-01 (requirements derived from the measured change set; unverified/engineer-review listed; candidate gaps listed)"
+- id: FM-015
+  applies: [cad.drafting]
+  mode: "An edit op reports OK but did not do what was commanded (wrong offset distance/side, wrong rotation direction, break point off the line, text style changed by an edit) while every CAD-hygiene rule passes; or the agent's own expectation encodes the wrong value."
+  effect: "Geometrically wrong plan with a green gate; the agent graded its own work."
+  detection: "OP-01 (op_recorder before/after read-back re-measured by qa/operations.py contracts; request numbers/directions cross-checked), REQ-GEOM-01 (qa_gate expect --rel)"
+  incident: "2026-10-23 audit: 'move a line' only checked hygiene; BREAK_LINE places the break at the clicked point without projecting onto the line"

@@ -208,6 +208,35 @@ def get_elements_in_range_box(low_x: float, low_y: float,
     return {"status": "OK", "rows": rows, "truncated": truncated, "count": len(rows)}
 
 
+def get_max_element_id() -> dict:
+    """Highest graphical element ID + element count in the active model.
+    qa_gate records this at task start; elements above it are 'new in this task'."""
+    resp = _ok_or_raise(_bridge.call("GET_MAX_ELEMENT_ID"), "get_max_element_id")
+    row = (resp.get("rows") or [{}])[0]
+    return {"status": "OK", "maxId": float(row.get("maxId") or 0), "count": int(row.get("count") or 0)}
+
+
+def get_element_cad_props(min_id: float = 0, ids: str = "", max_rows: int = 1500) -> dict:
+    """CAD properties (level, color, weight, line style, level symbology,
+    cell name, text height, class, Z range, XY range) for elements created
+    after `min_id` or for a comma list of `ids`. Read-only. Used by the CAD
+    standards QC gate (HDM Ch 20 §20.5.4.2 / §20.7.1). Blank fields mean the
+    VBA object model did not expose that member — treat as UNCERTAIN."""
+    resp = _ok_or_raise(
+        _bridge.call("GET_ELEMENT_CAD_PROPS", minId=min_id, ids=ids, maxRows=int(max_rows or 1500)),
+        "get_element_cad_props")
+    rows = [r for r in (resp.get("rows") or []) if str(r.get("elementId") or "") != "TRUNCATED"]
+    truncated = any(str(r.get("elementId") or "") == "TRUNCATED" for r in (resp.get("rows") or []))
+    return {"status": "OK", "rows": rows, "truncated": truncated, "count": len(rows)}
+
+
+def list_level_defs(names: str = "", max_rows: int = 3000) -> dict:
+    """Level definitions (name, ByLevel color/weight/style, fromLibrary) in the
+    active DGN, filtered by comma-separated name substrings."""
+    resp = _ok_or_raise(_bridge.call("LIST_LEVEL_DEFS", names=names, maxRows=int(max_rows)), "list_level_defs")
+    return {"status": "OK", "rows": resp.get("rows") or []}
+
+
 def _overlap_session_kwargs() -> dict:
     di = _PLAN_SESSION.designer_inputs
     sheet = di.sheet_num if di else ""
@@ -7664,6 +7693,41 @@ def copy_element(element_id: str, delta_x: float, delta_y: float, delta_z: float
                      deltaZ=delta_z, ownElementOnly=("Y" if own_element_only else "N"),
                      reason=reason),
         "copy_element")
+
+
+def copy_feature_line_graphics(element_id: str, delta_x: float, delta_y: float,
+                               delta_z: float = 0, own_element_only: bool = True,
+                               reason: str = "") -> dict:
+    """Headless copy of linear GRAPHICS (same COM as copy_element).
+
+    Registry op COPY_FEATURE_LINE_GRAPHICS. Does not create/copy OpenRoads
+    Feature Definition / Terrain Feature civil objects — use UI/handoff for those.
+    """
+    return _ok_or_raise(
+        _bridge.call(
+            "COPY_FEATURE_LINE_GRAPHICS",
+            elementId=element_id,
+            deltaX=delta_x,
+            deltaY=delta_y,
+            deltaZ=delta_z,
+            ownElementOnly=("Y" if own_element_only else "N"),
+            reason=reason,
+        ),
+        "copy_feature_line_graphics",
+    )
+
+
+def create_feature_line_graphics(x1: float, y1: float, x2: float, y2: float,
+                                 reason: str = "") -> dict:
+    """Headless place a line as feature-line GRAPHICS via registry recipe
+    CREATE_FEATURE_LINE_GRAPHICS (PLACE LINE CONSTRAINED datapoints).
+
+    Not an ORD Terrain Feature / FD civil object."""
+    return run_registry_command(
+        "CREATE_FEATURE_LINE_GRAPHICS",
+        {"x1": x1, "y1": y1, "x2": x2, "y2": y2},
+        reason=reason or "create_feature_line_graphics",
+    )
 
 
 def rotate_element(element_id: str, origin_x: float, origin_y: float, angle_deg: float,

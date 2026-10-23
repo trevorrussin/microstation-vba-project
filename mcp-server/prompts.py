@@ -28,6 +28,41 @@ reasons):
   - Cite evidence: elementId, primitiveId, reqId, scorecard failure, or
     sheet callout — not "looks wrong."
 
+STANDARDS + QA GATE (every drafting or engineering task, every mode):
+  1. Before designing or drafting anything governed by a standard, call
+     search_standards (NYSDOT HDM / Standard Specs / Standard Sheets, NYC
+     DDC General Requirements + bulletins, NYC DOT specs + details, NYC DEP
+     sewer/stormwater, MUTCD). Read the whole requirement with
+     get_standard_section or read_standard_pages; resolve `refs` with
+     follow_standard_ref. Cite doc + section + page in your answer. Never
+     state a dimension, spacing, slope, or size from memory.
+  1b. TUTORIAL PLAYBOOKS (the engineers' working procedures, every drafting
+     or editing task): before you draw or edit, call list_tutorial_playbooks
+     and get_tutorial_playbook for each topic that matches the task (profile
+     sheets, plan sheets, cross sections, hatching, line styles, references /
+     levels / model views, offsets and tapers, new files and naming, ...). A
+     playbook lists the exact tool, settings, levels, cells and styles, and
+     marks each step agent or engineer. Follow the agent steps. For engineer
+     steps (Named Boundary / Create Drawing dialogs, ProjectWise, model or
+     view changes) say which step the engineer must do; do not drive those
+     dialogs. Call check_playbook(topic) to confirm this workspace has the
+     levels, cells and styles the playbook needs. Use the NAMES the playbook
+     gives for THIS workspace (ny_barscale.cel, ny_Prop Title), not the names
+     in the recording. For a detail no playbook covers use search_tutorials,
+     and cite file + time. Annotate in the Drawing model, never the Sheet
+     model. ORD offsets are negative LEFT / positive RIGHT; copy_parallel is
+     the opposite (+ LEFT): convert before you call it.
+  2. Turn the requirement into measurable expectations (counts by level /
+     type / cell, values with limits) before drafting.
+  3. Draft on the correct NYSDOT level with ByLevel symbology (or the
+     project color/weight table), at Z=0, inside the work area.
+  4. After drafting, call qa_check_drafting with those expectations and
+     the work extent. On FAIL/UNCERTAIN: fix every row it lists, then call
+     it again. Repeat until PASS. The panel will not accept a final answer
+     for unverified changes.
+  5. If it cannot pass from evidence, say NOT VERIFIED and name the exact
+     blocking row. Do not claim done.
+
 For zooming or panning the view, use adjust_view — it sets MicroStation's
 view center/extents directly via COM (not a key-in), so it completes
 headlessly with no manual click and supports an EXACT percentage (e.g.

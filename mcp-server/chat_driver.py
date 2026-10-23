@@ -62,6 +62,7 @@ from dotenv import load_dotenv
 
 import chat_history
 import manual_search
+import qa_tools
 import view_capture
 import wztc_ops
 from bridge_client import chat_bridge
@@ -126,6 +127,12 @@ class SessionState:
     reassignment scattered across enter_mode/exit_mode/main."""
     touched_element_ids: set[str] = field(default_factory=set)
     mode: str = "general"
+    # element ids covered by a qa_check_drafting PASS this turn (FINAL gate, 2026-10-23)
+    qa_passed_ids: set[str] = field(default_factory=set)
+    qa_last: str = ""
+    # pre-turn model snapshot so the QA gate can see modified/deleted existing elements (2026-10-23)
+    qa_snapshot: dict | None = None
+    qa_oplog_offset: int | None = None
 
 
 _SESSION = SessionState()
@@ -454,7 +461,8 @@ _BASE_OP_NAMES = [
     "place_fence_block", "fence_undefine", "fence_copy_contents",
     "fence_move_contents", "fence_delete_contents",
     "select_element", "clear_selection",
-    "copy_element", "rotate_element", "scale_element", "mirror_element", "array_element",
+    "copy_element", "copy_feature_line_graphics", "create_feature_line_graphics",
+    "rotate_element", "scale_element", "mirror_element", "array_element",
     # Added 2026-08-02 -- see SYSTEM_PROMPT's registry paragraph. Reliable
     # replacement for the now-disabled ZOOM_*/PAN_VIEW_* registry key-ins.
     # 2026-08-04: absolute center_x/center_y/width/height added after agent
@@ -701,7 +709,47 @@ def exit_mode() -> str:
 # enter_mode("wztc") has been called. _MODE_TOOLS is what run_turn() reads
 # each turn off _SESSION.mode — see the "Session modes" plan for why
 # tools/rules are split this way instead of one flat always-on set.
+@beta_tool
+def qa_check_drafting(description: str, expectations_json: str = "[]", extent: str = "",
+                      element_ids: str = "") -> str:
+    """REQUIRED before your final answer whenever this turn created or changed drawing
+    elements. Runs the QA gate on the elements you touched this turn (or element_ids):
+    NYSDOT CAD standards (library levels, ByLevel / project color+weight table, Z=0, inside
+    work extent, no duplicates / zero-length / unnamed cells), your task expectations, a
+    geometry render from the DGN, and an independent visual review. Returns PASS / FAIL /
+    UNCERTAIN per requirement with element ids and a FIX for each failure.
+    expectations_json: measurable expectations from the sheet / standard / request, e.g.
+    [{"id":"E1","desc":"drums on taper","where":{"level":"TWZCD"},"count":">=12"}].
+    extent: "lowX,lowY,highX,highY" of the work area. If not PASS: fix every failing row,
+    then call this again. Do not give a final answer on FAIL/UNCERTAIN - fix, or tell the
+    engineer exactly what is blocked."""
+    ids = element_ids or ",".join(sorted(_SESSION.touched_element_ids))
+    LOG.tool_call("qa_check_drafting", {"ids": ids[:200], "description": description[:120]})
+    try:
+        res = qa_tools.qa_gate_run("cad.drafting", description, element_ids=ids, expectations_json=expectations_json,
+                                   extent=extent, task_id=f"chat-{abs(hash(description)) % 10**8}",
+                                   snapshot=_SESSION.qa_snapshot, oplog_offset=_SESSION.qa_oplog_offset)
+    except Exception as e:
+        LOG.error(f"qa_check_drafting failed: {e}")
+        return f"QA gate could not run: {e}. This is UNCERTAIN - tell the engineer the work is NOT verified."
+    _SESSION.qa_last = res["overall"]
+    if res["overall"] == "PASS":
+        _SESSION.qa_passed_ids |= set(i for i in ids.split(",") if i)
+    for img in res.get("images") or []:
+        try:
+            _log_screenshot(Path(img))
+        except Exception:
+            pass
+    LOG.tool_result("qa_check_drafting", res["overall"], f"QA {res['overall']} run {res['run']}")
+    return json.dumps(res)
+
+
 BASE_TOOLS = [_wrap_op(name, getattr(wztc_ops, name)) for name in _BASE_OP_NAMES]
+for _qn in ("search_standards", "get_standard_section", "read_standard_pages", "standards_toc",
+            "follow_standard_ref", "list_standards", "list_tutorial_playbooks", "get_tutorial_playbook",
+            "search_tutorials", "read_tutorial", "list_tutorials", "check_playbook"):
+    BASE_TOOLS.append(_wrap_op(_qn, getattr(qa_tools, _qn)))
+BASE_TOOLS.append(qa_check_drafting)
 BASE_TOOLS.append(ask_user)
 BASE_TOOLS.append(ask_user_choice)
 BASE_TOOLS.append(view_drawing)
@@ -822,6 +870,17 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
     ourselves via generate_tool_call_response() is the documented way to
     persist history across separate tool_runner() calls, one per turn."""
     _SESSION.touched_element_ids.clear()
+    _SESSION.qa_passed_ids.clear()
+    _SESSION.qa_last = ""
+    try:
+        _SESSION.qa_snapshot = qa_tools.take_snapshot()
+    except Exception as e:  # bridge busy/closed: the gate then reports "no pre-edit snapshot" (WARN)
+        _SESSION.qa_snapshot = None
+        LOG.error(f"qa snapshot skipped: {e}")
+    try:
+        _SESSION.qa_oplog_offset = qa_tools.oplog_offset()
+    except Exception:
+        _SESSION.qa_oplog_offset = None
     # Normalize SDK content blocks → dicts, then drop unanswered tool_use
     # chains before the API call (live 2026-08-05: repair missed SDK objects
     # and ERROR path left broken in-memory history stuck across "hi" retries).
@@ -849,7 +908,8 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
     # switch tool call could run. That's the intended granularity (a
     # deliberate, coarse switch, not a mid-turn one) -- see the "Session
     # modes" plan.
-    runner = client.beta.messages.tool_runner(
+    def _make_runner():
+      return client.beta.messages.tool_runner(
         model=MODEL,
         max_tokens=MAX_TOKENS,
         # cache_control on the system block caches tools + system together
@@ -878,36 +938,57 @@ def run_turn(client: anthropic.Anthropic, messages: list[dict], user_text: str) 
         context_management={"edits": [{"type": "clear_tool_uses_20250919"}]},
         betas=["context-management-2025-06-27"],
         max_iterations=MAX_TOOL_ITERATIONS,
-    )
+      )
 
     final_text = ""
-    for message in runner:
-        messages.append({"role": "assistant", "content": chat_history._to_jsonable(message.content)})
-        if message.usage is not None:
-            USAGE.record(message.usage, MODEL)
+    gate_rounds = 0
+    while True:
+      runner = _make_runner()
+      final_text = ""
+      for message in runner:
+          messages.append({"role": "assistant", "content": chat_history._to_jsonable(message.content)})
+          if message.usage is not None:
+              USAGE.record(message.usage, MODEL)
 
-        for block in message.content:
-            if getattr(block, "type", None) == "thinking" and getattr(block, "thinking", ""):
-                LOG.thinking(block.thinking)
-            elif (
-                getattr(block, "type", None) == "text"
-                and getattr(block, "text", "")
-                and message.stop_reason != "end_turn"
-            ):
-                # A text block on the *final* message is the answer itself --
-                # it goes out once, via LOG.final() below (main() calls it
-                # with this function's return value). Logging it here too
-                # would show the same answer twice in the transcript, once
-                # styled as THINKING and once as FINAL (confirmed live).
-                LOG.thinking(block.text)
+          for block in message.content:
+              if getattr(block, "type", None) == "thinking" and getattr(block, "thinking", ""):
+                  LOG.thinking(block.thinking)
+              elif (
+                  getattr(block, "type", None) == "text"
+                  and getattr(block, "text", "")
+                  and message.stop_reason != "end_turn"
+              ):
+                  # A text block on the *final* message is the answer itself --
+                  # it goes out once, via LOG.final() below (main() calls it
+                  # with this function's return value). Logging it here too
+                  # would show the same answer twice in the transcript, once
+                  # styled as THINKING and once as FINAL (confirmed live).
+                  LOG.thinking(block.text)
 
-        tool_response = runner.generate_tool_call_response()
-        if tool_response is not None:
-            # Persist as plain dicts so later repair/trim always sees tool ids.
-            messages.append(chat_history._to_jsonable(tool_response))
+          tool_response = runner.generate_tool_call_response()
+          if tool_response is not None:
+              # Persist as plain dicts so later repair/trim always sees tool ids.
+              messages.append(chat_history._to_jsonable(tool_response))
 
-        if message.stop_reason == "end_turn":
-            final_text = "\n".join(b.text for b in message.content if getattr(b, "type", None) == "text")
+          if message.stop_reason == "end_turn":
+              final_text = "\n".join(b.text for b in message.content if getattr(b, "type", None) == "text")
+
+      # QA FINAL gate (2026-10-23): drafting this turn must be covered by a qa_check_drafting PASS.
+      unverified = _SESSION.touched_element_ids - _SESSION.qa_passed_ids
+      if final_text and unverified and gate_rounds < 2:
+        gate_rounds += 1
+        LOG.error(f"QA gate: {len(unverified)} touched elements not verified (last QA: {_SESSION.qa_last or 'not run'}) - sending agent back")
+        messages.append({"role": "user", "content": [{"type": "text", "text": (
+            f"[QA GATE - automatic] This turn created/changed {len(unverified)} elements that have not passed "
+            f"qa_check_drafting (last result: {_SESSION.qa_last or 'not run'}). Before answering: call "
+            "qa_check_drafting with measurable expectations from the sheet/standard/request and the work extent, "
+            "fix every FAIL/UNCERTAIN row, and re-run until PASS. If it cannot pass, your answer must say the "
+            "work is NOT verified and list exactly what is blocked.")}]})
+        continue
+      if final_text and unverified:
+        final_text += (f"\n\n[QA GATE] NOT VERIFIED: {len(unverified)} elements changed this turn did not pass "
+                       f"qa_check_drafting (last: {_SESSION.qa_last or 'not run'}).")
+      break
 
     if final_text == "":
         # Loop ended without ever seeing end_turn -- either MAX_TOOL_ITERATIONS

@@ -1,0 +1,45 @@
+---
+description: >-
+  This repo's live CAD is MicroStation only — never call user-autocad MCP
+  unless the engineer explicitly asks for AutoCAD/DWG.
+alwaysApply: true
+---
+
+# CAD product / MCP namespace gate
+
+This workspace is the **NYSDOT WZTC MicroStation** project. Live drawing work
+uses **MicroStation CONNECT**, not AutoCAD.
+
+## Hard rule
+
+| Intent | Use | Do not use |
+|--------|-----|------------|
+| Live DGN / plan / callouts / views / place-edit | `user-wztc-designer` and/or `ms_connect` / bridge COM | `user-autocad` |
+| AutoCAD / DWG only when engineer names it | `user-autocad` | — |
+
+**Forbidden by default:** any `CallDynamicTool` / MCP call with namespace
+`user-autocad` (including `capture_view`, `focus_view_on_elements`,
+`describe_drawing_state`, place/edit tools).
+
+## When AutoCAD is allowed
+
+Only if the engineer **explicitly** says AutoCAD, DWG, or names an `.dwg`
+path/session. Do not infer AutoCAD from overlapping tool names
+(`capture_view`, `focus_view_on_elements`, etc.) — those exist on both
+namespaces.
+
+## Before the first live CAD tool call in a turn
+
+1. Confirm product: MicroStation (default here) vs AutoCAD (opt-in).
+2. Pick the matching namespace.
+3. Confirm the **already-open** DGN/model is the one for the task. If not,
+   **stop and ask** — never open/switch files (see `never-switch-dgn.mdc`).
+4. If a MicroStation tool fails or returns empty handles, **debug MicroStation /
+   COM / activated-ref** — do **not** fall back to `user-autocad`, and do
+   **not** open another DGN.
+
+## Incident (2026-09-10)
+
+Agent used `user-autocad` mid MicroStation callout work; tools failed or
+targeted the wrong product. Engineer called it out. This rule exists so that
+does not recur.
