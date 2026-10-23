@@ -1,0 +1,138 @@
+# Requirements-as-code for the QA gate (scripts/qa_gate.py).
+# Every row: id, what must be true, the source that says so, and which check proves it.
+# status semantics: PASS | FAIL | UNCERTAIN (blocks like FAIL) | WARN (shown, does not block) | NA
+# Task types select rows by `applies`. Add rows here, never in prompts.
+
+- id: CAD-NEW-01
+  applies: [cad.drafting]
+  req: "The task produced at least one new element in the active model (otherwise nothing was checked)."
+  source: "QA gate design (prevents silent PASS on zero work - 2026-10-01 zero-island incident)"
+  check: cad_rules.new_elements
+- id: CAD-LVL-01
+  applies: [cad.drafting]
+  req: "Every new element is on a level that exists in the NYSDOT level library (or an approved project level)."
+  source: "NYSDOT HDM Ch 20 §20.7 / §20.5.4.2.a; project CLAUDE.md element table"
+  check: cad_rules.levels
+- id: CAD-SYM-01
+  applies: [cad.drafting]
+  req: "Color / weight match the project element table where a rule exists, otherwise ByLevel (the level's own symbology)."
+  source: "NYSDOT HDM Ch 20 §20.7, §20.7.1; project CLAUDE.md \"Element Level / Color / Weight\""
+  check: cad_rules.symbology
+- id: CAD-WT-01
+  applies: [cad.drafting]
+  req: "Proposed (_P) features are not weight 0; existing (_E) features are weight 0."
+  source: "NYSDOT HDM Ch 20 §20.7.1 (\"existing typically weight 0, proposed weight 2\")"
+  check: cad_rules.proposed_existing_weight
+  blocking: false
+- id: CAD-Z-01
+  applies: [cad.drafting]
+  req: "No element at a non-zero elevation in a 2D model."
+  source: "NYSDOT HDM Ch 20 §20.5.4.2.b (\"Elements at incorrect elevations are not acceptable\")"
+  check: cad_rules.elevation
+- id: CAD-LOC-01
+  applies: [cad.drafting]
+  req: "New elements lie inside the task work extent (no strays far from the work area / wrong coordinates)."
+  source: "NYSDOT HDM Ch 20 §20.5.4.2.e (correct State Plane location)"
+  check: cad_rules.location
+- id: CAD-DUP-01
+  applies: [cad.drafting]
+  req: "No duplicate elements stacked on top of each other (same type, level, and extents)."
+  source: "Drafting QC practice; HDM Ch 20 §20.5.4.2.d (inconsistencies)"
+  check: cad_rules.duplicates
+- id: CAD-DEG-01
+  applies: [cad.drafting]
+  req: "No zero-length / degenerate linear elements."
+  source: "Drafting QC practice"
+  check: cad_rules.degenerate
+- id: CAD-CELL-01
+  applies: [cad.drafting]
+  req: "Every cell has a name from an attached library."
+  source: "NYSDOT HDM Ch 20 §20.7.5 / §20.9.2"
+  check: cad_rules.cells
+- id: CAD-TXT-01
+  applies: [cad.drafting]
+  req: "Text heights match the sheet scale table given in the task (HDM §20.9.6) when one is provided."
+  source: "NYSDOT HDM Ch 20 §20.9.6"
+  check: cad_rules.text_heights
+- id: CAD-TXT-02
+  applies: [cad.drafting]
+  req: "New text uses a height / width / font already used by text on the same sheet (or the task's text table, square aspect). Never a shrunken or stretched copy."
+  source: "HDM Ch 20 §20.9.6 (consistent text); engineer correction 2026-10-23 (RW labels 0.003x0.010 vs sheet notes 0.007x0.007)"
+  check: cad_rules.text_style
+- id: CAD-TXT-03
+  applies: [cad.drafting]
+  req: "New text boxes do not overlap other text (new or existing)."
+  source: "HDM Ch 20 §20.5.4.2.d (legibility); plan-markup-edits text-overlap gate"
+  check: cad_rules.text_overlap
+- id: CAD-TXT-04
+  applies: [cad.drafting]
+  req: "New text boxes do not sit on new linear geometry (actual line/polyline segments, not the line's range AABB)."
+  source: "HDM Ch 20 p9(i) (do not break linear features for text — place text off to the side / leader); engineer correction 2026-10-23 (RW labels on TOW lines passed CAD-TXT-03 only)"
+  check: cad_rules.text_line_clearance
+- id: REQ-TASK
+  applies: [cad.drafting, cad.classify.curb, engineering.calc, generic]
+  req: "Every task-specific expectation in the task card holds (counts / properties of what was drawn or computed)."
+  source: "task card `expect` rows (written at task start, from the standard / sheet / engineer request)"
+  check: task_expect.evaluate
+- id: VIS-01
+  applies: [cad.drafting, cad.classify.curb, generic]
+  req: "A visual check of the result was made after the latest change, by an independent reviewer (vision model) or recorded by the agent, with no open issues."
+  source: "Engineer requirement 2026-10-23 (rigorous visual QC + self-fix loop)"
+  check: visual.review
+- id: STD-CITE-01
+  applies: [engineering.calc, cad.drafting, generic]
+  req: "Every standard cited by the task exists in the standards index and the quoted text appears on the cited page."
+  source: "QA plan §3.4 (evidence check, not just \"a citation exists\")"
+  check: citations.verify
+- id: CURB-ID-01
+  applies: [cad.classify.curb]
+  req: "The DWG content belongs to the named sheet (survey xref + plan xref match the location; not a copy of another sheet)."
+  source: "2026-10-01 incident: Loc10_SGD contained Loc03-04 content and passed a presence-only gate"
+  check: curb.identity
+- id: CURB-GATE-01
+  applies: [cad.classify.curb]
+  req: "Per-sheet verify gate passes (steel present, Depressed > 0 where ramps exist) with footage recomputed late-bound."
+  source: "loc01-curb-classify skill hard gates; scripts/_acad_verify_location_sheet.py"
+  check: curb.verify_gate
+- id: CALC-01
+  applies: [engineering.calc]
+  req: "Every calculation result in the task has inputs with units, the method, and a governing criterion citation; computed values are reproducible by the calc module."
+  source: "QA plan §6.3 (LLM finds criteria and inputs; deterministic code calculates)"
+  check: calc.verify
+- id: CAD-CHG-01
+  applies: [cad.drafting]
+  req: "Only elements the task declares were changed: no existing element is modified or deleted unless the engineer asked for it (task started with --may-modify)."
+  source: "QA gate design (element-id baseline alone cannot see edits/deletes); HDM Ch 20 §20.5.4.2.d (inconsistencies)"
+  check: coverage.changes
+- id: STD-DISP-01
+  applies: [cad.drafting, cad.classify.curb, engineering.calc, generic]
+  req: "Every standards section the start-of-task search surfaced is marked applies / does not apply with a reason, so none is silently ignored."
+  source: "QA gate design (standards completeness); qa/applicability.yaml"
+  check: coverage.dispositions
+- id: COV-01
+  applies: [cad.drafting]
+  req: "Requirements applicable to the kinds of element actually created/modified (qa/applicability.yaml) are listed with their verification status; unverified or engineer-review items are shown, never hidden."
+  source: "QA gate design (verification vs completeness); qa/applicability.yaml"
+  check: coverage.report
+  blocking: false
+- id: OP-01
+  applies: [cad.drafting]
+  req: "Each edit operation did what it was commanded to do: re-measured from before/after geometry read back from MicroStation (move distance, offset distance/side, rotation, extension, break point, level/symbology, text edit, placed geometry), the engineer's numbers and directions appear in the operations, and edits made outside a recorded operation are not accepted without an independent expectation."
+  source: "QA gate design (operation contracts: validate the operation, not only the element); qa/operations.py"
+  check: operations_check.operations
+- id: REQ-GEOM-01
+  applies: [cad.drafting]
+  req: "Geometric relations declared for the task (offset between lines, length, angle) hold when measured from the saved geometry."
+  source: "QA gate design (independent geometry acceptance criteria); qa_gate expect --rel"
+  check: operations_check.relations
+- id: CAD-SCALE-01
+  applies: [cad.drafting]
+  req: "A graphic scale bar cell (<N>_1 / <N>_Vert from ny_barscale.cel) matches the annotation scale of the model it is placed in (1:N)."
+  source: "Tutorial playbooks plan-sheets-named-boundaries S8 / profile-sheet-annotation S6 (BRP Profiles @ 10:33); live cell sizes verified"
+  check: cad_rules.scale_bar_scale
+- id: CAD-MODEL-01
+  applies: [cad.drafting]
+  req: "Annotation (text, cells, dimensions) is placed in the Drawing model, not the Sheet model."
+  source: "ORD training manual p.468; tutorial playbooks plan-sheets-named-boundaries / profile-sheet-annotation S3"
+  check: cad_rules.annotation_model
+  blocking: false

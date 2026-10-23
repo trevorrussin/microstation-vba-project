@@ -2797,3 +2797,67 @@ Private Function FindElementByID(elementId As Double) As Element
     Loop
     Set FindElementByID = Nothing
 End Function
+
+' ============================================================
+' SNAP NOTE-DIM TIP XYZ to a target keypoint.
+' CONNECT VBA AddReferencePoint accepts Point3d only — NOT
+' AssociationPoint (ByRef compile error). So this moves the tip
+' onto the keypoint but does NOT create a true association
+' (arrow will still translate with the callout GraphicGroup).
+' ============================================================
+Public Function ExecAssociateDimTip(ByVal dimId As Double, ByVal targetId As Double, _
+                                    ByVal vertex As Long, ByVal numer As Long, ByVal denom As Long) As String
+    On Error GoTo AssocErr
+
+    Dim dimEl As Element, tgt As Element
+    Set dimEl = FindElementByID(dimId)
+    Set tgt = FindElementByID(targetId)
+    If dimEl Is Nothing Then
+        ExecAssociateDimTip = "ERROR" & vbTab & "note=dim not found id=" & dimId
+        Exit Function
+    End If
+    If tgt Is Nothing Then
+        ExecAssociateDimTip = "ERROR" & vbTab & "note=target not found id=" & targetId
+        Exit Function
+    End If
+    If Not dimEl.IsDimensionElement Then
+        ExecAssociateDimTip = "ERROR" & vbTab & "note=not a dimension"
+        Exit Function
+    End If
+
+    Dim oDim As DimensionElement
+    Set oDim = dimEl.AsDimensionElement
+
+    Dim stub As Point3d
+    If oDim.ReferencePointsCount >= 2 Then
+        stub = oDim.Point(2)
+    Else
+        ExecAssociateDimTip = "ERROR" & vbTab & "note=need stub point"
+        Exit Function
+    End If
+
+    Dim oPath As DisplayPath
+    Set oPath = tgt.GetDisplayPath
+
+    Dim oAssoc As AssociationPoint
+    oAssoc = oPath.GetKeypointAssociation(vertex, numer, denom)
+    Dim tip As Point3d
+    tip = ActiveModelReference.Point3dFromAssociationPoint(oAssoc)
+
+    Do While oDim.ReferencePointsCount > 0
+        oDim.DeletePoint 1
+    Loop
+
+    oDim.AddReferencePoint ActiveModelReference, tip
+    oDim.AddReferencePoint ActiveModelReference, stub
+    oDim.Rewrite
+
+    ExecAssociateDimTip = "OK" & vbTab & "pts=" & oDim.ReferencePointsCount & _
+                          " tipTarget=" & targetId & _
+                          " key=" & vertex & "," & numer & "/" & denom & _
+                          " mode=xyzSnap"
+    Exit Function
+
+AssocErr:
+    ExecAssociateDimTip = "ERROR" & vbTab & "note=" & Err.Description
+End Function

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "python .cursor-plugin/hindsight-memory/scripts/session_start.py",
+        "timeout": 15
+      }
+    ],
+    "stop": [
+      {
+        "command": "python scripts/qa_stop_hook.py --cursor",
+        "timeout": 30
+      },
+      {
+        "command": "python .cursor-plugin/hindsight-memory/scripts/retain.py",
+        "timeout": 15
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "python .cursor-plugin/hindsight-memory/scripts/retain.py",
+        "timeout": 15
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+---
+description: >-
+  Never open, close, or switch MicroStation DGN files / models — engineer
+  controls which file is active; agent works only in whatever is already open.
+alwaysApply: true
+---
+
+# Never switch MicroStation files
+
+## Hard rule
+
+**Do not** open, close, activate, attach, or switch DGN files (or sheet/drawing
+models) while working. The engineer alone chooses what is open.
+
+### Forbidden (always)
+
+- `OpenDesignFile` / `OpenDesignFileForProgram` / similar COM open APIs
+- Keyins that load another file (`RD=`, `RF=`, file-open dialogs, ProjectWise
+  open via automation)
+- Closing the active design file to “get to” another
+- Switching active model / activating a different host file because scans
+  returned empty or the wrong content
+- “Helpful” recovery: opening `fea_tsp` / `tsp_02` / any path when the active
+  file is not what you expected
+
+### Required instead
+
+1. Read `ActiveDesignFile.FullName` / model name.
+2. If it is the **wrong** file or model for the task — **stop**. Tell the
+   engineer which file is active and which one you need. Wait for them to
+   switch.
+3. If scans are empty, treat that as “wrong file / wrong model / wrong ref”
+   and ask — do **not** open another DGN to fix it.
+
+### Incident (2026-09-18)
+
+Agent opened `60785527_fea_tsp.dgn` mid-session because `tsp_02` was active and
+conduit scans were empty. Engineer forbade file switching. This rule exists so
+that does not recur.

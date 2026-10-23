@@ -52,6 +52,11 @@ Do NOT change the level/color/weight of other element types.
 - Only hide the form for cell placement (PlaceSelectedCell) and callout placement (TEXTEDITOR PLACENOTE)
 - Standard drawing commands (PLACE LINE CONSTRAINED, HATCH ICON) do NOT require hiding the form
 
+### Never switch MicroStation DGN files
+- Do **not** open, close, or switch DGN files/models (`OpenDesignFile`, `RD=`, etc.).
+- If the wrong file is active, stop and ask the engineer to switch.
+- Full rule: `.cursor/rules/never-switch-dgn.mdc`.
+
 ### Code Style
 - Make minimal changes — do not refactor code surrounding a bug fix
 - Do not add docstrings, comments, or type annotations to code that was not changed
@@ -84,6 +89,88 @@ you just proposed):
 
 Mirror of `.cursor/rules/implement-all.mdc` (Cursor alwaysApply). Same bar
 in both tools.
+
+### Engineering loop (plan → verify → learn)
+For non-trivial work: understand → investigate → plan (with verification) →
+implement → **run verify** → on FAIL/UNCERTAIN enter
+`.cursor/rules/engineering-failure-protocol.mdc` (**BLOCKED** — diagnose,
+do not advance) → on PASS continue → update durable rules after engineer
+corrections. Execution loop: `.cursor/rules/agent-engineering-loop.mdc`.
+Fresh-context review: `.cursor/skills/fresh-context-review/SKILL.md`.
+**Evidence proportionality** (same protocol file): sample similar items
+first (representative/random + edges — not only first-N); do not exhaustively
+open every instance unless further checks could change the conclusion, stakes
+require it, cheap automation covers all, or the engineer asks for every.
+State sample-based scope when not exhaustive.
+
+### QA gate + standards (every drafting / CAD / engineering task)
+Gate of record: `python scripts/qa_gate.py` (plan: `dev-notes/qaqc-standards-plan.md`).
+1. **Start** before drafting: `qa_gate start --type cad.drafting|cad.classify.curb|engineering.calc|generic --desc "..." [--extent ...] [--files ...]`.
+   It prints the criteria, the known failure modes (`qa/failure_modes.yaml`) and the standards likely governing the task.
+2. **Standards backcheck before placing** (not after the engineer catches it):
+   `python mcp-server/standards_index.py search "..." [--agency NYSDOT|NYC-DDC|NYC-DEP]`
+   (or MCP `search_standards` / `get_standard_section` / `read_standard_pages` / `follow_standard_ref`).
+   Library: `Standards/` (registry `Standards/registry.json`, re-fetch `scripts/standards_fetch.py`).
+   Search for **every class of element you are about to draw** (levels, weights, text style,
+   text clearance vs other text **and** linework, dims, cells). Read the whole clause — do not
+   invent a narrower reading. Example: HDM Ch 20 p9(h) text-vs-text **and** p9(i) place text
+   off linear features (leader if needed). Never quote a criterion from memory; `qa_gate cite` it.
+3. **Expectations**: `qa_gate expect ...` — measurable (counts by level/type/cell, values with limits) from the sheet/standard/request.
+4. **Run → fix → re-run** until PASS: `qa_gate run` (exit 0/1/2). Look at every image it lists; record `qa_gate review --ok --checked "..."` or `--issue`.
+   The Stop hook (`scripts/qa_stop_hook.py`) blocks ending a turn while an open task is not PASS.
+5. **Close** only on PASS (`qa_gate close`). If evidence cannot resolve it: `qa_gate escalate --reason ...` and tell the engineer exactly what is blocked.
+6. Every engineer correction → new row in `qa/failure_modes.yaml` + a known-bad fixture in `tests/qa/` (`python -m pytest tests/qa -q` must stay green).
+7. **Completeness** (2026-10-23): `start` snapshots the model and lists candidate standards — `qa_gate dispose --cite ... --applies yes|no --reason ...` each one. Editing/moving/deleting EXISTING elements needs `start --may-modify` (else CAD-CHG-01 FAILs). `qa/applicability.yaml` maps element kinds → requirements; read the COV-01 list and tell the engineer which items are engineer-review/unverified — a PASS means the implemented checks passed, not full NYSDOT/DDC compliance.
+8. **Operation contracts** (2026-10-23): bridge edit ops are recorded with before/after geometry and re-measured (OP-01): offset distance/side, move delta, rotation, extend, break, text edits, placements. Put the engineer's actual numbers and directions in `--desc` (a mismatch with the ops is UNCERTAIN). Edits made by direct COM scripts have no recorded op — declare `qa_gate expect --rel offset|length|angle --a ID --b ID --value N`. The gate prints "CAD standards checks" and "Requested edit verified" separately; report both.
+Calculations go through `engcalc/` (the gate re-runs them); the LLM is never the calculator of record.
+
+### Loc01 AutoCAD curb layers (HWP24QC1)
+Authority: NW visual QA + `.cursor/skills/loc01-curb-classify/SKILL.md`
+(also `.claude/skills/loc01-curb-classify/`).
+
+**Agent control (all tasks, not only curb):** see
+`.cursor/rules/engineering-failure-protocol.mdc` — first line: never confuse
+batch progress with engineering progress. FAIL / UNCERTAIN → BLOCKED →
+local|systemic|plan investigation → prove the fix before PASS. Domain geometry
+rules below answer *how to classify* when the plan is working.
+
+| Layer | Rule |
+|-------|------|
+| Depressed | INNER flare-to-flare per ped ramp; split verts at flare edges |
+| Corner | Outside depressed; short-chord larger curvature only |
+| Straight | Outside depressed; colinear including long segs (≥~2.5 ft) |
+
+Never touch OUTER FLs `13D80A/13D25C/13D7DC/13CEC7/13D2EA/13D7BC`. Prefer hide
+sources over Delete. No flare drawing unless asked. Dense 0.3 ft FL sampling
+for Corner/Straight is **forbidden**. Done gate:
+`python scripts/_acad_verify_loc01_curb.py` (must exit 0 before claiming done).
+
+**Loc 05–98 batch (same rules):** ped-ramp flares may be on `PROP-D-ROAD-RAMPS`
+**or** `PRO-S-CURB-LINE` / `S-CURB-DROP` inserts with ≥2 solids (Loc10). Every
+sheet: if ramp/flare blocks exist and Depressed LF ≈ 0 → **VERIFY FAIL**, do
+**not** save, do **not** leave Straight in drop zones.
+
+**Engineering harness (Screenshots sandbox):** prefer
+`python scripts/engineering_harness.py status|verify|restore-steel|classify`
+(`--sample` / `--sheet` / `--all`). Manifest authority:
+`outputs/engineering-harness-manifest.json` (`PASSED|BLOCKED|ESCALATED`).
+Per-sheet gate: `scripts/_acad_verify_location_sheet.py`. No `pwworking`/`d017*`
+xrefs. Batch helper still: `scripts/_acad_batch_classify_locations.py` (exits on
+first fail).
+
+---
+
+## Tutorial playbooks (engineers' working procedures)
+
+`Standards/Tutorials/` (26 recorded training videos, 4 decks, the 584-page ORD manual, the workflow sheet) is ingested into `Standards/derived/tutorials/` (speech + on-screen OCR with
+timestamps; half the videos are silent screen recordings, read via OCR + keyframes). `Data/tutorial-playbooks/*.md` distils them into 14 playbooks: each step is `who: agent` (has a test) or
+`who: engineer` (GUI dialogs the agent must not drive, with the reason), cited to file + timestamp/slide/page.
+
+- Before drafting or editing: `list_tutorial_playbooks` -> `get_tutorial_playbook(topic)`; `check_playbook(topic)` preflights this workspace (levels, cells, styles, models, coordinate system); `search_tutorials` for anything a playbook lacks.
+- Use THIS workspace's names (ny_barscale.cel, ny_Prop Title), not the recording's (nyu_*, CP_Normal).
+- Prove a playbook still works: `python scripts/playbook_runner.py --all --live --report outputs/playbooks/report.md` (scratch elements, read-back verified, removed afterwards; do not switch models while it runs).
+- Rebuild after adding material: `python scripts/tutorials_ingest.py` (resumable; ONE worker only - two GPU workers thrash 12 GB), `python scripts/tutorial_digest.py`, `python mcp-server/tutorial_kb.py build`. `pytest tests/qa` checks every citation resolves and every tutorial file is covered.
+- Measurable rules are in the QA gate: CAD-SCALE-01 (scale bar = annotation scale), CAD-MODEL-01 (annotation in the Drawing model), OP-01 sign cross-check (ORD offsets are negative LEFT; copy_parallel is + LEFT), `qa/applicability.yaml` requirements carry `playbook: topic#step`.
 
 ---
 

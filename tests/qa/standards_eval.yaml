@@ -1,0 +1,46 @@
+# Retrieval eval for the standards index. Each row: a real question + where the answer lives.
+# hit = a top-k result whose doc contains `doc` (and whose section starts with `section`, if given,
+# or whose page range covers `page`, if given). Add a row whenever a search misses in real use.
+- q: how far below the top of grate must the hydraulic grade line be kept in a storm drain
+  doc: hdm/chapt_08
+  section: "8.7.5"
+- q: inlet locations near crosswalks and the pedestrian access route
+  doc: hdm/chapt_08
+  section: "8.7.4"
+- q: quality control of electronic CADD graphics review level by level symbology
+  doc: hdm/chapt_20
+  section: "20.5.4"
+- q: MicroStation working units master units survey feet
+  doc: hdm/chapt_20
+  section: "20.9.1"
+- q: existing features weight 0 proposed features weight 2 symbology
+  doc: hdm/chapt_20
+  section: "20.7"
+- q: plans drawn at 1 inch equals 30 feet and sewer profile vertical scale
+  doc: INFRA-GR
+  page: 8
+- q: topographic survey requirements for pedestrian ramp projects
+  doc: INFRA-GR
+  section: "4.2B"
+- q: work zone traffic control plan requirements
+  doc: hdm/chapt_16
+- q: curb ramp detectable warning surface requirements
+  doc: hdm/chapt_18
+- q: stormwater management practice sizing retention volume
+  agency: NYC-DEP   # NYC project; unfiltered, NYSDOT HDM 8 App B (state SMP sizing) correctly ranks first
+  doc: uswr_nyc_stormwater_manual
+  section: "4.3"
+- q: corner curb specification bulletin
+  doc: SB24-003
+- q: manhole on 36 inch to 60 inch RCP sewer type C-1 maximum cover
+  doc: NYCDEPSEWERDESIGNSTANDARDS
+- q: merging taper length formula temporary traffic control
+  doc: part6
+- q: superelevation design criteria for curves
+  doc: hdm/chapt_
+- q: storm drain pipe minimum size and minimum velocity
+  doc: hdm/chapt_08
+  section: "8.7.5"
+- q: rejection of electronic data submissions that do not meet CADD format requirements
+  doc: hdm/chapt_20
+  section: "20.6"

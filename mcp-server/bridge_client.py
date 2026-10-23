@@ -175,6 +175,23 @@ class Bridge:
         return self.call_batch([(op_type, params)])[0]
 
     def call_batch(self, ops: list[tuple[str, dict[str, Any]]]) -> list[dict[str, Any]]:
+        """Send ops (see _call_batch_impl). Edit ops are also recorded for the QA gate's operation
+        contracts (op_recorder.py: before/after geometry read back from MicroStation). Recording is
+        best-effort and never changes the result or raises."""
+        try:
+            import op_recorder
+            tok = op_recorder.begin(self, ops)
+        except Exception:
+            op_recorder, tok = None, None
+        results = self._call_batch_impl(ops)
+        if tok is not None:
+            try:
+                op_recorder.finish(self, tok, ops, results)
+            except Exception:
+                pass
+        return results
+
+    def _call_batch_impl(self, ops: list[tuple[str, dict[str, Any]]]) -> list[dict[str, Any]]:
         """Send several ops in one request/response round trip, in order.
         Each still gets its own reqId and journal entry on the VBA side —
         batching only saves keyin round trips, it does not change semantics."""

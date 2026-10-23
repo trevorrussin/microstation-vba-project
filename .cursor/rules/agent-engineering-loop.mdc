@@ -1,0 +1,118 @@
+---
+description: >-
+  Engineering loop: understand → plan → verify → learn. Domain execution
+  sits under the Universal Engineering Failure Protocol.
+alwaysApply: true
+---
+
+# Agent engineering loop (plan → verify → learn)
+
+Do **not** optimize for “I edited files.” Optimize for **verified done**.
+
+## Two layers
+
+1. **Agent control** — `.cursor/rules/engineering-failure-protocol.mdc`  
+   What to do when an expected condition is not satisfied (any task).
+2. **Domain how-to** — skills / sheet specs / CLAUDE.md sections  
+   How to solve this particular engineering problem when the plan is working.
+
+## Mindset
+
+**Never confuse batch/checklist progress with engineering progress.**
+
+`Understand → investigate → plan → identify risks → implement → verify → correct → prove the fix → verify again → report what was checked.`
+
+If the plan is wrong: **STOP and re-plan** (plan-failure type in
+`engineering-failure-protocol.mdc`). Do not keep patching a bad approach.
+
+Verify outcomes: **PASS** continue · **FAIL** or **UNCERTAIN** → `BLOCKED` →
+Failure Protocol. A fix is PASS only after **prove-the-fix** (original
+requirement met **and** no new failure introduced).
+
+## Definition of done (every non-trivial task)
+
+Before claiming complete, state **done means** as a checklist, then run it.
+
+Default gates (use what applies):
+
+1. Requirements restated in one short list (engineer authority first)
+2. Relevant code/drawing/docs inspected (no guessing when the repo/DWG can answer)
+3. Plan reviewed against existing patterns
+4. Changes are minimal and task-scoped
+5. **Verification ran** (tests, scripts, COM inventory, visual QA, hot-reload smoke — whatever fits)
+6. Failures fixed or named as `ESCALATED` — never “looks fine” without evidence
+7. Durable knowledge updated when a mistake would otherwise recur (`CLAUDE.md`, skill, `.cursor/rules`, `dev-notes/agent-log.md`)
+
+Cite evidence: script name, exit code, handle IDs, LF totals, test name, log line.
+
+## Investigate — do not guess
+
+Prefer: read code, search repo, inventory live CAD, reproduce, measure.  
+Refuse invented designer inputs, invented sheet features, and invented geometry.
+
+**Evidence proportionality** (full rule in
+`engineering-failure-protocol.mdc`): do not open every instance by default.
+Sample first when items are similar (representative/random + edges/high-risk —
+not only first-N); expand only if mixed / high-stakes / engineer requires
+exhaustive / cheap automation can cover all. Before the next instance: name
+what new information could change the conclusion — if none, stop. Ask whether
+more instances have a reasonable chance of changing the conclusion. State
+sample-based scope when not exhaustive. Not “always 5” and not “always all.”
+
+## Plan before non-trivial edits
+
+For complex or multi-island / multi-module work:
+
+1. Understand request + ambiguities  
+2. Inspect architecture / live drawing  
+3. Reuse existing patterns  
+4. List risks / regressions  
+5. Plan steps + **how each step is verified**  
+6. Only then modify
+
+## Fresh-context review (when stakes are high)
+
+After a large CAD or code change, run a **review pass** that did not write the change:
+
+- Compare result to original requirements only  
+- Look for missing requirements, wrong authority, silent deletes, outer/inner mixups  
+- Do not rewrite — report concrete defects  
+
+Use `.cursor/skills/fresh-context-review/SKILL.md`.
+
+## Mistakes → permanent knowledge
+
+When the engineer corrects you:
+
+1. State why the mistake happened (root cause)  
+2. Add the **smallest useful rule** to the right place (`CLAUDE.md`, a skill, or a `.cursor/rules` file)  
+3. Add a verify step or script if the failure is checkable  
+4. Log non-obvious lessons in `dev-notes/agent-log.md`
+
+Chat-only tips are forbidden for load-bearing rules (same spirit as sheet-spec-sync).
+
+## Deterministic checks in scripts — not memory
+
+If a check can be a script, write/run the script. Do not rely on “remember to…”.
+
+Examples:
+
+- Loc01 curb layers: `python scripts/_acad_verify_loc01_curb.py`  
+- VBA push: `python mcp-server/hot_reload.py …`  
+- Chat driver Python: `python mcp-server/restart_chat_driver.py`
+
+## Subagents / isolation
+
+Use subagents for **independent** jobs (research, review, data check) — not for volume.  
+Do not parallel-edit the same DWG/DGN from multiple writers.
+
+## Domain skills (read when relevant)
+
+| Work | Skill / rule |
+|------|----------------|
+| Loc01 steel curb layers | `.cursor/skills/loc01-curb-classify/SKILL.md` |
+| Loc curb batch / verify / restore | `python scripts/engineering_harness.py` |
+| Plan PDF markups | `.cursor/skills/plan-markup-edits/SKILL.md` |
+| VBA debug | `.claude/skills/vba-debug/SKILL.md` |
+| MicroStation vs AutoCAD MCP | `.cursor/rules/cad-mcp-namespace.mdc` |
+| Failure / BLOCKED behavior | `.cursor/rules/engineering-failure-protocol.mdc` |

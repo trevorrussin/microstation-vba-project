@@ -1,0 +1,20 @@
+---
+description: QA gate + standards retrieval for every drafting / CAD / engineering task (mirror of CLAUDE.md "QA gate + standards")
+alwaysApply: true
+---
+
+# QA gate + standards (gate of record)
+
+Same rules as `CLAUDE.md` → "QA gate + standards". Summary:
+
+1. `python scripts/qa_gate.py start --type <cad.drafting|cad.classify.curb|engineering.calc|generic> --desc "..."` before work.
+2. **Standards backcheck before placing** (not after the engineer catches it): search NYSDOT CADD / HDM for **every class of element you are about to draw** — levels, weights, text style, text clearance (other text **and** linework), dims, cells. Read the whole clause, not one sentence. `qa_gate cite` what governs this task. Example: HDM Ch 20 p9(h) text-vs-text **and** p9(i) place text off linear features (leader if needed) — both apply when labeling profiles/plans.
+3. Add measurable expectations (`qa_gate expect`) that encode those clauses.
+4. `qa_gate run` → fix every FAIL/UNCERTAIN → re-run until PASS. Review every image; record `qa_gate review`.
+5. `qa_gate close` only on PASS; otherwise `qa_gate escalate --reason` and report exactly what is blocked.
+6. The stop hook (`.cursor/hooks.json` → `scripts/qa_stop_hook.py --cursor`) sends you back while an open task is not PASS.
+7. New engineer correction → `qa/failure_modes.yaml` row + `tests/qa/` known-bad fixture.
+8. Text: copy height/width/font from nearest existing note of the same kind. Never shrink text to fit clutter — move it. CAD-TXT-02 (style), CAD-TXT-03 (text-text), CAD-TXT-04 (text vs **segment**, not line range AABB). Open the render before `qa_gate review --ok`.
+9. Completeness: `qa_gate start` snapshots the model and lists candidate standards. Mark each candidate `qa_gate dispose --cite "..." --applies yes|no --reason "..."`. If the engineer asked you to edit/move/delete EXISTING elements, start with `--may-modify`; otherwise any change to an existing element FAILs CAD-CHG-01. Read the COV-01 list: PASS is not full compliance — tell the engineer which items are engineer-review/unverified.
+10. Operation contracts: edits made through the bridge tools (move_element, copy_parallel, rotate_element, extend_line, break_line, edit_text_element, place_*, ...) are recorded and re-measured by OP-01. Put the engineer's real numbers/directions in the task `--desc`; OP-01 goes UNCERTAIN if a number or direction in the request is not used by any operation. For edits made outside the bridge (scripts), declare a measurable relation: `qa_gate expect --rel offset|length|angle --a ID [--b ID] --value N`. A hygiene PASS is not "edit verified": read both lines the gate prints.
+11. Tutorial playbooks: before drafting call `list_tutorial_playbooks` / `get_tutorial_playbook`, then `check_playbook(topic)`; follow the agent steps, name the engineer steps (Named Boundary / Create Drawing dialogs, ProjectWise, model or view changes) and do not drive them. Use this workspace's names (ny_barscale.cel, ny_Prop Title), not the recording's. Annotate in the Drawing model. ORD offsets are negative LEFT, copy_parallel is + LEFT.

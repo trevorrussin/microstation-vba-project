@@ -1,0 +1,81 @@
+# Applicability registry: which requirements apply to which KIND of element the task created or modified.
+# The kind comes from the measured change set (qa/changeset.py), never from the agent's description, so the
+# agent cannot omit a requirement by not mentioning it.
+#
+# kinds[].match  : type / level / cell / model regexes (case-insensitive); all given keys must match one element.
+# requirements[] : id, req, doc + section + page (verified against Standards/ index, qa/standards search),
+#                  check = a qa/criteria.yaml row id that enforces it, or "manual" (engineer review; no automated test).
+# A requirement is reported "verified" only when its check ran in this gate run and PASSED.
+# Add a kind or requirement here when an engineer correction reveals a missing one (and add a tests/qa fixture).
+version: 1
+kinds:
+  - id: K-ALL
+    desc: every created or modified element
+    match: {}
+    requirements:
+      - {id: R-LVL, req: "Element is on a NYSDOT library (or approved project) level", doc: nysdot/hdm/chapt_20.pdf, section: "20.7", page: 14, check: CAD-LVL-01}
+      - {id: R-SYM, req: "Color / weight follow the level (ByLevel) or the project symbology table", doc: nysdot/hdm/chapt_20.pdf, section: "20.7.1", page: 15, check: CAD-SYM-01}
+      - {id: R-WT, req: "Proposed vs existing line weights", doc: nysdot/hdm/chapt_20.pdf, section: "20.7.1", page: 15, check: CAD-WT-01}
+      - {id: R-Z, req: "No elements at wrong elevation in a 2D model", doc: nysdot/hdm/chapt_20.pdf, section: "20.5.4", page: 0, check: CAD-Z-01}
+      - {id: R-LOC, req: "Elements are at the correct location (inside the work extent)", doc: nysdot/hdm/chapt_20.pdf, section: "20.5.4", page: 0, check: CAD-LOC-01}
+      - {id: R-DUP, req: "No stacked duplicate elements", doc: nysdot/hdm/chapt_20.pdf, section: "20.5.4", page: 0, check: CAD-DUP-01}
+      - {id: R-DEG, req: "No zero-length / degenerate geometry", doc: nysdot/hdm/chapt_20.pdf, section: "20.5.4", page: 0, check: CAD-DEG-01}
+  - id: K-TEXT
+    desc: text elements
+    match: {type: "^TEXT$"}
+    requirements:
+      - {id: R-TXT-SIZE, req: "Text height/width follow the sheet scale table", doc: nysdot/hdm/chapt_20.pdf, section: "20.9.6", page: 29, check: CAD-TXT-01}
+      - {id: R-TXT-STYLE, req: "New text matches a height/width/font already used on the sheet", doc: nysdot/hdm/chapt_20.pdf, section: "20.9.6", page: 29, check: CAD-TXT-02}
+      - {id: R-TXT-OVL, req: "Text does not overlap other text", doc: nysdot/hdm/chapt_20.pdf, section: "20.9.6", page: 29, check: CAD-TXT-03}
+      - {id: R-TXT-LINE, req: "Text does not sit on linework (do not break linear features for text)", doc: nysdot/hdm/chapt_20.pdf, section: "20.9", page: 0, check: CAD-TXT-04}
+      - {id: R-TXT-WORD, req: "Text wording, abbreviations and note content follow plan-sheet guidance", doc: nysdot/hdm/chapt_21.pdf, section: "21.3.9.2", page: 33, check: manual}
+  - id: K-CELL
+    desc: cells / symbols
+    match: {type: "^(CELL|SHARED)"}
+    requirements:
+      - {id: R-CELL-NAME, req: "Cell is named", doc: nysdot/hdm/chapt_20.pdf, section: "20.7.5", page: 23, check: CAD-CELL-01}
+      - {id: R-CELL-LIB, req: "Cell comes from the NYSDOT cell library and follows the naming convention", doc: nysdot/hdm/chapt_20.pdf, section: "20.9.2.2", page: 25, check: manual}
+  - id: K-DIM
+    desc: dimension elements
+    match: {type: "^DIMENSION$"}
+    requirements:
+      - {id: R-DIM-SIZE, req: "Dimension text and arrow sizes follow the sheet scale table", doc: nysdot/hdm/chapt_20.pdf, section: "20.9.6", page: 29, check: manual}
+  - id: K-WZTC
+    desc: work zone traffic control elements (TWZ* levels)
+    match: {level: "^TWZ"}
+    requirements:
+      - {id: R-WZ-GEOM, req: "Channelizing device / barrier layout, taper and spacing follow the WZTC standard sheet and MUTCD Part 6", doc: part6.pdf, section: "6K.01", page: 51, check: manual}
+  - id: K-PROFILE
+    desc: anything edited in a Profile model
+    match: {model: "profile"}
+    requirements:
+      - {id: R-PROF-ANNOT, req: "Profile sheet annotation (stationing, grades, clearances) follows plan-sheet guidance", doc: nysdot/hdm/chapt_21.pdf, section: "21.3.5.2", page: 23, check: manual}
+      - {id: R-VCLR, req: "Vertical clearance values come from the engineer/NBI and meet the minimum", doc: nysdot/hdm/chapt_02.pdf, section: "2.6.9", page: 37, check: manual}
+  - id: K-DELETED
+    desc: any existing element deleted
+    match: {deleted: true}
+    requirements:
+      - {id: R-DEL, req: "Every deletion of an existing element was requested by the engineer", doc: "", section: "", page: 0, check: CAD-CHG-01}
+  # ---- from the engineers' tutorials (Data/tutorial-playbooks); `playbook:` = topic#step. Verified live by scripts/playbook_runner.py.
+  - id: K-SCALEBAR
+    desc: graphic scale bar cells (ny_barscale.cel <N>_1 / <N>_Vert)
+    match: {type: "^(CELL|SHARED)", cell: '^[0-9]+_(1|Vert)(\s|$)'}
+    requirements:
+      - {id: R-SCALEBAR, req: "Scale bar cell matches the model annotation scale (1:N)", doc: "", section: "", page: 0, check: CAD-SCALE-01, playbook: "plan-sheets-named-boundaries#S8"}
+  - id: K-LINESTYLED
+    desc: elements on custom line-style levels (guide rail, fence, cut/fill line)
+    match: {level: "^(RGCB|LFNC|LCUT|LFILL|RGW|RGC)"}
+    requirements:
+      - {id: R-LS-SCALE, req: "Custom line style Scale factor equals the model annotation scale (not readable through the object model: engineer / vision review)", doc: "", section: "", page: 0, check: manual, playbook: "line-styles#S4"}
+  - id: K-ALIGNMENT
+    desc: alignment control levels (AC_*, ACSC*)
+    match: {level: "^AC"}
+    requirements:
+      - {id: R-ALIGN-STATION, req: "Alignments start at 10+00 (never 0+00 or negative) and prefix equations start at the first station", doc: "", section: "", page: 0, check: manual, playbook: "alignments-horizontal-vertical#S5"}
+      - {id: R-ALIGN-3D, req: "Alignment is designed in a 2D file and traced into the 3D ALG file; no Z from snapping to survey", doc: "", section: "", page: 0, check: CAD-Z-01, playbook: "alignments-horizontal-vertical#S2"}
+  - id: K-BRIDGE-PROFILE
+    desc: bridge deck / structure edge in a profile (BDE level)
+    match: {level: "^BDE"}
+    requirements:
+      - {id: R-BDE, req: "Bridge deck edge lines are on level BDE, ByLevel symbology", doc: "", section: "", page: 0, check: CAD-SYM-01, playbook: "profile-sheet-annotation#S5"}
+

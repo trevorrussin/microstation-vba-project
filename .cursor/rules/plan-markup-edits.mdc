@@ -1,0 +1,15 @@
+---
+description: >-
+  MicroStation PDF plan markups: follow plan-markup-edits skill; Range-box
+  text overlap gate is blocking before claiming place/edit done.
+alwaysApply: true
+---
+
+# Plan markup edits
+
+If the task is PDF/redline markup on a plan sheet (table, NOTES, callouts, tags):
+
+1. Open and follow `.cursor/skills/plan-markup-edits/SKILL.md` (also `.claude/skills/…`).
+2. **Blocking:** §4 overlap gate uses element **Range** boxes, not center distance alone.
+3. Do not claim place/edit done without: gate pass/fail, clashes (or none), nudges (id + dx/dy).
+4. Live CAD MCP: **`user-wztc-designer` only** (see `cad-mcp-namespace.mdc`). Never `user-autocad`.

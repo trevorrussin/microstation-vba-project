@@ -36,6 +36,7 @@ from typing import Optional
 from mcp.server.mcpserver import Image, MCPServer
 
 import manual_search
+import qa_tools
 import wztc_ops
 from bridge_client import bridge
 
@@ -1363,6 +1364,25 @@ def copy_element(element_id: str, delta_x: float, delta_y: float, delta_z: float
 
 
 @mcp.tool()
+def copy_feature_line_graphics(element_id: str, delta_x: float, delta_y: float,
+                               delta_z: float = 0, own_element_only: bool = True,
+                               reason: str = "") -> dict:
+    """Headless copy of linear GRAPHICS (Clone+Move). Same engine as copy_element.
+    Does not copy OpenRoads Feature Definition / Terrain Feature civil objects."""
+    return wztc_ops.copy_feature_line_graphics(
+        element_id, delta_x, delta_y, delta_z, own_element_only, reason
+    )
+
+
+@mcp.tool()
+def create_feature_line_graphics(x1: float, y1: float, x2: float, y2: float,
+                                 reason: str = "") -> dict:
+    """Headless place a two-point line as feature-line GRAPHICS.
+    Not an ORD Terrain Feature / FD civil object — use UI for those."""
+    return wztc_ops.create_feature_line_graphics(x1, y1, x2, y2, reason)
+
+
+@mcp.tool()
 def rotate_element(element_id: str, origin_x: float, origin_y: float, angle_deg: float,
                    origin_z: float = 0, own_element_only: bool = True, reason: str = "") -> dict:
     """Rotate an element about a point by angle_deg (Z axis)."""
@@ -1417,6 +1437,95 @@ def delete_element(element_id: str, own_element_only: bool = True, reason: str =
     response says so plainly (notUndoable=Y). Prefer undo_last_op on
     the placing op when you still can."""
     return wztc_ops.delete_element(element_id, own_element_only, reason)
+
+
+# ==================================================== Standards library + QA gate (2026-10-23)
+
+@mcp.tool()
+def search_standards(query: str, agency: str = "", collection: str = "", doc: str = "", k: int = 6) -> list[dict]:
+    """Hybrid search (exact section refs + BM25 + vectors + rerank + cross-refs) over the official
+    NYSDOT / NYC DDC / NYC DOT / NYC DEP / MUTCD standards library in Standards/. Returns cited
+    passages (doc, section breadcrumb, page) and in-text cross references. Use before any design or
+    drafting governed by a standard; cite what you use."""
+    return qa_tools.search_standards(query, agency, collection, doc, k)
+
+
+@mcp.tool()
+def get_standard_section(doc: str, section: str, max_chars: int = 9000) -> str:
+    """Full text of a numbered section (with subsections) of one standard, e.g. ('hdm/chapt_08.pdf', '8.7.5.1')."""
+    return qa_tools.get_standard_section(doc, section, max_chars)
+
+
+@mcp.tool()
+def read_standard_pages(doc: str, first_page: int, last_page: int = 0) -> str:
+    """Raw text of pages of a standard (tables, exhibits, quote verification)."""
+    return qa_tools.read_standard_pages(doc, first_page, last_page)
+
+
+@mcp.tool()
+def standards_toc(doc: str, max_level: int = 2) -> list[dict]:
+    """Table of contents of one standard (navigate a large manual before reading)."""
+    return qa_tools.standards_toc(doc, max_level)
+
+
+@mcp.tool()
+def follow_standard_ref(doc: str, ref: str) -> str:
+    """Resolve a cross reference from a search hit (section:8.7.4, exhibit:Exhibit-8-12, chapter:5, spec:603)."""
+    return qa_tools.follow_standard_ref(doc, ref)
+
+
+@mcp.tool()
+def list_standards(agency: str = "", collection: str = "") -> list[dict]:
+    """List indexed standards documents."""
+    return qa_tools.list_standards(agency, collection)
+
+
+@mcp.tool()
+def qa_gate_run(task_type: str, description: str, element_ids: str = "", expectations_json: str = "[]",
+                extent: str = "", citations_json: str = "[]", task_id: str = "") -> dict:
+    """Run the QA gate (CAD standards, task expectations, geometry render + independent visual review,
+    citation verification). Returns PASS/FAIL/UNCERTAIN per requirement with fixes. Re-run after every
+    fix until PASS; never report drafting/engineering work as done on FAIL/UNCERTAIN."""
+    return qa_tools.qa_gate_run(task_type, description, element_ids, expectations_json, extent, citations_json, task_id)
+
+
+# ==================================================== Engineers' tutorials (Standards/Tutorials)
+
+@mcp.tool()
+def list_tutorial_playbooks() -> list[dict]:
+    """Distilled how-to playbooks from the engineers' tutorials (topic, title, when to use). Check BEFORE drafting
+    or editing: gives the working procedure, settings and pitfalls, each step cited to file + timestamp."""
+    return qa_tools.list_tutorial_playbooks()
+
+
+@mcp.tool()
+def get_tutorial_playbook(topic: str) -> str:
+    """Full text of one tutorial playbook (steps, exact tools/key-ins, settings, pitfalls, QA checks)."""
+    return qa_tools.get_tutorial_playbook(topic)
+
+
+@mcp.tool()
+def search_tutorials(query: str, k: int = 6, source: str = "") -> list[dict]:
+    """Search the tutorial recordings/decks/ORD manual (speech + on-screen text). Hits carry file + slide/page/mm:ss and a keyframe image path."""
+    return qa_tools.search_tutorials(query, k, source)
+
+
+@mcp.tool()
+def read_tutorial(source: str, start: str = "", end: str = "", max_chars: int = 9000) -> str:
+    """Raw text of one tutorial source (videos: start/end mm:ss; decks/PDF: slide/page numbers)."""
+    return qa_tools.read_tutorial(source, start, end, max_chars)
+
+
+@mcp.tool()
+def check_playbook(topic: str) -> dict:
+    """Read-only preflight of a tutorial playbook against the open MicroStation file (levels, cells, text/line styles, models); lists agent vs engineer steps."""
+    return qa_tools.check_playbook(topic)
+
+
+@mcp.tool()
+def list_tutorials() -> list[dict]:
+    """All ingested tutorial sources."""
+    return qa_tools.list_tutorials()
 
 
 # ==================================================== Reference Manuals (M7)
