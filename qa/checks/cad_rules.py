@@ -245,7 +245,7 @@ def cells(task, ctx):
 
 
 def text_heights(task, ctx):
-    allowed = ctx.get("text_heights")
+    allowed = _allowed_heights(ctx)
     if not allowed:
         return _res("NA", "no text-height table in task card")
     bad = []
@@ -271,6 +271,22 @@ def _style(e):
     return (_f(e.get("textHeight")), _f(e.get("textWidth")), (e.get("textFont") or "").strip().lower())
 
 
+def _bold(e):
+    """True / False from the textBold column, None when the model did not report it."""
+    v = str(e.get("textBold") if e.get("textBold") is not None else "").strip()
+    return True if v == "1" else False if v == "0" else None
+
+
+def _allowed_heights(ctx):
+    """Task text-height table, in the units the read-back reports. Annotative text reads back in paper units
+    (0.00521 at annotation scale 1200 = 6.252 ft), so a table given in design feet is also accepted divided by the scale."""
+    table = [float(a) for a in ctx.get("text_heights") or []]
+    sc = _f(((ctx.get("model_state") or {}).get("annotationScaleFactor")))
+    if sc and sc > 1:
+        table += [a / sc for a in table if a > 0.1]
+    return table
+
+
 def _box(e):
     return tuple(_f(e.get(k)) for k in ("rangeLowX", "rangeLowY", "rangeHighX", "rangeHighY"))
 
@@ -290,22 +306,29 @@ def text_style(task, ctx):
     if unread:
         return _res("UNCERTAIN", f"text height/width/font unreadable on {len(unread)} elements", "readable text style",
                     unread, "Reload WZTCQuery.bas (GET_ELEMENT_CAD_PROPS text columns) and re-run.")
-    refs = {(round(h, 4), round(w, 4), f) for h, w, f in (_style(e) for e in ctx.get("reference_texts") or [])
-            if h is not None and w is not None}
-    allowed = [float(a) for a in ctx.get("text_heights") or []]
+    refs = {(round(h, 4), round(w, 4), f, _bold(e), (e.get("level") or "")) for e in ctx.get("reference_texts") or []
+            for h, w, f in [_style(e)] if h is not None and w is not None}
+    allowed = _allowed_heights(ctx)
     if not refs and not allowed:
         return _res("UNCERTAIN", "no existing text on the sheet and no text-height table", "a style authority",
                     fix="Give the task a text style: set text_heights on the task card or match an engineer-named sheet note.")
     bad = []
     for e in new:
         h, w, f = _style(e)
-        ok = any(abs(h - rh) <= 0.02 * rh and abs(w - rw) <= 0.02 * rw and f == rf for rh, rw, rf in refs)
+        b = _bold(e)
+        # the sheet's own convention for THIS level is the authority when it has one (2026-10-25: regular labels matched
+        # some other level's text and passed); otherwise any text on the sheet
+        lvl = e.get("level") or ""
+        pool = [r for r in refs if r[4] == lvl] or list(refs)
+        ok = any(abs(h - rh) <= 0.02 * rh and abs(w - rw) <= 0.02 * rw and f == rf and (b is None or rb is None or b == rb)
+                 for rh, rw, rf, rb, _lv in pool)
         if not ok and allowed:
             ok = any(abs(h - a) <= 0.02 * a for a in allowed) and abs(w - h) <= 0.02 * h
         if not ok:
-            bad.append(f"{e['elementId']}: h{h:g} w{w:g} {f} '{(e.get('text') or '')[:24]}'")
+            bad.append(f"{e['elementId']}: h{h:g} w{w:g} {f} {'bold' if b else 'regular' if b is not None else 'bold?'} "
+                       f"'{(e.get('text') or '')[:24]}'")
     if bad:
-        have = sorted(f"h{h:g} w{w:g} {f}" for h, w, f in refs)[:6]
+        have = sorted(f"h{h:g} w{w:g} {f} {'bold' if b else 'regular' if b is not None else 'bold?'}" for h, w, f, b, _lv in refs)[:6]
         return _res("FAIL", f"{len(bad)} new text elements do not match any text style on the sheet",
                     f"one of {have}", bad,
                     "Copy height/width/font from the nearest existing note of the same kind (read_standard / GET_ELEMENT_CAD_PROPS ids=TEXT), "
@@ -327,11 +350,63 @@ def text_overlap(task, ctx):
             bb = _box(b)
             if None in ba or None in bb:
                 continue
-            if ba[0] < bb[2] and bb[0] < ba[2] and ba[1] < bb[3] and bb[1] < ba[3]:
+            if _boxes_overlap(ba, bb):
                 hits.append(f"{a['elementId']} overlaps {b['elementId']} '{(b.get('text') or '')[:20]}'")
     if hits:
         return _res("FAIL", f"{len(hits)} text overlaps", "no text-on-text overlap", hits, "Move the new text clear of the other text.")
     return _res("PASS", f"{len(new)} new text boxes clear of other text")
+
+
+def _boxes_overlap(a, b):
+    """True when two text boxes overlap by more than 5% of the smaller box (edge touches of rotated text ranges do not count)."""
+    ix = min(a[2], b[2]) - max(a[0], b[0])
+    iy = min(a[3], b[3]) - max(a[1], b[1])
+    if ix <= 0 or iy <= 0:
+        return False
+    small = min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]))
+    return ix * iy > 0.05 * small
+
+
+def text_model_clear(task, ctx):
+    """No two text boxes in the active model overlap, new or existing (including ORD annotation nodes and text in cells).
+
+    Incident 2026-10-25: the CURVE: CREST node overlapped the VHP node; both were ORD-made, so CAD-TXT-03
+    (new text against other text) never looked at the pair. Boxes that merely touch at the edge (rotated text
+    ranges) are ignored: the overlap must cover more than 5% of the smaller box."""
+    if ctx.get("reference_texts_error"):
+        return _res("UNCERTAIN", f"model text unreadable: {ctx['reference_texts_error']}", "all text read back",
+                    fix="Open MicroStation with the bridge running and re-run.")
+    texts = ctx.get("model_texts")
+    if texts is None:
+        return _res("NA", "model text not read")
+    boxes = []
+    for e in texts:
+        b = _box(e)
+        if None in b or b[2] <= b[0] or b[3] <= b[1]:
+            continue
+        boxes.append((str(e.get("elementId")), (e.get("text") or "").strip()[:24], b))
+    hits = []
+    for i in range(len(boxes)):
+        ida, ta, a = boxes[i]
+        for j in range(i + 1, len(boxes)):
+            idb, tb, b = boxes[j]
+            if ida.split(".")[0] == idb.split(".")[0] and "." in ida and "." in idb:
+                continue                                    # two lines of the same cell
+            ix = min(a[2], b[2]) - max(a[0], b[0])
+            iy = min(a[3], b[3]) - max(a[1], b[1])
+            if ix <= 0 or iy <= 0:
+                continue
+            small = min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]))
+            if ix * iy > 0.05 * small:
+                hits.append(f"{ida} '{ta}' overlaps {idb} '{tb}' ({ix:.1f} x {iy:.1f})")
+    if hits:
+        return _res("FAIL", f"{len(hits)} overlapping text pairs in the model", "no text box overlaps another", hits,
+                    "Move one of the texts clear (HDM 20.5.1.1 h: text must not overlap so it becomes unreadable); "
+                    "for ORD annotation nodes move the node, not the leader.")
+    if ctx.get("model_texts_truncated"):
+        return _res("UNCERTAIN", "text read-back truncated at the row cap: overlaps beyond it were not checked", "all text read",
+                    fix="Check a smaller area or raise the read cap.")
+    return _res("PASS", f"{len(boxes)} text boxes in the model, none overlap")
 
 
 def _is_linear(e):
@@ -412,6 +487,10 @@ def text_line_clearance(task, ctx):
         box = _box(te)
         if None in box:
             continue
+        # HDM 20.5.1.1(i): put text beside the feature and point to it with a leader line. A line running along the edge of
+        # the text block is that leader, so only a line that cuts at least `pad` into the block counts as text on a line.
+        if box[2] - box[0] > 2 * pad and box[3] - box[1] > 2 * pad:
+            box = (box[0] + pad, box[1] + pad, box[2] - pad, box[3] - pad)
         for ln in lines:
             pts = paths.get(str(ln["elementId"])) or []
             if len(pts) < 2:
@@ -419,7 +498,7 @@ def text_line_clearance(task, ctx):
             for i in range(len(pts) - 1):
                 x0, y0 = float(pts[i][0]), float(pts[i][1])
                 x1, y1 = float(pts[i + 1][0]), float(pts[i + 1][1])
-                if _seg_hits_box(x0, y0, x1, y1, box, pad=pad):
+                if _seg_hits_box(x0, y0, x1, y1, box, pad=0.0):
                     hits.append(f"{te['elementId']} '{(te.get('text') or '')[:24]}' on line {ln['elementId']}")
                     break
     if hits:

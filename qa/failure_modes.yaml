@@ -74,7 +74,7 @@
   effect: "Annotation looks wrong on the sheet; engineer rework; false PASS."
   detection: "CAD-TXT-02 (style vs sheet text), CAD-TXT-03 (text-text), CAD-TXT-04 (text-line), VIS-01 render draws real text size/rotation"
   incident: "2026-10-23 profile sheet RW labels 0.003x0.010 vs notes 0.007x0.007"
-- id: FM-013
+- id: FM-016
   applies: [cad.drafting]
   mode: "New text sits on a new line/polyline; gate only checked text-on-text (CAD-TXT-03) and treated line range-AABB as the obstacle (false-positive for diagonals) or skipped lines entirely."
   effect: "Labels unreadable on plot; false PASS on profile/plan annotations."
@@ -96,3 +96,43 @@
   effect: "Geometrically wrong plan with a green gate; the agent graded its own work."
   detection: "OP-01 (op_recorder before/after read-back re-measured by qa/operations.py contracts; request numbers/directions cross-checked), REQ-GEOM-01 (qa_gate expect --rel)"
   incident: "2026-10-23 audit: 'move a line' only checked hygiene; BREAK_LINE places the break at the clicked point without projecting onto the line"
+- id: FM-017
+  applies: [cad.drafting]
+  mode: "Trial-and-error instead of process: edits (display, level, keyin, COM) are attempted before a task is open or the governing playbook is read, failures are answered with variants of the same approach, and the run ends with no verified result."
+  effect: "Many unrecorded changes to the engineer's file, an unfinished task, and a conclusion stated more strongly than the evidence (a hypothesis reported as the cause)."
+  detection: "PROC-01 (event log: task before edit, read before edit, at most 2 failed edits in a row, replan needs new reading, blocked needs an escalation reason); task_guard ReplanRequired; scripts/qa_pretool_hook.py (COM scripts); qa_gate claim labels (close refuses open hypotheses)"
+  incident: "2026-10-24 'turn off the yellow/white circles': ~25 steps of Python/COM/CIF experiments, qa_gate started midway and escalated, playbook references-levels-models-measuring S3 (Level Display, who: engineer) read last"
+- id: FM-018
+  applies: [cad.drafting, cad.classify.curb, engineering.calc, generic]
+  mode: "The retrieval prompt hook fires on pasted material or a discussion question, demands unrelated playbook reads, and repeats the same demand on every send."
+  effect: "The agent refuses its own infrastructure or reads four irrelevant playbooks; the engineer loses the turn."
+  detection: "tests/qa/test_process_discipline.py (pasted content ignored, discussion skipped, 2-keyword minimum, 2-topic cap, no repeat after the stop hook gave up)"
+  incident: "2026-10-24: a pasted review mentioning 'levels' and 'alignments' matched four playbooks; the same RETRIEVE text injected on every send"
+- id: FM-019
+  applies: [cad.drafting, generic]
+  mode: "For a known symptom (unwanted or missing graphics) the agent scripts changes before the cheap, read-only display checks (Level Display, View Options - Civil, references) have a recorded result, so the GUI-only cause is found last."
+  effect: "Dozens of failed scripted edits, unrecorded changes to the engineer's file, and a late escalation of a step the playbook marks who: engineer."
+  detection: "PROC-01 rule P6 (edit before a gating ladder rung has a result); task_guard refuses bridge edits while ladders.gaps(task) is non-empty (Data/diagnostic-ladders/*.yaml)"
+  incident: "2026-10-24 circles run (same incident as FM-017): ordering of checks, not retrieval, was the failure"
+- id: FM-020
+  applies: [cad.drafting, generic]
+  mode: "A past investigation that ended unresolved or handed to the engineer is later treated as a known solution, or a failed approach is repeated because nothing recorded that it failed."
+  effect: "Repeated dead ends; an unverified cause reported as fact."
+  detection: "mcp-server/experience.py (status resolved|unresolved|handed_off; findings carry observed|reported|inferred, hypotheses are never stored as findings); qa_gate start prints the closest rows; tests/qa/test_diagnostic_ladder.py"
+- id: FM-021
+  applies: [cad.drafting, generic]
+  mode: "A production request (change the engineer's drawing) turns into capability development: the agent edits or rebuilds the bridge, VBA modules, add-in or key-in registry, or probes undocumented APIs, on the engineer's real file."
+  effect: "Disproportionate work, an unreviewed change to the tooling, and experiments on a production drawing."
+  detection: "scripts/qa_mode_hook.py (PreToolUse) refuses edits to tooling paths and loader commands while a production task is open; development tasks need --scratch <file.dgn|none> and --mode-reason; --scratch none makes task_guard refuse every drawing edit"
+  incident: "2026-10-24 circles run: a display request ended in rebuilding an add-in and probing OpenRoads internals"
+- id: FM-022
+  applies: [cad.drafting, generic]
+  mode: "The agent picks an execution method by guessing (script, key-in, GUI) because no single place says whether the request is supported and how, and improvises when no tool fits."
+  effect: "Fragile or unrecorded methods, and invented procedures for unsupported operations."
+  detection: "mcp-server/capabilities.py find_capability (qa_gate start prints it): FOUND with status and method from Data/capabilities/policy.yaml, or UNSUPPORTED with the mode's instruction"
+- id: FM-023
+  applies: [cad.drafting, generic]
+  mode: "New text looks different from the sheet's own text (regular weight beside bold axis text, text twice the standard size from an annotative-unit mix-up) and overlapping ORD annotation nodes are not noticed, because the style check compares only height/width/font on top-level text and the read-back cannot read text nodes or text inside cells."
+  effect: "Labels that differ in weight or size from the engineer's reference, and overlapping text on plotted sheets, with a gate that says UNCERTAIN or passes."
+  detection: "CAD-TXT-02 compares bold as well (textBold column); GET_ELEMENT_CAD_PROPS reads text nodes and cell-embedded text (ids=TEXT); CAD-TXT-01/02 accept a feet table for annotative text; CAD-TXT-03 box overlap; CAD-TXT-02 uses the same-level text as the style authority; CAD-TXT-05 checks every text box in the model against every other (existing ORD annotation included); qa_gate run is BLOCKED (nothing checked) when the active model is not the task model; tests/qa/test_qa_checks.py (bold, same-level, model-wide overlap, edge tolerance, feet table) and corpus cases"
+  incident: "2026-10-25 profile station labels: placed at 7500 ft, then 12 ft (2x), then regular weight; CURVE: CREST node overlapped the VHP node; engineer: 'your QA is supposed to check that'"

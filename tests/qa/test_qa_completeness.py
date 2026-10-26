@@ -92,7 +92,8 @@ def test_wztc_and_profile_kinds_derived_from_level_and_model():
 
 def test_coverage_never_claims_full_compliance_when_items_unverified():
     c = ctx([_txt(900, 0.007, 0.007, (0, 0, 5, 1))])
-    c["results"] = {"CAD-LVL-01": {"status": "PASS"}, "CAD-SYM-01": {"status": "PASS"}, "CAD-TXT-02": {"status": "PASS"}}
+    c["results"] = {k: {"status": "PASS"} for k in ("CAD-LVL-01", "CAD-SYM-01", "CAD-TXT-02", "CAD-LOC-01", "CAD-DUP-01", "CAD-DEG-01",
+                                                   "CAD-TXT-03", "CAD-TXT-04", "CAD-TXT-05")}  # every mandatory requirement verified; CAD-TXT-01 still not run
     r = coverage.report({}, c)
     assert r["status"] == "WARN" and "not full NYSDOT/DDC compliance" in r["observed"]
     rows = {x["requirement"]: x["status"] for x in c["coverage"]["requirements"]}

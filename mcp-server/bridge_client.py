@@ -96,6 +96,20 @@ PROJECT_NAME = "Test"
 _req_counter = itertools.count(1)
 
 
+def _is_read_op(op_type: str) -> bool:
+    import task_guard
+    return not task_guard.is_edit(op_type)
+
+
+def _shared_result_slots(parsed: list[dict]) -> set[int]:
+    """Indexes of responses whose resultFile is also used by another response in the same batch."""
+    seen: dict[str, list[int]] = {}
+    for i, p in enumerate(parsed):
+        if p.get("resultFile"):
+            seen.setdefault(str(p["resultFile"]).lower(), []).append(i)
+    return {i for idx in seen.values() if len(idx) > 1 for i in idx}
+
+
 class BridgeError(RuntimeError):
     """Raised for transport-level failures (no response, malformed line,
     COM attach failure) — distinct from an ERROR status the bridge itself
@@ -177,13 +191,23 @@ class Bridge:
     def call_batch(self, ops: list[tuple[str, dict[str, Any]]]) -> list[dict[str, Any]]:
         """Send ops (see _call_batch_impl). Edit ops are also recorded for the QA gate's operation
         contracts (op_recorder.py: before/after geometry read back from MicroStation). Recording is
-        best-effort and never changes the result or raises."""
+        best-effort and never changes the result or raises.
+
+        Drawing edits are refused unless a QA task is open (task_guard.py): the gate is enforced where edits enter
+        MicroStation, not only by the stop hook."""
+        import task_guard
+        task_guard.require_open_task([op for op, _ in ops])
         try:
             import op_recorder
             tok = op_recorder.begin(self, ops)
         except Exception:
             op_recorder, tok = None, None
-        results = self._call_batch_impl(ops)
+        try:
+            results = self._call_batch_impl(ops)
+        except Exception as ex:
+            task_guard.record_attempts([op for op, _ in ops], ex)
+            raise
+        task_guard.record_attempts([op for op, _ in ops], results)
         if tok is not None:
             try:
                 op_recorder.finish(self, tok, ops, results)
@@ -218,7 +242,7 @@ class Bridge:
         resp_text = self._read_response_with_retry(req_ids)
         resp_lines = {l.split("\t", 1)[0]: l for l in resp_text.splitlines() if l.strip()}
 
-        results = []
+        parsed_all = []
         for req_id in req_ids:
             line = resp_lines.get(req_id)
             if line is None:
@@ -226,7 +250,21 @@ class Bridge:
                     f"no response for reqId {req_id} — is MicroStation open with "
                     f"the {PROJECT_NAME!r} VBA project loaded, and WZTCBridge imported?"
                 )
-            parsed = _parse_response_line(line)
+            parsed_all.append(_parse_response_line(line))
+        # VBA writes multi-row results to a small pool of slot files that are only read AFTER the whole batch ran,
+        # so two ops in one batch can share a slot and the later op overwrites the earlier (found live 2026-10-23:
+        # GET_ELEMENT_VERTICES rows came back attributed to the wrong elements). Never trust a shared slot.
+        shared = _shared_result_slots(parsed_all)
+        results = []
+        for i, parsed in enumerate(parsed_all):
+            if i in shared:
+                op_type = ops[i][0]
+                if len(ops) == 1 or not _is_read_op(op_type):
+                    raise BridgeError(
+                        f"result slot collision in a batch for {op_type} (reqId {parsed.get('reqId')}): the rows cannot be "
+                        "attributed to the right op, and an edit op must not be re-run. Send edit ops one per request.")
+                results.append(self._call_batch_impl([ops[i]])[0])  # read ops are idempotent: re-run alone, own slot
+                continue
             if "resultFile" in parsed:
                 parsed["rows"] = _read_result_rows(parsed["resultFile"])
             results.append(parsed)

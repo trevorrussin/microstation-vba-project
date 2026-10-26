@@ -249,9 +249,10 @@ def test_civil_helper_levels_ignored():
 
 
 # ---------------- text style vs sheet (FM-012, incident 2026-10-23: RW labels 0.003x0.010 beside 0.007x0.007 notes)
-def _txt(eid, h, w, box, font="Arial", text="MIN. VC = 13.36'"):
+def _txt(eid, h, w, box, font="Arial", text="MIN. VC = 13.36'", bold=None):
+    extra = {} if bold is None else {"textBold": "1" if bold else "0"}
     return el(eid, level="Default", typ="TEXT", color="-1", weight="-1", box=box, textHeight=str(h),
-              textWidth=str(w), textFont=font, textRotDeg="0", text=text)
+              textWidth=str(w), textFont=font, textRotDeg="0", text=text, **extra)
 
 
 SHEET_NOTES = [_txt(4081, 0.007, 0.007, (4677, 409, 4797, 416), text="STA 66+00 El. 33.0")]
@@ -270,6 +271,77 @@ def test_text_matching_sheet_style_passes():
 def test_text_wrong_font_fails():
     c = ctx([_txt(900, 0.007, 0.007, (4700, 300, 4760, 307), font="Simplex")], reference_texts=SHEET_NOTES)
     assert cad_rules.text_style({}, c)["status"] == "FAIL"
+
+
+def test_regular_label_beside_bold_axis_text_fails_and_bold_passes():
+    """2026-10-25: station labels were regular weight beside the engineer's bold axis text and the gate never compared weight."""
+    bold_refs = [_txt(4081, 0.00521, 0.004, (4677, 409, 4797, 416), text="270", bold=True)]
+    assert cad_rules.text_style({}, ctx([_txt(900, 0.00521, 0.004, (4700, 300, 4760, 307), bold=False)], reference_texts=bold_refs))["status"] == "FAIL"
+    assert cad_rules.text_style({}, ctx([_txt(900, 0.00521, 0.004, (4700, 300, 4760, 307), bold=True)], reference_texts=bold_refs))["status"] == "PASS"
+    # weight not reported on either side: no false failure
+    assert cad_rules.text_style({}, ctx([_txt(900, 0.00521, 0.004, (4700, 300, 4760, 307))], reference_texts=bold_refs))["status"] == "PASS"
+
+
+def _lvl(e, level):
+    e["level"] = level
+    return e
+
+
+def test_style_authority_is_the_same_level_when_it_has_one():
+    """2026-10-25: regular station labels on XAXTXT_P_T passed because OTHER levels had regular text."""
+    refs = [_lvl(_txt(1, 0.00521, 0.004, (0, 0, 20, 10), bold=True), "XAXTXT_P_T"),
+            _lvl(_txt(2, 0.00521, 0.004, (50, 0, 70, 10), bold=False), "AC_P_T")]
+    reg = _lvl(_txt(900, 0.00521, 0.004, (300, 0, 320, 10), bold=False), "XAXTXT_P_T")
+    assert cad_rules.text_style({}, ctx([reg], reference_texts=refs))["status"] == "FAIL"
+    reg_other_level = _lvl(_txt(901, 0.00521, 0.004, (300, 0, 320, 10), bold=False), "AC_P_T")
+    assert cad_rules.text_style({}, ctx([reg_other_level], reference_texts=refs))["status"] == "PASS"
+    assert cad_rules.text_style({}, ctx([_lvl(_txt(902, 0.00521, 0.004, (300, 0, 320, 10), bold=True), "XAXTXT_P_T")], reference_texts=refs))["status"] == "PASS"
+
+
+def test_model_wide_text_overlap_between_two_existing_texts_fails():
+    """2026-10-25: two existing ORD nodes overlapped; CAD-TXT-03 only looks at new text."""
+    a = _txt(66005, 0.00521, 0.004, (4119, 706, 4171, 766), text="CURVE: CREST")
+    b = _txt(66027, 0.00521, 0.004, (4123, 675, 4145, 727), text="VHP 74+14.68")
+    assert cad_rules.text_model_clear({}, ctx([], model_texts=[a, b]))["status"] == "FAIL"
+    b_clear = _txt(66027, 0.00521, 0.004, (4180, 675, 4202, 727), text="VHP 74+14.68")
+    assert cad_rules.text_model_clear({}, ctx([], model_texts=[a, b_clear]))["status"] == "PASS"
+
+
+def test_leader_line_along_the_text_edge_is_allowed_but_a_line_through_the_text_is_not():
+    """HDM 20.5.1.1(i): text goes beside the feature with a leader line. ORD's vertical annotation sits against its own leader."""
+    txt = _txt(66027, 0.00521, 0.004, (4123, 675, 4145, 727), text="VHP 74+14.68")
+    leader = el(10, typ="LINE", level="Default", color="0", weight="0", box=(4122.5, 600, 4122.5, 727))      # runs along the left edge
+    through = el(11, typ="LINE", level="Default", color="0", weight="0", box=(4134, 600, 4134, 727))          # cuts through the block
+    paths = {"10": [(4122.5, 600.0), (4122.5, 727.0)], "11": [(4134.0, 600.0), (4134.0, 727.0)]}
+    assert cad_rules.text_line_clearance({}, ctx([txt, leader], line_paths=paths))["status"] == "PASS"
+    assert cad_rules.text_line_clearance({}, ctx([txt, through], line_paths=paths))["status"] == "FAIL"
+
+
+def test_new_text_vs_existing_uses_the_same_edge_tolerance_as_the_model_check():
+    existing = _txt(66102, 0.00521, 0.004, (3268.6, 281.1, 3281.1, 298.4), text="0.00")
+    sliver = _txt(66097, 0.00521, 0.004, (3280.5, 281.7, 3293.0, 304.1), text="328.08")      # 0.6 ft edge touch
+    assert cad_rules.text_overlap({}, ctx([sliver], reference_texts=[existing]))["status"] == "PASS"
+    real = _txt(66098, 0.00521, 0.004, (3272.0, 281.7, 3285.0, 304.1), text="OVER")
+    assert cad_rules.text_overlap({}, ctx([real], reference_texts=[existing]))["status"] == "FAIL"
+
+
+def test_model_wide_text_overlap_ignores_edge_touch_and_same_cell_lines_and_flags_truncation():
+    a = _txt("66097", 0.00521, 0.004, (3280.5, 281.7, 3293.0, 304.1), text="328.08")
+    b = _txt("66102", 0.00521, 0.004, (3268.6, 281.1, 3281.1, 298.4), text="0.00")          # 0.6 ft sliver
+    assert cad_rules.text_model_clear({}, ctx([], model_texts=[a, b]))["status"] == "PASS"
+    c1 = _txt("500.1", 0.00521, 0.004, (0, 0, 20, 10), text="270")
+    c2 = _txt("500.2", 0.00521, 0.004, (5, 2, 25, 12), text="275")
+    assert cad_rules.text_model_clear({}, ctx([], model_texts=[c1, c2]))["status"] == "PASS"   # two lines of one cell
+    assert cad_rules.text_model_clear({}, ctx([], model_texts=[a], model_texts_truncated=True))["status"] == "UNCERTAIN"
+    assert cad_rules.text_model_clear({}, ctx([], reference_texts_error="bridge down"))["status"] == "UNCERTAIN"
+
+
+def test_height_table_in_feet_matches_annotative_paper_units():
+    """Annotative text at scale 1200 reads back as 0.00521 (= 6.252 ft). A table given in feet must not make it fail."""
+    c = ctx([_txt(900, 0.00521, 0.004, (4700, 300, 4760, 307), bold=True)], text_heights=[6.252], model_state={"annotationScaleFactor": "1200"})
+    assert cad_rules.text_heights({}, c)["status"] == "PASS"
+    c = ctx([_txt(900, 0.01, 0.01, (4700, 300, 4760, 307), bold=True)], text_heights=[6.252], model_state={"annotationScaleFactor": "1200"})
+    assert cad_rules.text_heights({}, c)["status"] == "FAIL"
 
 
 def test_text_unreadable_style_is_uncertain_not_pass():

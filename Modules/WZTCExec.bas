@@ -627,7 +627,10 @@ End Function
 ' verified +1 element on DELETE.dgn 2026-08-02.
 ' ============================================================
 Public Function ExecPlaceTextLabel(text As String, x As Double, y As Double, _
-                                   Optional z As Double = 0, Optional angleDeg As Double = 0) As String
+                                   Optional z As Double = 0, Optional angleDeg As Double = 0, _
+                                   Optional heightFt As Double = 0, Optional widthFt As Double = 0, _
+                                   Optional matchTextId As Double = 0, _
+                                   Optional bold As Long = -1, Optional justification As Long = -1) As String
     On Error GoTo TxtErr
 
     If Trim(text) = "" Then
@@ -649,6 +652,38 @@ Public Function ExecPlaceTextLabel(text As String, x As Double, y As Double, _
     Set te = CreateTextElement1(Nothing, text, pt, rot)
     te.Color = 0
     te.LineWeight = 0
+
+    ' Style: matchTextId copies height/width/font from an existing text element (so new text matches the sheet's
+    ' notes); heightFt/widthFt set them explicitly; neither = the active text style (what the label always used).
+    If matchTextId > 0 Then
+        Dim srcEl As Element
+        Set srcEl = FindElementByID(matchTextId)
+        If srcEl Is Nothing Then
+            ExecPlaceTextLabel = "ERROR" & vbTab & "note=matchTextId " & CStr(matchTextId) & " not found"
+            Exit Function
+        End If
+        If srcEl.Type <> msdElementTypeText Then
+            ExecPlaceTextLabel = "ERROR" & vbTab & "note=matchTextId " & CStr(matchTextId) & " is not a text element"
+            Exit Function
+        End If
+        heightFt = srcEl.AsTextElement.TextStyle.Height
+        widthFt = srcEl.AsTextElement.TextStyle.Width
+        On Error Resume Next
+        te.TextStyle.Font = srcEl.AsTextElement.TextStyle.Font
+        On Error GoTo TxtErr
+    End If
+    If heightFt > 0 Then
+        On Error Resume Next
+        CallByName te.TextStyle, "IsAnnotationText", VbLet, False   ' late bound: the member is not in this type library, an early-bound call is a compile error
+        On Error GoTo TxtErr
+        te.TextStyle.Height = heightFt
+        If widthFt > 0 Then te.TextStyle.Width = widthFt Else te.TextStyle.Width = heightFt
+    End If
+    On Error Resume Next
+    If bold >= 0 Then te.TextStyle.IsBold = (bold <> 0)
+    If justification >= 0 Then te.TextStyle.Justification = justification
+    On Error GoTo TxtErr
+
     ActiveModelReference.AddElement te
     te.Rewrite
 
@@ -665,6 +700,7 @@ Public Function ExecPlaceTextLabel(text As String, x As Double, y As Double, _
     ExecPlaceTextLabel = "OK" & vbTab & "elementId=" & CStr(ElIDAsDouble(te.ID)) & vbTab & _
                          "x=" & x & vbTab & "y=" & y & vbTab & _
                          "angleDeg=" & angleDeg & vbTab & _
+                         "textHeight=" & CStr(te.TextStyle.Height) & vbTab & "textWidth=" & CStr(te.TextStyle.Width) & vbTab & _
                          "text=" & text & vbTab & "note=placed text label (center)"
     Exit Function
 
@@ -2127,7 +2163,9 @@ Public Function ExecChangeElementSymbology(elementId As Double, _
                                            Optional color As Long = -1, _
                                            Optional weight As Long = -1, _
                                            Optional lineStyleIndex As Long = -999, _
-                                           Optional lineStyleName As String = "") As String
+                                           Optional lineStyleName As String = "", _
+                                           Optional colorByLevel As Boolean = False, _
+                                           Optional weightByLevel As Boolean = False) As String
     On Error GoTo E
     Dim el As Element
     Set el = FindElementByID(elementId)
@@ -2139,6 +2177,8 @@ Public Function ExecChangeElementSymbology(elementId As Double, _
     Dim priorWeight As Long: priorWeight = el.LineWeight
     If color >= 0 Then el.Color = color
     If weight >= 0 Then el.LineWeight = weight
+    If colorByLevel Then el.Color = -1         ' ByLevel is -1 in the Element object model (HDM 20.5.1: placement ByLevel)
+    If weightByLevel Then el.LineWeight = -1
     ' Prefer exact Name key from resolve_line_style (e.g. "( Dashed )").
     ' LineStyles(Number) fails for custom styles — Number is not a lookup key.
     ' A bad line style must not abort the whole call: color/weight above are
@@ -2290,6 +2330,19 @@ Public Function ExecBreakLineAtPoint(elementId As Double, x As Double, y As Doub
     Dim s As Point3d, ept As Point3d, mid As Point3d
     s = le.StartPoint: ept = le.EndPoint
     mid.X = x: mid.Y = y: mid.Z = z
+    ' Project the requested point onto the line: breaking at an off-line point leaves a kink.
+    Dim ux As Double, uy As Double, ll As Double, tt As Double
+    ux = ept.X - s.X: uy = ept.Y - s.Y: ll = ux * ux + uy * uy
+    If ll <= 0 Then
+        ExecBreakLineAtPoint = "ERROR" & vbTab & "note=line has zero length"
+        Exit Function
+    End If
+    tt = ((x - s.X) * ux + (y - s.Y) * uy) / ll
+    If tt <= 0.0000001 Or tt >= 0.9999999 Then
+        ExecBreakLineAtPoint = "ERROR" & vbTab & "note=point projects outside the line (t=" & Format(tt, "0.000") & "); not broken"
+        Exit Function
+    End If
+    mid.X = s.X + tt * ux: mid.Y = s.Y + tt * uy: mid.Z = s.Z + tt * (ept.Z - s.Z)
     Dim c1 As LineElement, c2 As LineElement
     Set c1 = CreateLineElement2(Nothing, s, mid)
     Set c2 = CreateLineElement2(Nothing, mid, ept)

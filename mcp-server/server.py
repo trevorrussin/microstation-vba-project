@@ -35,6 +35,7 @@ from typing import Optional
 
 from mcp.server.mcpserver import Image, MCPServer
 
+import code_reload
 import manual_search
 import qa_tools
 import wztc_ops
@@ -166,10 +167,38 @@ def reflect_sheet_build(max_iterations: int = 1) -> dict:
 
 
 @mcp.tool()
-def list_levels(name_contains: str = "") -> list[dict]:
+def list_levels(name_contains: str = "", view_index: int = 1) -> list[dict]:
     """List levels matching name_contains (required substring, e.g. 'TWZ').
+    Fast global isDisplayed only — use get_level_display for per-view flags.
     Refuses unfiltered listings — DGNs can have thousands of levels."""
-    return wztc_ops.list_levels(name_contains)
+    return wztc_ops.list_levels(name_contains, view_index=view_index)
+
+
+@mcp.tool()
+def get_level_display(level: str, view_index: int = 1) -> dict:
+    """Per-view display state for one level (isDisplayedInView /
+    isEffectivelyDisplayedInView / isFromLibrary)."""
+    return wztc_ops.get_level_display(level, view_index=view_index)
+
+
+@mcp.tool()
+def set_level_display(level: str, displayed: bool = False, view_index: int = 1,
+                      reason: str = "") -> dict:
+    """Turn one level's display on/off (LEVEL DISPLAY key-in) and read back
+    per-view state. ERROR if the view still shows the wrong state (common for
+    library Draft_* levels — then engineer Level Display, not UIA)."""
+    return wztc_ops.set_level_display(level, displayed, view_index=view_index, reason=reason)
+
+
+@mcp.tool()
+def hide_levels_recipe(name_contains: str = "", levels: list[str] | None = None,
+                       view_index: int = 1, reason: str = "") -> dict:
+    """Hide many levels: BYVIEW ON then set_level_display(False) each.
+    Pass levels=[...] or name_contains (e.g. 'Draft_Sight'). needsEngineer=True
+    if any readback fails."""
+    return wztc_ops.hide_levels_recipe(
+        name_contains=name_contains, levels=levels, view_index=view_index, reason=reason
+    )
 
 
 @mcp.tool()
@@ -266,6 +295,166 @@ def describe_drawing_state() -> dict:
     views, reference attachments, and current selection. Call at the start
     of a session and whenever unsure what drawing/scale you're working in."""
     return wztc_ops.describe_drawing_state()
+
+
+@mcp.tool()
+def cif_read(cmd: str, args: dict | None = None) -> dict:
+    """Read-only OpenRoads (CIF SDK) query, run inside the open OpenRoads session.
+    Prefer named tools (list_alignments, get_corridor_properties, …). Raw cmd still
+    works: list_alignments | get_alignment | list_profiles | profile_vertices |
+    get_corridor_properties | get_active_terrain | list_templates | …
+    args: alignment name/idx; profile profileIdx; sample_profile x0/x1/step."""
+    return wztc_ops.cif_read(cmd, **(args or {}))
+
+
+@mcp.tool()
+def cif_exec(cmd: str, args: dict | None = None) -> dict:
+    """OpenRoads command that CHANGES the model (creation/edit). Needs an open QA
+    task (qa_gate start); verify afterwards with cif_read or named getters.
+    Prefer set_active_profile / add_template_drop / create_profile named tools."""
+    return wztc_ops.cif_exec(cmd, **(args or {}))
+
+
+@mcp.tool()
+def list_cif_ops(name: str = "") -> list | dict:
+    """Civil/CIF op catalog: inputs, ORD 2023 version, verify-after, production_ok.
+    Empty name = all; pass name for one op (e.g. add_template_drop)."""
+    return wztc_ops.list_cif_ops(name)
+
+
+@mcp.tool()
+def list_alignments() -> dict:
+    """Civil: list alignments (CIF)."""
+    return wztc_ops.list_alignments()
+
+
+@mcp.tool()
+def get_alignment_geometry(name: str = "", idx: int | None = None) -> dict:
+    """Civil: one alignment geometry/stationing/active profile (CIF)."""
+    return wztc_ops.get_alignment_geometry(name=name, idx=idx)
+
+
+@mcp.tool()
+def list_profiles() -> dict:
+    """Civil: list profiles per alignment (CIF)."""
+    return wztc_ops.list_profiles()
+
+
+@mcp.tool()
+def get_profile_pvis(name: str = "", idx: int | None = None,
+                     profile: str = "", profile_idx: int | None = None) -> dict:
+    """Civil: profile station/elevation vertices (CIF profile_vertices)."""
+    return wztc_ops.get_profile_pvis(
+        name=name, idx=idx, profile=profile, profile_idx=profile_idx
+    )
+
+
+@mcp.tool()
+def create_profile(name: str = "", idx: int | None = None, points: str = "") -> dict:
+    """Civil: create pass-through profile (CIF). Prefer profile workflow for design PVIs.
+    Verify with list_profiles. Needs open QA task."""
+    return wztc_ops.create_profile(name=name, idx=idx, points=points)
+
+
+@mcp.tool()
+def set_active_profile(name: str = "", idx: int | None = None,
+                       profile: str = "", profile_idx: int | None = None) -> dict:
+    """Civil: SetActiveProfile (CIF). Verify with list_profiles. Needs open QA task."""
+    return wztc_ops.set_active_profile(
+        name=name, idx=idx, profile=profile, profile_idx=profile_idx
+    )
+
+
+@mcp.tool()
+def list_corridors() -> dict:
+    """Civil: list corridors (CIF)."""
+    return wztc_ops.list_corridors()
+
+
+@mcp.tool()
+def get_corridor_properties(name: str = "", corridor: str = "",
+                            idx: int | None = None,
+                            corridor_idx: int | None = None) -> dict:
+    """Civil: corridor + each TemplateDrop detail (CIF)."""
+    return wztc_ops.get_corridor_properties(
+        name=name, corridor=corridor, idx=idx, corridor_idx=corridor_idx
+    )
+
+
+@mcp.tool()
+def add_template_drop(template: str, start: float, end: float,
+                      corridor: str = "", name: str = "",
+                      idx: int | None = None, corridor_idx: int | None = None,
+                      interval: float = 5.0, lib: str = "",
+                      description: str = "") -> dict:
+    """Civil: add a TemplateDrop to a corridor (CIF). template = list_templates path.
+    start/end metres. Verify with get_corridor_properties. Needs open QA task."""
+    return wztc_ops.add_template_drop(
+        template=template, start=start, end=end, corridor=corridor, name=name,
+        idx=idx, corridor_idx=corridor_idx, interval=interval, lib=lib,
+        description=description,
+    )
+
+
+@mcp.tool()
+def list_terrains() -> dict:
+    """Civil: list terrain surfaces (CIF)."""
+    return wztc_ops.list_terrains()
+
+
+@mcp.tool()
+def get_active_terrain() -> dict:
+    """Civil: read ActiveSurface (CIF). set_active_terrain is engineer-only on ORD 2023."""
+    return wztc_ops.get_active_terrain()
+
+
+@mcp.tool()
+def set_active_terrain(terrain: str = "") -> dict:
+    """Civil: not in ORD 2023 SDK — returns needsEngineer + instruction; then get_active_terrain."""
+    return wztc_ops.set_active_terrain(terrain=terrain)
+
+
+@mcp.tool()
+def list_templates(lib: str = "") -> dict:
+    """Civil: template library paths for add_template_drop (CIF)."""
+    return wztc_ops.list_templates(lib=lib)
+
+
+@mcp.tool()
+def reload_code() -> dict:
+    """Reload edited mcp-server Python modules (bridge_client, wztc_ops, workflow_contract, task_guard, retrieval, op_recorder, qa_tools, plan_workflow) in this
+    running server, keeping the plan session. Call after editing them instead of restarting. Compiles every file first: a syntax error reloads nothing.
+    A restart is still needed only for server.py and code_reload.py (new tools, changed signatures)."""
+    return code_reload.reload_code(bridge)
+
+
+@mcp.tool()
+def profile_preflight(inputs_path: str = "Data/workflow-inputs/profile-design.yaml") -> dict:
+    """Preflight of the profile-design workflow (PVI profile, named boundary, drawing, sheets) against the engineer's inputs file.
+    Returns READY / WAITING_FOR_INPUT / BLOCKED / UNVERIFIED with the missing inputs, problems and safe next steps. Runs nothing in MicroStation."""
+    return wztc_ops.profile_preflight(inputs_path)
+
+
+@mcp.tool()
+def profile_build(inputs_path: str = "Data/workflow-inputs/profile-design.yaml") -> dict:
+    """profile-design: preflight the engineer's PVI inputs and report READY plus the manual steps (N1-N7). Creating the profile from code is disabled
+    by the contract until proven; use profile_verify after the engineer builds it. Refuses when inputs are missing."""
+    return wztc_ops.profile_build(inputs_path)
+
+
+@mcp.tool()
+def profile_verify(inputs_path: str = "Data/workflow-inputs/profile-design.yaml", profile_idx: int = -1) -> dict:
+    """Read-only check of the profile the engineer built (Table Editor) against their PVI table: samples tangents and vertical curves, PASS within 0.003048 m (0.01 ft, HDM Table 21-4)."""
+    return wztc_ops.profile_verify(inputs_path, profile_idx)
+
+
+@mcp.tool()
+def profile_sheet_verify(inputs_path: str = "Data/workflow-inputs/profile-design.yaml", alignment: str = "", profile_name: str = "",
+                         profile_range_m: str = "", detail_scale: str = "") -> dict:
+    """Read-only check of N5-N7: Civil Profile named boundary (VE, datum spacing, Use Active Vertical, station range),
+    Drawing and Sheet models named after profile_name, sheet attachment scale. Lists what only the engineer can confirm.
+    alignment / profile_name override the inputs file; profile_range_m = "start,stop" metres for a profile not from the PVI table."""
+    return wztc_ops.profile_sheet_verify(inputs_path, alignment, profile_name, profile_range_m, detail_scale)
 
 
 @mcp.tool()
@@ -936,9 +1125,19 @@ def place_arc(x1: float, y1: float, x2: float, y2: float, x3: float, y3: float,
 
 @mcp.tool()
 def place_text_label(text: str, x: float, y: float, z: float = 0.0,
-                     reason: str = "", angle_deg: float = 0.0) -> dict:
-    """Place a single-line text label. angle_deg rotates about Z."""
-    return wztc_ops.place_text_label(text, x, y, z, reason, angle_deg)
+                     reason: str = "", angle_deg: float = 0.0,
+                     height: float | None = None, width: float | None = None,
+                     match_text_id: str | None = None,
+                     bold: bool | None = None, justification: int | None = None) -> dict:
+    """Place a single-line text label centred on (x, y). angle_deg rotates about Z.
+
+    Size and style: with none of the style arguments the label takes the ACTIVE text style (rarely the sheet's).
+    In a model with an annotation scale, height/width are PAPER units (0.00521 / 0.004 = 6.252 / 4.8 ft at 1:1200);
+    passing feet gives text thousands of feet tall. match_text_id copies height/width/font from an existing top-level
+    text element. bold / justification set the weight and justification (CL1 station labels: bold, justification 7).
+    The line weight is placed as 0: set ByLevel afterwards where the sheet's text is ByLevel."""
+    return wztc_ops.place_text_label(text, x, y, z, reason, angle_deg, height=height, width=width,
+                                     match_text_id=match_text_id, bold=bold, justification=justification)
 
 
 @mcp.tool()
@@ -1116,12 +1315,14 @@ def place_polygon(cx: float, cy: float, radius: float, sides: int, z: float = 0.
 @mcp.tool()
 def change_element_symbology(element_id: str, color: int | None = None, weight: int | None = None,
                              line_style_index: int | None = None, line_style_name: str = "",
-                             own_element_only: bool = True, reason: str = "") -> dict:
+                             own_element_only: bool = True, reason: str = "",
+                             color_by_level: bool = False, weight_by_level: bool = False) -> dict:
     """Change element color/weight/line style. Prefer line_style_name from
-    resolve_line_style over line_style_index."""
+    resolve_line_style over line_style_index. color_by_level / weight_by_level
+    set ByLevel (HDM 20.5.1: all elements are placed ByLevel); do not pass a number for that."""
     return wztc_ops.change_element_symbology(
         element_id, color, weight, line_style_index, line_style_name,
-        own_element_only, reason)
+        own_element_only, reason, color_by_level, weight_by_level)
 
 
 @mcp.tool()
@@ -1492,6 +1693,17 @@ def qa_gate_run(task_type: str, description: str, element_ids: str = "", expecta
 # ==================================================== Engineers' tutorials (Standards/Tutorials)
 
 @mcp.tool()
+def find_capability(request: str, mode: str = "production", k: int = 5) -> dict:
+    """Ask whether a request can be done, and how, BEFORE choosing a tool or writing a script. Searches workflows, playbooks,
+    bridge tools, verified key-ins and diagnostic ladders. Each match gives status (supported / partial / engineer / blocked /
+    unverified), the execution method from Data/capabilities/policy.yaml, whether production mode may use it, how it is verified and
+    the next call. Returns status UNSUPPORTED with the nearest weak matches and what to do in this mode when nothing fits:
+    in production mode stop and tell the engineer; do not write scripts or change tooling. mode is 'production' or 'development'."""
+    import capabilities
+    return capabilities.find(request, int(k or 5), mode if mode in ("production", "development") else "production")
+
+
+@mcp.tool()
 def list_tutorial_playbooks() -> list[dict]:
     """Distilled how-to playbooks from the engineers' tutorials (topic, title, when to use). Check BEFORE drafting
     or editing: gives the working procedure, settings and pitfalls, each step cited to file + timestamp."""
@@ -1502,6 +1714,15 @@ def list_tutorial_playbooks() -> list[dict]:
 def get_tutorial_playbook(topic: str) -> str:
     """Full text of one tutorial playbook (steps, exact tools/key-ins, settings, pitfalls, QA checks)."""
     return qa_tools.get_tutorial_playbook(topic)
+
+
+@mcp.tool()
+def check_plan_against_playbook(topic: str, plan: str) -> dict:
+    """Diff a proposed plan (plain text) against one playbook: lists settings, numbers and quoted values from the
+    steps the plan references that it leaves out, steps it never mentions, and numbers in the plan that are not in
+    the playbook. Run before presenting or executing a plan; status REVIEW means read the playbook again."""
+    import retrieval
+    return retrieval.check_plan_against_playbook(topic, plan)
 
 
 @mcp.tool()

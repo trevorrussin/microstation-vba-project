@@ -85,6 +85,24 @@ def main() -> int:
 
     pythoncom.CoInitialize()
     try:
+        # Clear [break]/[running] before CodeModule edits — never ask the
+        # engineer to Reset when we can do Run→Reset ourselves (ord_uia).
+        try:
+            import ord_uia
+
+            idle = ord_uia.ensure_vba_idle()
+            if not idle.get("ok"):
+                print(
+                    f"ERROR: VBA IDE not idle (state={idle.get('state')}); "
+                    f"refusing hot-reload. details={idle}",
+                    file=sys.stderr,
+                )
+                return 1
+            if idle.get("attempts"):
+                print(f"note: reset VBA before reload -> {idle.get('state')}")
+        except Exception as exc:
+            print(f"WARN: ensure_vba_idle skipped: {exc}", file=sys.stderr)
+
         try:
             # Deterministic attach (2026-08-02, see ms_connect.py) -- finds
             # the one running instance that has args.project loaded rather

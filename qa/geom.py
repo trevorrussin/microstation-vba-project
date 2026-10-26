@@ -93,3 +93,76 @@ def bearing_to_azimuth(text: str) -> float:
 def azimuth_to_math_deg(az: float) -> float:
     """Azimuth (clockwise from north) -> standard math angle (counterclockwise from +X / east), 0-360."""
     return (90.0 - az) % 360.0
+
+
+def nearest_on_polyline(p, pts):
+    """-> (distance, signed distance (+ = left of the nearest segment's direction), segment index) from p to the polyline."""
+    best = None
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        ux, uy = b[0] - a[0], b[1] - a[1]
+        n2 = ux * ux + uy * uy
+        if n2 < 1e-18:
+            continue
+        t = max(0.0, min(1.0, ((p[0] - a[0]) * ux + (p[1] - a[1]) * uy) / n2))
+        fx, fy = a[0] + t * ux, a[1] + t * uy
+        d = math.hypot(p[0] - fx, p[1] - fy)
+        if best is None or d < best[0] - 1e-12:
+            side = ux * (p[1] - a[1]) - uy * (p[0] - a[0])  # cross > 0: p is left of a->b
+            best = (d, d if side >= 0 else -d, i)
+    if best is None:
+        raise ValueError("polyline has no non-degenerate segment")
+    return best
+
+
+def sample_polyline(pts, per_segment=4):
+    """Vertices plus evenly spaced interior points of every segment."""
+    out = []
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        for k in range(per_segment):
+            f = k / per_segment
+            out.append((a[0] + f * (b[0] - a[0]), a[1] + f * (b[1] - a[1])))
+    out.append((pts[-1][0], pts[-1][1]))
+    return out
+
+
+def dist_box_polyline(box, pts):
+    """Minimum distance between an axis-aligned box (lx, ly, hx, hy) and a polyline; 0 when they touch or overlap."""
+    lx, ly, hx, hy = box
+    corners = [(lx, ly), (hx, ly), (hx, hy), (lx, hy)]
+    best = float("inf")
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        if (lx <= a[0] <= hx and ly <= a[1] <= hy) or (lx <= b[0] <= hx and ly <= b[1] <= hy):
+            return 0.0
+        for j in range(4):
+            c, d = corners[j], corners[(j + 1) % 4]
+            if _segments_cross(a, b, c, d):
+                return 0.0
+        for q in corners:  # box corners to the segment
+            best = min(best, nearest_on_polyline(q, [a, b])[0])
+        for q in (a, b):   # segment ends to the box
+            dx = max(lx - q[0], 0.0, q[0] - hx)
+            dy = max(ly - q[1], 0.0, q[1] - hy)
+            best = min(best, math.hypot(dx, dy))
+    return best
+
+
+def _segments_cross(a, b, c, d):
+    def cr(o, p, q):
+        return (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0])
+    d1, d2, d3, d4 = cr(c, d, a), cr(c, d, b), cr(a, b, c), cr(a, b, d)
+    return ((d1 > 0) != (d2 > 0)) and ((d3 > 0) != (d4 > 0))
+
+
+def y_at_x(pts, x):
+    """Y of the polyline where it crosses the vertical line at x (None if it does not span x). First crossing."""
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        lo, hi = min(a[0], b[0]), max(a[0], b[0])
+        if lo - 1e-9 <= x <= hi + 1e-9:
+            if abs(b[0] - a[0]) < 1e-12:
+                return a[1]
+            return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0])
+    return None

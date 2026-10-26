@@ -592,7 +592,7 @@ def _level_prefix_histogram(names: list[str], limit: int = 25) -> str:
     return ", ".join(f"{k}({v})" for k, v in counts.most_common(limit))
 
 
-def list_levels(name_contains: str = "") -> list[dict]:
+def list_levels(name_contains: str = "", view_index: int = 1) -> list[dict]:
     """List levels in the active design file matching name_contains
     (case-insensitive substring, e.g. 'TWZ', 'Traffic', 'SF_P').
 
@@ -606,7 +606,9 @@ def list_levels(name_contains: str = "") -> list[dict]:
     (measured live at 3046); an unfiltered dump costs real tokens and
     still won't surface the level you want if it isn't in the first page.
     Results are hard-capped at MAX_LISTED_ROWS matches. Returns name,
-    number, isDisplayed; may include matchedVia notes."""
+    number, isDisplayed. For per-view flags use get_level_display(level)
+    or set_level_display readback (GET_LEVEL_DISPLAY). view_index is kept
+    for API compatibility but listing stays global/fast."""
     needle = (name_contains or "").strip()
     if not needle:
         return [{
@@ -619,6 +621,7 @@ def list_levels(name_contains: str = "") -> list[dict]:
     cat_letter, cat_alias = _level_search_category(needle)
     resp = _ok_or_raise(_bridge.call("LIST_LEVELS"), "list_levels")
     rows = resp.get("rows", [])
+    _ = view_index  # listing is global; per-view via get_level_display
     upper_needles = [n.upper() for n in needles]
 
     def _needle_hit(name: str) -> str | None:
@@ -701,6 +704,217 @@ def list_levels(name_contains: str = "") -> list[dict]:
             meta["note"] = " ".join(note_parts)
             matched.append(meta)
     return matched
+
+
+def _quote_level_name(level: str) -> str:
+    """Quote a level name for LEVEL DISPLAY key-ins (spaces / special chars)."""
+    s = (level or "").strip()
+    if not s:
+        return s
+    if s.startswith('"') and s.endswith('"'):
+        return s
+    return f'"{s}"'
+
+
+def _level_truthy(val: object) -> bool | None:
+    if val is None:
+        return None
+    s = str(val).strip().lower()
+    if s in ("", "none"):
+        return None
+    if s in ("true", "1", "yes", "y"):
+        return True
+    if s in ("false", "0", "no", "n"):
+        return False
+    return None
+
+
+def get_level_display(level: str, view_index: int = 1) -> dict:
+    """Per-view display flags for one level (GET_LEVEL_DISPLAY)."""
+    name = (level or "").strip().strip('"')
+    if not name:
+        return {"status": "ERROR", "note": "level name required"}
+    resp = _ok_or_raise(
+        _bridge.call("GET_LEVEL_DISPLAY", level=name, viewIndex=int(view_index or 1)),
+        "get_level_display",
+    )
+    rows = resp.get("rows") or []
+    for r in rows:
+        if isinstance(r, dict) and r.get("name"):
+            out = dict(r)
+            out["status"] = "OK"
+            return out
+    return {
+        "status": "ERROR",
+        "level": name,
+        "viewIndex": view_index,
+        "note": f"level not found: {name!r}",
+    }
+
+
+def _find_level_row(level: str, view_index: int = 1) -> dict | None:
+    """Exact name match with per-view flags via GET_LEVEL_DISPLAY."""
+    row = get_level_display(level, view_index=view_index)
+    if row.get("status") == "OK" and row.get("name"):
+        return row
+    return None
+
+
+def set_level_display(level: str, displayed: bool, view_index: int = 1,
+                      reason: str = "") -> dict:
+    """Turn a level's display on/off via registry LEVEL DISPLAY, then read back.
+
+    Uses LEVEL_DISPLAY_ON/OFF_DEFAULT (quoted level name). Prefer this over
+    raw run_registry_command for level visibility. On library / View Display
+    refusal the key-in may return OK while the view is unchanged — this tool
+    ERRORS when isEffectivelyDisplayedInView (or isDisplayedInView / isDisplayed
+    fallback) does not match the requested state.
+    """
+    name = (level or "").strip().strip('"')
+    if not name:
+        return {"status": "ERROR", "note": "level name required"}
+    quoted = _quote_level_name(name)
+    op = "LEVEL_DISPLAY_ON_DEFAULT" if displayed else "LEVEL_DISPLAY_OFF_DEFAULT"
+    try:
+        # Per-view overrides help some installs before DISPLAY OFF.
+        run_registry_command("LEVEL_BYVIEW_ON", reason=reason or "set_level_display")
+    except Exception as e:
+        # Non-fatal — continue; BYVIEW may already be on.
+        byview_note = f"LEVEL_BYVIEW_ON skipped: {e}"
+    else:
+        byview_note = "LEVEL_BYVIEW_ON ok"
+
+    try:
+        reg = run_registry_command(
+            op, params={"level": quoted}, reason=reason or "set_level_display"
+        )
+    except Exception as e:
+        return {
+            "status": "ERROR",
+            "level": name,
+            "requestedDisplayed": displayed,
+            "viewIndex": view_index,
+            "note": f"registry {op} failed: {e}",
+            "byview": byview_note,
+        }
+
+    row = _find_level_row(name, view_index=view_index)
+    if row is None:
+        return {
+            "status": "ERROR",
+            "level": name,
+            "requestedDisplayed": displayed,
+            "viewIndex": view_index,
+            "registry": reg,
+            "byview": byview_note,
+            "note": "level not found after key-in — check spelling",
+        }
+
+    eff = _level_truthy(row.get("isEffectivelyDisplayedInView"))
+    inv = _level_truthy(row.get("isDisplayedInView"))
+    glob = _level_truthy(row.get("isDisplayed"))
+    observed = eff if eff is not None else (inv if inv is not None else glob)
+
+    out = {
+        "status": "OK",
+        "level": name,
+        "requestedDisplayed": displayed,
+        "viewIndex": view_index,
+        "observedDisplayed": observed,
+        "isDisplayed": row.get("isDisplayed"),
+        "isDisplayedInView": row.get("isDisplayedInView"),
+        "isEffectivelyDisplayedInView": row.get("isEffectivelyDisplayedInView"),
+        "isFromLibrary": row.get("isFromLibrary"),
+        "registry": reg,
+        "byview": byview_note,
+    }
+    if observed is None:
+        out["status"] = "ERROR"
+        out["note"] = (
+            "could not read back display state (empty per-view flags) — "
+            "treat as unverified; engineer Level Display if still visible"
+        )
+        return out
+    if bool(observed) != bool(displayed):
+        out["status"] = "ERROR"
+        lib = str(row.get("isFromLibrary") or "").strip().lower()
+        hint = ""
+        if lib in ("true", "1", "yes"):
+            hint = " (library level — View Display often refuses COM/key-in; use engineer Level Display)"
+        elif "library" in str(reg.get("note", "")).lower() or "library" in byview_note.lower():
+            hint = " (possible library level attribute lock)"
+        out["note"] = (
+            f"readback mismatch: requested displayed={displayed}, "
+            f"observed={observed}{hint}"
+        )
+        return out
+    out["note"] = "display state matches request"
+    return out
+
+
+def hide_levels_recipe(
+    name_contains: str = "",
+    levels: list[str] | None = None,
+    view_index: int = 1,
+    reason: str = "",
+) -> dict:
+    """Turn off View Display for a list of levels or all matches of name_contains.
+
+    Steps: LEVEL BYVIEW ON → set_level_display(False) per level → summarize.
+    Escalates (status=ERROR, needsEngineer=True) if any level fails readback
+    (typical for Draft_Sight_* library levels).
+    """
+    names: list[str] = []
+    if levels:
+        names = [str(x).strip().strip('"') for x in levels if str(x).strip()]
+    elif (name_contains or "").strip():
+        for r in list_levels(name_contains=name_contains, view_index=view_index):
+            if isinstance(r, dict) and r.get("name"):
+                names.append(str(r["name"]))
+    else:
+        return {
+            "status": "ERROR",
+            "note": "pass levels=[...] or name_contains (e.g. 'Draft_Sight')",
+        }
+
+    # Dedupe preserving order
+    seen: set[str] = set()
+    uniq: list[str] = []
+    for n in names:
+        k = n.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        uniq.append(n)
+
+    results = [
+        set_level_display(n, False, view_index=view_index, reason=reason or "hide_levels_recipe")
+        for n in uniq
+    ]
+    failed = [r for r in results if r.get("status") != "OK"]
+    ok = [r for r in results if r.get("status") == "OK"]
+    out: dict = {
+        "status": "OK" if not failed else "ERROR",
+        "viewIndex": view_index,
+        "requestedCount": len(uniq),
+        "okCount": len(ok),
+        "failedCount": len(failed),
+        "ok": [{"level": r.get("level")} for r in ok],
+        "failed": results if failed else [],
+        "needsEngineer": bool(failed),
+    }
+    if failed:
+        out["note"] = (
+            f"{len(failed)}/{len(uniq)} level(s) still effectively displayed — "
+            "hand off to engineer Level Display (View Display) / View Options–Civil; "
+            "do not retry UIA on Level Display content"
+        )
+        # Keep failed detail only (ok summarized)
+        out["failed"] = failed
+    else:
+        out["note"] = f"hid {len(ok)} level(s) in view {view_index}"
+        out["failed"] = []
+    return out
 
 
 # Common color-name → RGB for resolve_color. Tables don't store names —
@@ -4627,12 +4841,30 @@ def place_arc(x1: float, y1: float, x2: float, y2: float, x3: float, y3: float,
 
 
 def place_text_label(text: str, x: float, y: float, z: float = 0.0,
-                     reason: str = "", angle_deg: float = 0.0) -> dict:
-    """Place a single-line text label. angle_deg rotates about Z (tangent
-    for Non-Sign dim labels on a curve; 0 = view-identity / +X)."""
+                     reason: str = "", angle_deg: float = 0.0, height: float | None = None,
+                     width: float | None = None, match_text_id: str | None = None,
+                     bold: bool | None = None, justification: int | None = None) -> dict:
+    """Place a single-line text label centred on (x, y). angle_deg rotates about Z (tangent
+    for Non-Sign dim labels on a curve; 0 = view-identity / +X).
+
+    Style: with no style arguments the label takes the ACTIVE text style, which is rarely the sheet's. Pass
+    match_text_id=<an existing text element on the sheet> to copy its height/width/font (preferred), or height
+    (and optionally width, default = height) in design units. The QA gate (CAD-TXT-02) checks new text against
+    the sheet's existing text, so style it on purpose."""
+    params = {}
+    if height is not None:
+        params["height"] = height
+    if width is not None:
+        params["width"] = width
+    if match_text_id:
+        params["matchTextId"] = match_text_id
+    if bold is not None:
+        params["bold"] = 1 if bold else 0
+    if justification is not None:
+        params["justification"] = int(justification)
     return _ok_or_raise(
         _bridge.call("PLACE_TEXT_LABEL", text=text, x=x, y=y, z=z,
-                     angleDeg=angle_deg, reason=reason),
+                     angleDeg=angle_deg, reason=reason, **params),
         "place_text_label")
 
 
@@ -4653,6 +4885,182 @@ def place_ellipse(cx: float, cy: float, primary_radius: float, secondary_radius:
 def place_block(x1: float, y1: float, x2: float, y2: float, z: float = 0.0, reason: str = "") -> dict:
     """Place an axis-aligned rectangle (CreateShapeElement1)."""
     return _ok_or_raise(_bridge.call("PLACE_BLOCK", x1=x1, y1=y1, x2=x2, y2=y2, z=z, reason=reason), "place_block")
+
+
+# ---------------------------------------------------------------- OpenRoads (CIF SDK) via ord-addin/WZTCCif.dll
+def cif_read(cmd: str, **args) -> dict:
+    """Run a READ-ONLY OpenRoads command through the in-process WZTC.CifBridge .NET class (ord-addin/).
+    cmd: ping | list_alignments | list_corridors | list_terrains. Returns {status, rows:[...]}. Needs the COM class
+    registered (ord-addin/register.ps1) and an OpenRoads model with a CIF connection active."""
+    import json as _json
+    return _ok_or_raise(_bridge.call("GET_CIF", cmd=cmd, json=_json.dumps(args, separators=(",", ":"))), f"cif_read {cmd}")
+
+
+def cif_exec(cmd: str, **args) -> dict:
+    """Run an OpenRoads command that CHANGES the model (creation/edit) through WZTC.CifBridge. Like every edit it needs an
+    open QA task (task_guard) and is recorded; verify the result with a cif_read afterwards."""
+    import json as _json
+    import workflow_contract
+    workflow_contract.guard_cif_exec(cmd, args)   # contract enforcement at the mutation boundary (raises WorkflowRefused)
+    return _ok_or_raise(_bridge.call("CIF_EXEC", cmd=cmd, json=_json.dumps(args, separators=(",", ":"))), f"cif_exec {cmd}")
+
+
+def list_cif_ops(name: str = "") -> list[dict] | dict:
+    """Catalog of typed Civil/CIF ops (Data/cif-ops.yaml): inputs, ORD version, verify-after.
+    Pass name to get one op; empty returns all."""
+    import cif_catalog
+    if name:
+        op = cif_catalog.get_op(name)
+        if op is None:
+            return {"status": "ERROR", "note": f"unknown cif op {name!r}"}
+        return op
+    return cif_catalog.list_ops()
+
+
+def _cif_sel(name: str = "", idx: int | None = None) -> dict:
+    args: dict = {}
+    if name:
+        args["name"] = name
+    if idx is not None:
+        args["idx"] = int(idx)
+    return args
+
+
+def list_alignments() -> dict:
+    """Civil: list alignments in the active geometric model (CIF). Metres."""
+    return cif_read("list_alignments")
+
+
+def get_alignment_geometry(name: str = "", idx: int | None = None) -> dict:
+    """Civil: one alignment's length, stations, ends, active profile (CIF get_alignment)."""
+    return cif_read("get_alignment", **_cif_sel(name, idx))
+
+
+def list_profiles() -> dict:
+    """Civil: profiles per alignment with station range and elevations (CIF)."""
+    return cif_read("list_profiles")
+
+
+def get_profile_pvis(name: str = "", idx: int | None = None,
+                     profile: str = "", profile_idx: int | None = None) -> dict:
+    """Civil: profile vertices as station/elevation samples (CIF profile_vertices; metres)."""
+    args = _cif_sel(name, idx)
+    if profile:
+        args["profile"] = profile
+    if profile_idx is not None:
+        args["profileIdx"] = int(profile_idx)
+    return cif_read("profile_vertices", **args)
+
+
+def create_profile(name: str = "", idx: int | None = None, points: str = "") -> dict:
+    """Civil: create a pass-through profile on an alignment (CIF create_profile).
+    points: 'station,elev;...'. Prefer create_profile_exact / profile workflow for design PVIs.
+    Verify with list_profiles."""
+    if not points:
+        return {"status": "ERROR", "note": "points required: 'station,elev;...'"}
+    args = _cif_sel(name, idx)
+    args["points"] = points
+    out = cif_exec("create_profile", **args)
+    out["verify"] = "list_profiles"
+    return out
+
+
+def set_active_profile(name: str = "", idx: int | None = None,
+                       profile: str = "", profile_idx: int | None = None) -> dict:
+    """Civil: SetActiveProfile on an alignment (CIF). Verify with list_profiles /
+    cif_read('active_profile'). Engineer may still confirm in UI."""
+    args = _cif_sel(name, idx)
+    if profile:
+        args["profile"] = profile
+    if profile_idx is not None:
+        args["profileIdx"] = int(profile_idx)
+    if "profile" not in args and "profileIdx" not in args:
+        return {"status": "ERROR", "note": "profile or profile_idx required"}
+    out = cif_exec("set_active_profile", **args)
+    out["verify"] = "list_profiles or cif_read active_profile"
+    return out
+
+
+def list_corridors() -> dict:
+    """Civil: corridors in the active model (name, distances, template drop count)."""
+    return cif_read("list_corridors")
+
+
+def get_corridor_properties(name: str = "", corridor: str = "",
+                            idx: int | None = None, corridor_idx: int | None = None) -> dict:
+    """Civil: one corridor plus each TemplateDrop (stations, interval, template name)."""
+    args: dict = {}
+    cname = corridor or name
+    if cname:
+        args["corridor"] = cname
+    ci = corridor_idx if corridor_idx is not None else idx
+    if ci is not None:
+        args["corridorIdx"] = int(ci)
+    return cif_read("get_corridor_properties", **args)
+
+
+def add_template_drop(template: str, start: float, end: float,
+                      corridor: str = "", name: str = "",
+                      idx: int | None = None, corridor_idx: int | None = None,
+                      interval: float = 5.0, lib: str = "",
+                      description: str = "",
+                      min_start_transition: float = 0.0,
+                      min_stop_transition: float = 0.0) -> dict:
+    """Civil: Corridor.AddTemplateDrop (CIF). template = path from list_templates.
+    start/end metres along corridor. Verify with get_corridor_properties."""
+    args: dict = {
+        "template": template,
+        "start": float(start),
+        "end": float(end),
+        "interval": float(interval),
+        "minStartTransition": float(min_start_transition),
+        "minStopTransition": float(min_stop_transition),
+    }
+    cname = corridor or name
+    if cname:
+        args["corridor"] = cname
+    ci = corridor_idx if corridor_idx is not None else idx
+    if ci is not None:
+        args["corridorIdx"] = int(ci)
+    if lib:
+        args["lib"] = lib
+    if description:
+        args["description"] = description
+    out = cif_exec("add_template_drop", **args)
+    out["verify"] = "get_corridor_properties"
+    return out
+
+
+def list_terrains() -> dict:
+    """Civil: terrain surfaces in the active geometric model."""
+    return cif_read("list_terrains")
+
+
+def get_active_terrain() -> dict:
+    """Civil: read GeometricModel.ActiveSurface (ORD 2023 SDK is get-only)."""
+    return cif_read("get_active_terrain")
+
+
+def set_active_terrain(terrain: str = "") -> dict:
+    """Civil: NOT supported in ORD 2023 CIF SDK (ActiveSurface get-only).
+    Hand off: engineer sets Active Terrain in ORD, then call get_active_terrain."""
+    return {
+        "status": "ERROR",
+        "needsEngineer": True,
+        "note": (
+            "set_active_terrain is not available in the ORD 2023 CIF SDK "
+            "(GeometricModel.ActiveSurface is get-only). Engineer: set Active "
+            f"Terrain in ORD{(' to ' + terrain) if terrain else ''}, then agent "
+            "calls get_active_terrain to verify."
+        ),
+        "verify": "get_active_terrain",
+    }
+
+
+def list_templates(lib: str = "") -> dict:
+    """Civil: template paths in the (default) template library (CIF list_templates)."""
+    args = {"lib": lib} if lib else {}
+    return cif_read("list_templates", **args)
 
 
 def place_polyline(vertices: list[list[float]], reason: str = "") -> dict:
@@ -5352,8 +5760,10 @@ def place_polygon(cx: float, cy: float, radius: float, sides: int, z: float = 0.
 
 def change_element_symbology(element_id: str, color: int | None = None, weight: int | None = None,
                              line_style_index: int | None = None, line_style_name: str = "",
-                             own_element_only: bool = True, reason: str = "") -> dict:
+                             own_element_only: bool = True, reason: str = "",
+                             color_by_level: bool = False, weight_by_level: bool = False) -> dict:
     """Set element color and/or line weight (and optional line style).
+    color_by_level / weight_by_level set the element to ByLevel (-1): HDM 20.5.1 places every element ByLevel.
     color is a MicroStation color-table INDEX for this DGN — not a universal
     hue. When the engineer names a color ('orange', 'yellow'), call
     resolve_color first and use the returned index; never guess (confirmed
@@ -5362,12 +5772,18 @@ def change_element_symbology(element_id: str, color: int | None = None, weight: 
     For line style prefer line_style_name= from resolve_line_style (exact
     Name key like '( Dashed )') — the Number property is NOT a valid
     LineStyles() lookup key. line_style_index remains the 1-based
-    collectionIndex fallback. ByLevel cannot be assigned this way."""
+    collectionIndex fallback. ByLevel is set with color_by_level / weight_by_level, not with a number."""
     params = {"elementId": element_id, "ownElementOnly": ("Y" if own_element_only else "N"), "reason": reason}
     if color is not None:
         params["color"] = color
     if weight is not None:
         params["weight"] = weight
+    if color_by_level:
+        params["color"] = -1          # the gate's operation contract compares this with the colour read back after the edit
+        params["colorByLevel"] = "Y"
+    if weight_by_level:
+        params["weight"] = -1
+        params["weightByLevel"] = "Y"
     ls_name = (line_style_name or "").strip()
     if ls_name:
         params["lineStyleName"] = ls_name
@@ -7805,3 +8221,93 @@ def delete_element(element_id: str, own_element_only: bool = True, reason: str =
         _bridge.call("DELETE_ELEMENT", elementId=element_id,
                      ownElementOnly=("Y" if own_element_only else "N"), reason=reason),
         "delete_element")
+
+
+def _cif_rows(cmd: str, args: dict | None = None, **kw) -> list[dict]:
+    """Reader for workflow_contract: reader(cmd, {args}) as it calls it, or reader(cmd, key=value)."""
+    return cif_read(cmd, **{**(args or {}), **kw}).get("rows", [])
+
+
+def profile_preflight(inputs_path: str = "Data/workflow-inputs/profile-design.yaml") -> dict:
+    """Preflight of the profile-design workflow against the engineer's inputs file (live alignment checks when OpenRoads is reachable)."""
+    import workflow_contract as wc
+    from pathlib import Path
+    p = Path(inputs_path)
+    if not p.is_absolute():
+        p = wc.ROOT / p
+    if not p.exists():
+        return {"status": wc.WAITING, "workflow": "profile-design", "missing_inputs": [f"inputs file {inputs_path} (copy Data/workflow-inputs/profile-design.template.yaml and fill it in)"],
+                "prohibited_actions": wc.load_contract("profile-design").get("prohibited_assumptions", [])}
+    return wc.preflight_and_arm("profile-design", wc.load_inputs(p), reader=_cif_rows)
+
+
+def profile_build(inputs_path: str = "Data/workflow-inputs/profile-design.yaml") -> dict:
+    """profile-design agent steps. Preflight first. A1 (create the profile from the PVI table) is disabled by the contract until proven, so the
+    result is READY + the manual steps the engineer runs (N1-N3); then profile_verify checks what they built."""
+    import workflow_contract as wc
+    from pathlib import Path
+    pf = profile_preflight(inputs_path)
+    if pf["status"] != wc.READY:
+        return {"stage": "preflight", **pf}
+    c = wc.load_contract("profile-design")
+    inp = wc.load_inputs(wc.ROOT / inputs_path if not Path(inputs_path).is_absolute() else inputs_path)
+    if wc.find_profile_idx(inp, _cif_rows) is None:        # baseline = the alignment's profiles BEFORE ours exists
+        wc.save_baseline("profile-design", inp, _cif_rows)
+    g = c.get("guarded_ops", {}).get("create_profile_exact", {})
+    if g.get("enabled") is False and not str(inp["alignment"]).startswith(wc.TEST_PREFIX):
+        return {"stage": "ready_for_engineer_build", "preflight": pf["status"], "why": g.get("disabled_reason", "creation op disabled"),
+                "next": "engineer builds the profile (playbook N1-N3: Table Editor), then run profile_verify (baseline saved)",
+                "manual_steps": pf["manual_steps"]}
+    args = {"name": inp["alignment"], "pvis": pf["pvis_arg_m"], "active": "1"}
+    if c.get("profile_feature_definition"):
+        args["feature"] = c["profile_feature_definition"]
+    made = cif_exec("create_profile_exact", **args)
+    got = {r["key"]: r["value"] for r in made.get("rows", [])}
+    v = wc.verify_profile_full(inp, _cif_rows, int(got["profileIdx"]), baseline=wc.load_baseline("profile-design", inp))
+    return {"stage": "verified" if v["status"] == "PASS" else "verify_failed", "created": got, "verify": v, "remaining_manual_steps": pf["manual_steps"]}
+
+
+def profile_sheet_verify(inputs_path: str = "Data/workflow-inputs/profile-design.yaml", alignment: str = "", profile_name: str = "",
+                         profile_range_m: str = "", detail_scale: str = "") -> dict:
+    """Read-only check of what was built in N5-N7: Civil Profile named boundary (settings, station range), Drawing and Sheet models,
+    the sheet's attachment scale. Lists what only the engineer can confirm (annotation group, border, ProjectWise check-in).
+    alignment / profile_name override the inputs file (profile_name = the Drawing model name or a part of it); profile_range_m = "start,stop"
+    in metres for a profile that did not come from the PVI table."""
+    import workflow_contract as wc
+    from pathlib import Path
+    p = Path(inputs_path)
+    p = p if p.is_absolute() else wc.ROOT / p
+    if not p.exists():
+        return {"status": wc.WAITING, "missing_inputs": [str(inputs_path)]}
+    inputs = dict(wc.load_inputs(p))
+    if alignment:
+        inputs["alignment"] = alignment
+    if profile_name:
+        inputs["profile_name"] = profile_name
+    if profile_range_m:
+        inputs["profile_range_m"] = [float(x) for x in profile_range_m.split(",")]
+    if detail_scale:                                           # e.g. 1" = 100'; default is the contract's 1" = 40'
+        inputs["named_boundary"] = dict(inputs.get("named_boundary") or {}, detail_scale=detail_scale)
+    return wc.verify_profile_sheet(inputs, _cif_rows)
+
+
+def profile_verify(inputs_path: str = "Data/workflow-inputs/profile-design.yaml", profile_idx: int = -1) -> dict:
+    """Read-only: compare the profile on the alignment (the one whose range equals the PVI table, or profile_idx) with the engineer's PVI table.
+    PASS only when ALL of these pass: sampled and dense elevations within 0.003048 m (0.01 ft, HDM Table 21-4), grades within 0.01 %, exact endpoints,
+    no jump at any PVC/PVI/PVT, exactly one profile with the PVI range, it is the alignment's ACTIVE profile, the original profiles are unchanged
+    (needs the baseline profile_build saves; otherwise UNVERIFIED)."""
+    import workflow_contract as wc
+    from pathlib import Path
+    p = Path(inputs_path)
+    p = p if p.is_absolute() else wc.ROOT / p
+    if not p.exists():
+        return {"status": wc.WAITING, "missing_inputs": [str(inputs_path)]}
+    inp = wc.load_inputs(p)
+    pf = wc.preflight("profile-design", inp, reader=_cif_rows)
+    if pf["status"] != wc.READY:
+        return {"status": pf["status"], "missing_inputs": pf["missing_inputs"], "problems": pf["problems"], "unverified": pf["unverified"]}
+    idx = profile_idx if profile_idx >= 0 else wc.find_profile_idx(inp, _cif_rows)
+    if idx is None:
+        return {"status": "FAIL", "reason": "no profile on the alignment spans the PVI table's first and last station; build it first (playbook N2/N3)"}
+    v = wc.verify_profile_full(inp, _cif_rows, idx, baseline=wc.load_baseline("profile-design", inp))
+    return {**v, "profileIdx": idx, "alignment": inp["alignment"]}

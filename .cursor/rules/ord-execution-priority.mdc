@@ -1,0 +1,64 @@
+---
+description: >-
+  Prefer MCP/bridge tools, then registry key-ins with readback, then COM,
+  then UIA chrome, then vision, then engineer — never start with screen clicking.
+alwaysApply: true
+---
+
+# ORD / MicroStation execution priority
+
+When driving OpenRoads / MicroStation from Cursor (or the in-app WZTC agent),
+pick the **fastest reliable path first**. Fall back only when that path fails
+or is blocked. Do not open with vision clicking or UIA if an MCP/registry
+path exists.
+
+## Priority (top = prefer)
+
+1. **First-class MCP / bridge tool** (`user-wztc-designer`)  
+   Named ops with structured results: place/edit/query, sheet build, CIF where
+   wired. Prefer these over raw key-ins when a tool exists for the job.
+
+2. **Command registry** via `run_registry_command`  
+   Only `verified-headless-safe` rows in `Data/command-registry.tsv`.  
+   After a state-changing key-in: **read back** (list_levels, describe_drawing_state,
+   element query, view capture) — do not trust “OK” alone.
+
+3. **COM / Python bridge script**  
+   Same CadInputQueue or Element API as the bridge, for batches or ops not yet
+   wrapped as MCP. Still require readback. Respect QA task / `task_guard`.
+
+4. **UIA (named Windows controls only)**  
+   `mcp-server/ord_uia.py`: focus ORD, open Key-in (Ctrl+D), dismiss VBA OK.  
+   Use when the target is **chrome** (window title, classic Win32 button).  
+   Do **not** use UIA for MStnChild / Level Display lists / Create Drawing fields.
+
+5. **Computer Use (vision click)**  
+   Last automated resort when playbook allows agent to drive engineer GUI and
+   1–4 failed. Expect misses; prefer short recipes over hunting the ribbon.
+
+   **Exception, working since 2026-10-24: posted Win32 input.** Civil Named
+   Boundary, Create Drawing and the Annotate Element settings are driven by
+   `scripts/ord_named_boundary.py` and `scripts/ord_annotate_profile.py` (no UIA
+   fields, no vision model; see `proven_surfaces: posted_win32_input` in
+   `Data/ord-ui-catalog.yaml`). Use them under an open QA task and read back
+   with `profile_sheet_verify`.
+
+6. **Engineer handoff**
+   Playbook `who: engineer`, `unsafe-blocked` dialogs, library levels that refuse
+   display changes, ProjectWise (update server copy, check-in, One Sheet Per Dgn files).
+   Stop and ask — do not loop key-ins or UIA.
+
+## Anti-patterns
+
+- Starting with screenshot clicking because it “looks helpful”
+- Retrying UIA `SetValue` on custom Bentley dialogs (Create Drawing lesson)
+- Treating registry/COM OK as proof the view/drawing changed
+- Opening `DIALOG *` rows marked unsafe-blocked to “work around” a missing tool
+- Falling back to `user-autocad` for MicroStation work
+
+## Related
+
+- Namespace: `.cursor/rules/cad-mcp-namespace.mdc`
+- UI surface map: `Data/ord-ui-catalog.yaml`, `mcp-server/ord_uia.py`
+- Registry: `Data/command-registry.tsv`
+- Never switch DGN: `.cursor/rules/never-switch-dgn.mdc`

@@ -25,7 +25,7 @@ CONTRACT_OPS = {
     "MOVE_ELEMENT", "COPY_ELEMENT", "COPY_PARALLEL", "ROTATE_ELEMENT", "SCALE_ELEMENT", "MIRROR_ELEMENT",
     "ARRAY_ELEMENT", "EXTEND_LINE", "BREAK_LINE", "CHANGE_ELEMENT_LEVEL", "CHANGE_ELEMENT_SYMBOLOGY",
     "EDIT_TEXT_ELEMENT", "DELETE_ELEMENT", "PLACE_POLYLINE", "PLACE_CIRCLE", "PLACE_ARC", "PLACE_BLOCK",
-    "PLACE_TEXT_LABEL",
+    "PLACE_TEXT_LABEL", "PLACE_CELL",
 }
 _ID_KEYS = ("newElementId", "newElementIds", "createdElementIds", "elementId")
 
@@ -84,6 +84,8 @@ def finish(bridge, tok, ops, results):
     for (op, params), resp in zip(ops, results):
         is_contract = op in CONTRACT_OPS
         new_ids = _ids(resp)
+        if not new_ids and op.startswith("PLACE_") and resp.get("elementId"):
+            new_ids = [str(resp["elementId"])]  # placement ops report the placed element as elementId
         if str(resp.get("status")) != "OK" or not (is_contract or new_ids):
             continue
         operand = str(params.get("elementId") or "").strip()

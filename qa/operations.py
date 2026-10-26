@@ -37,6 +37,21 @@ def _props(rec, side, eid):
     return ((rec.get(side) or {}).get(str(eid)) or {}).get("props")
 
 
+def _verts_or_range(rec, side, eid):
+    """Vertices, or the two range-box corners for elements with none (cells, shared cells)."""
+    v = _verts(rec, side, eid)
+    if v:
+        return v
+    pr = _props(rec, side, eid)
+    if not isinstance(pr, dict):
+        return None
+    try:
+        z = float(pr.get("zLow") or 0)
+        return [[float(pr["rangeLowX"]), float(pr["rangeLowY"]), z], [float(pr["rangeHighX"]), float(pr["rangeHighY"]), z]]
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def _unc(what):
     return _r("UNCERTAIN", f"cannot verify: {what}", "before/after geometry read back")
 
@@ -59,7 +74,7 @@ def _unchanged(rec, eid):
 # ---------------------------------------------------------------- transforms of the operand
 def move(rec):
     p, eid = rec["params"], _operand(rec)
-    b, a = _verts(rec, "before", eid), _verts(rec, "after", eid)
+    b, a = _verts_or_range(rec, "before", eid), _verts_or_range(rec, "after", eid)
     if not b or not a:
         return _unc("operand geometry before/after not readable")
     dx, dy, dz = _f(p.get("deltaX")), _f(p.get("deltaY")), _f(p.get("deltaZ"))
@@ -199,9 +214,11 @@ def break_line(rec):
     joint_ok = geom.dist(c1[-1], c2[0]) <= TOL
     ends_ok = geom.dist(c1[0], b[0]) <= TOL and geom.dist(c2[-1], b[-1]) <= TOL
     on_line = abs(geom.project_on_line(c1[-1], b[0], b[-1])[1]) <= TOL
-    at_pt = geom.dist(c1[-1], pt) <= TOL
+    at_pt = geom.dist(c1[-1], foot) <= TOL  # the tool breaks at the PROJECTION of the requested point onto the line
     len_ok = abs(geom.dist(c1[0], c1[-1]) + geom.dist(c2[0], c2[-1]) - geom.dist(b[0], b[-1])) <= TOL
     ev = []
+    if abs(off) > TOL and on_line and at_pt:
+        ev.append(f"requested point was {abs(off):.3f} ft off the line; broken at its projection")
     if not on_line:
         ev.append(f"break point is {abs(off):.3f} ft off the original line, so the two pieces form a kink")
     ok = joint_ok and ends_ok and on_line and at_pt and len_ok
@@ -344,12 +361,33 @@ def place_text(rec):
               "requested text at the requested anchor and angle", bad)
 
 
+def place_cell(rec):
+    p = rec["params"]
+    new = _new(rec)
+    a = _props(rec, "after", new[0]) if new else None
+    if not isinstance(a, dict):
+        return _unc("placed cell not readable")
+    bad = []
+    if (a.get("cellName") or "").strip().lower() != str(p.get("cellName") or "").strip().lower():
+        bad.append(f"cell is {a.get('cellName')!r}, commanded {p.get('cellName')!r}")
+    x, y = _f(p.get("ptX")), _f(p.get("ptY"))
+    lo = (_f(a.get("rangeLowX")), _f(a.get("rangeLowY")))
+    hi = (_f(a.get("rangeHighX")), _f(a.get("rangeHighY")))
+    diag = geom.dist(lo, hi)
+    gap = geom.dist((x, y), (min(max(x, lo[0]), hi[0]), min(max(y, lo[1]), hi[1])))  # distance from the point to the placed range box
+    if gap > max(1.0, diag):
+        bad.append(f"origin ({x:g}, {y:g}) is {gap:.1f} ft from the placed cell ({lo[0]:.1f},{lo[1]:.1f})-({hi[0]:.1f},{hi[1]:.1f})")
+    return _r("FAIL" if bad else "PASS", "; ".join(bad) or f"cell {a.get('cellName')} placed at the requested point (rotation not measurable)",
+              "the commanded cell, placed at the requested point", bad)
+
+
 CONTRACTS = {
     "MOVE_ELEMENT": move, "COPY_ELEMENT": copy, "COPY_PARALLEL": copy_parallel, "ROTATE_ELEMENT": rotate,
     "SCALE_ELEMENT": scale, "MIRROR_ELEMENT": mirror, "ARRAY_ELEMENT": array, "EXTEND_LINE": extend,
     "BREAK_LINE": break_line, "CHANGE_ELEMENT_LEVEL": level, "CHANGE_ELEMENT_SYMBOLOGY": symbology,
     "EDIT_TEXT_ELEMENT": edit_text, "DELETE_ELEMENT": delete, "PLACE_POLYLINE": place_polyline,
     "PLACE_CIRCLE": place_circle, "PLACE_ARC": place_arc, "PLACE_BLOCK": place_block, "PLACE_TEXT_LABEL": place_text,
+    "PLACE_CELL": place_cell,
 }
 
 
@@ -373,4 +411,8 @@ def numbers_in_params(rec) -> list[float]:
             out.append(abs(float(v)))
         except (TypeError, ValueError):
             pass
+    pts = [[_f(c) for c in part.split(",")[:2]] for part in str((rec.get("params") or {}).get("verticesTSV") or "").split("|") if "," in part]
+    if len(pts) >= 2:  # a placed polyline's lengths are implied by its vertices ("a 20 ft line")
+        seg = [geom.dist(a, b) for a, b in zip(pts, pts[1:])]
+        out += seg + [sum(seg)]
     return out

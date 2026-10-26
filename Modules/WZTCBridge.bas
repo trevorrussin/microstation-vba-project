@@ -49,6 +49,7 @@ Private Const WZTC_CELL_LIB As String = "c:\pwworking\usny\d0119091\ny_plan_wztc
 ' appear after End Sub, End Function, or End Property" if a Const is
 ' declared between two procedures instead (confirmed live 2026-08-02).
 Private Const RESULT_POOL_SIZE As Long = 8
+Private gCifObj As Object   ' WZTC.CifBridge (ord-addin/): .NET class running inside OpenRoads, calls the CIF SDK
 
 ' Bounded rotation for wztc-journal.tsv -- see RotateJournalIfOversized
 ' for the full rationale. Must live here (General Declarations), not
@@ -165,12 +166,16 @@ Private Function ExecuteOpInner(opLine As String) As String
             ExecuteOpInner = ExecGetAlignmentVertices(reqId, params)
         Case "LIST_LEVELS"
             ExecuteOpInner = ExecListLevels(reqId, params)
+        Case "GET_LEVEL_DISPLAY"
+            ExecuteOpInner = ExecGetLevelDisplay(reqId, params)
         Case "DESCRIBE_DRAWING_STATE"
             ExecuteOpInner = ExecDescribeDrawingState(reqId, params)
         Case "GET_ELEMENTS_RANGE"
             ExecuteOpInner = ExecGetElementsRange(reqId, params)
         Case "GET_ELEMENT_VERTICES"
             ExecuteOpInner = ExecGetElementVertices(reqId, params)
+        Case "GET_CIF", "CIF_EXEC"
+            ExecuteOpInner = BridgeCif(reqId, params)
         Case "GET_ELEMENTS_IN_RANGE_BOX"
             ExecuteOpInner = ExecGetElementsInRangeBox(reqId, params)
         Case "GET_ELEMENT_CAD_PROPS"
@@ -558,6 +563,24 @@ Private Function ExecListLevels(reqId As String, params As Object) As String
     Exit Function
 QErr:
     ExecListLevels = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
+End Function
+
+Private Function ExecGetLevelDisplay(reqId As String, params As Object) As String
+    On Error GoTo QErr
+    If params Is Nothing Or Not params.Exists("level") Then
+        ExecGetLevelDisplay = reqId & vbTab & "ERROR" & vbTab & "note=missing level"
+        Exit Function
+    End If
+    Dim viewIdx As Integer: viewIdx = 1
+    If params.Exists("viewIndex") Then
+        If IsNumeric(params("viewIndex")) Then viewIdx = CInt(params("viewIndex"))
+    End If
+    Dim rows() As String
+    rows = WZTCQuery.GetLevelDisplay(CStr(params("level")), viewIdx)
+    ExecGetLevelDisplay = WriteResultRows(reqId, rows)
+    Exit Function
+QErr:
+    ExecGetLevelDisplay = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
 
 Private Function ExecDescribeDrawingState(reqId As String, params As Object) As String
@@ -1628,9 +1651,20 @@ Private Function BridgePlaceTextLabel(reqId As String, params As Object) As Stri
     Dim angleDeg As Double: angleDeg = 0
     If params.Exists("angleDeg") Then angleDeg = CDbl(params("angleDeg"))
 
+    Dim hFt As Double: hFt = 0
+    If params.Exists("height") Then hFt = CDbl(params("height"))
+    Dim wFt As Double: wFt = 0
+    If params.Exists("width") Then wFt = CDbl(params("width"))
+    Dim mId As Double: mId = 0
+    If params.Exists("matchTextId") Then mId = CDbl(params("matchTextId"))
+    Dim boldV As Long: boldV = -1
+    If params.Exists("bold") Then boldV = CLng(params("bold"))
+    Dim justV As Long: justV = -1
+    If params.Exists("justification") Then justV = CLng(params("justification"))
+
     Dim beforeMaxID As Double: beforeMaxID = FindMaxElementID()
     Dim result As String
-    result = WZTCExec.ExecPlaceTextLabel(CStr(params("text")), CDbl(params("x")), CDbl(params("y")), z, angleDeg)
+    result = WZTCExec.ExecPlaceTextLabel(CStr(params("text")), CDbl(params("x")), CDbl(params("y")), z, angleDeg, hFt, wFt, mId, boldV, justV)
     If Left(result, 2) = "OK" Then result = result & vbTab & "createdElementIds=" & CaptureNewElementIDs(beforeMaxID)
     BridgePlaceTextLabel = reqId & vbTab & result
     Exit Function
@@ -1741,7 +1775,11 @@ Private Function BridgeGeomChangeSymbology(reqId As String, params As Object) As
     If params.Exists("weight") Then weight = CLng(params("weight"))
     If params.Exists("lineStyleIndex") Then ls = CLng(params("lineStyleIndex"))
     If params.Exists("lineStyleName") Then lsName = CStr(params("lineStyleName"))
-    BridgeGeomChangeSymbology = reqId & vbTab & WZTCExec.ExecChangeElementSymbology(CDbl(params("elementId")), color, weight, ls, lsName)
+    Dim cByLvl As Boolean: cByLvl = False
+    Dim wByLvl As Boolean: wByLvl = False
+    If params.Exists("colorByLevel") Then cByLvl = (UCase(Trim(CStr(params("colorByLevel")))) = "Y")
+    If params.Exists("weightByLevel") Then wByLvl = (UCase(Trim(CStr(params("weightByLevel")))) = "Y")
+    BridgeGeomChangeSymbology = reqId & vbTab & WZTCExec.ExecChangeElementSymbology(CDbl(params("elementId")), color, weight, ls, lsName, cByLvl, wByLvl)
     Exit Function
 WErr: BridgeGeomChangeSymbology = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description
 End Function
@@ -1989,6 +2027,53 @@ Private Function WriteResultRows(reqId As String, rows() As String) As String
     WriteResultRows = reqId & vbTab & "OK" & vbTab & "rowCount=" & UBound(rows) & vbTab & "resultFile=" & resultPath
 End Function
 
+' ============================================================
+' OpenRoads (CIF SDK) ops. GET_CIF = read-only commands, CIF_EXEC = commands that change the model.
+' params: cmd = CIF command name, json = compact JSON arguments (no tabs/newlines).
+' WZTC.CifBridge.Execute returns "OK<TAB>k=v..." or "ERROR<TAB>note=..." on line 1, then an optional TSV table
+' (header first) that is handed back through the normal result-file path.
+' ============================================================
+Private Function BridgeCif(reqId As String, params As Object) As String
+    On Error GoTo WErr
+    If Not params.Exists("cmd") Then
+        BridgeCif = reqId & vbTab & "ERROR" & vbTab & "note=missing cmd"
+        Exit Function
+    End If
+    If gCifObj Is Nothing Then Set gCifObj = CreateObject("WZTC.CifBridge")
+    Dim jsonArgs As String
+    If params.Exists("json") Then jsonArgs = CStr(params("json"))
+    Dim res As String
+    res = CStr(gCifObj.Execute(CStr(params("cmd")), jsonArgs))
+    res = Replace(res, vbCr, "")
+    Dim lines() As String
+    lines = Split(res, vbLf)
+    If Left(lines(0), 5) = "ERROR" Then
+        BridgeCif = reqId & vbTab & lines(0)
+        Exit Function
+    End If
+    Dim last As Long: last = UBound(lines)
+    Do While last >= 1
+        If Len(Trim(lines(last))) > 0 Then Exit Do
+        last = last - 1
+    Loop
+    If last < 1 Then
+        BridgeCif = reqId & vbTab & lines(0)
+        Exit Function
+    End If
+    Dim rows() As String
+    ReDim rows(0 To last - 1)
+    Dim i As Long
+    For i = 1 To last
+        rows(i - 1) = lines(i)
+    Next i
+    BridgeCif = WriteResultRows(reqId, rows)
+    Exit Function
+WErr:
+    Set gCifObj = Nothing
+    BridgeCif = reqId & vbTab & "ERROR" & vbTab & "note=" & Err.Description & _
+                " (is WZTC.CifBridge registered? see ord-addin/register.ps1)"
+End Function
+
 Private Function ResultSlotFor(reqId As String) As Long
     Dim digits As String
     Dim c As String
@@ -2213,7 +2298,7 @@ Private Function ExecClearPlanElements(reqId As String, params As Object) As Str
         If opName = "CLEAR_PLAN_ELEMENTS" Or opName = "DELETE_ELEMENT" Or _
            opName = "UNDO_LAST_OP" Or opName = "BUILD_WZTC_ORDER_TABLE" Or _
            opName = "COMPUTE_SPACING" Or opName = "GET_JOURNAL" Or _
-           opName = "HANDOFF" Or opName = "GET_ELEMENT_VERTICES" Or _
+           opName = "HANDOFF" Or opName = "GET_ELEMENT_VERTICES" Or opName = "GET_CIF" Or _
            opName = "GET_ELEMENTS_IN_RANGE_BOX" Then GoTo ClearNextLine
 
         ' Scoped clear: only ops tagged with this alignIdx. Untagged

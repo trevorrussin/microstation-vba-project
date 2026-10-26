@@ -1,0 +1,166 @@
+# ORD / MicroStation UI access catalog
+# Authority: live UIA probes + agent-log lessons. Prefer key-in over pixels over UIA SetValue.
+# Update when a probe proves a control is named / chrome-only / empty.
+
+version: 1
+updated: 2026-10-24
+product: OpenRoadsDesigner
+
+# Full agent priority ladder: .cursor/rules/ord-execution-priority.mdc
+# Backlog: dev-notes/strengthen-mcp-backlog.md
+
+principles:
+  - Prefer first-class MCP/bridge tools over registry; registry over UIA/vision.
+  - Prefer key-in / CadInputQueue over UI Automation for tool activation.
+  - Prefer UI Automation only when a named Button/Edit/List exists (not MStnChild chrome).
+  - Prefer Computer Use (vision click) only when key-in and UIA both fail AND playbook allows engineer GUI.
+  - Do not retry UIA SetValue on custom Bentley fields (Create Drawing lesson 2026-10-14).
+  - Key-in Browser list has no UIA children (MStnChild_Thin) — use CadInputQueue or OCR dump_keyin_browser.py.
+  - Classic Win32 OK dialogs (VBA errors) — BM_CLICK works; civil WinForms content usually does not.
+  - Level visibility without Level Display dialog when it works: LEVEL DISPLAY ON|OFF {level}; library View Display may still need engineer GUI.
+  - After any display/state key-in: read back — do not trust OK alone.
+
+module: mcp-server/ord_uia.py
+cli: "python mcp-server/ord_uia.py {probe|status|focus|open-keyin|dismiss-vba}"
+
+proven_surfaces:
+  - id: view_capture
+    module: mcp-server/view_capture.py
+    method: PrintWindow + MStnChild View N crop
+  - id: keyin_ocr
+    module: scripts/dump_keyin_browser.py
+    open: "Ctrl+D then Key-in (F9 remapped by Barmenu); or DIALOG KEYIN OPEN"
+  - id: vba_ok_dismiss
+    modules: [mcp-server/ord_uia.py dismiss_vba_ok, scripts/vba_compile_recovery.py]
+    method: win32gui BM_CLICK OK
+  - id: ord_foreground
+    modules: [mcp-server/ord_uia.py activate_ord, scripts/_ord_foreground_attach.py]
+    notes: AttachThreadInput + SetForegroundWindow (plain SetForeground alone fails)
+  - id: open_keyin
+    module: mcp-server/ord_uia.py
+    method: "Ctrl+D → Key-in → Enter (no CadInputQueue in this module; never F9)"
+    alt_com: "DIALOG KEYIN OPEN via bridge/ms_connect when a QA drafting task is open"
+
+  - id: posted_win32_input
+    modules: [scripts/ord_named_boundary.py, scripts/ord_annotate_profile.py]
+    method: >-
+      Custom Bentley dialogs (Place Named Boundary Civil Profile, Create Drawing) are one MStnChild pane with no UIA children, but accept posted
+      WM_LBUTTONDOWN/UP, WM_KEYDOWN, WM_CHAR without moving the cursor. WinForms tool-settings windows (Annotate Element) have real BUTTON/STATIC
+      children: BM_CLICK works (PostMessage when it opens a modal picker). Clicks in a view are real mouse clicks with ORD in front.
+    read_state: >-
+      Checkbox state: BM_GETCHECK returns 0 for these owner-drawn boxes; read the blue fill from a screen grab (sample the corners, the tick is white).
+      Capture with PIL ImageGrab: PrintWindow returns a blank image for these dialogs.
+    rules: >-
+      Set fields only at the "Identify Profile View" prompt (the seed reloads all fields, Name resets on seed/identify/Length change, so set Name last);
+      verify every Start/Stop arrow fill by comparing crops; read back with profile_sheet_verify. Verified live 2026-10-24 (WZTC_TEST_NB_N5F, N5G).
+    entry: "ribbon item Place Named Boundary: UIA InvokePattern (named RadMenuItem); Annotate Element: key-in GEOMETRY ANNOTATE ELEMENT"
+
+dead_ends:
+  - Create Drawing / Named Boundary field SetValue via UIA (2026-10-14); posted Win32 input is the working route, see proven_surfaces posted_win32_input
+  - Key-in Browser UIA list scrape (2026-10-23)
+  - Make Copy UIA as default move fix (2026-09-10)
+  - CAPTURE VIEW / DIALOG SAVEIMAGE VBA chain (use view_capture.py)
+  - Level Display content toggles via UIA (2026-10-24 chrome_only)
+
+historical_probes:  # one-shots — do not promote to happy path
+  - scripts/_ui_uncheck_makecopy.py
+  - scripts/_enum_makecopy_win32.py
+  - scripts/_expand_move_settings.py
+  - scripts/_dump_move_toolsettings.py
+  - scripts/_select_move_mode.py
+  - scripts/_click_move_mode.py
+  - scripts/_scrape_toolsettings_keyin.py
+
+access_tiers:
+  keyin: "SendKeyin / Key-in browser — fastest, model-safe when command is display-only"
+  uia_named: "Windows UI Automation named control — Invoke/Click by Name"
+  uia_chrome: "Window title visible; content is MStnChild / empty — Close only"
+  computer_use: "Screenshot + pixel click — slow; use as last resort"
+  engineer_gui: "Playbook who:engineer — do not script"
+
+targets:
+  - id: ord.main_window
+    match:
+      class: RadRibbonWindow
+      process: OpenRoadsDesigner
+    uia: useful
+    notes: Main frame; ribbon tabs are named (Home, View, Annotate, …).
+
+  - id: ribbon.tabs
+    uia: useful
+    named_examples: [Home, View, Annotate, Attach, Analyze, Utilities]
+    notes: TabItemControl names work. Individual tool icons often unnamed.
+
+  - id: dialog.level_display
+    open_keyins:
+      - DIALOG LEVELS
+      - DIALOG LEVELDISPLAY
+      - LEVEL DISPLAY DIALOG OPEN
+    window_name: "Level Display - View 1"
+    uia: chrome_only
+    evidence: "2026-10-24 probe — 11 nodes; only Minimize/Maximize/Close; content MStnChild"
+    level_list: empty
+    playbook: references-levels-models-measuring#S3
+    access: engineer_gui
+    registry: "DIALOG LEVELS is unsafe-blocked for headless agent ops"
+    try_without_dialog:
+      - 'LEVEL DISPLAY OFF "Draft_Sight_Achieved"'
+      - "LEVEL BYVIEW ON"
+    fallback: computer_use
+    notes: >
+      Cannot toggle Draft_Sight_* via UIA. Library View Display also resists COM
+      ("Cannot modify library level attribute"). Prefer LEVEL DISPLAY OFF key-in when
+      it sticks; else engineer Level Display or vision click.
+
+  - id: dialog.element_selection
+    window_name: Element Selection
+    uia: chrome_only
+    notes: WinForms host; tool content often not exposed as named buttons.
+
+  - id: dialog.properties
+    window_name: Properties
+    uia: chrome_only
+
+  - id: dialog.keyin
+    open_keyins:
+      - DIALOG KEYIN OPEN
+    open_hotkey: "Ctrl+D then Key-in (F9 remapped by AECOM Barmenu)"
+    window_name: Key-in
+    uia: chrome_only
+    evidence: "agent-log — Key-in Browser owner-drawn MStnChild_Thin, no UIA children; dump_keyin_browser.py uses OCR"
+    notes: Prefer CadInputQueue.SendKeyin from COM/bridge over typing into Key-in UI.
+
+  - id: dialog.create_drawing
+    uia: empty
+    evidence: "agent-log 2026-10-14 — custom Bentley controls; SetValue unreliable"
+    access: engineer_gui
+
+  - id: levels.draft_sight
+    level_names:
+      - Draft_Sight_Achieved
+      - Draft_Sight_Not Achieved
+      - Draft_Sight_Relaxed
+      - Draft_Horiz Alignment Point
+      - Draft_Station Cardinal Points
+    hide_via_com: blocked_library
+    hide_via_uia: not_exposed
+    hide_via: [engineer_gui, computer_use]
+
+recipes:
+  - id: open_level_display
+    steps:
+      - tier: keyin
+        command: DIALOG LEVELDISPLAY
+      - tier: uia_named
+        action: find_window
+        name: "Level Display - View 1"
+    then: "Content toggles are engineer_gui / computer_use — not UIA"
+
+  - id: hide_draft_sight_circles
+    steps:
+      - recipe: open_level_display
+      - tier: engineer_gui
+        action: "View Display mode; filter/select Draft_Sight_* and Draft_* Point; turn View Display off"
+      - tier: computer_use
+        when: "agent driving engineer GUI with screen control"
+        notes: Prefer typeahead/filter over scrolling entire level list

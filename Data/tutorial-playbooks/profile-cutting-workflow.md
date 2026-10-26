@@ -19,6 +19,8 @@ playbook:
   sources:
     - "Cutting Profiles in ORD -  BRP-20241112_073049-Meeting Recording.mp4 @ 01:06"
     - "Cutting a Profile in ORD-20240312_111345-Meeting Recording.mp4 @ 00:29"
+    - "Creating Profiles and Sheets from Alignment 7.pdf page 1"
+    - "Creating Profiles and Sheets from Alignment 7.pdf page 2"
   preflight:
     - {id: PF1, check: level, name: AC_P, why: "the cut line is given the proposed alignment feature definition"}
     - {id: PF2, check: level, name: XGLH_P, why: "profile grid comes from the Profile Only seed"}
@@ -129,4 +131,72 @@ playbook:
         "No view found for cross section boundaries": a seed/preference problem outside the drawing - log an IT ticket (Enterprise
         Solutions); workaround: still cut the profile along the line. Names auto-increment (AC1) when AC already exists.
       cite: "Cutting Profiles in ORD -  BRP-20241112_073049-Meeting Recording.mp4 @ 17:19"
+    - id: N1
+      title: NYSDOT procedure (Munoz PDF) - open the profile model in a 2nd view
+      who: engineer
+      manual_reason: "Open Profile Model / Profile Creation and the 2nd view are screen-layout GUI tools"
+      how: |
+        In OpenRoads Modeling, Geometry tab > Profile Creation drop-down. Either press Open Profile Model, or Profile Creation (the drop-down lists Profile From Surface,
+        Quick Profile From Surface, Project Profile To Element, Project Profile Range To Element, Project Extended Profile, Profile Intersection Point). Follow the prompts
+        and open the profile in the 2nd view (view toggle 2).
+      cite: "Creating Profiles and Sheets from Alignment 7.pdf page 1"
+    - id: N2
+      title: Draw the PVI lines in the profile view and make them a Complex Geometry (Feature Definition AC_P)
+      who: engineer
+      manual_reason: "Lines and Complex Geometry are civil tools run in the profile view"
+      how: |
+        Count the vertical curves: that is the number of PVIs to draw (the example has 2 curves, so 2 PVIs). Use the Lines tool in the profile view to draw the PVI
+        lines, then Complex Geometry to join them. The positions need not be accurate yet. In the tool settings set Method = Automatic (Maximum Gap 0.03; use Manual when
+        there are several segments) and Feature Definition = AC_P, Name AC_P.
+      pitfall: "Parameters and Feature Definition must be set before the tool runs, or the geometry is plain graphics."
+      cite: "Creating Profiles and Sheets from Alignment 7.pdf page 1"
+    - id: N3
+      title: Enter the true PVI values in the Profile Table Editor, Apply, Set As Active Profile
+      who: engineer
+      manual_reason: "Table Editor is a civil dialog; the PVI stations, elevations and curve lengths are DESIGNER inputs the agent must not invent"
+      how: |
+        Geometry tab > Table Editor, then click the profile (the alignment) in the profile view. Fill in ONLY the highlighted columns: Station, Elevation and Curve Length
+        for each PVI; the rest (back/ahead slope, K value, tangent lengths) fills in automatically. The first and last station are the stations you tie into at the
+        project limits. Click Apply, then select the profile and choose Set As Active Profile.
+      pitfall: "Without Set As Active Profile the corridor and the profile sheets do not use the new profile."
+      cite: "Creating Profiles and Sheets from Alignment 7.pdf page 1"
+    - id: N4
+      title: Annotate the profile with Element Annotation (Profile Annotation group)
+      who: engineer
+      manual_reason: "Drawing Production > Element Annotation tool. The agent may run it with scripts/ord_annotate_profile.py (contract step A3) under an open QA task; the managed annotate_profile op places nothing"
+      how: |
+        Drawing Production tab > Annotations > Element Annotation, Annotate Element (Remove Element Annotations undoes it). In the tool settings tick Override Annotation
+        Group and choose the Profile Annotation group, then click the profile.
+      cite: "Creating Profiles and Sheets from Alignment 7.pdf page 1"
+    - id: N5
+      title: Place Named Boundary - Civil Profile (settings of the NYSDOT example)
+      who: engineer
+      manual_reason: "Named Boundary tool, custom Bentley controls (UIA cannot set them). The agent may run N5-N6 with scripts/ord_named_boundary.py (contract step A4): posted Win32 input into the dialog, never UIA SetValue, then profile_sheet_verify"
+      how: |
+        Drawing Production > Named Boundaries > Place Named Boundary, mode Civil Profile. Detail Scale must equal the model scale (1" = 40'). Drawing Seed Profile Only.
+        Name from the project name (the example X096.34_cph_pro_NB), Group (New) with the same name, Method Station Limits. Use the arrows to fill Start Location and
+        Stop Location from the alignment (example NB 65+77.81 to NB 105+97.50, Length 550). Vertical Exaggeration 5, Available Profile Height 50, Top Clearance 1,
+        Bottom Clearance 1, Elevation Datum Spacing 5, Station Datum Spacing 100, Profile Shifts Datum Stations, tick Use Active Vertical (not Use Terrain). Hover over
+        the profile view and click to accept: the profile views (boxes) appear.
+      cite: "Creating Profiles and Sheets from Alignment 7.pdf page 2"
+    - id: N6
+      title: Open the Named Boundaries dialog and run Create Profile Drawing
+      who: engineer
+      manual_reason: "Named Boundaries dialog (pencil) and its context menu. With Create Drawing + Show Dialog ticked in N5, the Create Drawing dialog opens by itself after the boundary is accepted, so scripts/ord_named_boundary.py does N6 and the in-file part of N7 in the same run"
+      how: |
+        Click the circled arrow next to Named Boundary. The pop-up lists Profile Groups and the profile views. Click the Pencil icon, then right-click the boundary name and
+        choose Create Profile Drawing (the menu also has Delete, Fit To Named Boundary, Properties).
+      cite: "Creating Profiles and Sheets from Alignment 7.pdf page 2"
+    - id: N7
+      title: Create Drawing dialog - one sheet per DGN with the NYSDOT border
+      who: engineer
+      manual_reason: "ProjectWise prompts (update server copy, check in) and One Sheet Per Dgn files are the engineer's; the agent never touches ProjectWise. The in-file Create Drawing (One Sheet Per Dgn off, Open Model off) is run by scripts/ord_named_boundary.py"
+      how: |
+        Mode Profile. Tick One Sheet Per Dgn (sets up one sheet per profile view with the border) and use the folder icon to pick where the sheet files are saved.
+        View Name and Drawing Model Name from the project (example X096.34_cph_pro_NB); Drawing Seed Profile Only, seed model nyu_Profile_Only.dgnlib, Unnamed Profile;
+        annotation scale 1" = 40' (adjust to the project), Annotation Group Profile Grid. Sheet Model Name the same; Sheets (New); sheet scale Full Size 1=1 (keep it);
+        Drawing Boundary Profile Only; Detail Scale 1" = 40'. Untick Open Model unless the sheets should open in the current file. OK, then answer the pop-ups:
+        update server copy, then check in. The sheets appear as separate DGN files with the NYSDOT border; text can be moved or edited in the model view of each sheet.
+      pitfall: "Keep the sheet scale Full Size 1=1 and change only the 1\" = 40' detail/annotation scale."
+      cite: "Creating Profiles and Sheets from Alignment 7.pdf page 2"
 ```

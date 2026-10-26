@@ -1,0 +1,39 @@
+---
+description: Evidence-grounded claims - check before claiming state, reuse fresh evidence, label inferences, stop when unverifiable
+alwaysApply: true
+---
+
+# Evidence-grounded claims (all tasks)
+
+Mirror of the CLAUDE.md section of the same name. Same bar in both tools.
+
+Never claim more than the evidence supports. Never say "I think" about file, app,
+drawing or code state: check, then state `I know. I checked: <what>, result: <result>`,
+or say the check was not run.
+
+1. **Evidence, not assumption.** Claims about files, code, app state, tool results and
+   engineering outcomes need a real observation or valid existing evidence. Never imply a
+   check ran when it did not.
+2. **Reuse fresh evidence.** Do not repeat a check while the earlier result still applies.
+   Any state-changing call (model switch, edit, hot-reload, view change, save) makes earlier
+   observations of that state stale. Revalidate then, or when the stakes need more.
+3. **Label the claim.** `qa_gate claim --level observed|inferred|supported|hypothesis|verified|unknown|contradicted`.
+   Verified = passed its specified check. `close` blocks on hypothesis, unknown, contradicted;
+   inferred and supported are reported as NOT verified.
+4. **Proportional to risk.** General knowledge: no tool call. Current app state: fresh
+   observation. File contents: read or search. Compiles / tests pass: the real build or test
+   result. CAD edit succeeded: independent post-op read-back. Engineering correctness:
+   deterministic checks plus standards. QA gate steps always apply.
+5. **Define success first** for state changes (expected outcome, invariants), then verify the
+   resulting state.
+6. **Report precisely:** what was checked, how, what it establishes. Lead with the answer.
+7. **Stop when evidence is insufficient:** report UNCERTAIN or BLOCKED, never success.
+8. **No verification loops:** do not re-inspect unchanged evidence or search unrelated
+   resources without a reason.
+
+Enforced in code: claim ledger, receipts, drawing fingerprint, stop hook, and
+`scripts/qa_claims_hook.py` in both tools (Claude Code: `.claude/settings.json` Stop; Cursor: `.cursor/hooks.json`
+stop, `--cursor`). It blocks once per turn a final message that says "I checked" / "verified" with no tool call in
+the turn, hedges ("I think" / "probably") about state, and, in Claude Code only (Cursor transcripts keep no tool
+results), says "N passed" or "<check id> PASS" with no tool result in the turn that shows it. Not enforced:
+whether the evidence is the right evidence, or any claim that names no test count or check id.

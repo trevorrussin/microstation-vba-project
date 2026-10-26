@@ -3,8 +3,11 @@
     "wztc-designer": {
       "command": "python",
       "args": [
-        "c:\\repos\\microstation-vba-project\\mcp-server\\server.py"
-      ]
+        "c:\\repos\\microstation-vba-project\\mcp-server\\proxy.py"
+      ],
+      "env": {
+        "MCP_REV": "2"
+      }
     }
   }
 }

@@ -1,0 +1,53 @@
+ladder:
+  id: unwanted-or-missing-graphics
+  title: Unwanted or missing graphics (circles, symbols, linework that should or should not show)
+  # A prompt or task description matches when it contains at least MIN_HITS of these (case-insensitive substrings).
+  keywords: [circle, circles, hide, turn off, not showing, disappeared, missing linework, unwanted, symbols, ellipse, decoration,
+             sight visibility, alignment point, not visible, can't see, cannot see, display off, view display, level display]
+  min_hits: 2
+  why: >
+    2026-10-24 circles run: ~25 COM/CIF/keyin attempts before the cheap display checks. The cause sat in Level Display and
+    View Options - Civil (both GUI, who: engineer). Order the checks by cost and risk; script only after the cheap ones have a recorded result.
+  rungs:
+    - id: R1
+      title: Identify what the graphic is - level, model, reference or transient
+      who: agent
+      risk: read-only
+      how: >
+        find_elements_near / get_elements_in_range_box at the symptom (sample the area; do not scan the whole file), then read the level
+        and type of what comes back. Zero stored elements at the symptom means the graphic is probably a display setting or a reference.
+    - id: R2
+      title: Level Display for the level found in R1 (or the Draft_/library level family)
+      who: engineer
+      risk: view-state
+      playbook: references-levels-models-measuring#S3
+      how: >
+        Read the level's per-view state first with get_level_display (one level, isDisplayedInView). Do NOT use list_levels for this: it lists
+        global isDisplayed only, walks all ~3,000 levels, and timed out twice on 2026-10-24. If the level is on, try the existing
+        hide_levels_recipe (LEVEL BYVIEW ON, then the quoted LEVEL DISPLAY OFF key-in, then read back); it reports needsEngineer when the
+        read-back does not match. Library levels such as Draft_Sight_* are reported to resist this ("Cannot modify library level
+        attribute", from the 2026-10-24 circles run, not re-tested). On needsEngineer, ask the engineer to open Level Display and set
+        View Display off. Level Display's content is not readable through UI Automation (Data/ord-ui-catalog.yaml, chrome_only).
+    - id: R3
+      title: View Options - Civil and Preferences (Survey Error Ellipse, Message Icons, Manipulators)
+      who: engineer
+      risk: view-state
+      how: >
+        Ask the engineer to open View Attributes / View Options - Civil and the Civil preferences and toggle the matching display item.
+        Civil-generated graphics are not stored elements and no element scan will find them.
+    - id: R4
+      title: References and models
+      who: agent
+      risk: read-only
+      playbook: references-levels-models-measuring#S3
+      how: >
+        describe_drawing_state for attached references and the active model. Check whether the graphic belongs to a reference or to another
+        model before assuming it lives in the active file. Toggling a reference's display is a view change: do it as a reversible A/B
+        (qa/experiment.py), not as a permanent edit.
+    - id: R5
+      title: Scripted change (COM, CIF, key-in)
+      who: agent
+      risk: edit
+      how: >
+        Only after R1-R4 each have a recorded result. Name the hypothesis the script tests and what result would refute it.
+        Failed attempts are budgeted (two in a row, then replan or escalate).

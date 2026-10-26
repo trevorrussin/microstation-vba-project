@@ -64,6 +64,11 @@
   req: "New text boxes do not overlap other text (new or existing)."
   source: "HDM Ch 20 §20.5.4.2.d (legibility); plan-markup-edits text-overlap gate"
   check: cad_rules.text_overlap
+- id: CAD-TXT-05
+  applies: [cad.drafting]
+  req: "No two text boxes in the active model overlap (new or existing, including ORD annotation nodes and text inside cells)."
+  source: "HDM Ch 20 p9(h) (text strings shall not overlap so they become unreadable); engineer correction 2026-10-25 (CURVE: CREST node overlapped the VHP node, both existing ORD text)"
+  check: cad_rules.text_model_clear
 - id: CAD-TXT-04
   applies: [cad.drafting]
   req: "New text boxes do not sit on new linear geometry (actual line/polyline segments, not the line's range AABB)."
@@ -114,7 +119,6 @@
   req: "Requirements applicable to the kinds of element actually created/modified (qa/applicability.yaml) are listed with their verification status; unverified or engineer-review items are shown, never hidden."
   source: "QA gate design (verification vs completeness); qa/applicability.yaml"
   check: coverage.report
-  blocking: false
 - id: OP-01
   applies: [cad.drafting]
   req: "Each edit operation did what it was commanded to do: re-measured from before/after geometry read back from MicroStation (move distance, offset distance/side, rotation, extension, break point, level/symbology, text edit, placed geometry), the engineer's numbers and directions appear in the operations, and edits made outside a recorded operation are not accepted without an independent expectation."
@@ -136,3 +140,19 @@
   source: "ORD training manual p.468; tutorial playbooks plan-sheets-named-boundaries / profile-sheet-annotation S3"
   check: cad_rules.annotation_model
   blocking: false
+- id: STATE-01
+  applies: [cad.drafting]
+  req: "The drawing did not change while the checks ran, and `close` re-confirms the drawing still matches the verified state (model + every element's checked fields + vertex hashes)."
+  source: "QA gate design (release integrity: the artifact released must be the artifact verified)"
+  check: gate.state
+- id: PROC-01
+  applies: [cad.drafting]
+  req: "The task followed the process: no edit before a task was open and a playbook or standard was read, no more than two failed edits in a row without a replan (which needs a new read) or an escalation."
+  source: "QA gate design (execution governance; the 2026-10-24 circles run did 25 steps of trial and error before reading the playbook)"
+  check: process.discipline
+- id: COM-01
+  applies: [cad.drafting]
+  req: "The bridge read-back the checks used agrees with MicroStation's own COM object model (range box + level) for every changed element and a seeded sample of the rest: a second, independent evidence path."
+  source: "QA gate design (evidence integrity; WZTC bridge shared result-slot defect found 2026-10-23)"
+  check: com_spot.verify
+
