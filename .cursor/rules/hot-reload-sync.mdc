@@ -19,10 +19,22 @@ Do **not** ask the engineer to delete+re-import for routine code updates. Hot-re
 
 Documented live (`dev-notes/agent-log.md`, 2026-08-02 Tier1-3): VBA IDE state `[running]` or `[break]` **blocks** hot-reload; forcing COM CodeModule edits while a bridge op / GetInput / hung procedure is executing can **wedge the project or crash MicroStation**.
 
+### VBA errors / break / stuck macros — agent always resets (never ask)
+
+Standing engineer preference: **you** clear VBA problems. Do not ask the engineer to
+Reset, Ctrl+Break, or dismiss VBA OK dialogs.
+
+Use `mcp-server/ord_uia.py`: `ensure_vba_idle` / `reset_vba` / `dismiss_vba_ok`
+(CommandBars Run→Reset on the active project, including `Test.mvba`). Also
+`CadInputQueue.SendReset` + Escape when ORD is armed (`File Saving > …`, etc.).
+Maintenance clears may set `QA_ALLOW_NO_TASK=1`. Status-bar
+`VBA interface error: unable to run macro - 0x800adf09` is the same class of
+problem — reset/clear it yourself before continuing bridge or UI work.
+
 Before every `hot_reload.py` call:
-1. If a bridge/agent tool call, keyin batch, or VBA procedure may still be running — **stop**. Warn the engineer and ask them to **Reset** (or Ctrl+Break) in the VBA IDE first.
+1. If a bridge/agent tool call, keyin batch, or VBA procedure may still be running — **stop** and **Reset VBA yourself** (`ensure_vba_idle` / `reset_vba`) first.
 2. Do **not** retry hot-reload in a loop against COM errors while MicroStation/VBA looks stuck — that makes crashes more likely.
-3. After a failed hot-reload that leaves every subsequent reload COM-failing: tell the engineer to Reset, then re-import the affected modules from disk (File Sync Protocol).
+3. After a failed hot-reload that leaves every subsequent reload COM-failing: Reset yourself, then re-import the affected modules from disk (File Sync Protocol) if still blocked.
 
 Still needs a **manual Import** (not hot-reload) when:
 - the component does not exist in the IDE yet (brand-new file)

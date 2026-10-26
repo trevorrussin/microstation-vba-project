@@ -1,0 +1,128 @@
+# OpenRoads CIF op catalog (ORD 2023.00). Loaded by mcp-server/cif_catalog.py.
+# Units: CIF distances/elevations/stations are METRES unless a tool doc says otherwise.
+# Path: C# (ord-addin) -> VBA GET_CIF/CIF_EXEC -> Python cif_read/cif_exec or named wrappers.
+version: "2023.00"
+sdk: "Bentley.CifNET.GeometryModel.SDK / SDK.Edit"
+ops:
+  list_alignments:
+    kind: read
+    cmd: list_alignments
+    inputs: {}
+    verify: "rows present; names match Explorer when sampled"
+    production_ok: true
+  get_alignment_geometry:
+    kind: read
+    cmd: get_alignment
+    inputs: { name: "optional alignment name", idx: "optional 0-based index from list_alignments" }
+    verify: "length/startStation/activeProfile populated"
+    production_ok: true
+  list_profiles:
+    kind: read
+    cmd: list_profiles
+    inputs: {}
+    verify: "each alignment lists profiles; active column when known"
+    production_ok: true
+  get_profile_pvis:
+    kind: read
+    cmd: profile_vertices
+    inputs: { name: "alignment", idx: "or index", profile: "optional", profileIdx: "optional" }
+    verify: "i/x/y rows; x=station m, y=elevation m"
+    production_ok: true
+  create_profile:
+    kind: mutate
+    cmd: create_profile
+    inputs: { name_or_idx: "alignment", points: "station,elev;..." }
+    verify: "cif_read list_profiles — profile count increased"
+    production_ok: false
+    note: "Prefer create_profile_exact / workflow contract for design PVIs"
+  set_active_profile:
+    kind: mutate
+    cmd: set_active_profile
+    inputs: { name_or_idx: "alignment", profile_or_profileIdx: "required" }
+    verify: "get_active_profile / list_profiles active column; engineer may still confirm in UI"
+    production_ok: true
+  list_corridors:
+    kind: read
+    cmd: list_corridors
+    inputs: {}
+    verify: "name/start/end/templateDrops count"
+    production_ok: true
+  get_corridor_properties:
+    kind: read
+    cmd: get_corridor_properties
+    inputs: { corridor_or_name: "optional", corridorIdx_or_idx: "optional" }
+    verify: "template drop rows match TemplateDrops count"
+    production_ok: true
+  add_template_drop:
+    kind: mutate
+    cmd: add_template_drop
+    inputs:
+      corridor: "name or use corridorIdx"
+      template: "path from list_templates"
+      start: "metres along (required)"
+      end: "metres along (required, > start)"
+      interval: "default 5"
+      lib: "optional; default template library"
+    verify: "get_corridor_properties — dropsAfter == dropsBefore+1; stations match"
+    production_ok: false
+    note: "Scratch/development until engineer promotes; needs real template path"
+  list_terrains:
+    kind: read
+    cmd: list_terrains
+    inputs: {}
+    verify: "terrain names"
+    production_ok: true
+  get_active_terrain:
+    kind: read
+    cmd: get_active_terrain
+    inputs: {}
+    verify: "hasActive Y/N; name when set"
+    production_ok: true
+  set_active_terrain:
+    kind: engineer
+    cmd: null
+    inputs: { terrain: "engineer picks in ORD" }
+    verify: "get_active_terrain after engineer sets Active Terrain"
+    production_ok: false
+    note: "GeometricModel.ActiveSurface is get-only in ORD 2023 SDK; no SetActiveTerrain found"
+  list_templates:
+    kind: read
+    cmd: list_templates
+    inputs: { lib: "optional library path" }
+    verify: "path rows non-empty when library loads"
+    production_ok: true
+  probe_doccenter_native:
+    kind: read
+    cmd: probe_doccenter_native
+    inputs: {}
+    verify: "found=4/4; module non-zero; no create side effects"
+    production_ok: true
+    note: "GetProcAddress only on Bentley.Cif.DocCenter.4.0.dll create exports. Does not invoke (WString ABI)."
+  probe_annotation_types:
+    kind: read
+    cmd: probe_annotation_types
+    inputs: { filter: "optional regex; default Annotat|DrawingBoundary|Processor" }
+    verify: "lists PersistenceAnnotationProcessor.Annotate overloads when Annotation assemblies loaded"
+    production_ok: true
+    note: "N4 lead: PersistenceAnnotationProcessor(DgnModel).Annotate(model, role); DrawingBoundary.SetSelectedAnnotationGroup. Not a create-drawing API."
+  annotate_profile:
+    kind: mutate
+    cmd: annotate_profile
+    inputs:
+      name: "alignment (WZTC_TEST_* required unless force=1)"
+      role: "annotation group; default Profile Annotation"
+      dryRun: "1 = resolve types only"
+      setGroup: "1 = DrawingBoundary.SetSelectedAnnotationGroup first (default)"
+      force: "1 = allow non-WZTC_TEST_ (dangerous)"
+    verify: "status int; profile model gains annotation elements vs dryRun baseline"
+    production_ok: false
+    note: "N4 Element Annotation; smoke WZTC_TEST_* only until engineer promotes"
+  session_keyin:
+    kind: mutate
+    cmd: session_keyin
+    inputs:
+      keyin: "MicroStation/ORD key-in string (alias: cmd)"
+      mode: "keyin (default, Session.Keyin) | enqueue (Session.EnqueueKeyin)"
+    verify: "commandAfter changes for tool key-ins; Place Named Boundary / Annotate Element tool settings appear"
+    production_ok: false
+    note: "In-process Session.Keyin; use for Civil DocCenter tools CadInputQueue cannot arm. Promote after N5 smoke."

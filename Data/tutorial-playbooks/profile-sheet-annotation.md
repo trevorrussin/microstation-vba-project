@@ -61,7 +61,7 @@ playbook:
     - id: S4
       title: Profile grid and axis levels are usable
       who: agent
-      how: "Grid lines XGLH_P / XGLV_P and axis XAX_P come from the drawing seed; do not redraw them. Use them only to confirm alignment."
+      how: "Grid lines XGLH_P / XGLV_P and axis XAX_P come from the drawing seed; do not redraw them when they are there. 2026-10-25: for the WZTC test profiles Create Drawing produced only the horizontal grid and the left/right axis frame: no XGLV_P vertical grid, no bottom-axis ticks, no station labels (cause unknown; boundary settings equal CL1's except Profile Shifts). Run `python scripts/ord_profile_xaxis.py \"<Drawing model>\" --check --y0 <axis y>` (read-only, exit 1 when incomplete). If it FAILs, build the fallback under an open cad.drafting task: `--grid-only --y0 <axis y>` (XGLV_P at every 50 ft station, the same x as the axis ticks: CL1's grid sits at frame-left + 50 ft only because its frame starts on a round station; add `--replace-grid` to delete a misplaced grid first), then the ticks and labels (CL1 style: Arial bold, justification 7, paper height 0.00521 / width 0.004), then `--normalise-only` (ByLevel, HDM 20.5.1). Say in the delivery that these are drawn lines and text, not ORD annotation. Use them only to confirm alignment otherwise. Annotation text nodes that ORD placed on top of each other or on the y-axis labels (2026-10-25: CURVE: CREST over the VHP node, the start-of-profile VPI node over axis labels 335/340) are fixed by moving the node right with move_element (own_element_only=false, state the distance in the task description); the positions held through model switches, but a re-run of Annotate Model / Update Drawing regenerates them in ORD's default places, so run the gate again after any re-annotation: CAD-TXT-05 (every text box against every other) reports the pairs that came back."
       test: {action: levels, levels: [XGLH_P, XGLV_P, XAX_P]}
       cite: "BRP Profiles-20240607_073333-Meeting Recording.mp4 @ 03:21"
     - id: S5
@@ -105,7 +105,8 @@ playbook:
       how: |
         Draw a vertical double arrow from the profile up to the bridge underside (soffit) with the street name and "MIN. VC = x.xx'" beside it (engineer markup style). MIN. VC is MEASURED
         from the geometry: soffit line Y minus the profile Y at each end of the bridge, divided by the vertical scale (5 units/ft at VE 5), the smaller value wins. The minimum
-        required clearance comes from the standard (HDM Chapter 2, section 2.6.9 Vertical Clearance, p.37), not from memory; the existing underclearance value is NBI Item 54. The QA gate's operation
+        required clearance is NOT in HDM 2.6.9 (p.37): that section only says "Refer to the Bridge Manual, Section 2, for specific design criteria" (HDM Exhibit 2-4 says the same). Get the number from the NYSDOT Bridge Manual,
+        Section 2, or the engineer; HDM 5.7.12.2 / 23.10 give about 22 ft over an operating mainline railroad. Never use a remembered value. The existing underclearance value is NBI Item 54. The QA gate's operation
         contracts and relation checks (`qa_gate expect --rel`) verify the measured numbers.
       cite: "BRP Profiles-20240607_073333-Meeting Recording.mp4 @ 03:57"
       test: {action: standard, doc: "nysdot/hdm/chapt_02.pdf", section: "2.6.9"}

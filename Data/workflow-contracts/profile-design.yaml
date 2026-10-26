@@ -1,0 +1,149 @@
+# Workflow contract: design profile (PVI profile) on an alignment, then Civil Profile named boundary, drawing and sheets.
+# Machine-readable. Consumed by mcp-server/workflow_contract.py (preflight, mutation guard, verification) and tests/qa/test_workflow_contracts.py.
+# The procedure text lives in the playbook; this file says what must be supplied, what may run, and what counts as done.
+workflow_id: profile-design
+title: Design profile from a PVI table, Civil Profile named boundary, profile drawing and sheets
+deliverable: >
+  A designer-defined PVI profile (stations, elevations, curve lengths) set ACTIVE on the chosen alignment, annotated, with a Civil Profile
+  named boundary, a profile drawing model, and one sheet per DGN with the NYSDOT border, checked in to ProjectWise.
+
+# Feature definition given to the created profile (PDF p.1 step 2: AC_P). The open file defines only "Alignment\AC_P" (list_feature_defs).
+profile_feature_definition: "Alignment\\AC_P"
+
+authoritative_source:
+  procedure: "Data/tutorial-playbooks/profile-cutting-workflow.md (steps N1-N7)"
+  document: "Standards/Tutorials/6-Cutting Profiles - NYSDOT/Creating Profiles and Sheets from Alignment 7.pdf"
+  pages: [1, 2]
+  note: "The PDF defines the procedure and the dialog settings. It does NOT supply any PVI value."
+
+# ------------------------------------------------------------------ inputs
+# source: engineer = only the engineer may supply it (never invented, never defaulted)
+#         derived  = the agent reads it from the open project and records where it came from
+#         pdf_default = value given in the PDF's worked example; the agent may propose it, the engineer confirms
+inputs:
+  alignment:
+    source: engineer
+    required: true
+    description: "Name of the alignment the profile goes on (must exist in the open model)"
+  units:
+    source: engineer
+    required: true
+    description: "Units of the station and elevation columns: 'ft' or 'm'. OpenRoads CIF values are metres; DGN master units are survey feet."
+    allowed: [ft, m]
+  pvis:
+    source: engineer
+    required: true
+    min_rows: 2
+    description: "PVI table exactly as typed in the Table Editor"
+    columns:
+      station:      {type: number, note: "first/last row = the stations you tie into at the project limits"}
+      elevation:    {type: number}
+      curve_length: {type: number, min: 0, note: "0 on the first and last PVI"}
+  profile_name:
+    source: engineer
+    required: false
+    description: "Name for the profile / named boundary / drawing (PDF example: X096.34_cph_pro_NB)"
+  named_boundary:
+    source: pdf_default
+    required: false
+    description: "Place Named Boundary settings; PDF example values"
+    fields:
+      mode: Civil Profile
+      drawing_seed: Profile Only
+      detail_scale: "1\" = 40'"
+      method: Station Limits
+      vertical_exaggeration: 5
+      available_profile_height: 50
+      top_clearance: 1
+      bottom_clearance: 1
+      elevation_datum_spacing: 5
+      station_datum_spacing: 100
+      use_active_vertical: true
+      start_station: null   # engineer: first station of the boundary
+      stop_station: null    # engineer: last station of the boundary
+  create_drawing:
+    source: pdf_default
+    required: false
+    fields:
+      mode: Profile
+      one_sheet_per_dgn: true
+      drawing_seed: Profile Only
+      seed_model: "nyu_Profile_Only.dgnlib, Unnamed Profile"
+      annotation_group: Profile Grid
+      sheet_size: "Full Size 1=1"
+      drawing_boundary: Profile Only
+      open_model: false
+      sheet_folder: null    # engineer: where the sheet DGNs are saved
+
+# ------------------------------------------------------------------ rules
+prohibited_assumptions:
+  - invent_pvi_stations
+  - invent_pvi_elevations
+  - invent_curve_lengths
+  - substitute_terrain_drape_for_design_profile
+  - substitute_pass_through_points_for_pvi_profile
+  - default_units
+
+# CIF ops that build a profile by any other method. The guard refuses them while this contract applies.
+prohibited_ops:
+  create_profile: "pass-through points are not a PVI design profile"
+  create_profile_vpi: "superseded by create_profile_from_pvis (real curve lengths, set active, verified)"
+  profile_from_terrain: "a terrain drape is not a design profile (Quick Profile From Surface is a different deliverable)"
+
+# Only this op may create the profile, and only after preflight READY on the same inputs.
+guarded_ops:
+  create_profile_from_pvis:
+    enabled: false            # EXPERIMENTAL: the 2026-10-23 dry run showed CreateProfileByVerticalPIs does not build the curves from curveLength/slopeRate as assumed
+    disabled_reason: "the engineer builds the profile in the Table Editor (playbook N2/N3); the agent verifies it with verify_profile_pvis. Enable only after a dry run on a WZTC_TEST_ object passes verify."
+    requires_ready: true
+    inputs_hash_must_match: true
+  create_profile_exact:
+    enabled: true             # 2026-10-23: 3 live runs on WZTC_TEST_ALG/ALG2 (tables with 2 and 3 curves, negative grade, AC_P set), full verify PASS incl. active + originals unchanged
+    # To switch it off: set enabled: false (test alignments stay allowed). Needs a READY token from the engineer's own inputs file, a non-synthetic one for real alignments.
+    requires_ready: true
+    inputs_hash_must_match: true
+
+# ------------------------------------------------------------------ preflight checks (implemented in workflow_contract.py)
+preconditions:
+  - id: alignment_exists
+    check: "alignment is present in the open model (live read, skipped offline and reported as UNVERIFIED)"
+  - id: pvi_rows
+    check: "at least 2 PVIs; stations strictly increasing; elevations numeric"
+  - id: end_curves_zero
+    check: "curve_length is 0 on the first and last PVI"
+  - id: curves_fit
+    check: "each curve fits: half the curve length on each side is shorter than the adjacent tangent"
+  - id: stations_within_alignment
+    check: "first and last station lie within the alignment's stationing (live read)"
+  - id: units_declared
+    check: "units is ft or m and was supplied, not defaulted"
+
+# ------------------------------------------------------------------ execution
+agent_steps:
+  - {id: A1, op: create_profile_exact, enabled: true,  note: "playbook N3 as code (exact lines + parabolas, AC_P feature, set active); runs only from the engineer's READY inputs, then A2 must PASS"}
+  - {id: A2, op: verify_profile_pvis,      enabled: true,  note: "re-read the profile and compare it with the PVI table: sampled + dense elevations, grades, endpoints, continuity at every PVC/PVI/PVT, exactly one profile, ACTIVE, originals unchanged"}
+  # N4-N7 are driven through the real tool dialogs (posted Win32 input, not UIA fields, not a vision model). Engineer-approved 2026-10-24 for the scratch 727 file.
+  - {id: A3, op: "script:scripts/ord_annotate_profile.py", enabled: true, note: "playbook N4: Annotate Element with the Profile Annotation group (the managed annotate_profile op places nothing). Needs an open QA task, view 2 on the profile (cif_exec set_profile_view). Read back by screenshot only: PVC/PVI/PVT label blocks at each curve"}
+  - {id: A4, op: "script:scripts/ord_named_boundary.py", enabled: true, note: "playbook N5-N7 in-file: Civil Profile named boundary (arrows fill the real station range), Create Drawing with Open Model OFF. Needs an open QA task and view 2 on the profile. Then profile_sheet_verify(alignment, profile_name, profile_range_m, detail_scale) must PASS. Scale is the engineer's choice per project: 1\" = 100' (HDM 21.3.9.2.G small scale profile, VE 5 = 1\" = 20' vertical) was ordered for the WZTC_TEST profile; pass scale 100, Length 1400 (one sheet), and the script also sets the Drawing Model annotation scale in Create Drawing, which always opens at 1\" = 40'. The profile then needs ceil(span / Length) sheets (2478 ft -> 2)"}
+  - {id: A5, op: "script:scripts/ord_profile_xaxis.py", enabled: true, note: "fallback when Create Drawing leaves out the vertical grid, bottom-axis ticks and station labels: run with --check first (read-only), then --grid-only, ticks/labels, --normalise-only; needs an open cad.drafting QA task, the Drawing model active and --y0 = the axis frame bottom"}
+
+manual_steps:
+  - {id: N1, who: engineer, playbook: N1, what: "Open the profile model in a 2nd view"}
+  - {id: N2, who: engineer, playbook: N2, what: "PVI lines and Complex Geometry on the profile (AC_P, Method Automatic)"}
+  - {id: N3, who: engineer, playbook: N3, what: "Table Editor: type the PVI table, Apply, Set As Active Profile"}
+  - {id: N7, who: engineer, playbook: N7, what: "ProjectWise only: One Sheet Per Dgn files, update server copy and check in (the agent never touches ProjectWise)"}
+
+completion_requirements:
+  - "profile exists on the alignment and matches the supplied PVI table (A2 PASS, max deviation reported)"
+  - "profile is the active profile (engineer confirms: the CIF read shows 'active' for every profile)"
+  - "original profiles of the alignment unchanged (count and ranges)"
+  - "A3 ran and the annotation labels are visible on the profile (screenshot evidence; nothing reads them back)"
+  - "profile_sheet_verify PASS for the boundary and its Drawing and Sheet models (A4)"
+  - "NYSDOT sheet conformance (margins, text sizes, scale bars, north arrow where direction matters) reviewed on the Sheet model; see dev-notes/agent-log.md"
+  - "the sheet DGNs exist and were checked in (engineer confirmation; the agent cannot see ProjectWise)"
+
+# States returned by preflight and honoured by the QA lifecycle:
+#   READY               all required inputs present and valid -> A1/A2 may run
+#   WAITING_FOR_INPUT   a required engineer input is missing -> ask, run nothing dependent
+#   BLOCKED             inputs are present but invalid or contradict the procedure -> explain, do not run
+#   UNVERIFIED          a live precondition could not be checked (OpenRoads not reachable) -> run preflight again online

@@ -1,0 +1,43 @@
+# Execution policy per capability kind: which way to do it, in which order, and what production mode may use.
+# This is a deterministic table read by mcp-server/capabilities.py. No model picks the method.
+# Order is a preference per kind, not a universal ladder: a capability entry may override it (`executors:` in `overrides`).
+# Reasons come from this project's own records (CLAUDE.md, dev-notes/agent-log.md); nothing here is measured success data.
+kinds:
+  workflow:
+    executors: [workflow-contract preflight, cif_exec under the contract, verify tool, engineer handoff for who=engineer steps]
+    production: true
+    why: "Contract guard sits at the mutation boundary (wztc_ops.cif_exec); inputs only the engineer may supply are never defaulted."
+  procedure:
+    executors: [read playbook, agent steps (who=agent) through native tools, engineer handoff for who=engineer steps]
+    production: true
+    why: "Playbooks mark GUI steps who: engineer; the agent does not drive those dialogs."
+  tool:
+    executors: [native bridge tool]
+    production: true
+    why: "Recorded by op_recorder, gated by task_guard, re-measured by OP-01."
+  keyin:
+    executors: [run_registry_command (verified rows only)]
+    production: true
+    why: "Only verified-headless-safe rows execute; every other status is refused or handed off."
+  gui:
+    executors: [engineer operates the dialog, agent reads the state back]
+    production: true
+    why: "Probed 2026-10-24 (Data/ord-ui-catalog.yaml): these dialogs expose window chrome only to UI Automation; content is owner-drawn."
+  diagnosis:
+    executors: [diagnostic ladder, read-only checks first, engineer handoff for GUI rungs]
+    production: true
+    why: "2026-10-24 circles run: cheap read-only and GUI checks came last."
+status_meaning:
+  supported: "Established, runs in production mode."
+  partial: "Some steps are the engineer's (who: engineer); the rest run in production mode."
+  engineer: "GUI or interactive; hand to the engineer with the exact instruction."
+  blocked: "Policy decision (external-app-blocked or unsafe-blocked). Do not attempt."
+  unverified: "Not proven (needs-testing). Capability development on a scratch file only."
+overrides:
+  # keyed by catalog id. Use only for a capability whose best method differs from its kind default.
+  "workflow:profile-design":
+    executors: [workflow-contract preflight, create_profile_exact via cif_exec, verify_profile_pvis, engineer confirms active profile]
+    why: "Contract disables create_profile_from_pvis until a dry run passes; create_profile_exact is the enabled agent step (profile-design.yaml A1/A2)."
+unsupported:
+  production: "Stop. Tell the engineer which operation is not supported, with the nearest capabilities found. Do not write scripts or change tooling."
+  development: "Investigate on a scratch file: search Bentley documentation, try the candidate API, verify against an expected state, then register it as a candidate capability with a regression test. Promotion needs the engineer's approval."

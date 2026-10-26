@@ -130,7 +130,7 @@ def test_op01_request_direction_contradicting_the_operation_is_uncertain():
 
 def test_op01_change_without_recorded_operation_needs_independent_expectation():
     assert oc.operations(_t(), _ctx([], changed=["9"]))["status"] == "UNCERTAIN"
-    assert oc.operations(_t(expect=[{"id": "E1", "count": ">=1"}]), _ctx([], changed=["9"]))["status"] == "WARN"
+    assert oc.operations(_t(expect=[{"id": "E1", "count": ">=1"}]), _ctx([], changed=["9"]))["status"] == "UNCERTAIN"  # a count expectation is not a check of the edit
 
 
 def test_op01_composite_ops_without_a_contract_are_listed_not_passed():
@@ -172,3 +172,41 @@ def test_ord_signed_offset_flips_the_copy_parallel_sign():
     assert oc.operations(_t("offset the line 12 ft, ORD offset -12"), _ctx(cp))["status"] == "PASS"       # -12 ORD = left
     r = oc.operations(_t("offset the line 12 ft, ORD offset +12"), _ctx(cp))                              # +12 ORD = right
     assert r["status"] == "UNCERTAIN" and "ORD offset 12" in r["observed"]
+
+
+def test_break_line_projecting_an_off_line_point_passes_and_notes_it():
+    """break_line now breaks at the PROJECTION of the requested point (was: at the point, leaving a kink)."""
+    bad = _by("BREAK_LINE")[0]
+    assert operations.validate(bad)["status"] == "FAIL"           # the old behaviour: kink, still caught
+    fixed = copy.deepcopy(bad)
+    new = [str(i) for i in fixed["new_ids"]]
+    fixed["after"][new[0]]["verts"] = [[4900.0, 700.0, 0.0], [4920.0, 700.0, 0.0]]
+    fixed["after"][new[1]]["verts"] = [[4920.0, 700.0, 0.0], [4940.0, 700.0, 0.0]]
+    v = operations.validate(fixed)
+    assert v["status"] == "PASS" and any("off the line" in e for e in v["evidence"])
+
+
+def test_drawing_scale_in_the_request_is_not_a_distance_the_operations_must_use():
+    assert oc._desc_numbers("place the bar (1in=40ft) below the grid") == []
+    assert oc._desc_numbers('scale 1"=40\' then move 12 ft east') == [12.0]
+
+
+def test_move_of_a_cell_is_checked_from_its_range_box():
+    props = lambda x: {"rangeLowX": str(x), "rangeLowY": "-97", "rangeHighX": str(x + 99), "rangeHighY": "-58", "zLow": "0"}
+    rec = {"op": "MOVE_ELEMENT", "params": {"elementId": "7", "deltaX": "0", "deltaY": "-8", "deltaZ": "0"},
+           "before": {"7": {"props": props(5883)}}, "after": {"7": {"props": props(5883)}}}
+    assert operations.validate(rec)["status"] == "FAIL"        # range did not move
+    rec["after"]["7"]["props"].update(rangeLowY="-105", rangeHighY="-66")
+    assert operations.validate(rec)["status"] == "PASS"
+
+
+def test_symbology_byLevel_is_measured_from_the_read_back():
+    """HDM 20.5.1: ByLevel (-1) set through colorByLevel/weightByLevel; the contract compares the read-back colour and weight."""
+    def rec(after_color, after_weight):
+        verts = [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]]
+        return {"op": "CHANGE_ELEMENT_SYMBOLOGY", "params": {"elementId": "7", "color": -1, "colorByLevel": "Y", "weight": -1, "weightByLevel": "Y"},
+                "before": {"7": {"verts": verts, "props": {"color": "14", "weight": "-1"}}},
+                "after": {"7": {"verts": verts, "props": {"color": after_color, "weight": after_weight}}}}
+    assert operations.validate(rec("-1", "-1"))["status"] == "PASS"
+    assert operations.validate(rec("0", "-1"))["status"] == "FAIL"          # colour not ByLevel after the edit
+    assert operations.validate(rec("-1", "2"))["status"] == "FAIL"

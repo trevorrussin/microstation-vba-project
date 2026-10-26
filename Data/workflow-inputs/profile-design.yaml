@@ -1,0 +1,33 @@
+# Synthetic test inputs for N1-N7 agent ownership smoke (WZTC_TEST_* only).
+workflow: profile-design
+
+alignment: WZTC_TEST_ALG2
+units: m
+profile_name: WZTC_TEST_ALG2_pro
+
+pvis:
+  - {station: 1000.0, elevation: 100.0, curve_length: 0}
+  - {station: 1250.0, elevation: 106.0, curve_length: 100}
+  - {station: 1500.0, elevation: 102.0, curve_length: 80}
+  - {station: 1755.29, elevation: 108.0, curve_length: 0}
+
+named_boundary:
+  detail_scale: "1\" = 40'"
+  vertical_exaggeration: 5
+  available_profile_height: 50
+  top_clearance: 1
+  bottom_clearance: 1
+  elevation_datum_spacing: 5
+  station_datum_spacing: 100
+  use_active_vertical: true
+  start_station: 1000.0
+  stop_station: 1755.29
+
+create_drawing:
+  one_sheet_per_dgn: false
+  annotation_group: Profile Grid
+  sheet_size: "Full Size 1=1"
+  open_model: false
+  sheet_folder: null
+
+synthetic_test: true

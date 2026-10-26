@@ -18,6 +18,16 @@ import standards_index as _si  # noqa: E402
 import tutorial_kb as _tk  # noqa: E402
 
 
+def _receipt(kind: str, doc: str, text) -> None:
+    """Record that a standard was actually read (non-empty text). See retrieval.py."""
+    try:
+        import retrieval
+        if text and isinstance(text, str):
+            retrieval.record_read(kind, doc)
+    except Exception:
+        pass
+
+
 def search_standards(query: str, agency: str = "", collection: str = "", doc: str = "", k: int = 6) -> list[dict]:
     """Search the official standards library (NYSDOT HDM all chapters, Standard Specifications,
     Standard Sheet books, PDM/CPDM/survey/ROW manuals, NYC DDC General Requirements + spec
@@ -29,19 +39,29 @@ def search_standards(query: str, agency: str = "", collection: str = "", doc: st
     you can resolve with follow_standard_ref. Filter with agency ('NYSDOT', 'NYC-DDC',
     'NYC-DEP', 'FHWA') or collection ('hdm', 'specs-and-std-sheets', 'spec-bulletins', ...).
     Use this BEFORE designing or drafting anything governed by a standard, and cite what you use."""
-    return _si.search(query, agency or None, collection or None, doc or None, k=int(k or 6))
+    hits = _si.search(query, agency or None, collection or None, doc or None, k=int(k or 6))
+    try:
+        import retrieval
+        retrieval.record_search("standards", query)
+    except Exception:
+        pass
+    return hits
 
 
 def get_standard_section(doc: str, section: str, max_chars: int = 9000) -> str:
     """Full text of one numbered section (and its subsections) of a standard, e.g.
     doc='hdm/chapt_08.pdf', section='8.7.5.1'. Use after search_standards to read the
     whole requirement instead of a fragment."""
-    return _si.section_text(doc, section, int(max_chars))
+    out = _si.section_text(doc, section, int(max_chars))
+    _receipt("standard", doc, out)
+    return out
 
 
 def read_standard_pages(doc: str, first_page: int, last_page: int = 0) -> str:
     """Raw text of specific pages of a standard (1-based), for tables/exhibits or to verify a quote."""
-    return _si.read_pages(doc, int(first_page), int(last_page) or None)
+    out = _si.read_pages(doc, int(first_page), int(last_page) or None)
+    _receipt("standard", doc, out)
+    return out
 
 
 def standards_toc(doc: str, max_level: int = 2) -> list[dict]:
@@ -53,7 +73,9 @@ def standards_toc(doc: str, max_level: int = 2) -> list[dict]:
 def follow_standard_ref(doc: str, ref: str) -> str:
     """Resolve a cross reference returned in a search hit's `refs`, e.g. 'section:8.7.4',
     'exhibit:Exhibit-8-12', 'chapter:5', 'spec:603'."""
-    return _si.follow(doc, ref)
+    out = _si.follow(doc, ref)
+    _receipt("standard", doc, out)
+    return out
 
 
 def list_standards(agency: str = "", collection: str = "") -> list[dict]:

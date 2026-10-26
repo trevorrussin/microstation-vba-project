@@ -31,6 +31,8 @@ import time
 
 import yaml
 
+os.environ.setdefault("QA_ALLOW_NO_TASK", "1")  # scratch elements, removed afterwards: not drawing work (mcp-server/task_guard.py)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "mcp-server"))
 sys.path.insert(0, ROOT)

@@ -130,6 +130,11 @@ def search(query: str, k: int = 6, source: str = "") -> list[dict]:
     for cid, src, kind, loc, text, frame, score in c.execute(sql, args):
         out.append({"cite": f"{os.path.basename(src)} {loc}", "source": src, "where": loc, "kind": kind,
                     "text": text[:1800], "keyframe": frame, "id": cid})
+    try:
+        import retrieval
+        retrieval.record_search("tutorials", query)
+    except Exception:
+        pass
     return out
 
 
@@ -143,6 +148,11 @@ def read_source(source: str, start: str = "", end: str = "", max_chars: int = 90
     if not match:
         return f"no tutorial source matches {source!r}; see list_tutorials()"
     folder = match[0]
+    try:  # receipt: the written/recorded source itself was opened (retrieval.py)
+        import retrieval
+        retrieval.record_read("tutorial", _source_of(next(iter(glob.glob(os.path.join(folder, "*.md"))))))
+    except Exception:
+        pass
     tr = os.path.join(folder, "transcript.md")
     if os.path.exists(tr):
         lines = open(tr, encoding="utf-8").read().splitlines()
@@ -178,8 +188,9 @@ def list_playbooks() -> list[dict]:
     return out
 
 
-def match_playbooks(text: str, k: int = 4) -> list[dict]:
-    """Playbooks whose `keywords:` front-matter terms appear in the task text (most matches first)."""
+def match_playbooks(text: str, k: int = 4, min_hits: int = 1) -> list[dict]:
+    """Playbooks whose `keywords:` front-matter terms appear in the task text (most matches first). `min_hits` drops
+    playbooks that match on fewer distinct keywords (the prompt hook uses 2: one stray word is not a topic)."""
     t = (text or "").lower()
     out = []
     for p in sorted(glob.glob(os.path.join(PLAYBOOKS, "*.md"))):
@@ -187,7 +198,7 @@ def match_playbooks(text: str, k: int = 4) -> list[dict]:
         m = re.search(r"^keywords:\s*(.+)$", src, re.M)
         kws = [x.strip().lower() for x in m.group(1).split(",")] if m else []
         hits = sum(1 for kw in kws if kw and kw in t)
-        if hits:
+        if hits and hits >= min_hits:
             tt = re.search(r"^title:\s*(.+)$", src, re.M)
             out.append((hits, {"topic": os.path.basename(p)[:-3], "title": tt.group(1).strip() if tt else ""}))
     return [x[1] for x in sorted(out, key=lambda r: -r[0])[:k]]
@@ -198,7 +209,13 @@ def get_playbook(topic: str) -> str:
     if not os.path.exists(p):
         known = ", ".join(x["topic"] for x in list_playbooks())
         return f"no playbook {topic!r}. Available: {known}"
-    return open(p, encoding="utf-8").read()
+    text = open(p, encoding="utf-8").read()
+    try:
+        import retrieval
+        retrieval.record(os.path.basename(p)[:-3])  # receipt: the QA gate and edit guard require it
+    except Exception:
+        pass
+    return text
 
 
 def main() -> int:

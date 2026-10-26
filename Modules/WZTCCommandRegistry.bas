@@ -258,6 +258,13 @@ Public Function ExecuteRecipe(opName As String, params As Object, _
         Exit Function
     End If
 
+    ' Baseline CommandName for false-OK / ARMED detection (2026-08-02 audit;
+    ' 2026-10-24 runtime gate). Empty after-cmd is CLEAN (NULL/NOCOMMAND).
+    Dim baselineCmd As String: baselineCmd = ""
+    On Error Resume Next
+    baselineCmd = CStr(CommandState.CommandName)
+    On Error GoTo RecipeErr
+
     Dim steps() As String
     steps = Split(expanded, "|")
     Dim s As Integer
@@ -273,8 +280,39 @@ Public Function ExecuteRecipe(opName As String, params As Object, _
         End If
     Next s
 
+    Dim afterCmd As String: afterCmd = ""
+    Dim afterPrompt As String: afterPrompt = ""
+    On Error Resume Next
+    afterCmd = CStr(CommandState.CommandName)
+    afterPrompt = Replace(CStr(MessageCenter.StatusPrompt), vbTab, " ")
+    On Error GoTo RecipeErr
+
+    Dim armedFlag As String: armedFlag = "N"
+    If Len(Trim(afterCmd)) > 0 Then
+        If StrComp(Trim(afterCmd), Trim(baselineCmd), vbTextCompare) <> 0 Then
+            armedFlag = "Y"
+        End If
+    End If
+
+    If armedFlag = "Y" Then
+        ' Disarm before ERROR so the next agent op is not under a pick tool.
+        On Error Resume Next
+        CadInputQueue.SendReset
+        CommandState.StartDefaultCommand
+        On Error GoTo RecipeErr
+        ExecuteRecipe = "ERROR" & vbTab & "note=armed tool after recipe (false-OK defense) " & _
+            "CommandName='" & afterCmd & "' prompt='" & afterPrompt & "' " & _
+            "baseline='" & baselineCmd & "'" & vbTab & _
+            "opName=" & opName & vbTab & "armed=Y" & vbTab & _
+            "commandName=" & afterCmd & vbTab & "statusPrompt=" & afterPrompt & vbTab & _
+            "baselineCommandName=" & baselineCmd
+        Exit Function
+    End If
+
     ExecuteRecipe = "OK" & vbTab & "opName=" & opName & vbTab & _
                     "createsElements=" & Trim(row("createsElements")) & vbTab & _
+                    "armed=N" & vbTab & "commandName=" & afterCmd & vbTab & _
+                    "statusPrompt=" & afterPrompt & vbTab & _
                     "note=ran registry recipe " & opName
     Exit Function
 

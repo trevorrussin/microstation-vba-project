@@ -1,0 +1,40 @@
+# Fill this in and save it as Data/workflow-inputs/profile-design.yaml  (copy of this file with your values).
+# Then run:   python scripts/workflow_preflight.py profile-design
+# Leave a value as null if you do not have it yet: the preflight lists exactly what is missing and runs nothing.
+# Nothing here is guessed by the agent. The PVI table is typed exactly as in the Table Editor (playbook N3).
+
+workflow: profile-design
+
+alignment: null            # exact name as shown in OpenRoads, e.g. "727.21.101 1960's CL1"
+units: null                # "ft" or "m" for station and elevation below (CIF reads metres, the DGN is survey feet)
+profile_name: null         # optional, e.g. X096.34_cph_pro_NB (no apostrophes)
+
+# One row per PVI, in station order. First and last row = the stations you tie into at the project limits; curve_length 0 there.
+pvis:
+  # - {station: 0.0, elevation: 0.0, curve_length: 0}
+  # - {station: 0.0, elevation: 0.0, curve_length: 0}
+  # - {station: 0.0, elevation: 0.0, curve_length: 0}
+
+# Place Named Boundary (playbook N5). Values below are the PDF's example; change what your project needs.
+named_boundary:
+  detail_scale: "1\" = 40'"
+  vertical_exaggeration: 5
+  available_profile_height: 50
+  top_clearance: 1
+  bottom_clearance: 1
+  elevation_datum_spacing: 5
+  station_datum_spacing: 100
+  use_active_vertical: true
+  start_station: null
+  stop_station: null
+
+# Create Drawing (playbook N7)
+create_drawing:
+  one_sheet_per_dgn: true
+  annotation_group: Profile Grid
+  sheet_size: "Full Size 1=1"
+  open_model: false
+  sheet_folder: null
+
+# Only for testing the machinery on a throwaway object. Allowed only when alignment starts with WZTC_TEST_.
+synthetic_test: false

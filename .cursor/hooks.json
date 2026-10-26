@@ -13,6 +13,10 @@
         "timeout": 30
       },
       {
+        "command": "python scripts/qa_claims_hook.py --cursor",
+        "timeout": 15
+      },
+      {
         "command": "python .cursor-plugin/hindsight-memory/scripts/retain.py",
         "timeout": 15
       }

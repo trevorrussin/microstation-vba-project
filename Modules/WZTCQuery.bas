@@ -354,6 +354,8 @@ End Function
 ' matter more to the agent than exact color. lvl.Number and lvl.IsDisplayed
 ' are still unconfirmed — if either fails next, same drill: tell me the
 ' exact highlighted token.
+' Fast listing: global IsDisplayed only. Per-view flags are expensive on
+' 3k-level DGNs — use GetLevelDisplay for one-level readback.
 Public Function ListLevels() As String()
     Dim rows() As String
     Dim n As Integer: n = 0
@@ -368,6 +370,50 @@ Public Function ListLevels() As String()
     Next lvl
 
     ListLevels = rows
+End Function
+
+' One-level display state for set_level_display readback (viewIndex 1-based).
+Public Function GetLevelDisplay(levelName As String, Optional viewIndex As Integer = 1) As String()
+    Dim rows() As String
+    ReDim rows(0 To 0)
+    rows(0) = "name" & vbTab & "number" & vbTab & "isDisplayed" & vbTab & _
+              "isDisplayedInView" & vbTab & "isEffectivelyDisplayedInView" & vbTab & _
+              "isFromLibrary" & vbTab & "viewIndex"
+
+    Dim want As String: want = Trim(levelName)
+    If Left(want, 1) = """" And Right(want, 1) = """" Then
+        want = Mid(want, 2, Len(want) - 2)
+    End If
+
+    Dim v As View
+    Dim vIdx As Integer: vIdx = viewIndex
+    If vIdx < 1 Then vIdx = 1
+    On Error Resume Next
+    Set v = ActiveDesignFile.Views(vIdx)
+    On Error GoTo 0
+
+    Dim lvl As Level
+    Dim dispView As String, effView As String
+    ' Level.IsFromLibrary is NOT a VBA member (compile error if early-bound).
+    ' Leave isFromLibrary blank; Python uses Standards/derived/nysdot-levels.tsv.
+    For Each lvl In ActiveDesignFile.Levels
+        If StrComp(lvl.Name, want, vbTextCompare) = 0 Then
+            dispView = "": effView = ""
+            On Error Resume Next
+            If Not v Is Nothing Then
+                dispView = CStr(lvl.IsDisplayedInView(v))
+                effView = CStr(lvl.IsEffectivelyDisplayedInView(v))
+            End If
+            On Error GoTo 0
+            ReDim Preserve rows(0 To 1)
+            rows(1) = lvl.Name & vbTab & lvl.Number & vbTab & CStr(lvl.IsDisplayed) & vbTab & _
+                      dispView & vbTab & effView & vbTab & "" & vbTab & CStr(vIdx)
+            GetLevelDisplay = rows
+            Exit Function
+        End If
+    Next lvl
+
+    GetLevelDisplay = rows
 End Function
 
 ' ============================================================
@@ -1010,7 +1056,7 @@ Public Function GetElementCadProps(minId As Double, idList As String, maxRows As
               "lvlFromLibrary" & vbTab & "cellName" & vbTab & "textHeight" & vbTab & "elClass" & vbTab & _
               "zLow" & vbTab & "zHigh" & vbTab & "rangeLowX" & vbTab & "rangeLowY" & vbTab & _
               "rangeHighX" & vbTab & "rangeHighY" & vbTab & _
-              "textWidth" & vbTab & "textFont" & vbTab & "textRotDeg" & vbTab & "text" & vbTab & "childLevels"
+              "textWidth" & vbTab & "textFont" & vbTab & "textRotDeg" & vbTab & "text" & vbTab & "childLevels" & vbTab & "textBold"
     Dim cap As Long: cap = maxRows
     If cap <= 0 Then cap = 1500
     Dim wanted As String: wanted = "," & Replace(idList, " ", "") & ","
@@ -1027,7 +1073,7 @@ Public Function GetElementCadProps(minId As Double, idList As String, maxRows As
     Dim lvlName As String, col As String, wt As String, ls As String
     Dim lc As String, lw As String, lsn As String, lib As String
     Dim cellName As String, th As String, cls As String
-    Dim tw As String, tf As String, tr As String, tx As String, cl As String
+    Dim tw As String, tf As String, tr As String, tx As String, cl As String, tb As String
     Dim rx As Double, ry As Double
     Dim o As Object, lv As Object, te As Object, ce As Object, sub1 As Object, subEn As Object
     Dim nSub As Long
@@ -1036,7 +1082,11 @@ Public Function GetElementCadProps(minId As Double, idList As String, maxRows As
         Set el = oEnum.Current
         eid = ElIDAsDouble(el.ID)
         If textOnly Then
-            If el.Type <> msdElementTypeText Then GoTo NextCad
+            If el.Type = msdElementTypeCellHeader Then
+                AppendCellTextRows rows, n, el, eid
+                GoTo NextCad
+            End If
+            If el.Type <> msdElementTypeText And el.Type <> msdElementTypeTextNode Then GoTo NextCad
         ElseIf Len(idList) > 0 Then
             If InStr(1, wanted, "," & CStr(eid) & ",") = 0 Then GoTo NextCad
         ElseIf eid <= minId Then
@@ -1050,7 +1100,7 @@ Public Function GetElementCadProps(minId As Double, idList As String, maxRows As
         End If
         lvlName = "": col = "": wt = "": ls = "": lc = "": lw = "": lsn = "": lib = ""
         cellName = "": th = "": cls = ""
-        tw = "": tf = "": tr = "": tx = "": cl = ""
+        tw = "": tf = "": tr = "": tx = "": cl = "": tb = ""
         On Error Resume Next
         lo = el.Range.Low: hi = el.Range.High
         lvlName = el.Level.Name
@@ -1076,6 +1126,7 @@ Public Function GetElementCadProps(minId As Double, idList As String, maxRows As
             th = CStr(te.TextStyle.Height)
             tw = CStr(te.TextStyle.Width)
             tf = CStr(te.TextStyle.Font.Name)
+            tb = IIf(te.TextStyle.IsBold, "1", "0")
             rx = te.Rotation.RowX.X: ry = -te.Rotation.RowX.Y
             If Abs(rx) < 0.000000001 Then
                 tr = CStr(90 * Sgn(ry))
@@ -1085,6 +1136,32 @@ Public Function GetElementCadProps(minId As Double, idList As String, maxRows As
                 tr = Format(Atn(ry / rx) * 45 / Atn(1) + 180, "0.0")
             End If
             tx = Replace(Replace(Replace(CStr(te.Text), vbTab, " "), vbCr, " "), vbLf, " ")
+        End If
+        If el.Type = msdElementTypeTextNode Then
+            ' Text node (ORD annotation): style and text come from its child text lines.
+            Set subEn = el.AsTextNodeElement.GetSubElements
+            Do While subEn.MoveNext
+                Set sub1 = subEn.Current
+                If sub1.Type = msdElementTypeText Then
+                    Set te = sub1.AsTextElement
+                    If Len(th) = 0 Then
+                        th = CStr(te.TextStyle.Height)
+                        tw = CStr(te.TextStyle.Width)
+                        tf = CStr(te.TextStyle.Font.Name)
+                        tb = IIf(te.TextStyle.IsBold, "1", "0")
+                        rx = te.Rotation.RowX.X: ry = -te.Rotation.RowX.Y
+                        If Abs(rx) < 0.000000001 Then
+                            tr = CStr(90 * Sgn(ry))
+                        ElseIf rx > 0 Then
+                            tr = Format(Atn(ry / rx) * 45 / Atn(1), "0.0")
+                        Else
+                            tr = Format(Atn(ry / rx) * 45 / Atn(1) + 180, "0.0")
+                        End If
+                    End If
+                    If Len(tx) > 0 Then tx = tx & " "
+                    tx = tx & Replace(Replace(Replace(CStr(te.Text), vbTab, " "), vbCr, " "), vbLf, " ")
+                End If
+            Loop
         End If
         cls = CStr(o.Class)
         Err.Clear
@@ -1096,11 +1173,45 @@ Public Function GetElementCadProps(minId As Double, idList As String, maxRows As
                   Format(lo.Z, "0.000") & vbTab & Format(hi.Z, "0.000") & vbTab & _
                   Format(lo.X, "0.00") & vbTab & Format(lo.Y, "0.00") & vbTab & _
                   Format(hi.X, "0.00") & vbTab & Format(hi.Y, "0.00") & vbTab & _
-                  tw & vbTab & tf & vbTab & tr & vbTab & tx & vbTab & cl
+                  tw & vbTab & tf & vbTab & tr & vbTab & tx & vbTab & cl & vbTab & tb
 NextCad:
     Loop
     GetElementCadProps = rows
 End Function
+
+' TEXT mode: one row per text line inside a cell (ids "<cellId>.<k>"), so style checks see the sheet's cell-embedded text.
+Private Sub AppendCellTextRows(ByRef rows() As String, ByRef n As Long, ByVal cellEl As Element, ByVal eid As Double)
+    Dim subEn As Object, sub1 As Object, te As Object
+    Dim lo As Point3d, hi As Point3d
+    Dim f(0 To 24) As String
+    Dim k As Long, i As Long
+    On Error Resume Next
+    Set subEn = cellEl.AsCellElement.GetSubElements
+    Do While subEn.MoveNext
+        Set sub1 = subEn.Current
+        If sub1.Type = msdElementTypeCellHeader Then
+            AppendCellTextRows rows, n, sub1, eid
+        ElseIf sub1.Type = msdElementTypeText Then
+            Set te = sub1.AsTextElement
+            For i = 0 To 24: f(i) = "": Next i
+            k = k + 1
+            lo = sub1.Range.Low: hi = sub1.Range.High
+            f(0) = CStr(eid) & "." & CStr(k)
+            f(1) = "TEXT"
+            f(2) = CStr(sub1.Level.Name)
+            f(11) = CStr(te.TextStyle.Height)
+            f(15) = Format(lo.X, "0.00"): f(16) = Format(lo.Y, "0.00")
+            f(17) = Format(hi.X, "0.00"): f(18) = Format(hi.Y, "0.00")
+            f(19) = CStr(te.TextStyle.Width)
+            f(20) = CStr(te.TextStyle.Font.Name)
+            f(22) = Replace(Replace(Replace(CStr(te.Text), vbTab, " "), vbCr, " "), vbLf, " ")
+            f(24) = IIf(te.TextStyle.IsBold, "1", "0")
+            n = n + 1
+            ReDim Preserve rows(0 To n)
+            rows(n) = Join(f, vbTab)
+        End If
+    Loop
+End Sub
 
 ' Highest graphical element ID in the active model (task baseline for qa_gate).
 Public Function GetMaxElementId() As String()
